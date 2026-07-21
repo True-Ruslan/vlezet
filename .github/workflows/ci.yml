@@ -37,10 +37,10 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/feat/m4-plan-import'
         shell: bash
         run: |
-          if git diff --quiet -- apps/web/components/editor/editor-canvas.tsx packages/projects/src/file-format.ts pnpm-lock.yaml; then exit 0; fi
+          if git diff --quiet -- apps/web/components/editor/editor-canvas.tsx apps/web/app/globals.css packages/projects/src/file-format.ts pnpm-lock.yaml; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/web/components/editor/editor-canvas.tsx packages/projects/src/file-format.ts pnpm-lock.yaml
+          git add apps/web/components/editor/editor-canvas.tsx apps/web/app/globals.css packages/projects/src/file-format.ts pnpm-lock.yaml
           git commit -m "feat: connect M4 reference integration"
           git push
 
