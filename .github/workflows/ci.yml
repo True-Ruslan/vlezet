@@ -28,7 +28,15 @@ jobs:
           node-version: 22.16.0
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-lockfile
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Unit tests
         id: tests
