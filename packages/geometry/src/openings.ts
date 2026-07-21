@@ -9,8 +9,8 @@ export type OpeningLike = Readonly<{
   width: number;
 }>;
 
-export type OpeningDocumentLike = TopologyDocumentLike & Readonly<{
-  openings: readonly OpeningLike[];
+export type OpeningDocumentLike<TOpening extends OpeningLike = OpeningLike> = TopologyDocumentLike & Readonly<{
+  openings: readonly TOpening[];
 }>;
 
 export type WallInterval = Readonly<{
@@ -58,7 +58,10 @@ export function pointAtWallOffset(document: TopologyDocumentLike, wallId: string
   };
 }
 
-export function openingSegment(document: OpeningDocumentLike, opening: OpeningLike): OpeningWorldSegment {
+export function openingSegment<TOpening extends OpeningLike>(
+  document: OpeningDocumentLike<TOpening>,
+  opening: TOpening,
+): OpeningWorldSegment {
   const geometry = wallGeometry(document, opening.wallId);
   return {
     start: pointAtWallOffset(document, opening.wallId, opening.offset),
@@ -69,7 +72,10 @@ export function openingSegment(document: OpeningDocumentLike, opening: OpeningLi
   };
 }
 
-export function deriveVisibleWallIntervals(document: OpeningDocumentLike, wallId: string): WallInterval[] {
+export function deriveVisibleWallIntervals<TOpening extends OpeningLike>(
+  document: OpeningDocumentLike<TOpening>,
+  wallId: string,
+): WallInterval[] {
   const { length } = wallGeometry(document, wallId);
   const openings = document.openings
     .filter((opening) => opening.wallId === wallId)
