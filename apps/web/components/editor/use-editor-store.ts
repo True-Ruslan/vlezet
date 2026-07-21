@@ -4,17 +4,18 @@ import {
   createHistoryState,
   executeCommand,
   redo as redoHistory,
+  setRoomName,
   setTopologicalWallLength,
   setWallThickness,
   undo as undoHistory,
   type HistoryState,
   type WallEndpointIntent,
 } from "@vlezet/editor-core";
-import type { SnapResult } from "@vlezet/geometry";
+import { deriveRooms, type SnapResult } from "@vlezet/geometry";
 import { createStore, type StoreApi } from "zustand/vanilla";
 
 export type EditorTool = "select" | "wall";
-export type EditorEntityIdKind = "wall" | "vertex";
+export type EditorEntityIdKind = "wall" | "vertex" | "room-annotation";
 
 export type TopologySnapTarget =
   | Readonly<{ kind: "vertex"; vertexId: string; point: Point2 }>
@@ -32,15 +33,18 @@ export type EditorStoreState = {
   history: HistoryState;
   tool: EditorTool;
   selectedWallId: string | null;
+  selectedRoomId: string | null;
   draftWall: DraftWall | null;
   setTool: (tool: EditorTool) => void;
   selectWall: (wallId: string | null) => void;
+  selectRoom: (roomId: string | null) => void;
   beginWall: (point: Point2, target?: TopologySnapTarget | null) => void;
   updateDraftWall: (snap: SnapResult, target?: TopologySnapTarget | null) => void;
   commitDraftWall: () => void;
   cancelDraft: () => void;
   setSelectedWallLength: (lengthMm: number) => void;
   setSelectedWallThickness: (thicknessMm: number) => void;
+  setSelectedRoomName: (name: string) => void;
   undo: () => void;
   redo: () => void;
 };
@@ -54,9 +58,14 @@ function emptySnap(point: Point2): SnapResult {
   return { point, kind: "none", guides: [] };
 }
 
-function selectionAfterHistory(history: HistoryState, selectedWallId: string | null): string | null {
+function selectedWallAfterHistory(history: HistoryState, selectedWallId: string | null): string | null {
   if (!selectedWallId) return null;
   return history.document.walls.some((wall) => wall.id === selectedWallId) ? selectedWallId : null;
+}
+
+function selectedRoomAfterHistory(history: HistoryState, selectedRoomId: string | null): string | null {
+  if (!selectedRoomId) return null;
+  return deriveRooms(history.document).rooms.some((room) => room.id === selectedRoomId) ? selectedRoomId : null;
 }
 
 function targetPoint(point: Point2, target: TopologySnapTarget | null): Point2 {
@@ -68,9 +77,7 @@ function endpointIntent(
   target: TopologySnapTarget | null,
   idFactory: (kind: EditorEntityIdKind) => string,
 ): WallEndpointIntent {
-  if (target?.kind === "vertex") {
-    return { kind: "existing-vertex", vertexId: target.vertexId };
-  }
+  if (target?.kind === "vertex") return { kind: "existing-vertex", vertexId: target.vertexId };
   if (target?.kind === "wall") {
     return {
       kind: "wall-junction",
@@ -90,10 +97,12 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
     history: createHistoryState(),
     tool: "select",
     selectedWallId: null,
+    selectedRoomId: null,
     draftWall: null,
 
     setTool: (tool) => set({ tool, draftWall: tool === "wall" ? get().draftWall : null }),
-    selectWall: (wallId) => set({ selectedWallId: wallId }),
+    selectWall: (wallId) => set({ selectedWallId: wallId, selectedRoomId: null }),
+    selectRoom: (roomId) => set({ selectedRoomId: roomId, selectedWallId: null }),
     beginWall: (point, target = null) => {
       const resolved = targetPoint(point, target);
       set({
@@ -121,12 +130,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       const start = endpointIntent(current.start, current.startTarget, idFactory);
       const end = endpointIntent(current.end, current.endTarget, idFactory);
       const wallId = idFactory("wall");
-      const edit = addTopologicalWall(before, {
-        wallId,
-        start,
-        end,
-        thickness: defaultWallThicknessMm,
-      });
+      const edit = addTopologicalWall(before, { wallId, start, end, thickness: defaultWallThicknessMm });
       const label = start.kind === "wall-junction" || end.kind === "wall-junction"
         ? "wall/add-t-junction"
         : "wall/add-connected";
@@ -146,6 +150,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       set({
         history,
         selectedWallId: edit.selectedWallId ?? wallId,
+        selectedRoomId: null,
         draftWall: get().tool === "wall" && continuation
           ? {
               start: continuation.position,
@@ -163,38 +168,41 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       if (!selectedWallId) return;
       const before = history.document;
       const after = setTopologicalWallLength(before, selectedWallId, lengthMm);
-      set({
-        history: executeCommand(history, {
-          type: "document/replace",
-          label: "wall/set-length",
-          before,
-          after,
-        }),
-      });
+      set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-length", before, after }) });
     },
     setSelectedWallThickness: (thicknessMm) => {
       const { history, selectedWallId } = get();
       if (!selectedWallId) return;
       const before = history.document;
       const after = setWallThickness(before, selectedWallId, thicknessMm);
-      set({
-        history: executeCommand(history, {
-          type: "document/replace",
-          label: "wall/set-thickness",
-          before,
-          after,
-        }),
-      });
+      set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-thickness", before, after }) });
+    },
+    setSelectedRoomName: (name) => {
+      const { history, selectedRoomId } = get();
+      if (!selectedRoomId) return;
+      const before = history.document;
+      const after = setRoomName(before, selectedRoomId, name, idFactory("room-annotation"));
+      set({ history: executeCommand(history, { type: "document/replace", label: "room-annotation/set-name", before, after }) });
     },
     undo: () => {
       const current = get();
       const history = undoHistory(current.history);
-      set({ history, draftWall: null, selectedWallId: selectionAfterHistory(history, current.selectedWallId) });
+      set({
+        history,
+        draftWall: null,
+        selectedWallId: selectedWallAfterHistory(history, current.selectedWallId),
+        selectedRoomId: selectedRoomAfterHistory(history, current.selectedRoomId),
+      });
     },
     redo: () => {
       const current = get();
       const history = redoHistory(current.history);
-      set({ history, draftWall: null, selectedWallId: selectionAfterHistory(history, current.selectedWallId) });
+      set({
+        history,
+        draftWall: null,
+        selectedWallId: selectedWallAfterHistory(history, current.selectedWallId),
+        selectedRoomId: selectedRoomAfterHistory(history, current.selectedRoomId),
+      });
     },
   }));
 }
