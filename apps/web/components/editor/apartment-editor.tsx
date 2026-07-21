@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { EditorToolbar } from "./editor-toolbar";
+import { FurnitureCatalog } from "./furniture-catalog";
 import { getEditorShortcut } from "./keyboard";
 import { editorStore } from "./use-editor-store";
 import { WallInspector } from "./wall-inspector";
@@ -31,12 +32,28 @@ export function ApartmentEditor() {
         case "wall-tool": store.setTool("wall"); break;
         case "door-tool": store.setTool("door"); break;
         case "window-tool": store.setTool("window"); break;
-        case "cancel": store.cancelDraft(); store.setTool("select"); break;
+        case "furnishing-catalog": document.querySelector<HTMLButtonElement>(".preset-card")?.focus(); break;
+        case "rotate-object": store.rotateSelectedObject90(); break;
+        case "duplicate-object": store.duplicateSelectedObject(); break;
+        case "delete-selection":
+          if (store.selectedObjectId) store.deleteSelectedObject();
+          else if (store.selectedOpeningId) store.deleteSelectedOpening();
+          break;
+        case "cancel": store.cancelCurrentAction(); break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  return <main className="editor-app"><EditorToolbar /><section className="editor-workspace"><EditorCanvas /><WallInspector /></section></main>;
+  return (
+    <main className="editor-app">
+      <EditorToolbar />
+      <section className="editor-workspace">
+        <FurnitureCatalog />
+        <EditorCanvas />
+        <WallInspector />
+      </section>
+    </main>
+  );
 }

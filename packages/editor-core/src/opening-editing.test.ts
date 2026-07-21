@@ -1,10 +1,10 @@
+import type { VlezetDocument } from "@vlezet/domain";
 import { describe, expect, it } from "vitest";
-import type { VlezetDocumentV2 } from "@vlezet/domain";
 import { addOpening, deleteOpening, updateOpening } from "./opening-editing";
 
-function documentWithHost(): VlezetDocumentV2 {
+function documentWithHost(): VlezetDocument {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     vertices: [
       { id: "a", position: { x: 0, y: 0 } },
       { id: "j", position: { x: 3000, y: 0 } },
@@ -13,6 +13,7 @@ function documentWithHost(): VlezetDocumentV2 {
     walls: [{ id: "host", startVertexId: "a", endVertexId: "b", junctionVertexIds: ["j"], thickness: 200 }],
     openings: [],
     roomAnnotations: [],
+    placedObjects: [],
   };
 }
 

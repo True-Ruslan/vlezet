@@ -1,3 +1,4 @@
+import type { PlacedObject } from "./placed-object";
 import type { Vertex } from "./vertex";
 import type { Point2, V1Wall, Wall } from "./wall";
 
@@ -36,21 +37,30 @@ export type VlezetDocumentV2 = Readonly<{
   roomAnnotations: readonly RoomAnnotation[];
 }>;
 
-export type VlezetDocument = VlezetDocumentV2;
+export type VlezetDocumentV3 = Readonly<{
+  schemaVersion: 3;
+  vertices: readonly Vertex[];
+  walls: readonly Wall[];
+  openings: readonly Opening[];
+  roomAnnotations: readonly RoomAnnotation[];
+  placedObjects: readonly PlacedObject[];
+}>;
 
-export function createEmptyDocument(): VlezetDocumentV2 {
+export type VlezetDocument = VlezetDocumentV3;
+export type VlezetShellDocument = VlezetDocumentV2 | VlezetDocumentV3;
+
+export function createEmptyDocument(): VlezetDocumentV3 {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     vertices: [],
     walls: [],
     openings: [],
     roomAnnotations: [],
+    placedObjects: [],
   };
 }
 
-export function migrateDocument(input: VlezetDocumentV1 | VlezetDocumentV2): VlezetDocumentV2 {
-  if (input.schemaVersion === 2) return input;
-
+function migrateV1Shell(input: VlezetDocumentV1): Omit<VlezetDocumentV2, "schemaVersion"> {
   const vertices: Vertex[] = [];
   const vertexIdByCoordinate = new Map<string, string>();
 
@@ -65,28 +75,55 @@ export function migrateDocument(input: VlezetDocumentV1 | VlezetDocumentV2): Vle
     return id;
   };
 
+  const walls = input.walls.map((wall) => ({
+    id: wall.id,
+    startVertexId: resolveVertexId(wall.start),
+    endVertexId: resolveVertexId(wall.end),
+    junctionVertexIds: [] as readonly string[],
+    thickness: wall.thickness,
+  }));
+
   return {
-    schemaVersion: 2,
     vertices,
-    walls: input.walls.map((wall) => ({
-      id: wall.id,
-      startVertexId: resolveVertexId(wall.start),
-      endVertexId: resolveVertexId(wall.end),
-      junctionVertexIds: [],
-      thickness: wall.thickness,
-    })),
+    walls,
     openings: [],
     roomAnnotations: [],
   };
 }
 
-export function getVertex(document: VlezetDocumentV2, vertexId: string): Vertex {
+export function migrateDocument(
+  input: VlezetDocumentV1 | VlezetDocumentV2 | VlezetDocumentV3,
+): VlezetDocumentV3 {
+  if (input.schemaVersion === 3) return input;
+
+  if (input.schemaVersion === 2) {
+    return {
+      schemaVersion: 3,
+      vertices: input.vertices,
+      walls: input.walls,
+      openings: input.openings,
+      roomAnnotations: input.roomAnnotations,
+      placedObjects: [],
+    };
+  }
+
+  return {
+    schemaVersion: 3,
+    ...migrateV1Shell(input),
+    placedObjects: [],
+  };
+}
+
+export function getVertex(document: VlezetShellDocument, vertexId: string): Vertex {
   const vertex = document.vertices.find((candidate) => candidate.id === vertexId);
   if (!vertex) throw new Error(`Vertex does not exist: ${vertexId}`);
   return vertex;
 }
 
-export function getWallEndpoints(document: VlezetDocumentV2, wall: Wall): Readonly<{ start: Vertex; end: Vertex }> {
+export function getWallEndpoints(
+  document: VlezetShellDocument,
+  wall: Wall,
+): Readonly<{ start: Vertex; end: Vertex }> {
   return {
     start: getVertex(document, wall.startVertexId),
     end: getVertex(document, wall.endVertexId),

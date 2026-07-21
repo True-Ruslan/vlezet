@@ -1,13 +1,19 @@
 "use client";
 
-import type { Opening, Wall } from "@vlezet/domain";
-import { validateOpening } from "@vlezet/editor-core";
+import { createPlacedObject, type Opening, type PlacedObject, type Wall } from "@vlezet/domain";
+import { validateOpening, type PlacedObjectPatch } from "@vlezet/editor-core";
 import {
   chooseGridStep,
   deriveRooms,
   deriveVisibleWallIntervals,
   distanceBetween,
+  evaluateObjectFits,
+  expandedOrientedRectangle,
+  localToWorld,
+  measureObjectClearances,
+  objectRectangle,
   openingSegment,
+  orientedRectangleCorners,
   pointAtWallOffset,
   projectPointToSegment,
   projectPointToWallOffset,
@@ -16,6 +22,7 @@ import {
   snapWallPoint,
   worldToScreen,
   zoomViewportAt,
+  type DirectionalClearances,
   type Point2,
   type SnapResult,
   type ViewportTransform,
@@ -25,12 +32,16 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Layer, Line, Stage, Text } from "react-konva";
 import { useStore } from "zustand";
+import { getFurniturePreset } from "./furniture-presets";
+import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
+import { PlacedObjectShape } from "./placed-object-shape";
 import { editorStore, type TopologySnapTarget } from "./use-editor-store";
 
 const INITIAL_SCALE = 0.12;
 const MIN_SCALE = 0.01;
 const MAX_SCALE = 2;
 const SNAP_TOLERANCE_PX = 12;
+const PLACEMENT_PREVIEW_ID = "__placement-preview__";
 
 type ResolvedWall = Readonly<{ wall: Wall; start: Point2; end: Point2 }>;
 type PointerSnap = Readonly<{ snap: SnapResult; target: TopologySnapTarget | null }>;
@@ -52,6 +63,33 @@ function arcPoints(hinge: Point2, closedDirection: Point2, openDirection: Point2
   });
 }
 
+function screenPolygon(points: readonly Point2[], viewport: ViewportTransform): number[] {
+  return points.flatMap((point) => {
+    const screen = worldToScreen(point, viewport);
+    return [screen.x, screen.y];
+  });
+}
+
+function previewFromPreset(presetId: string, position: Point2): PlacedObject {
+  const preset = getFurniturePreset(presetId);
+  return createPlacedObject({
+    id: PLACEMENT_PREVIEW_ID,
+    presetId: preset.id,
+    name: preset.name,
+    category: preset.category,
+    position,
+    width: preset.width,
+    depth: preset.depth,
+    ...(preset.height === undefined ? {} : { height: preset.height }),
+    rotationDeg: 0,
+    clearance: preset.clearance,
+  });
+}
+
+function measurementLabel(value: number | null): string {
+  return value === null ? "—" : `${Math.round(value)} мм`;
+}
+
 export function EditorCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -59,6 +97,8 @@ export function EditorCanvas() {
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [spacePressed, setSpacePressed] = useState(false);
   const [openingPreview, setOpeningPreview] = useState<OpeningPreview | null>(null);
+  const [placementPreview, setPlacementPreview] = useState<PlacedObject | null>(null);
+  const [objectGuides, setObjectGuides] = useState<readonly ObjectSnapGuide[]>([]);
   const [viewport, setViewport] = useState<ViewportTransform>({ offsetX: 140, offsetY: 140, pixelsPerMillimeter: INITIAL_SCALE });
 
   const tool = useStore(editorStore, (state) => state.tool);
@@ -67,7 +107,12 @@ export function EditorCanvas() {
   const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
   const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
   const selectedOpeningId = useStore(editorStore, (state) => state.selectedOpeningId);
+  const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
+  const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
+  const objectGesture = useStore(editorStore, (state) => state.objectGesture);
+
   const visibleOpeningPreview = tool === "door" || tool === "window" ? openingPreview : null;
+  const visiblePlacementPreview = placementPresetId && placementPreview?.presetId === placementPresetId ? placementPreview : null;
 
   useEffect(() => {
     const element = containerRef.current;
@@ -93,6 +138,22 @@ export function EditorCanvas() {
     window.addEventListener("keyup", onKeyUp);
     return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
   }, []);
+
+  const displayedObjects = useMemo(() => document.placedObjects.map((object) =>
+    objectGesture?.objectId === object.id ? objectGesture.preview : object,
+  ), [document.placedObjects, objectGesture]);
+
+  const evaluationDocument = useMemo(() => ({
+    ...document,
+    placedObjects: visiblePlacementPreview ? [...displayedObjects, visiblePlacementPreview] : displayedObjects,
+  }), [displayedObjects, document, visiblePlacementPreview]);
+
+  const fitEvaluation = useMemo(() => evaluateObjectFits(evaluationDocument), [evaluationDocument]);
+  const selectedObject = displayedObjects.find((object) => object.id === selectedObjectId) ?? null;
+  const selectedClearances = useMemo<DirectionalClearances | null>(() => {
+    if (!selectedObject) return null;
+    try { return measureObjectClearances(evaluationDocument, selectedObject.id); } catch { return null; }
+  }, [evaluationDocument, selectedObject]);
 
   const vertexMap = useMemo(() => new Map(document.vertices.map((vertex) => [vertex.id, vertex])), [document.vertices]);
   const resolvedWalls = useMemo<ResolvedWall[]>(() => document.walls.flatMap((wall) => {
@@ -162,6 +223,46 @@ export function EditorCanvas() {
     setOpeningPreview({ wallId: opening.wallId, pointerOffset, opening, valid });
   };
 
+  const updatePlacementPreview = (screenPoint: Point2) => {
+    if (!placementPresetId) return;
+    const rawPosition = screenToWorld(screenPoint, viewport);
+    const initial = previewFromPreset(placementPresetId, rawPosition);
+    const snap = snapPlacedObject({
+      rawPosition,
+      moving: initial,
+      others: displayedObjects,
+      tolerance: SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter,
+      gridStep,
+    });
+    setPlacementPreview({ ...initial, position: snap.position });
+    setObjectGuides(snap.guides);
+  };
+
+  const previewObjectGesture = (objectId: string, patch: PlacedObjectPatch) => {
+    const state = editorStore.getState();
+    const gesture = state.objectGesture;
+    const source = gesture?.objectId === objectId
+      ? gesture.preview
+      : state.history.document.placedObjects.find((object) => object.id === objectId);
+    if (!source) return;
+
+    if (patch.position) {
+      const moving = { ...source, position: patch.position };
+      const snap = snapPlacedObject({
+        rawPosition: patch.position,
+        moving,
+        others: displayedObjects.filter((object) => object.id !== objectId),
+        tolerance: SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter,
+        gridStep,
+      });
+      setObjectGuides(snap.guides);
+      state.previewObjectGesture({ ...patch, position: snap.position });
+      return;
+    }
+
+    state.previewObjectGesture(patch);
+  };
+
   const onWheel = (event: KonvaEventObject<WheelEvent>) => {
     event.evt.preventDefault();
     const pointer = pointerPosition(event); if (!pointer) return;
@@ -173,6 +274,13 @@ export function EditorCanvas() {
     const shouldPan = event.evt.button === 1 || (event.evt.button === 0 && spacePressed);
     if (shouldPan) { event.evt.preventDefault(); panRef.current = { active: true, last: pointer }; return; }
     if (event.evt.button !== 0) return;
+
+    if (placementPresetId && visiblePlacementPreview) {
+      editorStore.getState().placeSelectedPreset(visiblePlacementPreview.position);
+      setPlacementPreview(null);
+      setObjectGuides([]);
+      return;
+    }
     if (tool === "wall") {
       const resolved = snapPointer(pointer, draftWall?.start ?? null);
       if (!draftWall) editorStore.getState().beginWall(resolved.snap.point, resolved.target);
@@ -183,7 +291,7 @@ export function EditorCanvas() {
       editorStore.getState().addOpeningAt(visibleOpeningPreview.wallId, visibleOpeningPreview.pointerOffset);
       return;
     }
-    editorStore.getState().selectWall(null);
+    editorStore.getState().selectObject(null);
   };
 
   const onMouseMove = (event: KonvaEventObject<MouseEvent>) => {
@@ -194,13 +302,21 @@ export function EditorCanvas() {
       setViewport((current) => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
       return;
     }
-    if (tool === "wall" && draftWall) {
+    if (placementPresetId) updatePlacementPreview(pointer);
+    else if (tool === "wall" && draftWall) {
       const resolved = snapPointer(pointer, draftWall.start);
       editorStore.getState().updateDraftWall(resolved.snap, resolved.target);
     } else if (tool === "door" || tool === "window") updateOpeningPreview(pointer);
   };
 
   const endPan = () => { panRef.current.active = false; };
+  const clearTransientCanvasState = () => {
+    endPan();
+    setOpeningPreview(null);
+    setPlacementPreview(null);
+    setObjectGuides([]);
+  };
+
   const draftStartScreen = draftWall ? worldToScreen(draftWall.start, viewport) : null;
   const draftEndScreen = draftWall ? worldToScreen(draftWall.end, viewport) : null;
   const draftLength = draftWall ? Math.hypot(draftWall.end.x - draftWall.start.x, draftWall.end.y - draftWall.start.y) : 0;
@@ -236,15 +352,47 @@ export function EditorCanvas() {
     return elements;
   };
 
+  const clearancePolygon = selectedObject
+    ? orientedRectangleCorners(expandedOrientedRectangle(objectRectangle(selectedObject), selectedObject.clearance))
+    : null;
+
+  const dimensionLabels = selectedObject ? (() => {
+    const rectangle = objectRectangle(selectedObject);
+    const widthPoint = localToWorld(rectangle, { x: 0, y: -selectedObject.depth / 2 - 110 });
+    const depthPoint = localToWorld(rectangle, { x: selectedObject.width / 2 + 110, y: 0 });
+    return {
+      width: { point: widthPoint, text: `${Math.round(selectedObject.width)} мм` },
+      depth: { point: depthPoint, text: `${Math.round(selectedObject.depth)} мм` },
+    };
+  })() : null;
+
+  const clearanceLabelPoints = selectedObject && selectedClearances ? (() => {
+    const rectangle = objectRectangle(selectedObject);
+    const values = selectedClearances;
+    const position = (side: keyof DirectionalClearances, distance: number | null): Point2 => {
+      const half = distance === null ? 250 : distance / 2;
+      if (side === "front") return localToWorld(rectangle, { x: 0, y: selectedObject.depth / 2 + half });
+      if (side === "back") return localToWorld(rectangle, { x: 0, y: -selectedObject.depth / 2 - half });
+      if (side === "right") return localToWorld(rectangle, { x: selectedObject.width / 2 + half, y: 0 });
+      return localToWorld(rectangle, { x: -selectedObject.width / 2 - half, y: 0 });
+    };
+    return (Object.keys(values) as Array<keyof DirectionalClearances>).map((side) => ({ side, value: values[side], point: position(side, values[side]) }));
+  })() : [];
+
+  const helpText = placementPresetId
+    ? "Выберите место для предмета"
+    : tool === "door" || tool === "window"
+      ? "Наведите на стену и кликните"
+      : "Синие узлы — соединения";
+
   return (
-    <div ref={containerRef} className={`canvas-shell tool-${tool}${spacePressed ? " is-pan-ready" : ""}`} onContextMenu={(event) => event.preventDefault()}>
-      <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={endPan} onMouseLeave={() => { endPan(); setOpeningPreview(null); }}>
+    <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${spacePressed ? " is-pan-ready" : ""}`} onContextMenu={(event) => event.preventDefault()}>
+      <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={endPan} onMouseLeave={clearTransientCanvasState}>
         <Layer listening={false}>{gridLines.map((line) => <Line key={line.key} points={line.points} stroke={line.major ? "#d9dde3" : "#eceff3"} strokeWidth={1} perfectDrawEnabled={false} />)}</Layer>
         <Layer>
           {derivedRooms.rooms.map((room) => {
-            const points = room.polygon.flatMap((point) => { const screen = worldToScreen(point, viewport); return [screen.x, screen.y]; });
             const selected = room.id === selectedRoomId;
-            return <Line key={room.id} points={points} closed fill={selected ? "#dbeafe" : "#f4f7fb"} stroke={selected ? "#93c5fd" : undefined} strokeWidth={selected ? 1.5 : 0} opacity={selected ? 0.9 : 0.72} onMouseDown={(e) => { if (tool === "select") { e.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }} />;
+            return <Line key={room.id} points={screenPolygon(room.polygon, viewport)} closed fill={selected ? "#dbeafe" : "#f4f7fb"} stroke={selected ? "#93c5fd" : undefined} strokeWidth={selected ? 1.5 : 0} opacity={selected ? 0.9 : 0.72} onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }} />;
           })}
           {derivedRooms.rooms.map((room) => { const label = worldToScreen(room.labelPoint, viewport); return <Text key={`label-${room.id}`} x={label.x - 80} y={label.y - 18} width={160} align="center" text={`${room.name}\n${room.areaM2.toFixed(2)} м²`} fontSize={12} lineHeight={1.35} fill="#4b5563" listening={false} />; })}
         </Layer>
@@ -254,18 +402,54 @@ export function EditorCanvas() {
             const b = worldToScreen(pointAtWallOffset(document, wall.id, interval.endOffset), viewport);
             const selected = wall.id === selectedWallId;
             const visualWidth = Math.max(2, wall.thickness * viewport.pixelsPerMillimeter);
-            return <Line key={`${wall.id}-visible-${index}`} points={[a.x, a.y, b.x, b.y]} stroke={selected ? "#1769ff" : "#232830"} strokeWidth={visualWidth} hitStrokeWidth={Math.max(14, visualWidth)} lineCap="square" lineJoin="miter" onMouseDown={(e) => { if (tool === "select") { e.cancelBubble = true; editorStore.getState().selectWall(wall.id); } }} />;
+            return <Line key={`${wall.id}-visible-${index}`} points={[a.x, a.y, b.x, b.y]} stroke={selected ? "#1769ff" : "#232830"} strokeWidth={visualWidth} hitStrokeWidth={Math.max(14, visualWidth)} lineCap="square" lineJoin="miter" onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectWall(wall.id); } }} />;
           }))}
           {document.openings.flatMap((opening) => renderOpeningSymbol(opening))}
           {visibleOpeningPreview ? renderOpeningSymbol(visibleOpeningPreview.opening, true) : null}
           {tool === "wall" ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
-          {draftWall?.snap.guides.map((guide, index) => guide.axis === "x" ? <Line key={`guide-x-${index}`} points={[worldToScreen({ x: guide.value, y: 0 }, viewport).x, 0, worldToScreen({ x: guide.value, y: 0 }, viewport).x, size.height]} stroke="#1769ff" strokeWidth={1} dash={[6,6]} opacity={0.55} listening={false} /> : <Line key={`guide-y-${index}`} points={[0, worldToScreen({ x: 0, y: guide.value }, viewport).y, size.width, worldToScreen({ x: 0, y: guide.value }, viewport).y]} stroke="#1769ff" strokeWidth={1} dash={[6,6]} opacity={0.55} listening={false} />)}
-          {draftStartScreen && draftEndScreen ? <><Line points={[draftStartScreen.x,draftStartScreen.y,draftEndScreen.x,draftEndScreen.y]} stroke="#1769ff" strokeWidth={Math.max(2,150*viewport.pixelsPerMillimeter)} dash={[8,6]} opacity={0.75} listening={false}/><Circle x={draftStartScreen.x} y={draftStartScreen.y} radius={5} fill="#1769ff" listening={false}/><Circle x={draftEndScreen.x} y={draftEndScreen.y} radius={5} fill="#1769ff" listening={false}/>{draftTargetScreen ? <Circle x={draftTargetScreen.x} y={draftTargetScreen.y} radius={9} fill={draftWall?.endTarget?.kind === "wall" ? "#fff7ed" : "#eff6ff"} stroke={draftWall?.endTarget?.kind === "wall" ? "#f97316" : "#1769ff"} strokeWidth={2} listening={false}/> : null}{draftLength > 0 ? <Text x={(draftStartScreen.x+draftEndScreen.x)/2+10} y={(draftStartScreen.y+draftEndScreen.y)/2-26} text={`${Math.round(draftLength)} мм`} fontSize={13} fill="#1769ff" listening={false}/> : null}</> : null}
-          {errorDiagnostics.map((diagnostic,index) => diagnostic.point ? (() => { const screen=worldToScreen(diagnostic.point!,viewport); return <Circle key={`diagnostic-${diagnostic.code}-${index}`} x={screen.x} y={screen.y} radius={8} fill="#ef4444" opacity={0.85} listening={false}/>; })() : null)}
+        </Layer>
+        <Layer>
+          {clearancePolygon ? <Line points={screenPolygon(clearancePolygon, viewport)} closed fill="#f59e0b" opacity={0.08} stroke="#d97706" strokeWidth={1.2} dash={[6, 5]} listening={false} /> : null}
+          {displayedObjects.map((object) => (
+            <PlacedObjectShape
+              key={object.id}
+              object={object}
+              viewport={viewport}
+              selected={object.id === selectedObjectId}
+              fitStatus={fitEvaluation.byObjectId.get(object.id)?.status ?? "blocked"}
+              onSelect={() => editorStore.getState().selectObject(object.id)}
+              onGestureStart={(kind) => editorStore.getState().beginObjectGesture(object.id, kind)}
+              onGesturePreview={(patch) => previewObjectGesture(object.id, patch)}
+              onGestureCommit={() => { editorStore.getState().commitObjectGesture(); setObjectGuides([]); }}
+            />
+          ))}
+          {visiblePlacementPreview ? (
+            <PlacedObjectShape
+              object={visiblePlacementPreview}
+              viewport={viewport}
+              selected={false}
+              preview
+              fitStatus={fitEvaluation.byObjectId.get(PLACEMENT_PREVIEW_ID)?.status ?? "blocked"}
+            />
+          ) : null}
+        </Layer>
+        <Layer listening={false}>
+          {objectGuides.map((guide, index) => guide.axis === "x"
+            ? <Line key={`object-guide-x-${index}`} points={[worldToScreen({ x: guide.value, y: 0 }, viewport).x, 0, worldToScreen({ x: guide.value, y: 0 }, viewport).x, size.height]} stroke="#0ea5e9" strokeWidth={1} dash={[5, 5]} opacity={0.72} />
+            : <Line key={`object-guide-y-${index}`} points={[0, worldToScreen({ x: 0, y: guide.value }, viewport).y, size.width, worldToScreen({ x: 0, y: guide.value }, viewport).y]} stroke="#0ea5e9" strokeWidth={1} dash={[5, 5]} opacity={0.72} />)}
+          {draftWall?.snap.guides.map((guide, index) => guide.axis === "x" ? <Line key={`guide-x-${index}`} points={[worldToScreen({ x: guide.value, y: 0 }, viewport).x, 0, worldToScreen({ x: guide.value, y: 0 }, viewport).x, size.height]} stroke="#1769ff" strokeWidth={1} dash={[6,6]} opacity={0.55} /> : <Line key={`guide-y-${index}`} points={[0, worldToScreen({ x: 0, y: guide.value }, viewport).y, size.width, worldToScreen({ x: 0, y: guide.value }, viewport).y]} stroke="#1769ff" strokeWidth={1} dash={[6,6]} opacity={0.55} />)}
+          {draftStartScreen && draftEndScreen ? <><Line points={[draftStartScreen.x,draftStartScreen.y,draftEndScreen.x,draftEndScreen.y]} stroke="#1769ff" strokeWidth={Math.max(2,150*viewport.pixelsPerMillimeter)} dash={[8,6]} opacity={0.75}/><Circle x={draftStartScreen.x} y={draftStartScreen.y} radius={5} fill="#1769ff"/><Circle x={draftEndScreen.x} y={draftEndScreen.y} radius={5} fill="#1769ff"/>{draftTargetScreen ? <Circle x={draftTargetScreen.x} y={draftTargetScreen.y} radius={9} fill={draftWall?.endTarget?.kind === "wall" ? "#fff7ed" : "#eff6ff"} stroke={draftWall?.endTarget?.kind === "wall" ? "#f97316" : "#1769ff"} strokeWidth={2}/> : null}{draftLength > 0 ? <Text x={(draftStartScreen.x+draftEndScreen.x)/2+10} y={(draftStartScreen.y+draftEndScreen.y)/2-26} text={`${Math.round(draftLength)} мм`} fontSize={13} fill="#1769ff"/> : null}</> : null}
+          {dimensionLabels ? (() => {
+            const width = worldToScreen(dimensionLabels.width.point, viewport);
+            const depth = worldToScreen(dimensionLabels.depth.point, viewport);
+            return <><Text x={width.x - 45} y={width.y - 8} width={90} align="center" text={dimensionLabels.width.text} fontSize={11} fill="#1769ff"/><Text x={depth.x - 45} y={depth.y - 8} width={90} align="center" text={dimensionLabels.depth.text} fontSize={11} fill="#1769ff"/></>;
+          })() : null}
+          {clearanceLabelPoints.map((item) => { const screen = worldToScreen(item.point, viewport); return <Text key={`clearance-${item.side}`} x={screen.x - 38} y={screen.y - 7} width={76} align="center" text={measurementLabel(item.value)} fontSize={10} fill="#64748b" />; })}
+          {errorDiagnostics.map((diagnostic,index) => diagnostic.point ? (() => { const screen=worldToScreen(diagnostic.point!,viewport); return <Circle key={`diagnostic-${diagnostic.code}-${index}`} x={screen.x} y={screen.y} radius={8} fill="#ef4444" opacity={0.85}/>; })() : null)}
         </Layer>
       </Stage>
       {errorDiagnostics.length > 0 ? <div className="topology-alert" role="status">Проверьте геометрию: {errorDiagnostics[0]?.message}</div> : null}
-      <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо — масштаб</span><span>{tool === "door" || tool === "window" ? "Наведите на стену и кликните" : "Синие узлы — соединения"}</span><span>Space + drag / средняя кнопка — панорама</span></div>
+      <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо — масштаб</span><span>{helpText}</span><span>Space + drag / средняя кнопка — панорама</span></div>
     </div>
   );
 }

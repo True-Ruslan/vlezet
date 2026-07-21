@@ -1,5 +1,5 @@
+import { createEmptyDocument, type VlezetDocument } from "@vlezet/domain";
 import { describe, expect, it } from "vitest";
-import { createEmptyDocument, type VlezetDocumentV2 } from "@vlezet/domain";
 import {
   addTopologicalWall,
   setTopologicalWallLength,
@@ -7,9 +7,9 @@ import {
   topologicalWallLength,
 } from "./topology-editing";
 
-function rectangleCornerDocument(): VlezetDocumentV2 {
+function rectangleCornerDocument(): VlezetDocument {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     vertices: [
       { id: "a", position: { x: 0, y: 0 } },
       { id: "b", position: { x: 4000, y: 0 } },
@@ -21,6 +21,7 @@ function rectangleCornerDocument(): VlezetDocumentV2 {
     ],
     openings: [],
     roomAnnotations: [],
+    placedObjects: [],
   };
 }
 
@@ -58,8 +59,8 @@ describe("topological wall editing", () => {
   });
 
   it("creates an explicit T-junction without splitting the semantic host wall", () => {
-    const document: VlezetDocumentV2 = {
-      schemaVersion: 2,
+    const document: VlezetDocument = {
+      schemaVersion: 3,
       vertices: [
         { id: "a", position: { x: 0, y: 0 } },
         { id: "b", position: { x: 6000, y: 0 } },
@@ -67,6 +68,7 @@ describe("topological wall editing", () => {
       walls: [{ id: "host", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 200 }],
       openings: [],
       roomAnnotations: [],
+      placedObjects: [],
     };
 
     const result = addTopologicalWall(document, {
@@ -98,8 +100,8 @@ describe("topological wall editing", () => {
   });
 
   it("rejects shortening a host wall past an internal junction", () => {
-    const document: VlezetDocumentV2 = {
-      schemaVersion: 2,
+    const document: VlezetDocument = {
+      schemaVersion: 3,
       vertices: [
         { id: "a", position: { x: 0, y: 0 } },
         { id: "b", position: { x: 6000, y: 0 } },
@@ -108,6 +110,7 @@ describe("topological wall editing", () => {
       walls: [{ id: "host", startVertexId: "a", endVertexId: "b", junctionVertexIds: ["j"], thickness: 200 }],
       openings: [],
       roomAnnotations: [],
+      placedObjects: [],
     };
 
     expect(() => setTopologicalWallLength(document, "host", 4000)).toThrow(/соедин/i);

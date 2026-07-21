@@ -1,4 +1,4 @@
-import type { VlezetDocumentV2 } from "@vlezet/domain";
+import type { VlezetDocument } from "@vlezet/domain";
 
 export type EditorCommandLabel =
   | "vertex/move"
@@ -9,18 +9,25 @@ export type EditorCommandLabel =
   | "opening/add"
   | "opening/update"
   | "opening/delete"
-  | "room-annotation/set-name";
+  | "room-annotation/set-name"
+  | "object/add"
+  | "object/move"
+  | "object/rotate"
+  | "object/resize"
+  | "object/update"
+  | "object/duplicate"
+  | "object/delete";
 
 export type EditorCommand = Readonly<{
   type: "document/replace";
   label: EditorCommandLabel;
-  before: VlezetDocumentV2;
-  after: VlezetDocumentV2;
+  before: VlezetDocument;
+  after: VlezetDocument;
 }>;
 
 export type InternalEditorCommand = EditorCommand;
 
-export function applyEditorCommand(_document: VlezetDocumentV2, command: InternalEditorCommand): VlezetDocumentV2 {
+export function applyEditorCommand(_document: VlezetDocument, command: InternalEditorCommand): VlezetDocument {
   return command.after;
 }
 

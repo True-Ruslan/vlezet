@@ -2,7 +2,7 @@ import {
   getVertex,
   getWallEndpoints,
   type Point2,
-  type VlezetDocumentV2,
+  type VlezetDocument,
   type Vertex,
   type Wall,
 } from "@vlezet/domain";
@@ -24,7 +24,7 @@ export type AddTopologicalWallInput = Readonly<{
 }>;
 
 export type DocumentEdit = Readonly<{
-  document: VlezetDocumentV2;
+  document: VlezetDocument;
   selectedWallId?: string;
   continuationVertexId?: string;
 }>;
@@ -35,7 +35,7 @@ function assertFinitePoint(point: Point2): void {
   }
 }
 
-function assertUniqueId(document: VlezetDocumentV2, kind: "vertex" | "wall", id: string): void {
+function assertUniqueId(document: VlezetDocument, kind: "vertex" | "wall", id: string): void {
   if (!id) throw new Error("Идентификатор не может быть пустым");
   const exists = kind === "vertex"
     ? document.vertices.some((vertex) => vertex.id === id)
@@ -43,7 +43,7 @@ function assertUniqueId(document: VlezetDocumentV2, kind: "vertex" | "wall", id:
   if (exists) throw new Error(`${kind === "vertex" ? "Vertex" : "Wall"} already exists: ${id}`);
 }
 
-function replaceWall(document: VlezetDocumentV2, replacement: Wall): VlezetDocumentV2 {
+function replaceWall(document: VlezetDocument, replacement: Wall): VlezetDocument {
   return {
     ...document,
     walls: document.walls.map((wall) => (wall.id === replacement.id ? replacement : wall)),
@@ -51,9 +51,9 @@ function replaceWall(document: VlezetDocumentV2, replacement: Wall): VlezetDocum
 }
 
 function resolveEndpoint(
-  document: VlezetDocumentV2,
+  document: VlezetDocument,
   intent: WallEndpointIntent,
-): Readonly<{ document: VlezetDocumentV2; vertexId: string }> {
+): Readonly<{ document: VlezetDocument; vertexId: string }> {
   if (intent.kind === "existing-vertex") {
     getVertex(document, intent.vertexId);
     return { document, vertexId: intent.vertexId };
@@ -76,7 +76,7 @@ function resolveEndpoint(
   }
 
   const vertex: Vertex = { id: intent.vertexId, position: projection.point };
-  const nextDocument: VlezetDocumentV2 = { ...document, vertices: [...document.vertices, vertex] };
+  const nextDocument: VlezetDocument = { ...document, vertices: [...document.vertices, vertex] };
   const updatedHost: Wall = {
     ...hostWall,
     junctionVertexIds: hostWall.junctionVertexIds.includes(vertex.id)
@@ -87,7 +87,7 @@ function resolveEndpoint(
   return { document: replaceWall(nextDocument, updatedHost), vertexId: vertex.id };
 }
 
-export function addTopologicalWall(document: VlezetDocumentV2, input: AddTopologicalWallInput): DocumentEdit {
+export function addTopologicalWall(document: VlezetDocument, input: AddTopologicalWallInput): DocumentEdit {
   assertUniqueId(document, "wall", input.wallId);
   if (!Number.isFinite(input.thickness) || input.thickness < MIN_WALL_THICKNESS_MM || input.thickness > MAX_WALL_THICKNESS_MM) {
     throw new RangeError(`Толщина стены должна быть от ${MIN_WALL_THICKNESS_MM} до ${MAX_WALL_THICKNESS_MM} мм`);
@@ -119,7 +119,7 @@ export function addTopologicalWall(document: VlezetDocumentV2, input: AddTopolog
 }
 
 export function addConnectedWall(
-  document: VlezetDocumentV2,
+  document: VlezetDocument,
   input: Readonly<{
     wallId: string;
     startVertexId: string;
@@ -137,7 +137,7 @@ export function addConnectedWall(
 }
 
 export function addTJunctionWall(
-  document: VlezetDocumentV2,
+  document: VlezetDocument,
   input: Readonly<{
     wallId: string;
     start: WallEndpointIntent;
@@ -160,14 +160,14 @@ export function addTJunctionWall(
   });
 }
 
-export function topologicalWallLength(document: VlezetDocumentV2, wallId: string): number {
+export function topologicalWallLength(document: VlezetDocument, wallId: string): number {
   const wall = document.walls.find((candidate) => candidate.id === wallId);
   if (!wall) throw new Error(`Wall does not exist: ${wallId}`);
   const { start, end } = getWallEndpoints(document, wall);
   return Math.hypot(end.position.x - start.position.x, end.position.y - start.position.y);
 }
 
-function assertMovedVertexStaysOnHostWalls(document: VlezetDocumentV2, vertexId: string, nextPosition: Point2): void {
+function assertMovedVertexStaysOnHostWalls(document: VlezetDocument, vertexId: string, nextPosition: Point2): void {
   for (const hostWall of document.walls) {
     if (!hostWall.junctionVertexIds.includes(vertexId)) continue;
     const { start, end } = getWallEndpoints(document, hostWall);
@@ -178,10 +178,10 @@ function assertMovedVertexStaysOnHostWalls(document: VlezetDocumentV2, vertexId:
 }
 
 export function setTopologicalWallLength(
-  document: VlezetDocumentV2,
+  document: VlezetDocument,
   wallId: string,
   lengthMm: number,
-): VlezetDocumentV2 {
+): VlezetDocument {
   if (!Number.isFinite(lengthMm) || lengthMm <= 0) {
     throw new RangeError("Длина стены должна быть положительным конечным числом");
   }
@@ -225,7 +225,7 @@ export function setTopologicalWallLength(
   };
 }
 
-export function setWallThickness(document: VlezetDocumentV2, wallId: string, thicknessMm: number): VlezetDocumentV2 {
+export function setWallThickness(document: VlezetDocument, wallId: string, thicknessMm: number): VlezetDocument {
   if (
     !Number.isFinite(thicknessMm) ||
     thicknessMm < MIN_WALL_THICKNESS_MM ||
@@ -239,7 +239,7 @@ export function setWallThickness(document: VlezetDocumentV2, wallId: string, thi
   return replaceWall(document, { ...wall, thickness: thicknessMm });
 }
 
-export function moveVertex(document: VlezetDocumentV2, vertexId: string, position: Point2): VlezetDocumentV2 {
+export function moveVertex(document: VlezetDocument, vertexId: string, position: Point2): VlezetDocument {
   assertFinitePoint(position);
   getVertex(document, vertexId);
   assertMovedVertexStaysOnHostWalls(document, vertexId, position);

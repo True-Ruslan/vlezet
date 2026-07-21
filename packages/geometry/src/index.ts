@@ -2,7 +2,40 @@ export { validateTopology } from "./diagnostics";
 export type { TopologyDiagnostic, TopologyDiagnosticCode } from "./diagnostics";
 export { extractPlanarFaces } from "./faces";
 export type { FaceBoundaryEdge, PlanarFace } from "./faces";
+export {
+  doorSwingPolygon,
+  evaluateObjectFits,
+  objectRectangle,
+} from "./fit";
+export type {
+  FitDiagnostic,
+  FitDiagnosticCode,
+  FitDocumentLike,
+  FitDoorSwingLike,
+  FitEvaluation,
+  FitOpeningLike,
+  FitPlacedObjectLike,
+  FitStatus,
+  ObjectFitResult,
+} from "./fit";
 export { chooseGridStep } from "./grid";
+export { measureObjectClearances } from "./measurements";
+export type { DirectionalClearances } from "./measurements";
+export {
+  expandedOrientedRectangle,
+  localToWorld,
+  orientedRectangleAxes,
+  orientedRectangleCorners,
+  orientedRectangleEdges,
+  orientedRectanglesIntersect,
+  pointInOrientedRectangle,
+  worldToLocal,
+} from "./oriented-rectangle";
+export type {
+  OrientedRectangle,
+  RectangleAxes,
+  RectangleMargins,
+} from "./oriented-rectangle";
 export {
   deriveVisibleWallIntervals,
   openingSegment,

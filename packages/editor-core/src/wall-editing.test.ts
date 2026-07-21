@@ -1,9 +1,9 @@
+import type { VlezetDocument } from "@vlezet/domain";
 import { describe, expect, it } from "vitest";
-import { type VlezetDocumentV2 } from "@vlezet/domain";
 import { setTopologicalWallLength, topologicalWallLength } from "./topology-editing";
 
-const document: VlezetDocumentV2 = {
-  schemaVersion: 2,
+const document: VlezetDocument = {
+  schemaVersion: 3,
   vertices: [
     { id: "a", position: { x: 0, y: 0 } },
     { id: "b", position: { x: 3000, y: 4000 } },
@@ -11,6 +11,7 @@ const document: VlezetDocumentV2 = {
   walls: [{ id: "wall", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 }],
   openings: [],
   roomAnnotations: [],
+  placedObjects: [],
 };
 
 describe("topological wall length editing", () => {
