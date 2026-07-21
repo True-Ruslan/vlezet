@@ -12,6 +12,7 @@
     "@vlezet/domain": "workspace:*",
     "@vlezet/editor-core": "workspace:*",
     "@vlezet/geometry": "workspace:*",
+    "@vlezet/projects": "workspace:*",
     "konva": "10.3.0",
     "next": "16.2.10",
     "react": "19.2.7",
