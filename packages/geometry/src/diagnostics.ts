@@ -1,13 +1,14 @@
-import { distanceBetween } from "./point";
-import { GEOMETRY_EPSILON_MM, isProperInteriorIntersection, pointOnSegment, segmentIntersection } from "./segment";
-import { deriveAtomicWallEdges, topologyVertexMap, type TopologyDocumentLike } from "./topology";
+import { distanceBetween, type Point2 } from "./point";
+import { GEOMETRY_EPSILON_MM, pointOnSegment, segmentIntersection } from "./segment";
+import { deriveAtomicWallEdges, topologyVertexMap, type AtomicWallEdge, type TopologyDocumentLike } from "./topology";
 
 export type TopologyDiagnosticCode =
   | "missing-vertex"
   | "zero-length-wall"
   | "junction-off-wall"
   | "duplicate-atomic-edge"
-  | "undeclared-crossing";
+  | "undeclared-crossing"
+  | "overlapping-walls";
 
 export type TopologyDiagnostic = Readonly<{
   code: TopologyDiagnosticCode;
@@ -17,6 +18,35 @@ export type TopologyDiagnostic = Readonly<{
   vertexIds: readonly string[];
   point?: Readonly<{ x: number; y: number }>;
 }>;
+
+function cross(a: Point2, b: Point2, c: Point2): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function sharedVertexIds(first: AtomicWallEdge, second: AtomicWallEdge): string[] {
+  return [first.startVertexId, first.endVertexId].filter(
+    (id) => id === second.startVertexId || id === second.endVertexId,
+  );
+}
+
+function collinearOverlapLength(first: AtomicWallEdge, second: AtomicWallEdge, tolerance: number): number | null {
+  const firstDx = first.end.x - first.start.x;
+  const firstDy = first.end.y - first.start.y;
+  const scale = Math.max(1, Math.hypot(firstDx, firstDy));
+  if (Math.abs(cross(first.start, first.end, second.start)) > tolerance * scale) return null;
+  if (Math.abs(cross(first.start, first.end, second.end)) > tolerance * scale) return null;
+
+  const useX = Math.abs(firstDx) >= Math.abs(firstDy);
+  const a0 = useX ? first.start.x : first.start.y;
+  const a1 = useX ? first.end.x : first.end.y;
+  const b0 = useX ? second.start.x : second.start.y;
+  const b1 = useX ? second.end.x : second.end.y;
+  const firstMin = Math.min(a0, a1);
+  const firstMax = Math.max(a0, a1);
+  const secondMin = Math.min(b0, b1);
+  const secondMax = Math.max(b0, b1);
+  return Math.min(firstMax, secondMax) - Math.max(firstMin, secondMin);
+}
 
 export function validateTopology(
   document: TopologyDocumentLike,
@@ -42,7 +72,6 @@ export function validateTopology(
     }
 
     if (!start || !end) continue;
-
     if (distanceBetween(start.position, end.position) <= tolerance) {
       diagnostics.push({
         code: "zero-length-wall",
@@ -94,29 +123,51 @@ export function validateTopology(
     seenEdgeKeys.add(key);
   }
 
-  const crossingPairs = new Set<string>();
+  const reportedPairs = new Set<string>();
   for (let firstIndex = 0; firstIndex < atomicEdges.length; firstIndex += 1) {
     const first = atomicEdges[firstIndex]!;
     for (let secondIndex = firstIndex + 1; secondIndex < atomicEdges.length; secondIndex += 1) {
       const second = atomicEdges[secondIndex]!;
       if (first.wallId === second.wallId) continue;
-      if (
-        first.startVertexId === second.startVertexId ||
-        first.startVertexId === second.endVertexId ||
-        first.endVertexId === second.startVertexId ||
-        first.endVertexId === second.endVertexId
-      ) {
+
+      const wallIds = [first.wallId, second.wallId].sort();
+      const pairKey = `${wallIds[0]}:${wallIds[1]}`;
+      if (reportedPairs.has(pairKey)) continue;
+
+      const sharedIds = sharedVertexIds(first, second);
+      const overlap = collinearOverlapLength(first, second, tolerance);
+      if (overlap !== null) {
+        if (overlap > tolerance) {
+          reportedPairs.add(pairKey);
+          diagnostics.push({
+            code: "overlapping-walls",
+            severity: "error",
+            message: "Стены накладываются друг на друга",
+            wallIds,
+            vertexIds: sharedIds,
+          });
+        } else if (overlap >= -tolerance && sharedIds.length === 0) {
+          reportedPairs.add(pairKey);
+          const point = [first.start, first.end, second.start, second.end].find(
+            (candidate) => pointOnSegment(candidate, first.start, first.end, tolerance) && pointOnSegment(candidate, second.start, second.end, tolerance),
+          );
+          diagnostics.push({
+            code: "undeclared-crossing",
+            severity: "error",
+            message: "Стены соприкасаются без явного соединения",
+            wallIds,
+            vertexIds: [],
+            point,
+          });
+        }
         continue;
       }
 
       const intersection = segmentIntersection(first.start, first.end, second.start, second.end, tolerance);
-      if (!intersection || !isProperInteriorIntersection(intersection, tolerance)) continue;
+      if (!intersection) continue;
+      if (sharedIds.length > 0) continue;
 
-      const wallIds = [first.wallId, second.wallId].sort();
-      const pairKey = `${wallIds[0]}:${wallIds[1]}`;
-      if (crossingPairs.has(pairKey)) continue;
-      crossingPairs.add(pairKey);
-
+      reportedPairs.add(pairKey);
       diagnostics.push({
         code: "undeclared-crossing",
         severity: "error",
