@@ -28,7 +28,10 @@ jobs:
           node-version: 22.16.0
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm install --no-frozen-lockfile 2>&1 | tee pnpm-install.log
 
       - name: Unit tests
         run: pnpm test
@@ -42,10 +45,12 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Upload generated lockfile
+      - name: Upload CI diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pnpm-lockfile
-          path: pnpm-lock.yaml
+          name: ci-diagnostics
+          path: |
+            pnpm-lock.yaml
+            pnpm-install.log
           if-no-files-found: ignore
