@@ -29,13 +29,21 @@ if (!canvasSource.includes("referenceAssetBlob: Blob | null")) {
 }
 
 const fileFormatPath = "packages/projects/src/file-format.ts";
-const fileFormatSource = readFileSync(fileFormatPath, "utf8");
+let fileFormatSource = readFileSync(fileFormatPath, "utf8");
 if (fileFormatSource.includes('  validTimestamp(envelope.exportedAt);\n  return envelope;')) {
   patchFile(fileFormatPath, [
     ['  validTimestamp(envelope.exportedAt);\n  return envelope;', '  return envelope;', "defer timestamp validation"],
     ['  if (envelope.fileVersion !== 1) {\n    throw new ProjectFileError("unsupported-version", "Версия файла Vlezet пока не поддерживается этим режимом импорта.");\n  }\n  try { return createImportedProject(object(envelope.project), options); }', '  if (envelope.fileVersion !== 1) {\n    throw new ProjectFileError("unsupported-version", "Версия файла Vlezet пока не поддерживается этим режимом импорта.");\n  }\n  validTimestamp(envelope.exportedAt);\n  try { return createImportedProject(object(envelope.project), options); }', "legacy timestamp validation"],
     ['  if (envelope.fileVersion !== 2) {\n    throw new ProjectFileError("unsupported-version", "Версия файла Vlezet пока не поддерживается.");\n  }\n\n  try {', '  if (envelope.fileVersion !== 2) {\n    throw new ProjectFileError("unsupported-version", "Версия файла Vlezet пока не поддерживается.");\n  }\n  validTimestamp(envelope.exportedAt);\n\n  try {', "portable timestamp validation"],
   ]);
+  fileFormatSource = readFileSync(fileFormatPath, "utf8");
+}
+if (fileFormatSource.includes('      blob: new Blob([bytes], { type: mimeType }),')) {
+  patchFile(fileFormatPath, [[
+    '    const asset = createProjectAsset({\n      id: options.assetId,\n      projectId: options.id,\n      mimeType,\n      createdAt: options.now,\n      blob: new Blob([bytes], { type: mimeType }),\n    });',
+    '    const assetBuffer = new ArrayBuffer(bytes.byteLength);\n    new Uint8Array(assetBuffer).set(bytes);\n    const asset = createProjectAsset({\n      id: options.assetId,\n      projectId: options.id,\n      mimeType,\n      createdAt: options.now,\n      blob: new Blob([assetBuffer], { type: mimeType }),\n    });',
+    "portable Blob ArrayBuffer",
+  ]]);
 }
 
 const cssPath = "apps/web/app/globals.css";
