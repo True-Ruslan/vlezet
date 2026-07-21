@@ -7,19 +7,18 @@ export type ReferenceImageState = Readonly<{
   error: string | null;
 }>;
 
+type LoadedReferenceImageState = ReferenceImageState & Readonly<{ blob: Blob }>;
+
 export function useReferenceImage(blob: Blob | null): ReferenceImageState {
-  const [state, setState] = useState<ReferenceImageState>({ image: null, error: null });
+  const [loaded, setLoaded] = useState<LoadedReferenceImageState | null>(null);
 
   useEffect(() => {
-    if (!blob) {
-      setState({ image: null, error: null });
-      return;
-    }
+    if (!blob) return;
     const url = URL.createObjectURL(blob);
     const image = new Image();
     let active = true;
-    image.onload = () => { if (active) setState({ image, error: null }); };
-    image.onerror = () => { if (active) setState({ image: null, error: "Не удалось показать сохранённую подложку." }); };
+    image.onload = () => { if (active) setLoaded({ blob, image, error: null }); };
+    image.onerror = () => { if (active) setLoaded({ blob, image: null, error: "Не удалось показать сохранённую подложку." }); };
     image.src = url;
     return () => {
       active = false;
@@ -28,5 +27,6 @@ export function useReferenceImage(blob: Blob | null): ReferenceImageState {
     };
   }, [blob]);
 
-  return state;
+  if (!blob || loaded?.blob !== blob) return { image: null, error: null };
+  return { image: loaded.image, error: loaded.error };
 }
