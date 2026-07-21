@@ -22,6 +22,46 @@ describe("topology diagnostics", () => {
     );
   });
 
+  it("reports endpoint-to-wall contact when topology identity was not declared", () => {
+    const diagnostics = validateTopology({
+      schemaVersion: 2,
+      vertices: [
+        { id: "a", position: { x: 0, y: 0 } },
+        { id: "b", position: { x: 4000, y: 0 } },
+        { id: "c", position: { x: 2000, y: 2000 } },
+        { id: "d", position: { x: 2000, y: 0 } },
+      ],
+      walls: [
+        { id: "host", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 },
+        { id: "branch", startVertexId: "c", endVertexId: "d", junctionVertexIds: [], thickness: 150 },
+      ],
+    });
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ code: "undeclared-crossing", severity: "error", wallIds: ["branch", "host"] }),
+    );
+  });
+
+  it("reports collinear wall overlap instead of treating it as a valid planar graph", () => {
+    const diagnostics = validateTopology({
+      schemaVersion: 2,
+      vertices: [
+        { id: "a", position: { x: 0, y: 0 } },
+        { id: "b", position: { x: 4000, y: 0 } },
+        { id: "c", position: { x: 2000, y: 0 } },
+        { id: "d", position: { x: 6000, y: 0 } },
+      ],
+      walls: [
+        { id: "one", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 },
+        { id: "two", startVertexId: "c", endVertexId: "d", junctionVertexIds: [], thickness: 150 },
+      ],
+    });
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ code: "overlapping-walls", severity: "error", wallIds: ["one", "two"] }),
+    );
+  });
+
   it("reports an internal junction that is not on its host wall", () => {
     const diagnostics = validateTopology({
       schemaVersion: 2,
