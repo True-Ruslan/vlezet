@@ -67,6 +67,7 @@ export function EditorCanvas() {
   const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
   const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
   const selectedOpeningId = useStore(editorStore, (state) => state.selectedOpeningId);
+  const visibleOpeningPreview = tool === "door" || tool === "window" ? openingPreview : null;
 
   useEffect(() => {
     const element = containerRef.current;
@@ -92,8 +93,6 @@ export function EditorCanvas() {
     window.addEventListener("keyup", onKeyUp);
     return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
   }, []);
-
-  useEffect(() => { if (tool !== "door" && tool !== "window") setOpeningPreview(null); }, [tool]);
 
   const vertexMap = useMemo(() => new Map(document.vertices.map((vertex) => [vertex.id, vertex])), [document.vertices]);
   const resolvedWalls = useMemo<ResolvedWall[]>(() => document.walls.flatMap((wall) => {
@@ -180,8 +179,8 @@ export function EditorCanvas() {
       else { editorStore.getState().updateDraftWall(resolved.snap, resolved.target); editorStore.getState().commitDraftWall(); }
       return;
     }
-    if ((tool === "door" || tool === "window") && openingPreview?.valid) {
-      editorStore.getState().addOpeningAt(openingPreview.wallId, openingPreview.pointerOffset);
+    if ((tool === "door" || tool === "window") && visibleOpeningPreview?.valid) {
+      editorStore.getState().addOpeningAt(visibleOpeningPreview.wallId, visibleOpeningPreview.pointerOffset);
       return;
     }
     editorStore.getState().selectWall(null);
@@ -211,7 +210,7 @@ export function EditorCanvas() {
     const segment = openingSegment(document, opening);
     const start = worldToScreen(segment.start, viewport), end = worldToScreen(segment.end, viewport);
     const selected = opening.id === selectedOpeningId;
-    const stroke = preview ? (openingPreview?.valid ? "#1769ff" : "#ef4444") : (selected ? "#1769ff" : "#374151");
+    const stroke = preview ? (visibleOpeningPreview?.valid ? "#1769ff" : "#ef4444") : (selected ? "#1769ff" : "#374151");
     const wall = document.walls.find((candidate) => candidate.id === opening.wallId)!;
     const gapWidth = Math.max(3, wall.thickness * viewport.pixelsPerMillimeter + 3);
     const elements = [<Line key={`${opening.id}-gap`} points={[start.x, start.y, end.x, end.y]} stroke="#ffffff" strokeWidth={gapWidth} listening={false} />];
@@ -220,7 +219,7 @@ export function EditorCanvas() {
       for (const sign of [-1, 1]) {
         const a = worldToScreen({ x: segment.start.x + normal.x * sign, y: segment.start.y + normal.y * sign }, viewport);
         const b = worldToScreen({ x: segment.end.x + normal.x * sign, y: segment.end.y + normal.y * sign }, viewport);
-        elements.push(<Line key={`${opening.id}-window-${sign}`} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={1.5} listening={preview ? false : true} onMouseDown={(e) => { if (!preview && tool === "select") { e.cancelBubble = true; editorStore.getState().selectOpening(opening.id); } }} />);
+        elements.push(<Line key={`${opening.id}-window-${sign}`} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={1.5} listening={!preview} onMouseDown={(e) => { if (!preview && tool === "select") { e.cancelBubble = true; editorStore.getState().selectOpening(opening.id); } }} />);
       }
     } else {
       const hingeAtStart = opening.doorSwing?.hinge !== "end";
@@ -258,7 +257,7 @@ export function EditorCanvas() {
             return <Line key={`${wall.id}-visible-${index}`} points={[a.x, a.y, b.x, b.y]} stroke={selected ? "#1769ff" : "#232830"} strokeWidth={visualWidth} hitStrokeWidth={Math.max(14, visualWidth)} lineCap="square" lineJoin="miter" onMouseDown={(e) => { if (tool === "select") { e.cancelBubble = true; editorStore.getState().selectWall(wall.id); } }} />;
           }))}
           {document.openings.flatMap((opening) => renderOpeningSymbol(opening))}
-          {openingPreview ? renderOpeningSymbol(openingPreview.opening, true) : null}
+          {visibleOpeningPreview ? renderOpeningSymbol(visibleOpeningPreview.opening, true) : null}
           {tool === "wall" ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
           {draftWall?.snap.guides.map((guide, index) => guide.axis === "x" ? <Line key={`guide-x-${index}`} points={[worldToScreen({ x: guide.value, y: 0 }, viewport).x, 0, worldToScreen({ x: guide.value, y: 0 }, viewport).x, size.height]} stroke="#1769ff" strokeWidth={1} dash={[6,6]} opacity={0.55} listening={false} /> : <Line key={`guide-y-${index}`} points={[0, worldToScreen({ x: 0, y: guide.value }, viewport).y, size.width, worldToScreen({ x: 0, y: guide.value }, viewport).y]} stroke="#1769ff" strokeWidth={1} dash={[6,6]} opacity={0.55} listening={false} />)}
           {draftStartScreen && draftEndScreen ? <><Line points={[draftStartScreen.x,draftStartScreen.y,draftEndScreen.x,draftEndScreen.y]} stroke="#1769ff" strokeWidth={Math.max(2,150*viewport.pixelsPerMillimeter)} dash={[8,6]} opacity={0.75} listening={false}/><Circle x={draftStartScreen.x} y={draftStartScreen.y} radius={5} fill="#1769ff" listening={false}/><Circle x={draftEndScreen.x} y={draftEndScreen.y} radius={5} fill="#1769ff" listening={false}/>{draftTargetScreen ? <Circle x={draftTargetScreen.x} y={draftTargetScreen.y} radius={9} fill={draftWall?.endTarget?.kind === "wall" ? "#fff7ed" : "#eff6ff"} stroke={draftWall?.endTarget?.kind === "wall" ? "#f97316" : "#1769ff"} strokeWidth={2} listening={false}/> : null}{draftLength > 0 ? <Text x={(draftStartScreen.x+draftEndScreen.x)/2+10} y={(draftStartScreen.y+draftEndScreen.y)/2-26} text={`${Math.round(draftLength)} мм`} fontSize={13} fill="#1769ff" listening={false}/> : null}</> : null}
