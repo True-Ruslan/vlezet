@@ -46,6 +46,34 @@ describe("derived rooms", () => {
     expect(result.rooms[0]?.areaM2).toBeCloseTo(10.08, 10);
   });
 
+  it("subtracts partition thickness from both rooms created by a T-to-T partition", () => {
+    const result = deriveRooms({
+      schemaVersion: 2,
+      vertices: [
+        { id: "a", position: { x: 0, y: 0 } },
+        { id: "jt", position: { x: 3000, y: 0 } },
+        { id: "b", position: { x: 6000, y: 0 } },
+        { id: "c", position: { x: 6000, y: 4000 } },
+        { id: "jb", position: { x: 3000, y: 4000 } },
+        { id: "d", position: { x: 0, y: 4000 } },
+      ],
+      walls: [
+        { id: "top", startVertexId: "a", endVertexId: "b", junctionVertexIds: ["jt"], thickness: 200 },
+        { id: "right", startVertexId: "b", endVertexId: "c", junctionVertexIds: [], thickness: 200 },
+        { id: "bottom", startVertexId: "c", endVertexId: "d", junctionVertexIds: ["jb"], thickness: 200 },
+        { id: "left", startVertexId: "d", endVertexId: "a", junctionVertexIds: [], thickness: 200 },
+        { id: "partition", startVertexId: "jt", endVertexId: "jb", junctionVertexIds: [], thickness: 120 },
+      ],
+      roomAnnotations: [],
+    });
+
+    expect(result.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+    expect(result.rooms).toHaveLength(2);
+    for (const room of result.rooms) {
+      expect(room.areaM2).toBeCloseTo(10.792, 10);
+    }
+  });
+
   it("supports a concave L-shaped room", () => {
     const result = deriveRooms({
       schemaVersion: 2,
