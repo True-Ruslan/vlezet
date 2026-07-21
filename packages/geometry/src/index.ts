@@ -4,6 +4,21 @@ export { extractPlanarFaces } from "./faces";
 export type { FaceBoundaryEdge, PlanarFace } from "./faces";
 export { chooseGridStep } from "./grid";
 export {
+  expandedOrientedRectangle,
+  localToWorld,
+  orientedRectangleAxes,
+  orientedRectangleCorners,
+  orientedRectangleEdges,
+  orientedRectanglesIntersect,
+  pointInOrientedRectangle,
+  worldToLocal,
+} from "./oriented-rectangle";
+export type {
+  OrientedRectangle,
+  RectangleAxes,
+  RectangleMargins,
+} from "./oriented-rectangle";
+export {
   deriveVisibleWallIntervals,
   openingSegment,
   pointAtWallOffset,
