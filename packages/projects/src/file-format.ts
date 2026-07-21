@@ -202,12 +202,14 @@ export async function parsePortableProjectFile(
     if (typeof embedded.dataBase64 !== "string") throw new ProjectFileError("invalid-data", "Подложка в файле повреждена.");
     const bytes = base64ToBytes(embedded.dataBase64);
     const mimeType = embedded.mimeType as ProjectAssetMimeType;
+    const assetBuffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(assetBuffer).set(bytes);
     const asset = createProjectAsset({
       id: options.assetId,
       projectId: options.id,
       mimeType,
       createdAt: options.now,
-      blob: new Blob([bytes], { type: mimeType }),
+      blob: new Blob([assetBuffer], { type: mimeType }),
     });
     return { project, asset };
   } catch (error) {
