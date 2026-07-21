@@ -1,6 +1,7 @@
 export type { EditorCommand, EditorCommandLabel } from "./commands";
 export { createHistoryState, executeCommand, redo, undo } from "./history";
 export type { HistoryEntry, HistoryState } from "./history";
+export { setRoomName } from "./room-editing";
 export {
   addConnectedWall,
   addTJunctionWall,
