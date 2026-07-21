@@ -1,6 +1,8 @@
 export type { EditorCommand, EditorCommandLabel } from "./commands";
 export { createHistoryState, executeCommand, redo, undo } from "./history";
 export type { HistoryEntry, HistoryState } from "./history";
+export { addOpening, deleteOpening, updateOpening, validateOpening } from "./opening-editing";
+export type { OpeningPatch } from "./opening-editing";
 export { setRoomName } from "./room-editing";
 export {
   addConnectedWall,
