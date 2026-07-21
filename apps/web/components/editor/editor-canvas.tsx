@@ -20,6 +20,7 @@ import {
   projectPointToSegment,
   projectPointToWallOffset,
   proposeOpeningPlacement,
+  referencePlanBounds,
   screenToWorld,
   snapWallPoint,
   worldToScreen,
@@ -29,6 +30,7 @@ import {
   type SnapResult,
   type ViewportTransform,
 } from "@vlezet/geometry";
+import type { ReferencePlan } from "@vlezet/projects";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -37,6 +39,8 @@ import { useStore } from "zustand";
 import { getFurniturePreset } from "./furniture-presets";
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
+import { ReferenceLayer } from "../reference/reference-layer";
+import { useReferenceImage } from "../reference/use-reference-image";
 import { editorStore, type TopologySnapTarget } from "./use-editor-store";
 
 const MIN_SCALE = 0.01;
@@ -95,15 +99,21 @@ export type EditorCanvasProps = Readonly<{
   initialViewport: ViewportTransform;
   onViewportChange: (viewport: ViewportTransform) => void;
   fitRequest: number;
+  fitReferenceRequest: number;
+  referencePlan: ReferencePlan | null;
+  referenceAssetBlob: Blob | null;
+  tracingMode: boolean;
+  onReferenceMoveEnd: (originWorld: Point2) => void;
 }>;
 
 type ViewportUpdater = ViewportTransform | ((current: ViewportTransform) => ViewportTransform);
 
-export function EditorCanvas({ initialViewport, onViewportChange, fitRequest }: EditorCanvasProps) {
+export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, onReferenceMoveEnd }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
   const handledFitRequestRef = useRef(fitRequest);
+  const handledFitReferenceRequestRef = useRef(fitReferenceRequest);
   const viewportRef = useRef<ViewportTransform>({ ...initialViewport });
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [spacePressed, setSpacePressed] = useState(false);
@@ -135,6 +145,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest }: 
 
   const visibleOpeningPreview = tool === "door" || tool === "window" ? openingPreview : null;
   const visiblePlacementPreview = placementPresetId && placementPreview?.presetId === placementPresetId ? placementPreview : null;
+  const { image: referenceImage } = useReferenceImage(referenceAssetBlob);
+  const visibleReferenceBounds = useMemo(() => referencePlan?.display.visible ? referencePlanBounds(referencePlan) : null, [referencePlan]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -152,8 +164,14 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest }: 
   useEffect(() => {
     if (fitRequest === handledFitRequestRef.current || size.width <= 1 || size.height <= 1) return;
     handledFitRequestRef.current = fitRequest;
-    commitViewport(fitViewportToBounds(deriveDocumentBounds(document), size, 64));
-  }, [commitViewport, document, fitRequest, size]);
+    commitViewport(fitViewportToBounds(deriveDocumentBounds(document, { additionalBounds: visibleReferenceBounds }), size, 64));
+  }, [commitViewport, document, fitRequest, size, visibleReferenceBounds]);
+
+  useEffect(() => {
+    if (fitReferenceRequest === handledFitReferenceRequestRef.current || size.width <= 1 || size.height <= 1 || !visibleReferenceBounds) return;
+    handledFitReferenceRequestRef.current = fitReferenceRequest;
+    commitViewport(fitViewportToBounds(visibleReferenceBounds, size, 64));
+  }, [commitViewport, fitReferenceRequest, size, visibleReferenceBounds]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -417,10 +435,11 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest }: 
     <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${spacePressed ? " is-pan-ready" : ""}`} onContextMenu={(event) => event.preventDefault()}>
       <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={endPan} onMouseLeave={clearTransientCanvasState}>
         <Layer listening={false}>{gridLines.map((line) => <Line key={line.key} points={line.points} stroke={line.major ? "#d9dde3" : "#eceff3"} strokeWidth={1} perfectDrawEnabled={false} />)}</Layer>
+        {referencePlan && referenceImage ? <Layer><ReferenceLayer referencePlan={referencePlan} image={referenceImage} viewport={viewport} onMoveEnd={onReferenceMoveEnd} /></Layer> : null}
         <Layer>
           {derivedRooms.rooms.map((room) => {
             const selected = room.id === selectedRoomId;
-            return <Line key={room.id} points={screenPolygon(room.polygon, viewport)} closed fill={selected ? "#dbeafe" : "#f4f7fb"} stroke={selected ? "#93c5fd" : undefined} strokeWidth={selected ? 1.5 : 0} opacity={selected ? 0.9 : 0.72} onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }} />;
+            return <Line key={room.id} points={screenPolygon(room.polygon, viewport)} closed fill={selected ? "#dbeafe" : "#f4f7fb"} stroke={selected ? "#93c5fd" : undefined} strokeWidth={selected ? 1.5 : 0} opacity={tracingMode ? (selected ? 0.42 : 0.2) : (selected ? 0.9 : 0.72)} onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }} />;
           })}
           {derivedRooms.rooms.map((room) => { const label = worldToScreen(room.labelPoint, viewport); return <Text key={`label-${room.id}`} x={label.x - 80} y={label.y - 18} width={160} align="center" text={`${room.name}\n${room.areaM2.toFixed(2)} м²`} fontSize={12} lineHeight={1.35} fill="#4b5563" listening={false} />; })}
         </Layer>

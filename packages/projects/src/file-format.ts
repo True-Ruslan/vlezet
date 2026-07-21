@@ -57,7 +57,6 @@ function parseEnvelope(text: string): Record<string, unknown> {
   if (envelope.format !== "vlezet-project") {
     throw new ProjectFileError("invalid-format", "Это не файл проекта Vlezet: формат не поддерживается.");
   }
-  validTimestamp(envelope.exportedAt);
   return envelope;
 }
 
@@ -91,6 +90,7 @@ export function parseProjectFile(text: string, options: ParseProjectFileOptions)
   if (envelope.fileVersion !== 1) {
     throw new ProjectFileError("unsupported-version", "Версия файла Vlezet пока не поддерживается этим режимом импорта.");
   }
+  validTimestamp(envelope.exportedAt);
   try { return createImportedProject(object(envelope.project), options); }
   catch (error) {
     if (error instanceof ProjectFileError) throw error;
@@ -171,6 +171,7 @@ export async function parsePortableProjectFile(
   if (envelope.fileVersion !== 2) {
     throw new ProjectFileError("unsupported-version", "Версия файла Vlezet пока не поддерживается.");
   }
+  validTimestamp(envelope.exportedAt);
 
   try {
     const sourceProject = object(envelope.project);
