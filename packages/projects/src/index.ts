@@ -64,12 +64,19 @@ export type {
 
 export {
   ProjectFileError,
+  parsePortableProjectFile,
   parseProjectFile,
   projectFileSlug,
   projectJsonFilename,
+  serializePortableProjectFile,
   serializeProjectFile,
 } from "./file-format";
-export type { ParseProjectFileOptions, ProjectFileErrorCode } from "./file-format";
+export type {
+  ParsePortableProjectFileOptions,
+  ParseProjectFileOptions,
+  ParsedPortableProjectFile,
+  ProjectFileErrorCode,
+} from "./file-format";
 
 export { AutosaveCoordinator } from "./autosave";
 export type { AutosaveCoordinatorOptions, SaveStatus } from "./autosave";
