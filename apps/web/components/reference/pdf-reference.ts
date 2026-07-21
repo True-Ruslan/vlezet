@@ -33,24 +33,18 @@ async function renderPage(document: PDFDocumentProxy, pageNumber: number): Promi
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvas, canvasContext: context, viewport, background: "#ffffff" }).promise;
-    try {
-      return await normalizeDecodedImage(canvas);
-    } finally {
-      canvas.width = 1;
-      canvas.height = 1;
-    }
+    try { return await normalizeDecodedImage(canvas); }
+    finally { canvas.width = 1; canvas.height = 1; }
   } catch (cause) {
     if (cause instanceof ReferenceImportError) throw cause;
     throw new ReferenceImportError("pdf-page-failed", "Не удалось прочитать выбранную страницу PDF.", { cause });
-  } finally {
-    page.cleanup();
-  }
+  } finally { page.cleanup(); }
 }
 
 export async function loadPdfReference(bytes: ArrayBuffer): Promise<LoadedPdfReference> {
   try {
     const pdfjs = await configurePdfJs();
-    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes), isEvalSupported: false });
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(bytes) });
     const document = await loadingTask.promise;
     return {
       pageCount: document.numPages,
