@@ -14,7 +14,7 @@ export type TopologyWallLike = Readonly<{
 }>;
 
 export type TopologyDocumentLike = Readonly<{
-  schemaVersion: 2;
+  schemaVersion: 2 | 3;
   vertices: readonly TopologyVertexLike[];
   walls: readonly TopologyWallLike[];
 }>;
@@ -58,25 +58,21 @@ export function deriveAtomicWallEdges(document: TopologyDocumentLike): AtomicWal
     });
 
     internal.sort((a, b) => a.t - b.t || a.vertex.id.localeCompare(b.vertex.id));
-
-    const ordered = [
-      { vertex: start, t: 0 },
-      ...internal,
-      { vertex: end, t: 1 },
-    ];
-
-    for (let index = 0; index < ordered.length - 1; index += 1) {
-      const from = ordered[index]!;
-      const to = ordered[index + 1]!;
+    const chain = [start, ...internal.map(({ vertex }) => vertex), end];
+    for (let index = 0; index < chain.length - 1; index += 1) {
+      const edgeStart = chain[index]!;
+      const edgeEnd = chain[index + 1]!;
+      const startOffset = distanceBetween(start.position, edgeStart.position);
+      const endOffset = distanceBetween(start.position, edgeEnd.position);
       edges.push({
         wallId: wall.id,
-        startVertexId: from.vertex.id,
-        endVertexId: to.vertex.id,
-        start: from.vertex.position,
-        end: to.vertex.position,
+        startVertexId: edgeStart.id,
+        endVertexId: edgeEnd.id,
+        start: edgeStart.position,
+        end: edgeEnd.position,
         thickness: wall.thickness,
-        startOffset: Math.max(0, Math.min(1, from.t)) * wallLength,
-        endOffset: Math.max(0, Math.min(1, to.t)) * wallLength,
+        startOffset,
+        endOffset,
       });
     }
   }
@@ -84,10 +80,12 @@ export function deriveAtomicWallEdges(document: TopologyDocumentLike): AtomicWal
   return edges;
 }
 
-export function wallRunLength(document: TopologyDocumentLike, wall: TopologyWallLike): number {
+export function wallRunLength(document: TopologyDocumentLike, wallId: string): number {
+  const wall = document.walls.find((candidate) => candidate.id === wallId);
+  if (!wall) throw new Error(`Wall does not exist: ${wallId}`);
   const vertices = topologyVertexMap(document);
   const start = vertices.get(wall.startVertexId);
   const end = vertices.get(wall.endVertexId);
-  if (!start || !end) throw new Error(`Wall ${wall.id} references a missing endpoint vertex`);
+  if (!start || !end) throw new Error(`Wall ${wallId} references a missing endpoint`);
   return distanceBetween(start.position, end.position);
 }
