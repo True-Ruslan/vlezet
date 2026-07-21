@@ -81,7 +81,22 @@ jobs:
           retention-days: 3
 
       - name: Lint
-        run: pnpm lint
+        id: lint
+        shell: bash
+        run: |
+          set +e
+          pnpm lint 2>&1 | tee lint.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload lint diagnostics
+        if: failure() && steps.lint.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-diagnostics
+          path: lint.log
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Build
         run: pnpm build
