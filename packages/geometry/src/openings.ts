@@ -26,6 +26,10 @@ export type OpeningWorldSegment = Readonly<{
   wallLength: number;
 }>;
 
+function cleanZero(value: number): number {
+  return Object.is(value, -0) ? 0 : value;
+}
+
 function wallGeometry(document: TopologyDocumentLike, wallId: string) {
   const wall = document.walls.find((candidate) => candidate.id === wallId);
   if (!wall) throw new Error(`Wall does not exist: ${wallId}`);
@@ -42,15 +46,15 @@ function wallGeometry(document: TopologyDocumentLike, wallId: string) {
     start: start.position,
     end: end.position,
     length,
-    tangent: { x: dx / length, y: dy / length },
+    tangent: { x: cleanZero(dx / length), y: cleanZero(dy / length) },
   };
 }
 
 export function pointAtWallOffset(document: TopologyDocumentLike, wallId: string, offset: number): Point2 {
   const geometry = wallGeometry(document, wallId);
   return {
-    x: geometry.start.x + geometry.tangent.x * offset,
-    y: geometry.start.y + geometry.tangent.y * offset,
+    x: cleanZero(geometry.start.x + geometry.tangent.x * offset),
+    y: cleanZero(geometry.start.y + geometry.tangent.y * offset),
   };
 }
 
@@ -60,7 +64,7 @@ export function openingSegment(document: OpeningDocumentLike, opening: OpeningLi
     start: pointAtWallOffset(document, opening.wallId, opening.offset),
     end: pointAtWallOffset(document, opening.wallId, opening.offset + opening.width),
     tangent: geometry.tangent,
-    leftNormal: { x: -geometry.tangent.y, y: geometry.tangent.x },
+    leftNormal: { x: cleanZero(-geometry.tangent.y), y: cleanZero(geometry.tangent.x) },
     wallLength: geometry.length,
   };
 }
@@ -94,10 +98,10 @@ export function proposeOpeningPlacement(
   if (!Number.isFinite(width) || width <= 0 || width > length) throw new RangeError("Opening width must fit the wall");
   if (!Number.isFinite(pointerOffset)) throw new RangeError("Opening placement offset must be finite");
   const offset = Math.max(0, Math.min(length - width, pointerOffset - width / 2));
-  return { offset, width };
+  return { offset: cleanZero(offset), width };
 }
 
 export function projectPointToWallOffset(document: TopologyDocumentLike, wallId: string, point: Point2): number {
   const geometry = wallGeometry(document, wallId);
-  return (point.x - geometry.start.x) * geometry.tangent.x + (point.y - geometry.start.y) * geometry.tangent.y;
+  return cleanZero((point.x - geometry.start.x) * geometry.tangent.x + (point.y - geometry.start.y) * geometry.tangent.y);
 }
