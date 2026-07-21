@@ -1,19 +1,20 @@
 "use client";
 
-import type { Opening, VlezetDocumentV2, Wall } from "@vlezet/domain";
+import type { Opening, VlezetDocument, Wall } from "@vlezet/domain";
 import { MAX_WALL_THICKNESS_MM, MIN_WALL_THICKNESS_MM, topologicalWallLength } from "@vlezet/editor-core";
 import { deriveRooms, type DerivedRoom } from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
+import { ObjectInspector } from "./object-inspector";
 import { editorStore } from "./use-editor-store";
 
-function wallVersionKey(document: VlezetDocumentV2, wall: Wall): string {
+function wallVersionKey(document: VlezetDocument, wall: Wall): string {
   const start = document.vertices.find((vertex) => vertex.id === wall.startVertexId)?.position;
   const end = document.vertices.find((vertex) => vertex.id === wall.endVertexId)?.position;
   return [wall.id, start?.x, start?.y, end?.x, end?.y, wall.thickness, ...wall.junctionVertexIds].join(":");
 }
 
-function connectionCount(document: VlezetDocumentV2, wall: Wall): number {
+function connectionCount(document: VlezetDocument, wall: Wall): number {
   const connected = new Set(wall.junctionVertexIds);
   for (const vertexId of [wall.startVertexId, wall.endVertexId]) {
     const shared = document.walls.some((candidate) => candidate.id !== wall.id && (candidate.startVertexId === vertexId || candidate.endVertexId === vertexId || candidate.junctionVertexIds.includes(vertexId)));
@@ -22,7 +23,7 @@ function connectionCount(document: VlezetDocumentV2, wall: Wall): number {
   return connected.size;
 }
 
-function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocumentV2; wall: Wall }>) {
+function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocument; wall: Wall }>) {
   const currentLength = topologicalWallLength(document, wall.id);
   const [lengthInput, setLengthInput] = useState(() => String(Math.round(currentLength)));
   const [thicknessInput, setThicknessInput] = useState(() => String(Math.round(wall.thickness)));
@@ -74,12 +75,18 @@ function SelectedOpeningInspector({ opening }: Readonly<{ opening: Opening }>) {
 }
 
 export function WallInspector(){
-  const selectedWallId=useStore(editorStore,(s)=>s.selectedWallId); const selectedRoomId=useStore(editorStore,(s)=>s.selectedRoomId); const selectedOpeningId=useStore(editorStore,(s)=>s.selectedOpeningId); const document=useStore(editorStore,(s)=>s.history.document);
+  const selectedWallId=useStore(editorStore,(s)=>s.selectedWallId);
+  const selectedRoomId=useStore(editorStore,(s)=>s.selectedRoomId);
+  const selectedOpeningId=useStore(editorStore,(s)=>s.selectedOpeningId);
+  const selectedObjectId=useStore(editorStore,(s)=>s.selectedObjectId);
+  const document=useStore(editorStore,(s)=>s.history.document);
   const wall=useMemo(()=>document.walls.find((x)=>x.id===selectedWallId)??null,[selectedWallId,document.walls]);
   const room=useMemo(()=>deriveRooms(document).rooms.find((x)=>x.id===selectedRoomId)??null,[document,selectedRoomId]);
   const opening=useMemo(()=>document.openings.find((x)=>x.id===selectedOpeningId)??null,[document.openings,selectedOpeningId]);
+  const object=useMemo(()=>document.placedObjects.find((x)=>x.id===selectedObjectId)??null,[document.placedObjects,selectedObjectId]);
+  if(object)return <ObjectInspector key={`${object.id}:${object.position.x}:${object.position.y}:${object.width}:${object.depth}:${object.rotationDeg}`} document={document} object={object}/>;
   if(opening)return <SelectedOpeningInspector key={`${opening.id}:${opening.offset}:${opening.width}:${opening.doorSwing?.hinge}:${opening.doorSwing?.side}`} opening={opening}/>;
   if(room)return <SelectedRoomInspector key={`${room.id}:${room.name}:${room.areaMm2}`} room={room}/>;
   if(wall)return <SelectedWallInspector key={wallVersionKey(document,wall)} document={document} wall={wall}/>;
-  return <aside className="inspector-panel"><div className="inspector-empty"><strong>Ничего не выбрано</strong><span>Выберите стену, комнату, дверь или окно.</span></div></aside>;
+  return <aside className="inspector-panel"><div className="inspector-empty"><strong>Ничего не выбрано</strong><span>Выберите предмет, стену, комнату, дверь или окно.</span></div></aside>;
 }
