@@ -1,4 +1,5 @@
 import type { ObjectCategory, Point2, VlezetDocument } from "@vlezet/domain";
+import type { ReferencePlan } from "@vlezet/projects";
 import {
   deriveDocumentBounds,
   deriveRooms,
@@ -6,25 +7,18 @@ import {
   openingSegment,
   orientedRectangleCorners,
   pointAtWallOffset,
+  referencePlanBounds,
 } from "@vlezet/geometry";
 
 export type RenderPlanPngOptions = Readonly<{
   pixelRatio?: number;
   paddingPx?: number;
   maxDimension?: number;
+  reference?: Readonly<{ plan: ReferencePlan; blob: Blob }>;
 }>;
 
 function categoryFill(category: ObjectCategory): string {
-  return {
-    sleep: "#eef2ff",
-    seating: "#f5f3ff",
-    storage: "#f8fafc",
-    table: "#fefce8",
-    chair: "#fff7ed",
-    kitchen: "#ecfeff",
-    appliance: "#f0fdfa",
-    custom: "#f9fafb",
-  }[category];
+  return { sleep: "#eef2ff", seating: "#f5f3ff", storage: "#f8fafc", table: "#fefce8", chair: "#fff7ed", kitchen: "#ecfeff", appliance: "#f0fdfa", custom: "#f9fafb" }[category];
 }
 
 function polygon(context: CanvasRenderingContext2D, points: readonly Point2[], map: (point: Point2) => Point2): void {
@@ -32,10 +26,7 @@ function polygon(context: CanvasRenderingContext2D, points: readonly Point2[], m
   const first = map(points[0]!);
   context.beginPath();
   context.moveTo(first.x, first.y);
-  for (const point of points.slice(1)) {
-    const screen = map(point);
-    context.lineTo(screen.x, screen.y);
-  }
+  for (const point of points.slice(1)) { const screen = map(point); context.lineTo(screen.x, screen.y); }
   context.closePath();
 }
 
@@ -50,10 +41,8 @@ function drawCenteredText(context: CanvasRenderingContext2D, text: string, posit
   let current = "";
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
-    if (context.measureText(candidate).width > width && current) {
-      lines.push(current);
-      current = word;
-    } else current = candidate;
+    if (context.measureText(candidate).width > width && current) { lines.push(current); current = word; }
+    else current = candidate;
   }
   if (current) lines.push(current);
   const lineHeight = 16;
@@ -62,19 +51,41 @@ function drawCenteredText(context: CanvasRenderingContext2D, text: string, posit
 }
 
 function canvasBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG encoding failed")), "image/png");
-  });
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG encoding failed")), "image/png"));
 }
 
-export async function renderPlanPngBlob(
-  document: VlezetDocument,
-  options: RenderPlanPngOptions = {},
-): Promise<Blob> {
+async function drawReference(
+  context: CanvasRenderingContext2D,
+  reference: NonNullable<RenderPlanPngOptions["reference"]>,
+  map: (point: Point2) => Point2,
+  scale: number,
+): Promise<void> {
+  const bitmap = await createImageBitmap(reference.blob);
+  try {
+    const origin = map(reference.plan.transform.originWorld);
+    context.save();
+    context.translate(origin.x, origin.y);
+    context.rotate(reference.plan.transform.rotationDeg * Math.PI / 180);
+    context.globalAlpha = reference.plan.display.opacity;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(
+      bitmap,
+      0,
+      0,
+      reference.plan.widthPx * reference.plan.transform.millimetersPerPixel * scale,
+      reference.plan.heightPx * reference.plan.transform.millimetersPerPixel * scale,
+    );
+    context.restore();
+  } finally { bitmap.close(); }
+}
+
+export async function renderPlanPngBlob(document: VlezetDocument, options: RenderPlanPngOptions = {}): Promise<Blob> {
   const pixelRatio = Math.max(1, Math.min(4, options.pixelRatio ?? 2));
   const padding = Math.max(24, options.paddingPx ?? 80);
   const maxDimension = Math.max(512, options.maxDimension ?? 8192);
-  const bounds = deriveDocumentBounds(document) ?? { minX: 0, minY: 0, maxX: 5000, maxY: 3500 };
+  const referenceBounds = options.reference ? referencePlanBounds(options.reference.plan) : null;
+  const bounds = deriveDocumentBounds(document, { additionalBounds: referenceBounds }) ?? { minX: 0, minY: 0, maxX: 5000, maxY: 3500 };
   const worldWidth = Math.max(1, bounds.maxX - bounds.minX);
   const worldHeight = Math.max(1, bounds.maxY - bounds.minY);
   let scale = Math.min(0.5, Math.max(0.12, 2200 / Math.max(worldWidth, worldHeight)));
@@ -99,17 +110,11 @@ export async function renderPlanPngBlob(
   context.lineJoin = "miter";
   context.lineCap = "square";
 
-  const map = (point: Point2): Point2 => ({
-    x: padding + (point.x - bounds.minX) * scale,
-    y: padding + (point.y - bounds.minY) * scale,
-  });
+  const map = (point: Point2): Point2 => ({ x: padding + (point.x - bounds.minX) * scale, y: padding + (point.y - bounds.minY) * scale });
+  if (options.reference) await drawReference(context, options.reference, map, scale);
 
   const rooms = deriveRooms(document).rooms;
-  for (const room of rooms) {
-    polygon(context, room.polygon, map);
-    context.fillStyle = "#f5f7fb";
-    context.fill();
-  }
+  for (const room of rooms) { polygon(context, room.polygon, map); context.fillStyle = options.reference ? "rgba(245,247,251,.68)" : "#f5f7fb"; context.fill(); }
 
   for (const wall of document.walls) {
     context.strokeStyle = "#232830";
@@ -117,10 +122,7 @@ export async function renderPlanPngBlob(
     for (const interval of deriveVisibleWallIntervals(document, wall.id)) {
       const start = map(pointAtWallOffset(document, wall.id, interval.startOffset));
       const end = map(pointAtWallOffset(document, wall.id, interval.endOffset));
-      context.beginPath();
-      context.moveTo(start.x, start.y);
-      context.lineTo(end.x, end.y);
-      context.stroke();
+      context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
     }
   }
 
@@ -153,38 +155,20 @@ export async function renderPlanPngBlob(
       let delta = endAngle - startAngle;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
-      context.save();
-      context.setLineDash([5, 4]);
-      context.lineWidth = 1;
-      context.beginPath();
-      context.arc(hingeScreen.x, hingeScreen.y, opening.width * scale, startAngle, startAngle + delta, delta < 0);
-      context.stroke();
-      context.restore();
+      context.save(); context.setLineDash([5, 4]); context.lineWidth = 1; context.beginPath(); context.arc(hingeScreen.x, hingeScreen.y, opening.width * scale, startAngle, startAngle + delta, delta < 0); context.stroke(); context.restore();
     }
   }
 
   for (const object of document.placedObjects) {
     const corners = orientedRectangleCorners({ center: object.position, width: object.width, depth: object.depth, rotationDeg: object.rotationDeg });
     polygon(context, corners, map);
-    context.fillStyle = categoryFill(object.category);
-    context.fill();
-    context.strokeStyle = "#64748b";
-    context.lineWidth = 1.5;
-    context.stroke();
+    context.fillStyle = categoryFill(object.category); context.fill(); context.strokeStyle = "#64748b"; context.lineWidth = 1.5; context.stroke();
     drawCenteredText(context, object.name, map(object.position), Math.max(70, object.width * scale - 12));
   }
 
   for (const room of rooms) {
     const label = map(room.labelPoint);
-    context.save();
-    context.fillStyle = "#475569";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.font = "600 13px Inter, system-ui, sans-serif";
-    context.fillText(room.name, label.x, label.y - 8);
-    context.font = "12px Inter, system-ui, sans-serif";
-    context.fillText(`${room.areaM2.toFixed(2)} м²`, label.x, label.y + 9);
-    context.restore();
+    context.save(); context.fillStyle = "#475569"; context.textAlign = "center"; context.textBaseline = "middle"; context.font = "600 13px Inter, system-ui, sans-serif"; context.fillText(room.name, label.x, label.y - 8); context.font = "12px Inter, system-ui, sans-serif"; context.fillText(`${room.areaM2.toFixed(2)} м²`, label.x, label.y + 9); context.restore();
   }
 
   return canvasBlob(canvas);

@@ -3,7 +3,9 @@ export {
   DEFAULT_PROJECT_VIEWPORT,
   MAX_PROJECT_NAME_LENGTH,
   MAX_PROJECT_SCALE,
+  MAX_REFERENCE_SCALE,
   MIN_PROJECT_SCALE,
+  MIN_REFERENCE_SCALE,
   PROJECT_STORAGE_VERSION,
   ProjectValidationError,
   createProject,
@@ -13,16 +15,25 @@ export {
   parseDocumentInput,
   renameProject,
   replaceProjectDocument,
+  replaceProjectReferencePlan,
   replaceProjectUi,
   replaceProjectViewport,
+  updateReferencePlanDisplay,
   validateProject,
   validateProjectUi,
   validateProjectViewport,
+  validateReferencePlan,
 } from "./project";
 export type {
   CreateProjectInput,
   ProjectUiState,
   ProjectViewport,
+  ReferenceAlignment,
+  ReferencePlan,
+  ReferencePlanCalibration,
+  ReferencePlanDisplay,
+  ReferencePlanSource,
+  ReferencePlanTransform,
   VlezetProjectRecord,
 } from "./project";
 
@@ -36,13 +47,36 @@ export {
 } from "./indexeddb";
 
 export {
+  MAX_REFERENCE_ASSET_BYTES,
+  MemoryProjectAssetRepository,
+  ProjectAssetValidationError,
+  createProjectAsset,
+  replaceReferenceAssetTransaction,
+  validateProjectAsset,
+} from "./assets";
+export type {
+  CreateProjectAssetInput,
+  ProjectAssetMimeType,
+  ProjectAssetRecord,
+  ProjectAssetRepository,
+  ReferenceAssetTransactionEvent,
+} from "./assets";
+
+export {
   ProjectFileError,
+  parsePortableProjectFile,
   parseProjectFile,
   projectFileSlug,
   projectJsonFilename,
+  serializePortableProjectFile,
   serializeProjectFile,
 } from "./file-format";
-export type { ParseProjectFileOptions, ProjectFileErrorCode } from "./file-format";
+export type {
+  ParsePortableProjectFileOptions,
+  ParseProjectFileOptions,
+  ParsedPortableProjectFile,
+  ProjectFileErrorCode,
+} from "./file-format";
 
 export { AutosaveCoordinator } from "./autosave";
 export type { AutosaveCoordinatorOptions, SaveStatus } from "./autosave";
