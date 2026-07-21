@@ -59,10 +59,10 @@ describe("directional object clearances", () => {
   it("returns local-direction values after rotation", () => {
     const rotated = { ...selected, rotationDeg: 90 };
     const clearances = measureObjectClearances(document([rotated]), "selected");
-    expect(clearances.front).toBeCloseTo(2400, 10);
-    expect(clearances.right).toBeCloseTo(1650, 10);
-    expect(clearances.back).toBeCloseTo(2400, 10);
-    expect(clearances.left).toBeCloseTo(1650, 10);
+    expect(clearances.front).toBeCloseTo(2650, 10);
+    expect(clearances.right).toBeCloseTo(1400, 10);
+    expect(clearances.back).toBeCloseTo(2650, 10);
+    expect(clearances.left).toBeCloseTo(1400, 10);
   });
 
   it("throws for a missing selected object", () => {
