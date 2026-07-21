@@ -1,13 +1,12 @@
 "use client";
 
-import type { PlacedObject, Point2 } from "@vlezet/domain";
-import type { FitStatus, ViewportTransform } from "@vlezet/geometry";
+import type { PlacedObject } from "@vlezet/domain";
+import type { PlacedObjectPatch } from "@vlezet/editor-core";
+import { screenToWorld, worldToScreen, type FitStatus, type ViewportTransform } from "@vlezet/geometry";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useEffect, useRef } from "react";
 import { Group, Line, Rect, Text, Transformer } from "react-konva";
-import { screenToWorld, worldToScreen } from "@vlezet/geometry";
-import type { PlacedObjectPatch } from "@vlezet/editor-core";
 import type { ObjectGestureKind } from "./use-editor-store";
 
 export type PlacedObjectShapeProps = Readonly<{
@@ -62,7 +61,8 @@ function InteriorMark({ object, width, depth }: Readonly<{ object: PlacedObject;
     return <Rect x={-width * 0.38} y={-depth * 0.32} width={width * 0.76} height={depth * 0.64} cornerRadius={4} stroke={stroke} strokeWidth={1} listening={false} />;
   }
   if (object.category === "appliance") {
-    return <Rect x={-Math.min(width, depth) * 0.22} y={-Math.min(width, depth) * 0.22} width={Math.min(width, depth) * 0.44} height={Math.min(width, depth) * 0.44} cornerRadius={999} stroke={stroke} strokeWidth={1} listening={false} />;
+    const diameter = Math.min(width, depth) * 0.44;
+    return <Rect x={-diameter / 2} y={-diameter / 2} width={diameter} height={diameter} cornerRadius={999} stroke={stroke} strokeWidth={1} listening={false} />;
   }
   return <Line points={[-width * 0.38, 0, width * 0.38, 0]} stroke={stroke} strokeWidth={1} listening={false} />;
 }
@@ -92,19 +92,17 @@ export function PlacedObjectShape({
     transformer.getLayer()?.batchDraw();
   }, [preview, selected]);
 
-  const emitPreview = (node: Konva.Group) => {
-    const scaleX = Math.abs(node.scaleX());
-    const scaleY = Math.abs(node.scaleY());
+  const emitTransformPreview = (node: Konva.Group) => {
     const world = screenToWorld({ x: node.x(), y: node.y() }, viewport);
     onGesturePreview?.({
       position: world,
-      width: Math.max(50, object.width * scaleX),
-      depth: Math.max(50, object.depth * scaleY),
+      width: Math.max(50, object.width * Math.abs(node.scaleX())),
+      depth: Math.max(50, object.depth * Math.abs(node.scaleY())),
       rotationDeg: node.rotation(),
     });
   };
 
-  const onMouseDown = (event: KonvaEventObject<MouseEvent>) => {
+  const selectFromPointer = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (preview) return;
     event.cancelBubble = true;
     onSelect?.();
@@ -118,27 +116,24 @@ export function PlacedObjectShape({
       rotation={object.rotationDeg}
       draggable={!preview}
       opacity={preview ? 0.62 : 1}
-      onMouseDown={onMouseDown}
-      onTap={onMouseDown}
+      onMouseDown={selectFromPointer}
+      onTap={selectFromPointer}
       onDragStart={(event) => {
         event.cancelBubble = true;
         onSelect?.();
         onGestureStart?.("move");
       }}
       onDragMove={(event) => {
-        const world = screenToWorld({ x: event.target.x(), y: event.target.y() }, viewport);
-        onGesturePreview?.({ position: world });
+        onGesturePreview?.({ position: screenToWorld({ x: event.target.x(), y: event.target.y() }, viewport) });
       }}
       onDragEnd={(event) => {
-        const world = screenToWorld({ x: event.target.x(), y: event.target.y() }, viewport);
-        onGesturePreview?.({ position: world });
+        onGesturePreview?.({ position: screenToWorld({ x: event.target.x(), y: event.target.y() }, viewport) });
         onGestureCommit?.();
       }}
       onTransformStart={() => onGestureStart?.("transform")}
-      onTransform={(event) => emitPreview(event.target as Konva.Group)}
       onTransformEnd={(event) => {
         const node = event.target as Konva.Group;
-        emitPreview(node);
+        emitTransformPreview(node);
         node.scale({ x: 1, y: 1 });
         onGestureCommit?.();
       }}
