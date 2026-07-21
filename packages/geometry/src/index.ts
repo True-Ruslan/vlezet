@@ -1,5 +1,7 @@
 export { validateTopology } from "./diagnostics";
 export type { TopologyDiagnostic, TopologyDiagnosticCode } from "./diagnostics";
+export { extractPlanarFaces } from "./faces";
+export type { FaceBoundaryEdge, PlanarFace } from "./faces";
 export { chooseGridStep } from "./grid";
 export { distanceBetween } from "./point";
 export type { Point2 } from "./point";
