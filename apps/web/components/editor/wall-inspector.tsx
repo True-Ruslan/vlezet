@@ -1,33 +1,34 @@
 "use client";
 
+import type { Wall } from "@vlezet/domain";
 import { wallLength } from "@vlezet/editor-core";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { editorStore } from "./use-editor-store";
 
-export function WallInspector() {
-  const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
-  const walls = useStore(editorStore, (state) => state.history.document.walls);
-  const wall = useMemo(() => walls.find((item) => item.id === selectedWallId) ?? null, [selectedWallId, walls]);
-  const [lengthInput, setLengthInput] = useState("");
+function wallVersionKey(wall: Wall): string {
+  return [
+    wall.id,
+    wall.start.x,
+    wall.start.y,
+    wall.end.x,
+    wall.end.y,
+    wall.thickness,
+  ].join(":");
+}
+
+function SelectedWallInspector({ wall }: Readonly<{ wall: Wall }>) {
+  const currentLength = wallLength(wall);
+  const [lengthInput, setLengthInput] = useState(() => String(Math.round(currentLength)));
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLengthInput(wall ? String(Math.round(wallLength(wall))) : "");
-    setError(null);
-  }, [wall]);
-
-  if (!wall) {
-    return <aside className="inspector-panel"><div className="inspector-empty"><strong>Ничего не выбрано</strong><span>Выберите стену, чтобы увидеть её точные параметры.</span></div></aside>;
-  }
-
-  const currentLength = wallLength(wall);
   const applyLength = () => {
     const value = Number(lengthInput.replace(",", "."));
     if (!Number.isFinite(value) || value <= 0) {
       setError("Введите положительную длину в миллиметрах.");
       return;
     }
+
     try {
       editorStore.getState().setSelectedWallLength(value);
       setError(null);
@@ -41,7 +42,14 @@ export function WallInspector() {
       <div className="inspector-heading"><span>Стена</span><code>{wall.id.slice(0, 8)}</code></div>
       <label className="field-label" htmlFor="wall-length">Точная длина</label>
       <div className="length-field-row">
-        <input id="wall-length" inputMode="decimal" value={lengthInput} onChange={(event) => setLengthInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyLength(); }} aria-invalid={Boolean(error)} />
+        <input
+          id="wall-length"
+          inputMode="decimal"
+          value={lengthInput}
+          onChange={(event) => setLengthInput(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") applyLength(); }}
+          aria-invalid={Boolean(error)}
+        />
         <span>мм</span>
       </div>
       <button className="primary-action" type="button" onClick={applyLength}>Применить</button>
@@ -53,4 +61,16 @@ export function WallInspector() {
       <p className="inspector-hint">Начальная точка стены остаётся на месте, направление сохраняется.</p>
     </aside>
   );
+}
+
+export function WallInspector() {
+  const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
+  const walls = useStore(editorStore, (state) => state.history.document.walls);
+  const wall = useMemo(() => walls.find((item) => item.id === selectedWallId) ?? null, [selectedWallId, walls]);
+
+  if (!wall) {
+    return <aside className="inspector-panel"><div className="inspector-empty"><strong>Ничего не выбрано</strong><span>Выберите стену, чтобы увидеть её точные параметры.</span></div></aside>;
+  }
+
+  return <SelectedWallInspector key={wallVersionKey(wall)} wall={wall} />;
 }
