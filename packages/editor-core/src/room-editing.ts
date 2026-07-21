@@ -1,12 +1,12 @@
-import type { VlezetDocumentV2 } from "@vlezet/domain";
+import type { VlezetDocument } from "@vlezet/domain";
 import { deriveRooms } from "@vlezet/geometry";
 
 export function setRoomName(
-  document: VlezetDocumentV2,
+  document: VlezetDocument,
   roomId: string,
   name: string,
   annotationId: string,
-): VlezetDocumentV2 {
+): VlezetDocument {
   const normalizedName = name.trim();
   if (!normalizedName) throw new Error("Название комнаты не может быть пустым");
   if (normalizedName.length > 80) throw new Error("Название комнаты слишком длинное");
