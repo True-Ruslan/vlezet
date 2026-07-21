@@ -29,6 +29,8 @@ export function ApartmentEditor() {
         case "redo": store.redo(); break;
         case "select-tool": store.setTool("select"); break;
         case "wall-tool": store.setTool("wall"); break;
+        case "door-tool": store.setTool("door"); break;
+        case "window-tool": store.setTool("window"); break;
         case "cancel": store.cancelDraft(); store.setTool("select"); break;
       }
     };
