@@ -7,6 +7,7 @@ export type OpeningLike = Readonly<{
   kind: "door" | "window";
   offset: number;
   width: number;
+  [property: string]: unknown;
 }>;
 
 export type OpeningDocumentLike<TOpening extends OpeningLike = OpeningLike> = TopologyDocumentLike & Readonly<{
