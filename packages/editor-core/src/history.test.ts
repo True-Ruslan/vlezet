@@ -1,9 +1,9 @@
+import { createEmptyDocument, type VlezetDocument } from "@vlezet/domain";
 import { describe, expect, it } from "vitest";
-import { createEmptyDocument, type VlezetDocumentV2 } from "@vlezet/domain";
 import { createHistoryState, executeCommand, redo, undo } from "./history";
 
 const initial = createEmptyDocument();
-const changed: VlezetDocumentV2 = {
+const changed: VlezetDocument = {
   ...initial,
   vertices: [
     { id: "a", position: { x: 0, y: 0 } },
@@ -35,7 +35,7 @@ describe("command history", () => {
       after: changed,
     });
     const undone = undo(first);
-    const alternative: VlezetDocumentV2 = { ...initial, roomAnnotations: [] };
+    const alternative: VlezetDocument = { ...initial, roomAnnotations: [] };
     const branched = executeCommand(undone, {
       type: "document/replace",
       label: "wall/set-thickness",
