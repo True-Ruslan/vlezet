@@ -1,4 +1,4 @@
-import { getVertex, getWallEndpoints, type Opening, type VlezetDocumentV2 } from "@vlezet/domain";
+import { getVertex, getWallEndpoints, type Opening, type VlezetDocument } from "@vlezet/domain";
 import { GEOMETRY_EPSILON_MM } from "@vlezet/geometry";
 import { topologicalWallLength } from "./topology-editing";
 
@@ -15,7 +15,7 @@ function intervalsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: nu
 }
 
 export function validateOpening(
-  document: VlezetDocumentV2,
+  document: VlezetDocument,
   opening: Opening,
   excludeOpeningId?: string,
 ): void {
@@ -53,7 +53,7 @@ export function validateOpening(
   }
 }
 
-export function addOpening(document: VlezetDocumentV2, opening: Opening): VlezetDocumentV2 {
+export function addOpening(document: VlezetDocument, opening: Opening): VlezetDocument {
   if (document.openings.some((candidate) => candidate.id === opening.id)) {
     throw new Error(`Opening already exists: ${opening.id}`);
   }
@@ -61,7 +61,7 @@ export function addOpening(document: VlezetDocumentV2, opening: Opening): Vlezet
   return { ...document, openings: [...document.openings, opening] };
 }
 
-export function updateOpening(document: VlezetDocumentV2, openingId: string, patch: OpeningPatch): VlezetDocumentV2 {
+export function updateOpening(document: VlezetDocument, openingId: string, patch: OpeningPatch): VlezetDocument {
   const current = document.openings.find((opening) => opening.id === openingId);
   if (!current) throw new Error(`Opening does not exist: ${openingId}`);
 
@@ -77,7 +77,7 @@ export function updateOpening(document: VlezetDocumentV2, openingId: string, pat
   };
 }
 
-export function deleteOpening(document: VlezetDocumentV2, openingId: string): VlezetDocumentV2 {
+export function deleteOpening(document: VlezetDocument, openingId: string): VlezetDocument {
   if (!document.openings.some((opening) => opening.id === openingId)) throw new Error(`Opening does not exist: ${openingId}`);
   return { ...document, openings: document.openings.filter((opening) => opening.id !== openingId) };
 }
