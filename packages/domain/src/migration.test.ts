@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { migrateDocument, type VlezetDocumentV1, type VlezetDocumentV2 } from "./index";
+import { migrateDocument, type VlezetDocumentV1, type VlezetDocumentV2, type VlezetDocumentV3 } from "./index";
 
 describe("document migration", () => {
-  it("migrates shared v1 endpoints into shared explicit vertices", () => {
+  it("migrates shared v1 endpoints into shared explicit vertices and schema v3", () => {
     const v1: VlezetDocumentV1 = {
       schemaVersion: 1,
       walls: [
@@ -13,7 +13,7 @@ describe("document migration", () => {
 
     const migrated = migrateDocument(v1);
 
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
     expect(migrated.vertices).toEqual([
       { id: "v1-vertex-0", position: { x: 0, y: 0 } },
       { id: "v1-vertex-1", position: { x: 4000, y: 0 } },
@@ -37,6 +37,7 @@ describe("document migration", () => {
     ]);
     expect(migrated.openings).toEqual([]);
     expect(migrated.roomAnnotations).toEqual([]);
+    expect(migrated.placedObjects).toEqual([]);
   });
 
   it("does not proximity-merge distinct serialized coordinates", () => {
@@ -52,7 +53,7 @@ describe("document migration", () => {
     expect(migrated.walls[0]?.endVertexId).not.toBe(migrated.walls[1]?.startVertexId);
   });
 
-  it("returns schema-v2 input unchanged", () => {
+  it("migrates schema-v2 input without changing shell geometry", () => {
     const v2: VlezetDocumentV2 = {
       schemaVersion: 2,
       vertices: [{ id: "v", position: { x: 10, y: 20 } }],
@@ -61,6 +62,18 @@ describe("document migration", () => {
       roomAnnotations: [],
     };
 
-    expect(migrateDocument(v2)).toBe(v2);
+    expect(migrateDocument(v2)).toEqual({ ...v2, schemaVersion: 3, placedObjects: [] });
+  });
+
+  it("returns schema-v3 input unchanged", () => {
+    const v3: VlezetDocumentV3 = {
+      schemaVersion: 3,
+      vertices: [],
+      walls: [],
+      openings: [],
+      roomAnnotations: [],
+      placedObjects: [],
+    };
+    expect(migrateDocument(v3)).toBe(v3);
   });
 });
