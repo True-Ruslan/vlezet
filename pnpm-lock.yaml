@@ -32,6 +32,9 @@ importers:
       '@vlezet/geometry':
         specifier: workspace:*
         version: link:../../packages/geometry
+      '@vlezet/projects':
+        specifier: workspace:*
+        version: link:../../packages/projects
       konva:
         specifier: 10.3.0
         version: 10.3.0
@@ -93,6 +96,19 @@ importers:
         version: 4.1.10(@types/node@24.10.1)(vite@8.1.5(@types/node@24.10.1))
 
   packages/geometry:
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.10.1)(vite@8.1.5(@types/node@24.10.1))
+
+  packages/projects:
+    dependencies:
+      '@vlezet/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       typescript:
         specifier: 6.0.3

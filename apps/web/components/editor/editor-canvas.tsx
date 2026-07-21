@@ -4,11 +4,13 @@ import { createPlacedObject, type Opening, type PlacedObject, type Wall } from "
 import { validateOpening, type PlacedObjectPatch } from "@vlezet/editor-core";
 import {
   chooseGridStep,
+  deriveDocumentBounds,
   deriveRooms,
   deriveVisibleWallIntervals,
   distanceBetween,
   evaluateObjectFits,
   expandedOrientedRectangle,
+  fitViewportToBounds,
   localToWorld,
   measureObjectClearances,
   objectRectangle,
@@ -29,7 +31,7 @@ import {
 } from "@vlezet/geometry";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Layer, Line, Stage, Text } from "react-konva";
 import { useStore } from "zustand";
 import { getFurniturePreset } from "./furniture-presets";
@@ -37,7 +39,6 @@ import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
 import { editorStore, type TopologySnapTarget } from "./use-editor-store";
 
-const INITIAL_SCALE = 0.12;
 const MIN_SCALE = 0.01;
 const MAX_SCALE = 2;
 const SNAP_TOLERANCE_PX = 12;
@@ -90,16 +91,37 @@ function measurementLabel(value: number | null): string {
   return value === null ? "—" : `${Math.round(value)} мм`;
 }
 
-export function EditorCanvas() {
+export type EditorCanvasProps = Readonly<{
+  initialViewport: ViewportTransform;
+  onViewportChange: (viewport: ViewportTransform) => void;
+  fitRequest: number;
+}>;
+
+type ViewportUpdater = ViewportTransform | ((current: ViewportTransform) => ViewportTransform);
+
+export function EditorCanvas({ initialViewport, onViewportChange, fitRequest }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
+  const handledFitRequestRef = useRef(fitRequest);
+  const viewportRef = useRef<ViewportTransform>({ ...initialViewport });
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [spacePressed, setSpacePressed] = useState(false);
   const [openingPreview, setOpeningPreview] = useState<OpeningPreview | null>(null);
   const [placementPreview, setPlacementPreview] = useState<PlacedObject | null>(null);
   const [objectGuides, setObjectGuides] = useState<readonly ObjectSnapGuide[]>([]);
-  const [viewport, setViewport] = useState<ViewportTransform>({ offsetX: 140, offsetY: 140, pixelsPerMillimeter: INITIAL_SCALE });
+  const [viewport, setViewport] = useState<ViewportTransform>(() => ({ ...initialViewport }));
+
+  const commitViewport = useCallback((next: ViewportTransform) => {
+    viewportRef.current = next;
+    setViewport(next);
+    onViewportChange(next);
+  }, [onViewportChange]);
+
+  const updateViewport = useCallback((update: ViewportUpdater) => {
+    const next = typeof update === "function" ? update(viewportRef.current) : update;
+    commitViewport(next);
+  }, [commitViewport]);
 
   const tool = useStore(editorStore, (state) => state.tool);
   const document = useStore(editorStore, (state) => state.history.document);
@@ -126,6 +148,12 @@ export function EditorCanvas() {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (fitRequest === handledFitRequestRef.current || size.width <= 1 || size.height <= 1) return;
+    handledFitRequestRef.current = fitRequest;
+    commitViewport(fitViewportToBounds(deriveDocumentBounds(document), size, 64));
+  }, [commitViewport, document, fitRequest, size]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -266,7 +294,7 @@ export function EditorCanvas() {
   const onWheel = (event: KonvaEventObject<WheelEvent>) => {
     event.evt.preventDefault();
     const pointer = pointerPosition(event); if (!pointer) return;
-    setViewport((current) => zoomViewportAt(current, pointer, Math.exp(-event.evt.deltaY * 0.0015), { min: MIN_SCALE, max: MAX_SCALE }));
+    updateViewport((current) => zoomViewportAt(current, pointer, Math.exp(-event.evt.deltaY * 0.0015), { min: MIN_SCALE, max: MAX_SCALE }));
   };
 
   const onMouseDown = (event: KonvaEventObject<MouseEvent>) => {
@@ -299,7 +327,7 @@ export function EditorCanvas() {
     if (panRef.current.active) {
       const dx = pointer.x - panRef.current.last.x, dy = pointer.y - panRef.current.last.y;
       panRef.current = { active: true, last: pointer };
-      setViewport((current) => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
+      updateViewport((current) => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
       return;
     }
     if (placementPresetId) updatePlacementPreview(pointer);
