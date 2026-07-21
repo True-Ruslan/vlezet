@@ -4,7 +4,13 @@ import { createEditorStore, type EditorEntityIdKind } from "./use-editor-store";
 const noSnap = (x: number, y: number) => ({ point: { x, y }, kind: "none" as const, guides: [] });
 
 function sequentialIds() {
-  const counters: Record<EditorEntityIdKind, number> = { wall: 0, vertex: 0, "room-annotation": 0, opening: 0 };
+  const counters: Record<EditorEntityIdKind, number> = {
+    wall: 0,
+    vertex: 0,
+    "room-annotation": 0,
+    opening: 0,
+    "placed-object": 0,
+  };
   return (kind: EditorEntityIdKind) => `${kind}-${++counters[kind]}`;
 }
 
