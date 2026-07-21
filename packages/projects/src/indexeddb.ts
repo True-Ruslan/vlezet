@@ -1,11 +1,14 @@
+import { validateProjectAsset, type ProjectAssetRecord, type ProjectAssetRepository } from "./assets";
 import { validateProject, type VlezetProjectRecord } from "./project";
 import type { ProjectRepository } from "./repository";
 
 const DATABASE_NAME = "vlezet";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const PROJECTS_STORE = "projects";
 const SETTINGS_STORE = "settings";
+const ASSETS_STORE = "assets";
 const UPDATED_AT_INDEX = "updatedAt";
+const PROJECT_ID_INDEX = "projectId";
 const LAST_PROJECT_KEY = "lastProjectId";
 
 type SettingRecord = Readonly<{ key: string; value: string | null }>;
@@ -17,10 +20,10 @@ export class ProjectStorageError extends Error {
   }
 }
 
-function requestResult<T>(request: IDBRequest<T>): Promise<T> {
+function requestResult<T>(request: IDBRequest<T>, message = "Не удалось прочитать локальные проекты."): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(new ProjectStorageError("Не удалось прочитать локальные проекты.", { cause: request.error }));
+    request.onerror = () => reject(new ProjectStorageError(message, { cause: request.error }));
   });
 }
 
@@ -53,6 +56,12 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains(SETTINGS_STORE)) {
         database.createObjectStore(SETTINGS_STORE, { keyPath: "key" });
       }
+      const assets = database.objectStoreNames.contains(ASSETS_STORE)
+        ? request.transaction!.objectStore(ASSETS_STORE)
+        : database.createObjectStore(ASSETS_STORE, { keyPath: "id" });
+      if (!assets.indexNames.contains(PROJECT_ID_INDEX)) {
+        assets.createIndex(PROJECT_ID_INDEX, "projectId", { unique: false });
+      }
     };
     request.onsuccess = () => {
       const database = request.result;
@@ -64,7 +73,13 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   });
 }
 
-export class IndexedDbProjectRepository implements ProjectRepository {
+async function deleteAssetsInTransaction(transaction: IDBTransaction, projectId: string): Promise<void> {
+  const store = transaction.objectStore(ASSETS_STORE);
+  const keys = await requestResult(store.index(PROJECT_ID_INDEX).getAllKeys(projectId), "Не удалось прочитать подложки проекта.");
+  for (const key of keys) store.delete(key);
+}
+
+export class IndexedDbProjectRepository implements ProjectRepository, ProjectAssetRepository {
   readonly #database: Promise<IDBDatabase>;
 
   constructor(factory: IDBFactory) {
@@ -99,8 +114,9 @@ export class IndexedDbProjectRepository implements ProjectRepository {
 
   async delete(id: string): Promise<void> {
     const database = await this.#database;
-    const transaction = database.transaction([PROJECTS_STORE, SETTINGS_STORE], "readwrite");
+    const transaction = database.transaction([PROJECTS_STORE, SETTINGS_STORE, ASSETS_STORE], "readwrite");
     transaction.objectStore(PROJECTS_STORE).delete(id);
+    await deleteAssetsInTransaction(transaction, id);
     const settings = transaction.objectStore(SETTINGS_STORE);
     const current = await requestResult<SettingRecord | undefined>(settings.get(LAST_PROJECT_KEY));
     if (current?.value === id) settings.put({ key: LAST_PROJECT_KEY, value: null } satisfies SettingRecord);
@@ -119,6 +135,36 @@ export class IndexedDbProjectRepository implements ProjectRepository {
     const database = await this.#database;
     const transaction = database.transaction(SETTINGS_STORE, "readwrite");
     transaction.objectStore(SETTINGS_STORE).put({ key: LAST_PROJECT_KEY, value: id } satisfies SettingRecord);
+    await transactionDone(transaction);
+  }
+
+  async getAsset(id: string): Promise<ProjectAssetRecord | null> {
+    const database = await this.#database;
+    const transaction = database.transaction(ASSETS_STORE, "readonly");
+    const value = await requestResult(transaction.objectStore(ASSETS_STORE).get(id), "Не удалось прочитать подложку.");
+    await transactionDone(transaction);
+    return value === undefined ? null : validateProjectAsset(value);
+  }
+
+  async putAsset(asset: ProjectAssetRecord): Promise<void> {
+    const valid = validateProjectAsset(asset);
+    const database = await this.#database;
+    const transaction = database.transaction(ASSETS_STORE, "readwrite");
+    transaction.objectStore(ASSETS_STORE).put(valid);
+    await transactionDone(transaction);
+  }
+
+  async deleteAsset(id: string): Promise<void> {
+    const database = await this.#database;
+    const transaction = database.transaction(ASSETS_STORE, "readwrite");
+    transaction.objectStore(ASSETS_STORE).delete(id);
+    await transactionDone(transaction);
+  }
+
+  async deleteAssetsForProject(projectId: string): Promise<void> {
+    const database = await this.#database;
+    const transaction = database.transaction(ASSETS_STORE, "readwrite");
+    await deleteAssetsInTransaction(transaction, projectId);
     await transactionDone(transaction);
   }
 }
