@@ -23,7 +23,7 @@ describe("placed object snapping", () => {
       rawPosition: { x: 1960, y: 1000 },
       moving,
       others: [target],
-      tolerance: 60,
+      tolerance: 45,
       gridStep: 500,
     });
     expect(result.position).toEqual({ x: 2000, y: 1000 });
