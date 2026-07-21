@@ -1,0 +1,22 @@
+{
+  "name": "vlezet",
+  "private": true,
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "10.7.0",
+    "eslint-config-next": "16.2.10",
+    "prettier": "3.9.6",
+    "turbo": "2.10.5",
+    "typescript": "6.0.3"
+  }
+}

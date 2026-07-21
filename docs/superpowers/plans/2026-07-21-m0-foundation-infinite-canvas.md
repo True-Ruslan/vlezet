@@ -1,26 +1,25 @@
 # M0 — Foundation and Infinite Canvas Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build the first demonstrable Vlezet editor where a user can pan/zoom an infinite millimetre-based canvas, draw a wall, receive basic snapping assistance, set an exact wall length, and undo/redo edits.
+**Goal:** Deliver the first usable Vlezet editor slice: a millimetre-based infinite 2D canvas with pan/zoom, adaptive grid, wall drawing, deterministic snapping, exact wall length editing, selection, and command-oriented undo/redo.
 
-**Architecture:** Use a TypeScript monorepo. Framework-independent domain, geometry, and editor-core packages own persistent data and deterministic operations. The Next.js web app renders that state through Konva and keeps viewport/tool/selection state ephemeral. Canvas pixels never become source-of-truth geometry.
+**Architecture:** Keep the apartment document framework-independent. `@vlezet/domain` owns persistent entities, `@vlezet/geometry` owns deterministic math, `@vlezet/editor-core` owns commands/history/editing operations, and `apps/web` translates browser/Konva input into core operations. Viewport pixels and transient tool state never enter the persisted document.
 
-**Tech Stack:** Node.js >=22.13, pnpm 11.15.1, Turborepo 2.10.5, TypeScript 7.0.2, Next.js 16.2.10, React 19.2.7, Konva 10.3.0, react-konva 19.2.5, Zustand 5.0.14, Vitest 4.1.10.
+**Tech Stack:** Node.js >=22.13, pnpm 11.15.1, Turborepo 2.10.5, TypeScript 6.0.3, Next.js 16.2.10, React 19.2.7, Konva 10.3.0, react-konva 19.2.5, Zustand 5.0.14, Vitest 4.1.10.
 
-## Global Constraints
+> TypeScript 6.0.3 is intentionally pinned instead of current TypeScript 7 because the current `@typescript-eslint/parser` compatibility range is `<6.1.0`. Upgrade only after the lint toolchain officially supports TypeScript 7.
 
-- TypeScript is the primary implementation language.
+## Global constraints
+
 - Millimetres are the canonical world unit.
 - Screen pixels are never persisted as apartment geometry.
-- Domain and geometry packages do not depend on React, Konva, or Next.js.
+- Domain/geometry/editor-core must not depend on React, Konva, or Next.js.
 - Canvas objects are projections, not source data.
-- Project documents are schema-versioned from the first implementation.
-- Undo/redo is command-oriented.
-- Pointer interactions remain local and low-latency.
-- M0 does not add auth, database persistence, 3D, AI, room detection, doors/windows, or furniture.
-
----
+- Project documents are schema-versioned from day one.
+- Undo/redo is command-oriented and records one semantic entry per completed gesture.
+- Pointer interactions are local and do not depend on network round-trips.
+- M0 explicitly excludes auth, database persistence, doors/windows, room detection, furniture, import, 3D, and AI.
 
 ## File map
 
@@ -31,641 +30,243 @@ vlezet/
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   └── page.tsx
-│   ├── components/editor/
-│   │   ├── apartment-editor.tsx
-│   │   ├── editor-canvas.tsx
-│   │   ├── editor-toolbar.tsx
-│   │   ├── wall-inspector.tsx
-│   │   └── use-editor-store.ts
-│   ├── package.json
-│   └── tsconfig.json
-├── packages/domain/
-│   ├── src/document.ts
-│   ├── src/wall.ts
-│   ├── src/index.ts
-│   └── src/*.test.ts
-├── packages/geometry/
-│   ├── src/point.ts
-│   ├── src/viewport.ts
-│   ├── src/grid.ts
-│   ├── src/snapping.ts
-│   ├── src/index.ts
-│   └── src/*.test.ts
-├── packages/editor-core/
-│   ├── src/commands.ts
-│   ├── src/history.ts
-│   ├── src/wall-editing.ts
-│   ├── src/index.ts
-│   └── src/*.test.ts
+│   └── components/editor/
+│       ├── apartment-editor.tsx
+│       ├── editor-canvas.tsx
+│       ├── editor-toolbar.tsx
+│       ├── keyboard.ts
+│       ├── use-editor-store.ts
+│       └── wall-inspector.tsx
+├── packages/domain/src/
+├── packages/geometry/src/
+├── packages/editor-core/src/
+├── docs/milestones/m0-acceptance.md
+├── .github/workflows/ci.yml
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── turbo.json
-├── tsconfig.base.json
-└── .gitignore
+└── tsconfig.base.json
 ```
 
----
+## Task 1 — Workspace foundation
 
-### Task 1: Bootstrap the monorepo and web shell
+**Deliverable:** Installable TypeScript monorepo with Next.js app and independent domain packages.
 
-**Files:**
-- Create: `package.json`
-- Create: `pnpm-workspace.yaml`
-- Create: `turbo.json`
-- Create: `tsconfig.base.json`
-- Create: `.gitignore`
-- Create: `apps/web/package.json`
-- Create: `apps/web/tsconfig.json`
-- Create: `apps/web/app/layout.tsx`
-- Create: `apps/web/app/page.tsx`
-- Create: `apps/web/app/globals.css`
-- Create package manifests/tsconfigs for `packages/domain`, `packages/geometry`, `packages/editor-core`
+- Root package manager: `pnpm@11.15.1`.
+- Node floor: `>=22.13.0`.
+- Workspace packages: `@vlezet/domain`, `@vlezet/geometry`, `@vlezet/editor-core`, `web`.
+- Root commands: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm dev`.
+- Turborepo orchestrates build/test/typecheck; ESLint runs from the root.
 
-**Interfaces:**
-- Produces workspace packages `@vlezet/domain`, `@vlezet/geometry`, `@vlezet/editor-core`.
-- Produces root scripts `dev`, `build`, `test`, `typecheck`, `lint`.
-
-- [ ] **Step 1: Create workspace manifests and TypeScript configuration**
-
-Use exact workspace boundaries and dependency directions. `domain` has no internal dependencies; `geometry` has no UI/framework dependencies; `editor-core` may depend on `domain` and `geometry`; `web` may depend on all three.
-
-- [ ] **Step 2: Install dependencies and commit the lockfile**
-
-Run:
+Verification:
 
 ```bash
-corepack enable
 pnpm install
-```
-
-Expected: `pnpm-lock.yaml` is generated without peer-dependency errors that block installation.
-
-- [ ] **Step 3: Verify the empty application shell**
-
-Run:
-
-```bash
 pnpm typecheck
 pnpm build
 ```
 
-Expected: both commands exit 0.
+## Task 2 — Schema-versioned domain document
 
-- [ ] **Step 4: Commit**
+**Files:** `packages/domain/src/document.ts`, `wall.ts`, `index.ts`, tests.
 
-```bash
-git add .
-git commit -m "chore: bootstrap Vlezet monorepo"
-```
-
----
-
-### Task 2: Define the schema-versioned wall document
-
-**Files:**
-- Create: `packages/domain/src/document.test.ts`
-- Create: `packages/domain/src/document.ts`
-- Create: `packages/domain/src/wall.ts`
-- Create: `packages/domain/src/index.ts`
-
-**Interfaces:**
-- Produces `Millimeters`, `Point2`, `Wall`, `VlezetDocument`.
-- Produces `createEmptyDocument(): VlezetDocument`.
-- Produces `createWall(input): Wall` with stable caller-provided IDs.
-
-- [ ] **Step 1: Write failing tests**
-
-Tests must prove:
+Interfaces:
 
 ```ts
-expect(createEmptyDocument()).toEqual({ schemaVersion: 1, walls: [] });
-```
-
-and that `createWall` preserves exact millimetre coordinates/thickness without pixel conversion.
-
-- [ ] **Step 2: Run RED**
-
-```bash
-pnpm --filter @vlezet/domain test
-```
-
-Expected: FAIL because the domain API does not exist.
-
-- [ ] **Step 3: Implement the minimal domain model**
-
-Use:
-
-```ts
-export type Millimeters = number;
-export type Point2 = Readonly<{ x: Millimeters; y: Millimeters }>;
-export type Wall = Readonly<{
+type Millimeters = number;
+type Point2 = Readonly<{ x: Millimeters; y: Millimeters }>;
+type Wall = Readonly<{
   id: string;
   start: Point2;
   end: Point2;
   thickness: Millimeters;
 }>;
-
-export type VlezetDocument = Readonly<{
+type VlezetDocument = Readonly<{
   schemaVersion: 1;
   walls: readonly Wall[];
 }>;
 ```
 
-- [ ] **Step 4: Run GREEN**
+TDD acceptance:
 
-```bash
-pnpm --filter @vlezet/domain test
-```
+- `createEmptyDocument()` returns `{ schemaVersion: 1, walls: [] }`.
+- `createWall` preserves exact millimetre coordinates and caller-provided stable ID.
 
-Expected: PASS.
+## Task 3 — Viewport geometry and adaptive grid
 
-- [ ] **Step 5: Commit**
+**Files:** `packages/geometry/src/point.ts`, `viewport.ts`, `grid.ts`, tests.
 
-```bash
-git add packages/domain
-git commit -m "feat(domain): add schema-versioned wall document"
-```
-
----
-
-### Task 3: Implement deterministic viewport transforms and adaptive grid
-
-**Files:**
-- Create: `packages/geometry/src/viewport.test.ts`
-- Create: `packages/geometry/src/viewport.ts`
-- Create: `packages/geometry/src/grid.test.ts`
-- Create: `packages/geometry/src/grid.ts`
-- Create: `packages/geometry/src/point.ts`
-- Create: `packages/geometry/src/index.ts`
-
-**Interfaces:**
-- Produces `ViewportTransform { offsetX, offsetY, pixelsPerMillimeter }`.
-- Produces `worldToScreen(point, viewport)`.
-- Produces `screenToWorld(point, viewport)`.
-- Produces `zoomViewportAt(viewport, screenAnchor, factor, limits)` preserving the world point under the pointer.
-- Produces `chooseGridStep(pixelsPerMillimeter): Millimeters`.
-
-- [ ] **Step 1: Write failing transform tests**
-
-Cover exact round-trip conversion and pointer-anchored zoom:
+Interfaces:
 
 ```ts
-const world = { x: 1500, y: -750 };
-expect(screenToWorld(worldToScreen(world, viewport), viewport)).toEqual(world);
+type ViewportTransform = {
+  offsetX: number;
+  offsetY: number;
+  pixelsPerMillimeter: number;
+};
+
+worldToScreen(point, viewport)
+screenToWorld(point, viewport)
+zoomViewportAt(viewport, anchor, factor, limits)
+chooseGridStep(pixelsPerMillimeter)
 ```
 
-For zoom, assert the world coordinate below the pointer is unchanged before/after zoom within floating-point tolerance.
+Required tests:
 
-- [ ] **Step 2: Run RED**
+- world -> screen -> world round-trip;
+- pointer-centred zoom preserves the world point under the pointer;
+- grid steps come from `[50,100,250,500,1000,2000,5000,10000]` mm;
+- selected grid spacing remains at least about 28 screen pixels.
 
-```bash
-pnpm --filter @vlezet/geometry test -- viewport grid
+## Task 4 — Deterministic snapping
+
+**File:** `packages/geometry/src/snapping.ts` + tests.
+
+Priority:
+
+```text
+endpoint > axis > grid > none
 ```
 
-Expected: FAIL because APIs are missing.
+API returns both the winning snapped point and guide metadata. Rendering must not recompute the decision.
 
-- [ ] **Step 3: Implement transforms and adaptive grid**
+Required tests:
 
-Grid steps must come from this finite sequence:
+- endpoint beats axis/grid;
+- near-horizontal/vertical input aligns to wall start;
+- otherwise nearest grid intersection wins;
+- identical inputs produce identical outputs.
 
-```ts
-[50, 100, 250, 500, 1000, 2000, 5000, 10000]
-```
+## Task 5 — Command history and exact wall length
 
-Choose the first step whose screen spacing is at least 28 px; fall back to the largest step.
+**Files:** `packages/editor-core/src/commands.ts`, `history.ts`, `wall-editing.ts`, tests.
 
-- [ ] **Step 4: Run GREEN**
-
-```bash
-pnpm --filter @vlezet/geometry test
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add packages/geometry
-git commit -m "feat(geometry): add viewport transforms and adaptive grid"
-```
-
----
-
-### Task 4: Implement basic wall snapping
-
-**Files:**
-- Create: `packages/geometry/src/snapping.test.ts`
-- Create: `packages/geometry/src/snapping.ts`
-- Modify: `packages/geometry/src/index.ts`
-
-**Interfaces:**
-- Produces:
-
-```ts
-type SnapKind = 'endpoint' | 'axis' | 'grid' | 'none';
-type SnapGuide = Readonly<{ axis: 'x' | 'y'; value: number }>;
-type SnapResult = Readonly<{
-  point: Point2;
-  kind: SnapKind;
-  guides: readonly SnapGuide[];
-}>;
-
-snapWallPoint({ rawPoint, startPoint, endpoints, gridStep, tolerance }): SnapResult
-```
-
-- [ ] **Step 1: Write failing tests for priority and determinism**
-
-Required cases:
-
-1. Nearby existing endpoint wins over grid/axis.
-2. With no endpoint, a point near horizontal alignment snaps `y` to `startPoint.y`.
-3. With no endpoint/axis candidate, point snaps to nearest grid intersection.
-4. Repeated calls with identical input return identical output.
-
-- [ ] **Step 2: Run RED**
-
-```bash
-pnpm --filter @vlezet/geometry test -- snapping
-```
-
-Expected: FAIL.
-
-- [ ] **Step 3: Implement priority `endpoint > axis > grid > none`**
-
-Endpoint candidates use Euclidean distance. Axis candidates compare absolute x/y deviation against tolerance. Grid uses nearest multiple of `gridStep`.
-
-- [ ] **Step 4: Run GREEN**
-
-```bash
-pnpm --filter @vlezet/geometry test
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add packages/geometry
-git commit -m "feat(geometry): add deterministic wall snapping"
-```
-
----
-
-### Task 5: Add command-oriented history and exact wall-length editing
-
-**Files:**
-- Create: `packages/editor-core/src/history.test.ts`
-- Create: `packages/editor-core/src/history.ts`
-- Create: `packages/editor-core/src/commands.ts`
-- Create: `packages/editor-core/src/wall-editing.test.ts`
-- Create: `packages/editor-core/src/wall-editing.ts`
-- Create: `packages/editor-core/src/index.ts`
-
-**Interfaces:**
-- Produces command union:
+Public command surface:
 
 ```ts
 type EditorCommand =
-  | { type: 'wall/add'; wall: Wall }
-  | { type: 'wall/replace'; before: Wall; after: Wall };
+  | { type: "wall/add"; wall: Wall }
+  | { type: "wall/replace"; before: Wall; after: Wall };
 ```
 
-- Produces:
+History requirements:
+
+- add -> undo -> redo restores exact documents;
+- a new command after undo clears redo history;
+- pointer movement does not create history entries;
+- a completed wall gesture creates exactly one history entry.
+
+Exact length behavior:
+
+- start point remains fixed;
+- direction remains unchanged;
+- zero, negative, NaN, Infinity, and zero-length source walls are rejected.
+
+## Task 6 — Editor state store
+
+**File:** `apps/web/components/editor/use-editor-store.ts` + tests.
+
+Persistent state delegates to editor-core `HistoryState`.
+
+Ephemeral state:
 
 ```ts
-type HistoryState = {
-  document: VlezetDocument;
-  past: readonly HistoryEntry[];
-  future: readonly HistoryEntry[];
-};
-
-executeCommand(state, command): HistoryState;
-undo(state): HistoryState;
-redo(state): HistoryState;
-setWallLength(wall, lengthMm): Wall;
+type EditorTool = "select" | "wall";
+type DraftWall = {
+  start: Point2;
+  end: Point2;
+  snap: SnapResult;
+} | null;
 ```
 
-- [ ] **Step 1: Write failing history tests**
+Actions:
 
-Prove add -> undo -> redo returns exact documents and that executing a new command clears redo history.
+- set tool;
+- select wall;
+- begin/update/commit/cancel wall draft;
+- edit selected wall exact length;
+- undo/redo.
 
-- [ ] **Step 2: Write failing exact-length tests**
+Tests prove:
 
-For a wall from `(0,0)` to `(3000,4000)`, setting length to `10000` must keep the start fixed and preserve direction, producing `(6000,8000)`.
+- commit produces one command;
+- cancel produces none;
+- exact length produces one replace command;
+- wall tool chains the next draft from the committed endpoint;
+- selection is cleared safely if undo removes the selected wall.
 
-Reject non-finite or non-positive lengths with a domain-level error.
+## Task 7 — Infinite Canvas
 
-- [ ] **Step 3: Run RED**
+**File:** `apps/web/components/editor/editor-canvas.tsx`.
+
+Implementation requirements:
+
+- responsive Stage via `ResizeObserver`;
+- viewport is local ephemeral state;
+- wheel zoom is pointer-centred and clamped to `0.01..2 px/mm`;
+- pan via middle mouse or `Space + primary drag`;
+- visible grid lines only, with small overscan;
+- snapping tolerance is a fixed 12 px converted into world millimetres;
+- wall thickness is stored in mm and projected to pixels only for rendering.
+
+## Task 8 — Wall interaction and snapping UX
+
+Two-click/chain flow:
+
+1. Activate Wall (`W`).
+2. First click establishes snapped start.
+3. Pointer move previews snapped end and guide.
+4. Next click commits one wall command.
+5. Next draft starts automatically from the committed endpoint.
+6. `Esc` cancels the chain and returns to Select.
+
+Canvas renders:
+
+- committed walls;
+- draft wall;
+- endpoint affordances;
+- axis guide metadata;
+- live draft length in millimetres.
+
+## Task 9 — Selection, exact-length inspector, shortcuts
+
+**Files:** `editor-toolbar.tsx`, `wall-inspector.tsx`, `keyboard.ts`, `apartment-editor.tsx`.
+
+Shortcuts:
+
+```text
+V                  Select
+W                  Wall
+Esc                Cancel chain / Select
+Ctrl/Cmd+Z         Undo
+Ctrl/Cmd+Shift+Z   Redo
+Ctrl/Cmd+Y         Redo
+```
+
+Inspector validates exact positive finite millimetres before committing a `wall/replace` command.
+
+## Task 10 — CI and acceptance
+
+GitHub Actions must run on push/PR:
 
 ```bash
-pnpm --filter @vlezet/editor-core test
-```
-
-Expected: FAIL.
-
-- [ ] **Step 4: Implement command application/inversion and length editing**
-
-History stores one semantic entry per completed gesture. Do not create one entry per pointer-move event.
-
-- [ ] **Step 5: Run GREEN**
-
-```bash
-pnpm --filter @vlezet/editor-core test
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add packages/editor-core
-git commit -m "feat(editor-core): add command history and wall length editing"
-```
-
----
-
-### Task 6: Build the client editor store
-
-**Files:**
-- Create: `apps/web/components/editor/use-editor-store.test.ts`
-- Create: `apps/web/components/editor/use-editor-store.ts`
-
-**Interfaces:**
-- Persistent state delegates to `HistoryState` from editor-core.
-- Ephemeral state contains:
-
-```ts
-type EditorTool = 'select' | 'wall';
-type DraftWall = { start: Point2; end: Point2; snap: SnapResult } | null;
-```
-
-- Store actions include `setTool`, `selectWall`, `beginWall`, `updateDraftWall`, `commitDraftWall`, `setSelectedWallLength`, `undo`, `redo`.
-
-- [ ] **Step 1: Write failing store tests**
-
-Use Zustand vanilla store construction for tests. Verify:
-
-- committing a draft wall creates exactly one history entry;
-- cancelling a draft creates none;
-- exact-length edit creates one `wall/replace` history entry;
-- undo/redo delegates correctly.
-
-- [ ] **Step 2: Run RED**
-
-```bash
-pnpm --filter web test -- use-editor-store
-```
-
-Expected: FAIL.
-
-- [ ] **Step 3: Implement minimal store**
-
-ID generation occurs only at wall commit using `crypto.randomUUID()` in the browser, with injectable ID factory in tests.
-
-- [ ] **Step 4: Run GREEN**
-
-```bash
-pnpm --filter web test
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/web/components/editor/use-editor-store*
-git commit -m "feat(web): add editor state store"
-```
-
----
-
-### Task 7: Render the infinite canvas with pan, zoom, and adaptive grid
-
-**Files:**
-- Create: `apps/web/components/editor/editor-canvas.tsx`
-- Create: `apps/web/components/editor/apartment-editor.tsx`
-- Modify: `apps/web/app/page.tsx`
-- Modify: `apps/web/app/globals.css`
-
-**Interfaces:**
-- `EditorCanvas` owns only DOM/Konva rendering and pointer translation.
-- It consumes world data from the store and geometry helpers.
-- Viewport state is ephemeral and never serialized into the domain document.
-
-- [ ] **Step 1: Add a browser-facing smoke test for transform behavior where practical**
-
-At minimum keep viewport mathematics covered in geometry tests. Add component-level tests only for DOM behavior that does not require re-testing Konva internals.
-
-- [ ] **Step 2: Implement responsive Stage sizing**
-
-Use `ResizeObserver`; do not bind world coordinates to initial browser dimensions.
-
-- [ ] **Step 3: Implement pan**
-
-Support middle-button drag and `Space + primary-button drag`. Panning changes viewport offset only.
-
-- [ ] **Step 4: Implement pointer-centred wheel zoom**
-
-Clamp `pixelsPerMillimeter` to a practical range equivalent to approximately `0.01` through `2` px/mm.
-
-- [ ] **Step 5: Render adaptive grid**
-
-Compute visible world bounds from the viewport. Render only visible grid lines plus a modest overscan; never create an unbounded number of Konva nodes.
-
-- [ ] **Step 6: Verify**
-
-```bash
-pnpm typecheck
-pnpm --filter web test
-pnpm build
-```
-
-Expected: all exit 0.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add apps/web
-git commit -m "feat(web): add infinite canvas pan zoom and grid"
-```
-
----
-
-### Task 8: Add wall drawing, snapping guides, and selection
-
-**Files:**
-- Modify: `apps/web/components/editor/editor-canvas.tsx`
-- Create: `apps/web/components/editor/editor-toolbar.tsx`
-- Modify: `apps/web/components/editor/apartment-editor.tsx`
-
-**Interfaces:**
-- Wall tool uses `screenToWorld` before all geometry operations.
-- Snapping tolerance is converted from a fixed screen tolerance (12 px) into world millimetres by dividing by current `pixelsPerMillimeter`.
-- Rendered wall width uses `wall.thickness * pixelsPerMillimeter` but source thickness stays in millimetres.
-
-- [ ] **Step 1: Write interaction-state tests before production behavior changes**
-
-Extend store tests for two-click wall creation and selection transitions.
-
-- [ ] **Step 2: Run RED**
-
-```bash
-pnpm --filter web test
-```
-
-Expected: new tests fail.
-
-- [ ] **Step 3: Implement two-click wall creation**
-
-First click establishes snapped start. Pointer movement updates a snapped preview. Second click commits one `wall/add` command and chains the next draft start from the committed end so connected wall drawing is fast. `Escape` cancels the active draft and returns to select mode.
-
-- [ ] **Step 4: Render snap guides and endpoint affordances**
-
-Guides are projections of `SnapResult.guides`; the UI must not re-run snapping decisions.
-
-- [ ] **Step 5: Implement wall selection**
-
-Clicking a wall in select mode sets `selectedWallId`. Clicking empty canvas clears selection unless panning.
-
-- [ ] **Step 6: Run GREEN and build**
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
-
-Expected: all exit 0.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add apps/web
-git commit -m "feat(web): add wall drawing snapping and selection"
-```
-
----
-
-### Task 9: Add exact-length inspector and undo/redo UX
-
-**Files:**
-- Create: `apps/web/components/editor/wall-inspector.tsx`
-- Modify: `apps/web/components/editor/editor-toolbar.tsx`
-- Modify: `apps/web/components/editor/apartment-editor.tsx`
-- Modify: `apps/web/components/editor/use-editor-store.ts`
-
-**Interfaces:**
-- Inspector displays selected wall length in millimetres and metres.
-- Editing exact length uses `setWallLength` from editor-core and commits one `wall/replace` command.
-- Keyboard shortcuts: `Ctrl/Cmd+Z` undo; `Ctrl/Cmd+Shift+Z` and `Ctrl/Cmd+Y` redo.
-
-- [ ] **Step 1: Add failing tests for exact-length action and keyboard command helpers**
-
-Do not test browser key dispatch if a pure shortcut-mapping helper can be tested instead.
-
-- [ ] **Step 2: Run RED**
-
-```bash
-pnpm --filter web test
-```
-
-Expected: FAIL for new behavior.
-
-- [ ] **Step 3: Implement inspector**
-
-Invalid input stays local to the field and is not committed. Commit on Enter or explicit Apply action. Positive finite millimetres only.
-
-- [ ] **Step 4: Implement undo/redo buttons and shortcuts**
-
-Buttons reflect history availability. Undo/redo must restore exact wall geometry and current selection must safely clear if its entity no longer exists.
-
-- [ ] **Step 5: Run GREEN**
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
-
-Expected: all exit 0.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add apps/web
-git commit -m "feat(web): add exact wall length and undo redo UX"
-```
-
----
-
-### Task 10: M0 verification, documentation, and acceptance
-
-**Files:**
-- Modify: `README.md`
-- Create: `docs/milestones/m0-acceptance.md`
-
-**Interfaces:**
-- Documents local run commands and M0 controls.
-- Records known non-goals without promising unfinished features.
-
-- [ ] **Step 1: Run the complete verification suite**
-
-```bash
+pnpm install
 pnpm test
 pnpm typecheck
 pnpm lint
 pnpm build
 ```
 
-Expected: all exit 0.
+The first CI run may generate `pnpm-lock.yaml`; it should be committed after successful dependency resolution and subsequent CI should use the committed lockfile.
 
-- [ ] **Step 2: Perform manual acceptance**
-
-Verify in a desktop browser:
-
-1. Canvas fills the editor workspace.
-2. Wheel zoom keeps the same world point under the cursor.
-3. Middle-drag and Space+drag pan without changing geometry.
-4. Grid spacing adapts as zoom changes.
-5. Wall tool creates a wall in real world millimetres.
-6. Nearby endpoint snapping is visibly preferred.
-7. Horizontal/vertical assistance works.
-8. Exact length edit preserves wall direction and start point.
-9. Undo removes/restores a committed wall or length edit one semantic action at a time.
-10. No persisted model contains screen-pixel geometry.
-
-- [ ] **Step 3: Update README and acceptance document**
-
-Document:
-
-```bash
-corepack enable
-pnpm install
-pnpm dev
-```
-
-and the controls for select, wall, pan, zoom, cancel, undo, redo.
-
-- [ ] **Step 4: Final commit**
-
-```bash
-git add README.md docs/milestones/m0-acceptance.md
-git commit -m "docs: document M0 editor controls and acceptance"
-```
-
----
-
-## Self-review
-
-- M0 scope is one independently testable vertical slice.
-- Every persistent geometry value is millimetre-based.
-- React/Konva dependencies remain in the web app only.
-- Geometry and history are tested without canvas/browser dependencies.
-- Snapping has deterministic priority and exposes guide metadata.
-- Wall gestures create one history entry, not one per pointer move.
-- No auth/database/3D/import/AI work is included.
-- No placeholder tasks remain.
+Manual acceptance is documented in `docs/milestones/m0-acceptance.md`.
 
 ## Definition of done
 
-M0 is complete only when a clean checkout can run `pnpm install`, `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `pnpm build` successfully, and the browser acceptance flow demonstrates pan/zoom/grid/wall drawing/snapping/exact length/undo/redo on the same schema-versioned millimetre document.
+M0 is done only when:
+
+- all automated checks are green;
+- a clean checkout installs reproducibly with committed lockfile;
+- the browser editor demonstrates pan, pointer-centred zoom, adaptive grid, wall drawing, snapping, selection, exact length editing, and semantic undo/redo;
+- no persisted model contains screen-pixel geometry;
+- no deferred M1+ capability is prematurely coupled into the M0 core.

@@ -27,6 +27,53 @@ The first product is a strong 2D planner:
 - 2D editing comes before 3D rendering.
 - Undo/redo, snapping, serialization, and deterministic geometry are first-class concerns.
 
+## Current milestone — M0
+
+The first editor slice includes:
+
+- infinite 2D canvas with adaptive grid;
+- pointer-centred zoom;
+- pan with `Space + drag` or the middle mouse button;
+- millimetre-based world coordinates;
+- wall drawing with endpoint, axis, and grid snapping;
+- exact wall-length editing;
+- command-oriented undo/redo;
+- framework-independent domain, geometry, and editor-core packages.
+
+### Run locally
+
+Requirements: Node.js `>=22.13` and Corepack/pnpm.
+
+```bash
+corepack enable
+pnpm install
+pnpm dev
+```
+
+Then open the URL printed by Next.js.
+
+### Editor controls
+
+| Action | Control |
+| --- | --- |
+| Select tool | `V` |
+| Wall tool | `W` |
+| Place wall points | Left click |
+| Pan | `Space + drag` or middle mouse drag |
+| Zoom | Mouse wheel |
+| Cancel wall chain / select tool | `Esc` |
+| Undo | `Ctrl/Cmd + Z` |
+| Redo | `Ctrl/Cmd + Shift + Z` or `Ctrl/Cmd + Y` |
+
+## Quality commands
+
+```bash
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+```
+
 ## Roadmap
 
 - **M0 — Foundation and Infinite Canvas:** editor shell, pan/zoom, grid, world coordinates, wall drawing, exact length, snapping, undo/redo.
@@ -37,10 +84,7 @@ The first product is a strong 2D planner:
 - **M5 — Spatial 3D:** deterministic 3D projection of the 2D model.
 - **M6 — Intelligent Planning:** editable AI-assisted layout suggestions with deterministic geometry validation.
 
-## Design
+## Design and plans
 
-The current product and architecture specification is documented in:
-
-[`docs/superpowers/specs/2026-07-21-vlezet-product-design.md`](docs/superpowers/specs/2026-07-21-vlezet-product-design.md)
-
-The next implementation planning scope is intentionally limited to **M0 — Foundation and Infinite Canvas**.
+- [`docs/superpowers/specs/2026-07-21-vlezet-product-design.md`](docs/superpowers/specs/2026-07-21-vlezet-product-design.md)
+- [`docs/superpowers/plans/2026-07-21-m0-foundation-infinite-canvas.md`](docs/superpowers/plans/2026-07-21-m0-foundation-infinite-canvas.md)
