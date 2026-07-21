@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -27,8 +27,24 @@ jobs:
         with:
           node-version: 22.16.0
 
+      - name: Apply M3 canvas patch
+        run: node scripts/apply-m3-canvas-patch.mjs
+
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+
+      - name: Commit generated M3 sources
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/m3-local-first-projects'
+        shell: bash
+        run: |
+          if git diff --quiet -- apps/web/components/editor/editor-canvas.tsx pnpm-lock.yaml; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/components/editor/editor-canvas.tsx pnpm-lock.yaml
+          git commit -m "feat: connect persisted editor viewport"
+          git push
 
       - name: Unit tests
         id: tests
