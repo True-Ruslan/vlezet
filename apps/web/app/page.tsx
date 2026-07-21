@@ -1,5 +1,5 @@
-import { ApartmentEditor } from "../components/editor/apartment-editor";
+import { ProjectApp } from "../components/projects/project-app";
 
 export default function HomePage() {
-  return <ApartmentEditor />;
+  return <ProjectApp />;
 }

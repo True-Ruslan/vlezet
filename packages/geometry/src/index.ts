@@ -1,3 +1,5 @@
+export { deriveDocumentBounds, fitViewportToBounds } from "./content-bounds";
+export type { DeriveDocumentBoundsOptions, ViewportSize, WorldBounds } from "./content-bounds";
 export { validateTopology } from "./diagnostics";
 export type { TopologyDiagnostic, TopologyDiagnosticCode } from "./diagnostics";
 export { extractPlanarFaces } from "./faces";
