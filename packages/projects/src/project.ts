@@ -15,10 +15,12 @@ import {
   type V1Wall,
 } from "@vlezet/domain";
 
-export const PROJECT_STORAGE_VERSION = 1 as const;
+export const PROJECT_STORAGE_VERSION = 2 as const;
 export const MAX_PROJECT_NAME_LENGTH = 80;
 export const MIN_PROJECT_SCALE = 0.01;
 export const MAX_PROJECT_SCALE = 2;
+export const MIN_REFERENCE_SCALE = 0.05;
+export const MAX_REFERENCE_SCALE = 100;
 
 export type ProjectViewport = Readonly<{
   offsetX: number;
@@ -28,10 +30,46 @@ export type ProjectViewport = Readonly<{
 
 export type ProjectUiState = Readonly<{
   furnitureCatalogOpen: boolean;
+  referencePanelOpen: boolean;
+}>;
+
+export type ReferenceAlignment = "none" | "horizontal" | "vertical";
+
+export type ReferencePlanSource =
+  | Readonly<{ kind: "image"; originalMimeType: "image/png" | "image/jpeg" }>
+  | Readonly<{ kind: "pdf"; pageNumber: number; pageCount: number }>;
+
+export type ReferencePlanTransform = Readonly<{
+  originWorld: Point2;
+  millimetersPerPixel: number;
+  rotationDeg: number;
+}>;
+
+export type ReferencePlanCalibration = Readonly<{
+  pointA: Point2;
+  pointB: Point2;
+  knownLengthMm: number;
+  alignment: ReferenceAlignment;
+}>;
+
+export type ReferencePlanDisplay = Readonly<{
+  visible: boolean;
+  opacity: number;
+  locked: boolean;
+}>;
+
+export type ReferencePlan = Readonly<{
+  assetId: string;
+  source: ReferencePlanSource;
+  widthPx: number;
+  heightPx: number;
+  transform: ReferencePlanTransform;
+  calibration: ReferencePlanCalibration;
+  display: ReferencePlanDisplay;
 }>;
 
 export type VlezetProjectRecord = Readonly<{
-  storageVersion: 1;
+  storageVersion: 2;
   id: string;
   name: string;
   createdAt: string;
@@ -39,6 +77,7 @@ export type VlezetProjectRecord = Readonly<{
   document: VlezetDocument;
   viewport: ProjectViewport;
   ui: ProjectUiState;
+  referencePlan: ReferencePlan | null;
 }>;
 
 export const DEFAULT_PROJECT_VIEWPORT: ProjectViewport = Object.freeze({
@@ -49,6 +88,7 @@ export const DEFAULT_PROJECT_VIEWPORT: ProjectViewport = Object.freeze({
 
 export const DEFAULT_PROJECT_UI: ProjectUiState = Object.freeze({
   furnitureCatalogOpen: true,
+  referencePanelOpen: false,
 });
 
 export class ProjectValidationError extends Error {
@@ -88,6 +128,14 @@ function positive(value: unknown, label: string): number {
   return number;
 }
 
+function bounded(value: unknown, min: number, max: number, label: string): number {
+  const number = finite(value, label);
+  if (number < min || number > max) {
+    throw new ProjectValidationError(`${label} должен быть от ${min} до ${max}.`);
+  }
+  return number;
+}
+
 function isoTimestamp(value: unknown, label: string): string {
   const timestamp = text(value, label);
   if (!timestamp || Number.isNaN(Date.parse(timestamp))) {
@@ -112,10 +160,7 @@ export function normalizeProjectName(value: unknown): string {
 
 export function validateProjectViewport(value: unknown): ProjectViewport {
   const input = record(value, "Положение плана");
-  const scale = finite(input.pixelsPerMillimeter, "Масштаб");
-  if (scale < MIN_PROJECT_SCALE || scale > MAX_PROJECT_SCALE) {
-    throw new ProjectValidationError(`Масштаб должен быть от ${MIN_PROJECT_SCALE} до ${MAX_PROJECT_SCALE}.`);
-  }
+  const scale = bounded(input.pixelsPerMillimeter, MIN_PROJECT_SCALE, MAX_PROJECT_SCALE, "Масштаб");
   return {
     offsetX: finite(input.offsetX, "Смещение X"),
     offsetY: finite(input.offsetY, "Смещение Y"),
@@ -128,19 +173,76 @@ export function validateProjectUi(value: unknown): ProjectUiState {
   if (typeof input.furnitureCatalogOpen !== "boolean") {
     throw new ProjectValidationError("Состояние каталога мебели должно быть логическим значением.");
   }
-  return { furnitureCatalogOpen: input.furnitureCatalogOpen };
+  if (input.referencePanelOpen !== undefined && typeof input.referencePanelOpen !== "boolean") {
+    throw new ProjectValidationError("Состояние панели подложки должно быть логическим значением.");
+  }
+  return {
+    furnitureCatalogOpen: input.furnitureCatalogOpen,
+    referencePanelOpen: input.referencePanelOpen ?? false,
+  };
+}
+
+function validateReferenceSource(value: unknown): ReferencePlanSource {
+  const input = record(value, "Источник подложки");
+  if (input.kind === "image") {
+    if (input.originalMimeType !== "image/png" && input.originalMimeType !== "image/jpeg") {
+      throw new ProjectValidationError("Формат исходного изображения не поддерживается.");
+    }
+    return { kind: "image", originalMimeType: input.originalMimeType };
+  }
+  if (input.kind === "pdf") {
+    const pageNumber = positive(input.pageNumber, "Номер страницы PDF");
+    const pageCount = positive(input.pageCount, "Количество страниц PDF");
+    if (!Number.isInteger(pageNumber) || !Number.isInteger(pageCount) || pageNumber > pageCount) {
+      throw new ProjectValidationError("Страница PDF содержит некорректные данные.");
+    }
+    return { kind: "pdf", pageNumber, pageCount };
+  }
+  throw new ProjectValidationError("Тип источника подложки не поддерживается.");
+}
+
+export function validateReferencePlan(value: unknown): ReferencePlan {
+  const input = record(value, "Подложка");
+  const assetId = text(input.assetId, "Идентификатор подложки").trim();
+  if (!assetId) throw new ProjectValidationError("Идентификатор подложки не может быть пустым.");
+  const transform = record(input.transform, "Преобразование подложки");
+  const calibration = record(input.calibration, "Калибровка подложки");
+  const display = record(input.display, "Отображение подложки");
+  if (calibration.alignment !== "none" && calibration.alignment !== "horizontal" && calibration.alignment !== "vertical") {
+    throw new ProjectValidationError("Тип выравнивания подложки не поддерживается.");
+  }
+  if (typeof display.visible !== "boolean" || typeof display.locked !== "boolean") {
+    throw new ProjectValidationError("Состояние подложки должно быть логическим значением.");
+  }
+  return {
+    assetId,
+    source: validateReferenceSource(input.source),
+    widthPx: positive(input.widthPx, "Ширина подложки"),
+    heightPx: positive(input.heightPx, "Высота подложки"),
+    transform: {
+      originWorld: point(transform.originWorld, "Начало подложки"),
+      millimetersPerPixel: bounded(transform.millimetersPerPixel, MIN_REFERENCE_SCALE, MAX_REFERENCE_SCALE, "Масштаб подложки"),
+      rotationDeg: finite(transform.rotationDeg, "Поворот подложки"),
+    },
+    calibration: {
+      pointA: point(calibration.pointA, "Первая точка калибровки"),
+      pointB: point(calibration.pointB, "Вторая точка калибровки"),
+      knownLengthMm: bounded(calibration.knownLengthMm, 100, 100_000, "Известная длина"),
+      alignment: calibration.alignment,
+    },
+    display: {
+      visible: display.visible,
+      opacity: bounded(display.opacity, 0.05, 1, "Прозрачность подложки"),
+      locked: display.locked,
+    },
+  };
 }
 
 function parseV1Wall(value: unknown): V1Wall {
   const input = record(value, "Стена");
   const id = text(input.id, "Идентификатор стены").trim();
   if (!id) throw new ProjectValidationError("Идентификатор стены не может быть пустым.");
-  return {
-    id,
-    start: point(input.start, "Начало стены"),
-    end: point(input.end, "Конец стены"),
-    thickness: positive(input.thickness, "Толщина стены"),
-  };
+  return { id, start: point(input.start, "Начало стены"), end: point(input.end, "Конец стены"), thickness: positive(input.thickness, "Толщина стены") };
 }
 
 function parseOpening(value: unknown): Opening {
@@ -155,8 +257,7 @@ function parseOpening(value: unknown): Opening {
     width: positive(input.width, "Ширина проёма"),
   } as const;
   if (!base.id || !base.wallId) throw new ProjectValidationError("Проём должен ссылаться на существующую стену.");
-  if (kind !== "door") return base;
-  if (input.doorSwing === undefined) return base;
+  if (kind !== "door" || input.doorSwing === undefined) return base;
   const swing = record(input.doorSwing, "Открывание двери");
   if (swing.hinge !== "start" && swing.hinge !== "end") throw new ProjectValidationError("Некорректная сторона петли двери.");
   if (swing.side !== "left" && swing.side !== "right") throw new ProjectValidationError("Некорректное направление двери.");
@@ -177,9 +278,7 @@ const OBJECT_CATEGORIES = new Set<ObjectCategory>([
 
 function parsePlacedObject(value: unknown) {
   const input = record(value, "Предмет");
-  if (!OBJECT_CATEGORIES.has(input.category as ObjectCategory)) {
-    throw new ProjectValidationError("Категория предмета не поддерживается.");
-  }
+  if (!OBJECT_CATEGORIES.has(input.category as ObjectCategory)) throw new ProjectValidationError("Категория предмета не поддерживается.");
   const clearance = record(input.clearance, "Зона использования предмета");
   try {
     return createPlacedObject({
@@ -193,10 +292,8 @@ function parsePlacedObject(value: unknown) {
       ...(input.height === undefined ? {} : { height: finite(input.height, "Высота предмета") }),
       rotationDeg: finite(input.rotationDeg, "Угол предмета"),
       clearance: {
-        front: finite(clearance.front, "Передний зазор"),
-        right: finite(clearance.right, "Правый зазор"),
-        back: finite(clearance.back, "Задний зазор"),
-        left: finite(clearance.left, "Левый зазор"),
+        front: finite(clearance.front, "Передний зазор"), right: finite(clearance.right, "Правый зазор"),
+        back: finite(clearance.back, "Задний зазор"), left: finite(clearance.left, "Левый зазор"),
       },
     });
   } catch {
@@ -222,29 +319,14 @@ function parseShell(value: Record<string, unknown>): Omit<VlezetDocumentV2, "sch
       });
     } catch { throw new ProjectValidationError("Стена содержит некорректные данные."); }
   });
-  return {
-    vertices,
-    walls,
-    openings: array(value.openings, "Проёмы").map(parseOpening),
-    roomAnnotations: array(value.roomAnnotations, "Названия комнат").map(parseRoomAnnotation),
-  };
+  return { vertices, walls, openings: array(value.openings, "Проёмы").map(parseOpening), roomAnnotations: array(value.roomAnnotations, "Названия комнат").map(parseRoomAnnotation) };
 }
 
 export function parseDocumentInput(value: unknown): VlezetDocumentV1 | VlezetDocumentV2 | VlezetDocumentV3 {
   const input = record(value, "Документ проекта");
-  if (input.schemaVersion === 1) {
-    return { schemaVersion: 1, walls: array(input.walls, "Стены").map(parseV1Wall) };
-  }
-  if (input.schemaVersion === 2) {
-    return { schemaVersion: 2, ...parseShell(input) };
-  }
-  if (input.schemaVersion === 3) {
-    return {
-      schemaVersion: 3,
-      ...parseShell(input),
-      placedObjects: array(input.placedObjects, "Предметы").map(parsePlacedObject),
-    };
-  }
+  if (input.schemaVersion === 1) return { schemaVersion: 1, walls: array(input.walls, "Стены").map(parseV1Wall) };
+  if (input.schemaVersion === 2) return { schemaVersion: 2, ...parseShell(input) };
+  if (input.schemaVersion === 3) return { schemaVersion: 3, ...parseShell(input), placedObjects: array(input.placedObjects, "Предметы").map(parsePlacedObject) };
   throw new ProjectValidationError("Версия документа проекта не поддерживается.");
 }
 
@@ -259,6 +341,7 @@ export type CreateProjectInput = Readonly<{
   document?: VlezetDocument;
   viewport?: ProjectViewport;
   ui?: ProjectUiState;
+  referencePlan?: ReferencePlan | null;
 }>;
 
 export function createProject(input: CreateProjectInput): VlezetProjectRecord {
@@ -274,12 +357,13 @@ export function createProject(input: CreateProjectInput): VlezetProjectRecord {
     document: parseAndMigrateDocument(input.document ?? createEmptyDocument()),
     viewport: validateProjectViewport(input.viewport ?? DEFAULT_PROJECT_VIEWPORT),
     ui: validateProjectUi(input.ui ?? DEFAULT_PROJECT_UI),
+    referencePlan: input.referencePlan == null ? null : validateReferencePlan(input.referencePlan),
   };
 }
 
 export function validateProject(value: unknown): VlezetProjectRecord {
   const input = record(value, "Проект");
-  if (input.storageVersion !== PROJECT_STORAGE_VERSION) {
+  if (input.storageVersion !== 1 && input.storageVersion !== PROJECT_STORAGE_VERSION) {
     throw new ProjectValidationError("Версия локального проекта не поддерживается.");
   }
   const id = text(input.id, "Идентификатор проекта").trim();
@@ -293,28 +377,40 @@ export function validateProject(value: unknown): VlezetProjectRecord {
     document: parseAndMigrateDocument(input.document),
     viewport: validateProjectViewport(input.viewport),
     ui: validateProjectUi(input.ui),
+    referencePlan: input.referencePlan == null ? null : validateReferencePlan(input.referencePlan),
   };
 }
 
-function changed(project: VlezetProjectRecord, now: string): string {
-  isoTimestamp(now, "Дата изменения");
-  return now;
+function changed(now: string): string {
+  return isoTimestamp(now, "Дата изменения");
 }
 
 export function renameProject(project: VlezetProjectRecord, name: string, now: string): VlezetProjectRecord {
-  return validateProject({ ...project, name: normalizeProjectName(name), updatedAt: changed(project, now) });
+  return validateProject({ ...project, name: normalizeProjectName(name), updatedAt: changed(now) });
 }
 
 export function replaceProjectDocument(project: VlezetProjectRecord, document: VlezetDocument, now: string): VlezetProjectRecord {
-  return validateProject({ ...project, document, updatedAt: changed(project, now) });
+  return validateProject({ ...project, document, updatedAt: changed(now) });
 }
 
 export function replaceProjectViewport(project: VlezetProjectRecord, viewport: ProjectViewport, now: string): VlezetProjectRecord {
-  return validateProject({ ...project, viewport, updatedAt: changed(project, now) });
+  return validateProject({ ...project, viewport, updatedAt: changed(now) });
 }
 
 export function replaceProjectUi(project: VlezetProjectRecord, ui: ProjectUiState, now: string): VlezetProjectRecord {
-  return validateProject({ ...project, ui, updatedAt: changed(project, now) });
+  return validateProject({ ...project, ui, updatedAt: changed(now) });
+}
+
+export function replaceProjectReferencePlan(project: VlezetProjectRecord, referencePlan: ReferencePlan | null, now: string): VlezetProjectRecord {
+  return validateProject({ ...project, referencePlan, updatedAt: changed(now) });
+}
+
+export function updateReferencePlanDisplay(project: VlezetProjectRecord, patch: Partial<ReferencePlanDisplay>, now: string): VlezetProjectRecord {
+  if (!project.referencePlan) throw new ProjectValidationError("В проекте нет подложки.");
+  return replaceProjectReferencePlan(project, {
+    ...project.referencePlan,
+    display: { ...project.referencePlan.display, ...patch },
+  }, now);
 }
 
 export function duplicateProject(project: VlezetProjectRecord, newId: string, now: string): VlezetProjectRecord {
@@ -327,5 +423,6 @@ export function duplicateProject(project: VlezetProjectRecord, newId: string, no
     document: structuredClone(project.document),
     viewport: structuredClone(project.viewport),
     ui: structuredClone(project.ui),
+    referencePlan: project.referencePlan ? structuredClone(project.referencePlan) : null,
   });
 }
