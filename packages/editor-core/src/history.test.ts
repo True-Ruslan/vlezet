@@ -1,26 +1,48 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyDocument, createWall } from "@vlezet/domain";
+import { createEmptyDocument, type VlezetDocumentV2 } from "@vlezet/domain";
 import { createHistoryState, executeCommand, redo, undo } from "./history";
 
-const wallA = createWall({ id: "wall-a", start: { x: 0, y: 0 }, end: { x: 3000, y: 0 }, thickness: 150 });
+const initial = createEmptyDocument();
+const changed: VlezetDocumentV2 = {
+  ...initial,
+  vertices: [
+    { id: "a", position: { x: 0, y: 0 } },
+    { id: "b", position: { x: 3000, y: 0 } },
+  ],
+  walls: [{ id: "wall", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 }],
+};
 
 describe("command history", () => {
-  it("adds, undoes, and redoes an exact wall document", () => {
-    const initial = createHistoryState(createEmptyDocument());
-    const added = executeCommand(initial, { type: "wall/add", wall: wallA });
-    const undone = undo(added);
-    const redone = redo(undone);
-    expect(added.document.walls).toEqual([wallA]);
-    expect(undone.document).toEqual(initial.document);
-    expect(redone.document).toEqual(added.document);
+  it("undoes and redoes one semantic document transition exactly", () => {
+    const state = createHistoryState(initial);
+    const executed = executeCommand(state, {
+      type: "document/replace",
+      label: "wall/add-connected",
+      before: initial,
+      after: changed,
+    });
+
+    expect(executed.document).toEqual(changed);
+    expect(undo(executed).document).toEqual(initial);
+    expect(redo(undo(executed)).document).toEqual(changed);
   });
 
-  it("clears redo history when a new command is executed", () => {
-    const initial = createHistoryState();
-    const added = executeCommand(initial, { type: "wall/add", wall: wallA });
-    const undone = undo(added);
-    const replacement = createWall({ id: "wall-b", start: { x: 0, y: 0 }, end: { x: 0, y: 2000 }, thickness: 150 });
-    const branched = executeCommand(undone, { type: "wall/add", wall: replacement });
+  it("clears redo history when a new semantic transition is executed", () => {
+    const first = executeCommand(createHistoryState(initial), {
+      type: "document/replace",
+      label: "wall/add-connected",
+      before: initial,
+      after: changed,
+    });
+    const undone = undo(first);
+    const alternative: VlezetDocumentV2 = { ...initial, roomAnnotations: [] };
+    const branched = executeCommand(undone, {
+      type: "document/replace",
+      label: "wall/set-thickness",
+      before: initial,
+      after: alternative,
+    });
+
     expect(branched.future).toEqual([]);
     expect(redo(branched)).toEqual(branched);
   });

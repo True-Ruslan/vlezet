@@ -11,6 +11,8 @@ describe("editor keyboard shortcuts", () => {
   it("maps editor tool and cancel shortcuts", () => {
     expect(getEditorShortcut({ key: "w", ctrlKey: false, metaKey: false, shiftKey: false })).toBe("wall-tool");
     expect(getEditorShortcut({ key: "v", ctrlKey: false, metaKey: false, shiftKey: false })).toBe("select-tool");
+    expect(getEditorShortcut({ key: "d", ctrlKey: false, metaKey: false, shiftKey: false })).toBe("door-tool");
+    expect(getEditorShortcut({ key: "o", ctrlKey: false, metaKey: false, shiftKey: false })).toBe("window-tool");
     expect(getEditorShortcut({ key: "Escape", ctrlKey: false, metaKey: false, shiftKey: false })).toBe("cancel");
   });
 });

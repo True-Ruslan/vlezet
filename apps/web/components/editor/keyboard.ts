@@ -1,4 +1,4 @@
-export type EditorShortcut = "undo" | "redo" | "select-tool" | "wall-tool" | "cancel";
+export type EditorShortcut = "undo" | "redo" | "select-tool" | "wall-tool" | "door-tool" | "window-tool" | "cancel";
 
 export type ShortcutKeyEvent = Readonly<{
   key: string;
@@ -15,6 +15,8 @@ export function getEditorShortcut(event: ShortcutKeyEvent): EditorShortcut | nul
   if (command && key === "y") return "redo";
   if (!command && key === "w") return "wall-tool";
   if (!command && key === "v") return "select-tool";
+  if (!command && key === "d") return "door-tool";
+  if (!command && key === "o") return "window-tool";
   if (!command && event.key === "Escape") return "cancel";
   return null;
 }

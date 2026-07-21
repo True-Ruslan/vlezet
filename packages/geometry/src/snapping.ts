@@ -1,6 +1,6 @@
 import { distanceBetween, type Point2 } from "./point";
 
-export type SnapKind = "endpoint" | "axis" | "grid" | "none";
+export type SnapKind = "endpoint" | "wall" | "axis" | "grid" | "none";
 
 export type SnapGuide = Readonly<{
   axis: "x" | "y";
