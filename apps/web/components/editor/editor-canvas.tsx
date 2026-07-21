@@ -1,17 +1,33 @@
 "use client";
 
-import { chooseGridStep, screenToWorld, snapWallPoint, worldToScreen, zoomViewportAt, type Point2, type ViewportTransform } from "@vlezet/geometry";
+import type { Wall } from "@vlezet/domain";
+import {
+  chooseGridStep,
+  distanceBetween,
+  projectPointToSegment,
+  screenToWorld,
+  snapWallPoint,
+  validateTopology,
+  worldToScreen,
+  zoomViewportAt,
+  type Point2,
+  type SnapResult,
+  type ViewportTransform,
+} from "@vlezet/geometry";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Layer, Line, Stage, Text } from "react-konva";
 import { useStore } from "zustand";
-import { editorStore } from "./use-editor-store";
+import { editorStore, type TopologySnapTarget } from "./use-editor-store";
 
 const INITIAL_SCALE = 0.12;
 const MIN_SCALE = 0.01;
 const MAX_SCALE = 2;
 const SNAP_TOLERANCE_PX = 12;
+
+type ResolvedWall = Readonly<{ wall: Wall; start: Point2; end: Point2 }>;
+type PointerSnap = Readonly<{ snap: SnapResult; target: TopologySnapTarget | null }>;
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
@@ -26,7 +42,7 @@ export function EditorCanvas() {
   const [viewport, setViewport] = useState<ViewportTransform>({ offsetX: 140, offsetY: 140, pixelsPerMillimeter: INITIAL_SCALE });
 
   const tool = useStore(editorStore, (state) => state.tool);
-  const walls = useStore(editorStore, (state) => state.history.document.walls);
+  const document = useStore(editorStore, (state) => state.history.document);
   const draftWall = useStore(editorStore, (state) => state.draftWall);
   const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
 
@@ -60,8 +76,17 @@ export function EditorCanvas() {
     };
   }, []);
 
+  const vertexMap = useMemo(() => new Map(document.vertices.map((vertex) => [vertex.id, vertex])), [document.vertices]);
+  const resolvedWalls = useMemo<ResolvedWall[]>(() => document.walls.flatMap((wall) => {
+    const start = vertexMap.get(wall.startVertexId);
+    const end = vertexMap.get(wall.endVertexId);
+    return start && end ? [{ wall, start: start.position, end: end.position }] : [];
+  }), [document.walls, vertexMap]);
+  const diagnostics = useMemo(() => validateTopology(document), [document]);
+  const errorDiagnostics = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+
   const gridStep = chooseGridStep(viewport.pixelsPerMillimeter);
-  const endpoints = useMemo(() => walls.flatMap((wall) => [wall.start, wall.end]), [walls]);
+  const endpoints = useMemo(() => document.vertices.map((vertex) => vertex.position), [document.vertices]);
 
   const gridLines = useMemo(() => {
     const topLeft = screenToWorld({ x: 0, y: 0 }, viewport);
@@ -93,9 +118,38 @@ export function EditorCanvas() {
     return stage?.getPointerPosition() ?? null;
   };
 
-  const snapPointer = (screenPoint: Point2, startPoint?: Point2 | null) => {
+  const snapPointer = (screenPoint: Point2, startPoint?: Point2 | null): PointerSnap => {
     const rawPoint = screenToWorld(screenPoint, viewport);
-    return snapWallPoint({ rawPoint, startPoint, endpoints, gridStep, tolerance: SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter });
+    const tolerance = SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter;
+
+    const vertexCandidate = document.vertices
+      .map((vertex, index) => ({ vertex, index, distance: distanceBetween(rawPoint, vertex.position) }))
+      .filter((candidate) => candidate.distance <= tolerance)
+      .sort((a, b) => a.distance - b.distance || a.index - b.index)[0];
+    if (vertexCandidate) {
+      const point = vertexCandidate.vertex.position;
+      return {
+        snap: { point, kind: "endpoint", guides: [] },
+        target: { kind: "vertex", vertexId: vertexCandidate.vertex.id, point },
+      };
+    }
+
+    const wallCandidate = resolvedWalls
+      .map((resolved, index) => ({ resolved, index, projection: projectPointToSegment(rawPoint, resolved.start, resolved.end) }))
+      .filter((candidate) => candidate.projection.distance <= tolerance && candidate.projection.t > 1e-6 && candidate.projection.t < 1 - 1e-6)
+      .sort((a, b) => a.projection.distance - b.projection.distance || a.index - b.index)[0];
+    if (wallCandidate) {
+      const point = wallCandidate.projection.point;
+      return {
+        snap: { point, kind: "wall", guides: [] },
+        target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point },
+      };
+    }
+
+    return {
+      snap: snapWallPoint({ rawPoint, startPoint, endpoints, gridStep, tolerance }),
+      target: null,
+    };
   };
 
   const onWheel = (event: KonvaEventObject<WheelEvent>) => {
@@ -118,9 +172,10 @@ export function EditorCanvas() {
     if (event.evt.button !== 0) return;
 
     if (tool === "wall") {
-      if (!draftWall) editorStore.getState().beginWall(snapPointer(pointer, null).point);
+      const resolved = snapPointer(pointer, draftWall?.start ?? null);
+      if (!draftWall) editorStore.getState().beginWall(resolved.snap.point, resolved.target);
       else {
-        editorStore.getState().updateDraftWall(snapPointer(pointer, draftWall.start));
+        editorStore.getState().updateDraftWall(resolved.snap, resolved.target);
         editorStore.getState().commitDraftWall();
       }
       return;
@@ -138,13 +193,17 @@ export function EditorCanvas() {
       setViewport((current) => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
       return;
     }
-    if (tool === "wall" && draftWall) editorStore.getState().updateDraftWall(snapPointer(pointer, draftWall.start));
+    if (tool === "wall" && draftWall) {
+      const resolved = snapPointer(pointer, draftWall.start);
+      editorStore.getState().updateDraftWall(resolved.snap, resolved.target);
+    }
   };
 
   const endPan = () => { panRef.current.active = false; };
   const draftStartScreen = draftWall ? worldToScreen(draftWall.start, viewport) : null;
   const draftEndScreen = draftWall ? worldToScreen(draftWall.end, viewport) : null;
   const draftLength = draftWall ? Math.hypot(draftWall.end.x - draftWall.start.x, draftWall.end.y - draftWall.start.y) : 0;
+  const draftTargetScreen = draftWall?.endTarget ? worldToScreen(draftWall.endTarget.point, viewport) : null;
 
   return (
     <div ref={containerRef} className={`canvas-shell tool-${tool}${spacePressed ? " is-pan-ready" : ""}`} onContextMenu={(event) => event.preventDefault()}>
@@ -154,17 +213,45 @@ export function EditorCanvas() {
         </Layer>
 
         <Layer>
-          {walls.map((wall) => {
-            const start = worldToScreen(wall.start, viewport);
-            const end = worldToScreen(wall.end, viewport);
+          {resolvedWalls.map(({ wall, start: startWorld, end: endWorld }) => {
+            const start = worldToScreen(startWorld, viewport);
+            const end = worldToScreen(endWorld, viewport);
             const selected = wall.id === selectedWallId;
             const visualWidth = Math.max(2, wall.thickness * viewport.pixelsPerMillimeter);
-            return <Line key={wall.id} points={[start.x, start.y, end.x, end.y]} stroke={selected ? "#1769ff" : "#232830"} strokeWidth={visualWidth} hitStrokeWidth={Math.max(14, visualWidth)} lineCap="square" onMouseDown={(wallEvent) => { if (tool !== "select") return; wallEvent.cancelBubble = true; editorStore.getState().selectWall(wall.id); }} />;
+            return (
+              <Line
+                key={wall.id}
+                points={[start.x, start.y, end.x, end.y]}
+                stroke={selected ? "#1769ff" : "#232830"}
+                strokeWidth={visualWidth}
+                hitStrokeWidth={Math.max(14, visualWidth)}
+                lineCap="square"
+                lineJoin="miter"
+                onMouseDown={(wallEvent) => {
+                  if (tool !== "select") return;
+                  wallEvent.cancelBubble = true;
+                  editorStore.getState().selectWall(wall.id);
+                }}
+              />
+            );
           })}
 
-          {tool === "wall" ? endpoints.map((endpoint, index) => {
-            const screen = worldToScreen(endpoint, viewport);
-            return <Circle key={`endpoint-${index}-${endpoint.x}-${endpoint.y}`} x={screen.x} y={screen.y} radius={3.5} fill="#1769ff" opacity={0.55} listening={false} />;
+          {tool === "wall" ? document.vertices.map((vertex) => {
+            const screen = worldToScreen(vertex.position, viewport);
+            const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id));
+            return (
+              <Circle
+                key={vertex.id}
+                x={screen.x}
+                y={screen.y}
+                radius={isJunction ? 4.5 : 3.5}
+                fill={isJunction ? "#ffffff" : "#1769ff"}
+                stroke="#1769ff"
+                strokeWidth={1.5}
+                opacity={0.8}
+                listening={false}
+              />
+            );
           }) : null}
 
           {draftWall?.snap.guides.map((guide, index) => {
@@ -180,12 +267,31 @@ export function EditorCanvas() {
             <Line points={[draftStartScreen.x, draftStartScreen.y, draftEndScreen.x, draftEndScreen.y]} stroke="#1769ff" strokeWidth={Math.max(2, 150 * viewport.pixelsPerMillimeter)} dash={[8, 6]} opacity={0.75} listening={false} />
             <Circle x={draftStartScreen.x} y={draftStartScreen.y} radius={5} fill="#1769ff" listening={false} />
             <Circle x={draftEndScreen.x} y={draftEndScreen.y} radius={5} fill="#1769ff" listening={false} />
+            {draftTargetScreen ? (
+              <Circle
+                x={draftTargetScreen.x}
+                y={draftTargetScreen.y}
+                radius={9}
+                fill={draftWall?.endTarget?.kind === "wall" ? "#fff7ed" : "#eff6ff"}
+                stroke={draftWall?.endTarget?.kind === "wall" ? "#f97316" : "#1769ff"}
+                strokeWidth={2}
+                listening={false}
+              />
+            ) : null}
             {draftLength > 0 ? <Text x={(draftStartScreen.x + draftEndScreen.x) / 2 + 10} y={(draftStartScreen.y + draftEndScreen.y) / 2 - 26} text={`${Math.round(draftLength)} мм`} fontSize={13} fill="#1769ff" listening={false} /> : null}
           </> : null}
+
+          {errorDiagnostics.map((diagnostic, index) => diagnostic.point ? (() => {
+            const screen = worldToScreen(diagnostic.point!, viewport);
+            return <Circle key={`diagnostic-${diagnostic.code}-${index}`} x={screen.x} y={screen.y} radius={8} fill="#ef4444" opacity={0.85} listening={false} />;
+          })() : null)}
         </Layer>
       </Stage>
 
-      <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо — масштаб</span><span>Space + drag / средняя кнопка — панорама</span></div>
+      {errorDiagnostics.length > 0 ? (
+        <div className="topology-alert" role="status">Проверьте геометрию: {errorDiagnostics[0]?.message}</div>
+      ) : null}
+      <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо — масштаб</span><span>Синие узлы — соединения</span><span>Space + drag / средняя кнопка — панорама</span></div>
     </div>
   );
 }
