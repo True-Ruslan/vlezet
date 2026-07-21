@@ -16,7 +16,7 @@ describe("document content bounds", () => {
     });
   });
 
-  it("includes physical wall thickness", () => {
+  it("includes physical wall thickness perpendicular to the wall axis", () => {
     const document = {
       ...empty,
       vertices: [
@@ -25,7 +25,7 @@ describe("document content bounds", () => {
       ],
       walls: [{ id: "w", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 200 }],
     };
-    expect(deriveDocumentBounds(document)).toEqual({ minX: -100, minY: -100, maxX: 4100, maxY: 100 });
+    expect(deriveDocumentBounds(document)).toEqual({ minX: 0, minY: -100, maxX: 4000, maxY: 100 });
   });
 
   it("includes rotated furniture and fits it with padding", () => {
