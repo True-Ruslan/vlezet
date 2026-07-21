@@ -6,6 +6,22 @@ export { chooseGridStep } from "./grid";
 export { distanceBetween } from "./point";
 export type { Point2 } from "./point";
 export {
+  findInteriorPoint,
+  pointInPolygon,
+  polygonPerimeter,
+  polygonSelfIntersects,
+  signedPolygonArea,
+} from "./polygon";
+export { deriveRooms } from "./rooms";
+export type {
+  DerivedRoom,
+  DerivedRoomDiagnostic,
+  DerivedRoomsResult,
+  RoomAnnotationLike,
+  RoomDocumentLike,
+  RoomGeometryDiagnostic,
+} from "./rooms";
+export {
   GEOMETRY_EPSILON_MM,
   isProperInteriorIntersection,
   pointOnSegment,
