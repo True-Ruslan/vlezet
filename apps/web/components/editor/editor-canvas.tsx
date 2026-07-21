@@ -3,11 +3,11 @@
 import type { Wall } from "@vlezet/domain";
 import {
   chooseGridStep,
+  deriveRooms,
   distanceBetween,
   projectPointToSegment,
   screenToWorld,
   snapWallPoint,
-  validateTopology,
   worldToScreen,
   zoomViewportAt,
   type Point2,
@@ -45,6 +45,7 @@ export function EditorCanvas() {
   const document = useStore(editorStore, (state) => state.history.document);
   const draftWall = useStore(editorStore, (state) => state.draftWall);
   const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
+  const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -82,8 +83,8 @@ export function EditorCanvas() {
     const end = vertexMap.get(wall.endVertexId);
     return start && end ? [{ wall, start: start.position, end: end.position }] : [];
   }), [document.walls, vertexMap]);
-  const diagnostics = useMemo(() => validateTopology(document), [document]);
-  const errorDiagnostics = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  const derivedRooms = useMemo(() => deriveRooms(document), [document]);
+  const errorDiagnostics = derivedRooms.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
 
   const gridStep = chooseGridStep(viewport.pixelsPerMillimeter);
   const endpoints = useMemo(() => document.vertices.map((vertex) => vertex.position), [document.vertices]);
@@ -213,6 +214,50 @@ export function EditorCanvas() {
         </Layer>
 
         <Layer>
+          {derivedRooms.rooms.map((room) => {
+            const points = room.polygon.flatMap((point) => {
+              const screen = worldToScreen(point, viewport);
+              return [screen.x, screen.y];
+            });
+            const label = worldToScreen(room.labelPoint, viewport);
+            const selected = room.id === selectedRoomId;
+            return (
+              <Line
+                key={room.id}
+                points={points}
+                closed
+                fill={selected ? "#dbeafe" : "#f4f7fb"}
+                stroke={selected ? "#93c5fd" : undefined}
+                strokeWidth={selected ? 1.5 : 0}
+                opacity={selected ? 0.9 : 0.72}
+                onMouseDown={(roomEvent) => {
+                  if (tool !== "select") return;
+                  roomEvent.cancelBubble = true;
+                  editorStore.getState().selectRoom(room.id);
+                }}
+              />
+            );
+          })}
+          {derivedRooms.rooms.map((room) => {
+            const label = worldToScreen(room.labelPoint, viewport);
+            return (
+              <Text
+                key={`label-${room.id}`}
+                x={label.x - 80}
+                y={label.y - 18}
+                width={160}
+                align="center"
+                text={`${room.name}\n${room.areaM2.toFixed(2)} м²`}
+                fontSize={12}
+                lineHeight={1.35}
+                fill="#4b5563"
+                listening={false}
+              />
+            );
+          })}
+        </Layer>
+
+        <Layer>
           {resolvedWalls.map(({ wall, start: startWorld, end: endWorld }) => {
             const start = worldToScreen(startWorld, viewport);
             const end = worldToScreen(endWorld, viewport);
@@ -240,17 +285,7 @@ export function EditorCanvas() {
             const screen = worldToScreen(vertex.position, viewport);
             const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id));
             return (
-              <Circle
-                key={vertex.id}
-                x={screen.x}
-                y={screen.y}
-                radius={isJunction ? 4.5 : 3.5}
-                fill={isJunction ? "#ffffff" : "#1769ff"}
-                stroke="#1769ff"
-                strokeWidth={1.5}
-                opacity={0.8}
-                listening={false}
-              />
+              <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#ffffff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />
             );
           }) : null}
 
@@ -267,17 +302,7 @@ export function EditorCanvas() {
             <Line points={[draftStartScreen.x, draftStartScreen.y, draftEndScreen.x, draftEndScreen.y]} stroke="#1769ff" strokeWidth={Math.max(2, 150 * viewport.pixelsPerMillimeter)} dash={[8, 6]} opacity={0.75} listening={false} />
             <Circle x={draftStartScreen.x} y={draftStartScreen.y} radius={5} fill="#1769ff" listening={false} />
             <Circle x={draftEndScreen.x} y={draftEndScreen.y} radius={5} fill="#1769ff" listening={false} />
-            {draftTargetScreen ? (
-              <Circle
-                x={draftTargetScreen.x}
-                y={draftTargetScreen.y}
-                radius={9}
-                fill={draftWall?.endTarget?.kind === "wall" ? "#fff7ed" : "#eff6ff"}
-                stroke={draftWall?.endTarget?.kind === "wall" ? "#f97316" : "#1769ff"}
-                strokeWidth={2}
-                listening={false}
-              />
-            ) : null}
+            {draftTargetScreen ? <Circle x={draftTargetScreen.x} y={draftTargetScreen.y} radius={9} fill={draftWall?.endTarget?.kind === "wall" ? "#fff7ed" : "#eff6ff"} stroke={draftWall?.endTarget?.kind === "wall" ? "#f97316" : "#1769ff"} strokeWidth={2} listening={false} /> : null}
             {draftLength > 0 ? <Text x={(draftStartScreen.x + draftEndScreen.x) / 2 + 10} y={(draftStartScreen.y + draftEndScreen.y) / 2 - 26} text={`${Math.round(draftLength)} мм`} fontSize={13} fill="#1769ff" listening={false} /> : null}
           </> : null}
 
@@ -288,9 +313,7 @@ export function EditorCanvas() {
         </Layer>
       </Stage>
 
-      {errorDiagnostics.length > 0 ? (
-        <div className="topology-alert" role="status">Проверьте геометрию: {errorDiagnostics[0]?.message}</div>
-      ) : null}
+      {errorDiagnostics.length > 0 ? <div className="topology-alert" role="status">Проверьте геометрию: {errorDiagnostics[0]?.message}</div> : null}
       <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо — масштаб</span><span>Синие узлы — соединения</span><span>Space + drag / средняя кнопка — панорама</span></div>
     </div>
   );
