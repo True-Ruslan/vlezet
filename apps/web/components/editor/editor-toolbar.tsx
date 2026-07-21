@@ -5,10 +5,13 @@ import { editorStore } from "./use-editor-store";
 
 export function EditorToolbar() {
   const tool = useStore(editorStore, (state) => state.tool);
+  const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
+  const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
   const canUndo = useStore(editorStore, (state) => state.history.past.length > 0);
   const canRedo = useStore(editorStore, (state) => state.history.future.length > 0);
   const wallCount = useStore(editorStore, (state) => state.history.document.walls.length);
   const openingCount = useStore(editorStore, (state) => state.history.document.openings.length);
+  const objectCount = useStore(editorStore, (state) => state.history.document.placedObjects.length);
 
   return (
     <header className="editor-toolbar">
@@ -18,14 +21,23 @@ export function EditorToolbar() {
       </div>
 
       <div className="tool-group" aria-label="Инструменты редактора">
-        <button className={tool === "select" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("select")} title="Выбор (V)">Выбор <kbd>V</kbd></button>
+        <button className={tool === "select" && !placementPresetId ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("select")} title="Выбор (V)">Выбор <kbd>V</kbd></button>
         <button className={tool === "wall" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("wall")} title="Стена (W)">Стена <kbd>W</kbd></button>
         <button className={tool === "door" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("door")} title="Дверь (D)">Дверь <kbd>D</kbd></button>
         <button className={tool === "window" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("window")} title="Окно (O)">Окно <kbd>O</kbd></button>
+        <button
+          className={placementPresetId ? "tool-button furniture-tool is-active" : "tool-button furniture-tool"}
+          type="button"
+          onClick={() => document.querySelector<HTMLButtonElement>(".preset-card")?.focus()}
+          title="Мебель и техника (F)"
+        >
+          Мебель <kbd>F</kbd>
+        </button>
       </div>
 
       <div className="toolbar-spacer" />
-      <div className="document-status" title="Объекты текущего плана">{wallCount} стен · {openingCount} проёмов</div>
+      {selectedObjectId ? <div className="selection-shortcuts" title="Горячие клавиши выбранного предмета">R — 90° · ⌘D — копия · Delete</div> : null}
+      <div className="document-status" title="Объекты текущего плана">{wallCount} стен · {openingCount} проёмов · {objectCount} предметов</div>
       <div className="tool-group" aria-label="История изменений">
         <button className="icon-button" type="button" disabled={!canUndo} onClick={() => editorStore.getState().undo()} title="Отменить (Ctrl/Cmd+Z)">↶</button>
         <button className="icon-button" type="button" disabled={!canRedo} onClick={() => editorStore.getState().redo()} title="Повторить (Ctrl/Cmd+Shift+Z)">↷</button>
