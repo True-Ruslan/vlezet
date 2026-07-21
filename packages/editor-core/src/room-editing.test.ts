@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
-import type { VlezetDocumentV2 } from "@vlezet/domain";
+import type { VlezetDocument } from "@vlezet/domain";
 import { deriveRooms, pointInPolygon } from "@vlezet/geometry";
+import { describe, expect, it } from "vitest";
 import { setRoomName } from "./room-editing";
 
-const document: VlezetDocumentV2 = {
-  schemaVersion: 2,
+const document: VlezetDocument = {
+  schemaVersion: 3,
   vertices: [
     { id: "a", position: { x: 0, y: 0 } },
     { id: "b", position: { x: 4000, y: 0 } },
@@ -19,6 +19,7 @@ const document: VlezetDocumentV2 = {
   ],
   openings: [],
   roomAnnotations: [],
+  placedObjects: [],
 };
 
 describe("room editing", () => {
