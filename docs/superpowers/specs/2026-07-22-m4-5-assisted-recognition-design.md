@@ -62,7 +62,8 @@ M4.5 follows and extends existing Vlezet product principles.
 - DWG/DXF/BIM parsing;
 - training custom ML models;
 - automatic final-room generation with no user review;
-- multi-floor recognition.
+- multi-floor recognition;
+- portable backup of unfinished recognition sessions.
 
 ## 4. User journeys
 
@@ -146,15 +147,24 @@ Recognition works with a draft model that is independent from the apartment docu
 
 ### 6.1 Coordinate system
 
-Candidates are stored in **reference-image coordinates**, not directly in world millimetres.
+Candidates are stored in **normalized reference-image coordinates**, not directly in world millimetres.
 
-This means coordinates are normalized to the source image space and transformed into world space only when needed.
+The canonical internal contract is:
 
-Reasoning:
+```ts
+export type NormalizedPoint = {
+  x: number; // finite, inclusive range [0, 1]
+  y: number; // finite, inclusive range [0, 1]
+};
+```
 
-- the draft stays aligned if the reference image position/rotation is adjusted;
+`(0, 0)` is the raster's top-left corner and `(1, 1)` is its bottom-right corner. Provider adapters may use another wire representation, such as integer coordinates `0..10000`, but must normalize it to `[0, 1]` before producing `RecognitionProviderResult`.
+
+World-space conversion always uses the current `ReferencePlan` transform. Therefore:
+
+- the draft stays aligned if the reference image is moved or rotated;
 - AI does not become the metric authority;
-- the same draft can be re-projected onto world coordinates using the current `ReferencePlan` transform.
+- the same draft can be re-projected into world millimetres after viewport-independent reference display changes.
 
 ### 6.2 Draft entities
 
@@ -163,6 +173,7 @@ export type RecognitionDraft = {
   id: string;
   projectId: string;
   referenceAssetId: string;
+  referenceRevision: string;
   engineVersion: string;
   status: 'local-complete' | 'cloud-complete' | 'reconciled' | 'applied';
   walls: RecognitionWallCandidate[];
@@ -357,7 +368,7 @@ BYOK requirements:
 - key is not written to `.vlezet.json`;
 - key is not stored in IndexedDB;
 - key is not logged;
-- key lives only in runtime memory for the current session.
+- key lives only in runtime memory for the current page session.
 
 ### 8.5 Cloud input
 
@@ -382,7 +393,7 @@ It may suggest:
 
 It must not claim authoritative metric lengths.
 
-Coordinates should be normalized to image space, not world millimetres.
+Provider output coordinates must be normalized by the adapter into the canonical `[0, 1]` image-space contract before reconciliation.
 
 ### 8.7 Model selection
 
@@ -537,6 +548,7 @@ export type RecognitionSessionRecord = {
   id: string;
   projectId: string;
   referenceAssetId: string;
+  referenceRevision: string;
   engineVersion: string;
   draft: RecognitionDraft;
   cloudMetadata: RecognitionCloudMetadata | null;
@@ -545,11 +557,30 @@ export type RecognitionSessionRecord = {
 };
 ```
 
-### 12.3 Persistence rules
+### 12.3 Reference revision and stale semantics
+
+A recognition session stores a deterministic `referenceRevision` derived from recognition-relevant input, at minimum:
+
+- normalized reference raster identity/content revision;
+- calibration scale/orientation inputs used by recognition thresholds.
+
+The following do **not** invalidate a session because draft coordinates stay in reference-image space:
+
+- viewport pan/zoom;
+- reference opacity;
+- reference visibility;
+- reference world translation;
+- reference display rotation.
+
+Replacing the raster or materially changing calibration creates a new `referenceRevision`. A session whose revision no longer matches is marked `stale` and cannot be applied until recognition is rerun. It remains viewable or discardable so no work disappears silently.
+
+### 12.4 Persistence and backup rules
 
 - API keys are never persisted;
-- if the reference asset changes materially, old sessions become stale and are marked incompatible;
-- applied sessions may be deleted automatically or kept until the user dismisses them.
+- local IndexedDB sessions survive reload;
+- unfinished recognition sessions are **not** included in `.vlezet.json` portable backups in M4.5;
+- portable backups continue to include the project/reference asset required to rerun recognition after import;
+- applied sessions may be deleted automatically after a successful apply or retained temporarily for diagnostics, but they are never part of the domain document.
 
 ## 13. Performance strategy
 
@@ -570,7 +601,7 @@ Recognition dependencies such as OpenCV.js load only when recognition is first u
 
 ### 13.3 Progressive processing
 
-The worker may report phases such as:
+The worker reports explicit phases such as:
 
 - preparing image;
 - extracting lines;
@@ -578,7 +609,7 @@ The worker may report phases such as:
 - finding openings;
 - finalizing draft.
 
-This gives the user a trustworthy sense of progress.
+Progress percentages may be approximate, but phase ordering must be deterministic and cancellation-safe.
 
 ## 14. Error handling
 
@@ -632,11 +663,12 @@ The user should always retain a fallback path:
 Highest priority:
 
 - recognition model validation;
+- normalized-coordinate boundary validation;
 - local candidate post-processing;
 - reconciliation rules;
 - image-space to world-space transform application;
 - apply validation;
-- provider schema parsing;
+- provider schema parsing/normalization;
 - session persistence and stale detection.
 
 ### 16.2 Integration tests
@@ -647,8 +679,9 @@ Critical flows:
 - accept/reject/edit draft candidates;
 - apply accepted candidates and undo;
 - existing geometry conflict detection;
-- project reload restores recognition session;
-- backup round-trip preserves recognition-supporting assets and metadata.
+- project reload restores a compatible recognition session;
+- raster/calibration revision change marks a session stale;
+- portable backup excludes unfinished recognition sessions but preserves the reference asset needed to rerun recognition.
 
 ### 16.3 Browser tests
 
@@ -701,7 +734,8 @@ M4.5 is complete when:
 4. Existing geometry is preserved and conflicts are surfaced.
 5. A user can optionally run OpenRouter BYOK refinement without storing their API key.
 6. AI output is parsed as structured data, reconciled, reviewed and then applied through the same deterministic validation path.
-7. The project remains usable and safe even if local or cloud recognition fails.
+7. Recognition sessions survive reload while their reference revision is compatible, and stale sessions cannot be applied.
+8. The project remains usable and safe even if local or cloud recognition fails.
 
 ## 19. Future evolution
 
