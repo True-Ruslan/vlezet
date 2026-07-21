@@ -1,7 +1,8 @@
 "use client";
 
+import type { ProjectViewport, SaveStatus } from "@vlezet/projects";
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { EditorToolbar } from "./editor-toolbar";
 import { FurnitureCatalog } from "./furniture-catalog";
 import { getEditorShortcut } from "./keyboard";
@@ -13,11 +14,41 @@ const EditorCanvas = dynamic(() => import("./editor-canvas").then((module) => mo
   loading: () => <div className="canvas-loading">Подготавливаем рабочее поле…</div>,
 });
 
+export type ApartmentEditorProps = Readonly<{
+  projectId: string;
+  projectName: string;
+  saveStatus: SaveStatus;
+  initialViewport: ProjectViewport;
+  furnitureCatalogOpen: boolean;
+  onBack: () => void;
+  onRenameProject: (name: string) => void;
+  onToggleFurnitureCatalog: () => void;
+  onViewportChange: (viewport: ProjectViewport) => void;
+  onRetrySave: () => void;
+  onExportJson: () => void;
+  onExportPng: () => void;
+}>;
+
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
 }
 
-export function ApartmentEditor() {
+export function ApartmentEditor({
+  projectId,
+  projectName,
+  saveStatus,
+  initialViewport,
+  furnitureCatalogOpen,
+  onBack,
+  onRenameProject,
+  onToggleFurnitureCatalog,
+  onViewportChange,
+  onRetrySave,
+  onExportJson,
+  onExportPng,
+}: ApartmentEditorProps) {
+  const [fitRequest, setFitRequest] = useState(0);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target) && event.key !== "Escape") return;
@@ -32,7 +63,7 @@ export function ApartmentEditor() {
         case "wall-tool": store.setTool("wall"); break;
         case "door-tool": store.setTool("door"); break;
         case "window-tool": store.setTool("window"); break;
-        case "furnishing-catalog": document.querySelector<HTMLButtonElement>(".preset-card")?.focus(); break;
+        case "furnishing-catalog": onToggleFurnitureCatalog(); break;
         case "rotate-object": store.rotateSelectedObject90(); break;
         case "duplicate-object": store.duplicateSelectedObject(); break;
         case "delete-selection":
@@ -44,14 +75,30 @@ export function ApartmentEditor() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [onToggleFurnitureCatalog]);
 
   return (
     <main className="editor-app">
-      <EditorToolbar />
-      <section className="editor-workspace">
-        <FurnitureCatalog />
-        <EditorCanvas />
+      <EditorToolbar
+        projectName={projectName}
+        saveStatus={saveStatus}
+        furnitureCatalogOpen={furnitureCatalogOpen}
+        onBack={onBack}
+        onRenameProject={onRenameProject}
+        onToggleFurnitureCatalog={onToggleFurnitureCatalog}
+        onRetrySave={onRetrySave}
+        onFit={() => setFitRequest((value) => value + 1)}
+        onExportJson={onExportJson}
+        onExportPng={onExportPng}
+      />
+      <section className={furnitureCatalogOpen ? "editor-workspace" : "editor-workspace catalog-closed"}>
+        {furnitureCatalogOpen ? <FurnitureCatalog /> : null}
+        <EditorCanvas
+          key={projectId}
+          initialViewport={initialViewport}
+          onViewportChange={onViewportChange}
+          fitRequest={fitRequest}
+        />
         <WallInspector />
       </section>
     </main>
