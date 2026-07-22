@@ -2,14 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 import { runLocalRecognition, type RecognitionWorkerLike } from "./local-recognition-client";
 import type { RecognitionWorkerMessage, RecognitionWorkerRequest } from "./local-recognition-types";
 
+function workerEvent(data: RecognitionWorkerMessage): MessageEvent<RecognitionWorkerMessage> {
+  return { data } as unknown as MessageEvent<RecognitionWorkerMessage>;
+}
+
 class FakeWorker implements RecognitionWorkerLike {
   onmessage: ((event: MessageEvent<RecognitionWorkerMessage>) => void) | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
   readonly terminate = vi.fn();
   readonly postMessage = vi.fn((request: RecognitionWorkerRequest) => {
     queueMicrotask(() => {
-      this.onmessage?.({ data: { type: "progress", requestId: request.requestId, progress: { phase: "walls", progress: 0.8 } } } as MessageEvent<RecognitionWorkerMessage>);
-      this.onmessage?.({ data: {
+      this.onmessage?.(workerEvent({ type: "progress", requestId: request.requestId, progress: { phase: "walls", progress: 0.8 } }));
+      this.onmessage?.(workerEvent({
         type: "result",
         requestId: request.requestId,
         draft: {
@@ -24,7 +28,7 @@ class FakeWorker implements RecognitionWorkerLike {
           createdAt: request.input.now,
           updatedAt: request.input.now,
         },
-      } } as MessageEvent<RecognitionWorkerMessage>);
+      }));
     });
   });
 }
@@ -66,7 +70,7 @@ describe("local recognition client", () => {
   it("rejects malformed worker results", async () => {
     const worker = new FakeWorker();
     worker.postMessage.mockImplementation((request: RecognitionWorkerRequest) => {
-      queueMicrotask(() => worker.onmessage?.({ data: { type: "result", requestId: request.requestId, draft: { nope: true } } } as unknown as MessageEvent<RecognitionWorkerMessage>));
+      queueMicrotask(() => worker.onmessage?.(workerEvent({ type: "result", requestId: request.requestId, draft: { nope: true } } as unknown as RecognitionWorkerMessage)));
     });
     await expect(runLocalRecognition(input(), { workerFactory: () => worker })).rejects.toThrow(/некорректный черновик/i);
   });
