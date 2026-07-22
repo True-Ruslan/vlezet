@@ -49,6 +49,10 @@ export type SpatialInspectionDetails =
   | SpatialWallInspectionDetails
   | SpatialObjectInspectionDetails;
 
+export type SpatialInspectionHitLike = Readonly<{
+  userData: Readonly<Record<string, unknown>>;
+}>;
+
 function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -72,6 +76,16 @@ export function spatialInspectionTargetFromUserData(
     default:
       return null;
   }
+}
+
+export function firstSpatialInspectionTarget(
+  hits: readonly SpatialInspectionHitLike[],
+): SpatialInspectionTarget | null {
+  for (const hit of hits) {
+    const target = spatialInspectionTargetFromUserData(hit.userData);
+    if (target) return target;
+  }
+  return null;
 }
 
 export function sameSpatialInspectionTarget(
