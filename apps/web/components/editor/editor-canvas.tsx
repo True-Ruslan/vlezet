@@ -37,12 +37,18 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Layer, Line, Stage, Text } from "react-konva";
 import { useStore } from "zustand";
-import { getFurniturePreset } from "./furniture-presets";
-import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
-import { PlacedObjectShape } from "./placed-object-shape";
 import { RecognitionLayer } from "../recognition/recognition-layer";
 import { ReferenceLayer } from "../reference/reference-layer";
 import { useReferenceImage } from "../reference/use-reference-image";
+import {
+  deriveRectangularRoomDimensionAnnotations,
+  deriveWallCentrelineDimensionAnnotation,
+  formatRoomCanvasLabel,
+} from "./dimension-annotations";
+import { DimensionOverlay } from "./dimension-overlay";
+import { getFurniturePreset } from "./furniture-presets";
+import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
+import { PlacedObjectShape } from "./placed-object-shape";
 import { editorStore, type TopologySnapTarget } from "./use-editor-store";
 
 const MIN_SCALE = 0.01;
@@ -215,6 +221,16 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     return start && end ? [{ wall, start: start.position, end: end.position }] : [];
   }), [document.walls, vertexMap]);
   const derivedRooms = useMemo(() => deriveRooms(document), [document]);
+  const selectedRoom = derivedRooms.rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const selectedResolvedWall = resolvedWalls.find(({ wall }) => wall.id === selectedWallId) ?? null;
+  const canvasDimensionAnnotations = useMemo(() => {
+    if (selectedRoom) return deriveRectangularRoomDimensionAnnotations(selectedRoom);
+    if (selectedResolvedWall) {
+      const annotation = deriveWallCentrelineDimensionAnnotation(selectedResolvedWall.start, selectedResolvedWall.end);
+      return annotation ? [annotation] : [];
+    }
+    return [];
+  }, [selectedResolvedWall, selectedRoom]);
   const errorDiagnostics = derivedRooms.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const gridStep = chooseGridStep(viewport.pixelsPerMillimeter);
   const endpoints = useMemo(() => document.vertices.map((vertex) => vertex.position), [document.vertices]);
@@ -450,7 +466,12 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
             const selected = room.id === selectedRoomId;
             return <Line key={room.id} points={screenPolygon(room.polygon, viewport)} closed fill={selected ? "#dbeafe" : "#f4f7fb"} stroke={selected ? "#93c5fd" : undefined} strokeWidth={selected ? 1.5 : 0} opacity={tracingMode ? (selected ? 0.42 : 0.2) : (selected ? 0.9 : 0.72)} onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }} />;
           })}
-          {derivedRooms.rooms.map((room) => { const label = worldToScreen(room.labelPoint, viewport); return <Text key={`label-${room.id}`} x={label.x - 80} y={label.y - 18} width={160} align="center" text={`${room.name}\n${room.areaM2.toFixed(2)} м²`} fontSize={12} lineHeight={1.35} fill="#4b5563" listening={false} />; })}
+          {derivedRooms.rooms.map((room) => {
+            const label = worldToScreen(room.labelPoint, viewport);
+            const text = formatRoomCanvasLabel(room);
+            const lineCount = text.split("\n").length;
+            return <Text key={`label-${room.id}`} x={label.x - 100} y={label.y - (lineCount === 3 ? 27 : 18)} width={200} align="center" text={text} fontSize={11} lineHeight={1.35} fill="#4b5563" listening={false} />;
+          })}
           {resolvedWalls.flatMap(({ wall }) => deriveVisibleWallIntervals(document, wall.id).map((interval, index) => {
             const a = worldToScreen(pointAtWallOffset(document, wall.id, interval.startOffset), viewport);
             const b = worldToScreen(pointAtWallOffset(document, wall.id, interval.endOffset), viewport);
@@ -489,6 +510,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
           ) : null}
         </Layer>
         <Layer listening={false}>
+          <DimensionOverlay annotations={canvasDimensionAnnotations} viewport={viewport} />
           {objectGuides.map((guide, index) => guide.axis === "x"
             ? <Line key={`object-guide-x-${index}`} points={[worldToScreen({ x: guide.value, y: 0 }, viewport).x, 0, worldToScreen({ x: guide.value, y: 0 }, viewport).x, size.height]} stroke="#0ea5e9" strokeWidth={1} dash={[5, 5]} opacity={0.72} />
             : <Line key={`object-guide-y-${index}`} points={[0, worldToScreen({ x: 0, y: guide.value }, viewport).y, size.width, worldToScreen({ x: 0, y: guide.value }, viewport).y]} stroke="#0ea5e9" strokeWidth={1} dash={[5, 5]} opacity={0.72} />)}
