@@ -11,6 +11,7 @@ import {
 import { deriveRectangularRoomDimensions, deriveRooms, type DerivedRoom } from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
+import { formatAreaM2FromSquareMillimeters } from "./dimension-annotations";
 import { ObjectInspector } from "./object-inspector";
 import { editorStore } from "./use-editor-store";
 
@@ -81,7 +82,7 @@ export function SelectedRoomInspector({ room }: Readonly<{ room: DerivedRoom }>)
       <label className="field-label" htmlFor="room-clear-height-anchor">Что остаётся на месте</label><select id="room-clear-height-anchor" className="inspector-select" value={heightAnchor} onChange={(e)=>setHeightAnchor(e.target.value as ClearRoomDimensionAnchor)}><option value="min">Верхняя сторона</option><option value="center">Центр</option><option value="max">Нижняя сторона</option></select><button className="secondary-action" type="button" onClick={()=>applyDimension("height",heightInput,heightAnchor)}>Применить длину</button>
       <p className="inspector-hint">Это расстояния между внутренними поверхностями стен. Для прямоугольной комнаты площадь считается из той же чистой геометрии.</p>
     </div>:<p className="inspector-hint">Чистые размеры можно редактировать, когда комната является простой прямоугольной геометрией. Для сложных контуров Vlezet не угадывает неоднозначные размеры.</p>}
-    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Полезная площадь</dt><dd>{room.areaM2.toFixed(2)} м²</dd></div></dl><p className="inspector-hint">Площадь считается автоматически по внутренним поверхностям стен и обновляется при изменении планировки.</p>
+    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Полезная площадь</dt><dd>{formatAreaM2FromSquareMillimeters(room.areaMm2)} м²</dd></div></dl><p className="inspector-hint">Площадь считается автоматически по внутренним поверхностям стен и обновляется при изменении планировки.</p>
   </aside>;
 }
 
