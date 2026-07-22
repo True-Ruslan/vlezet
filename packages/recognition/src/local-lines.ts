@@ -229,7 +229,7 @@ export function buildWallCandidates(input: BuildWallCandidatesInput): Recognitio
   const options = { ...DEFAULT_LOCAL_RECOGNITION_OPTIONS, ...input.options };
   const segments = input.segments
     .map(canonicalSegment)
-    .filter((segment): segment is CanonicalSegment => Boolean(segment) && segment.length >= options.minimumSegmentLengthPx);
+    .filter((segment): segment is CanonicalSegment => segment !== null && segment.length >= options.minimumSegmentLengthPx);
   const centerlines: Centerline[] = [];
   for (let firstIndex = 0; firstIndex < segments.length; firstIndex += 1) {
     for (let secondIndex = firstIndex + 1; secondIndex < segments.length; secondIndex += 1) {
