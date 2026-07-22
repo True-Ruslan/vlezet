@@ -91,7 +91,7 @@ describe("PlanningPanelView", () => {
     expect(html).toContain("Ближе к стене");
     expect(html).toContain("Ближе к углу");
     expect(html).toContain("Ближе друг к другу");
-    expect(html).toContain("по центрам предметов");
+    expect(html).toContain("между центрами предметов");
     expect(html).toContain("Диван: до ближайшей стены 25 мм.");
     expect(html).toContain("Предпросмотр");
     expect(html).toContain("Применить");
