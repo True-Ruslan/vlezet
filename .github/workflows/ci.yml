@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -28,29 +28,7 @@ jobs:
           node-version: 22.16.0
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Upload generated lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-lockfile
-          path: pnpm-lock.yaml
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Commit generated lockfile
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          if git diff --quiet -- pnpm-lock.yaml; then
-            echo "Lockfile already synchronized"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pnpm-lock.yaml
-          git commit -m "chore: sync planning workspace lockfile"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+        run: pnpm install --frozen-lockfile
 
       - name: Unit tests
         id: tests
