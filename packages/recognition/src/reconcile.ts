@@ -57,7 +57,7 @@ function downgradeCloudWall(wall: RecognitionWallCandidate): RecognitionWallCand
   return {
     ...wall,
     confidence: wall.confidence === "low" ? "low" : "medium",
-    evidence: { ...wall.evidence, reasons: [...new Set([...wall.evidence.reasons, "cloud-only-review"]) ] },
+    evidence: { ...wall.evidence, reasons: [...new Set([...wall.evidence.reasons, "cloud-only-review"])] },
   };
 }
 
@@ -91,7 +91,7 @@ function reconcileOpenings(
 }
 
 export function reconcileRecognition(input: ReconcileRecognitionInput): RecognitionDraft {
-  const diagnostics: RecognitionDiagnostic[] = [...input.localDraft.diagnostics];
+  const diagnostics: RecognitionDiagnostic[] = [...input.localDraft.diagnostics, ...(input.cloudResult.diagnostics ?? [])];
   const consumedCloud = new Set<string>();
   const walls = input.localDraft.walls.map((local) => {
     const cloud = input.cloudResult.walls.find((candidate) => wallDistance(local, candidate) <= WALL_MATCH_TOLERANCE);
