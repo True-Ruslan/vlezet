@@ -1,38 +1,29 @@
-import { createHistoryState } from "@vlezet/editor-core";
+import type { VlezetDocument } from "@vlezet/domain";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it } from "vitest";
-import { WallInspector } from "./wall-inspector";
-import { editorStore } from "./use-editor-store";
+import { describe, expect, it } from "vitest";
+import { SelectedWallInspector } from "./wall-inspector";
 
-const noSnap = (x: number, y: number) => ({ point: { x, y }, kind: "none" as const, guides: [] });
-
-function selectSimpleWall(): void {
-  editorStore.setState({
-    history: createHistoryState(),
-    tool: "select",
-    selectedWallId: null,
-    selectedRoomId: null,
-    selectedOpeningId: null,
-    selectedObjectId: null,
-    placementPresetId: null,
-    draftWall: null,
-    objectGesture: null,
-  });
-  editorStore.getState().setTool("wall");
-  editorStore.getState().beginWall({ x: 0, y: 0 });
-  editorStore.getState().updateDraftWall(noSnap(3550, 0));
-  editorStore.getState().commitDraftWall();
-  editorStore.getState().cancelDraft();
-  const wallId = editorStore.getState().history.document.walls[0]?.id;
-  if (!wallId) throw new Error("Test wall was not created");
-  editorStore.getState().selectWall(wallId);
+function simpleWallDocument(): VlezetDocument {
+  return {
+    schemaVersion: 3,
+    vertices: [
+      { id: "a", position: { x: 0, y: 0 } },
+      { id: "b", position: { x: 3550, y: 0 } },
+    ],
+    walls: [
+      { id: "wall", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 },
+    ],
+    openings: [],
+    roomAnnotations: [],
+    placedObjects: [],
+  };
 }
 
 describe("wall inspector precision semantics", () => {
-  beforeEach(() => selectSimpleWall());
-
   it("names centreline length explicitly and exposes fixed-anchor choices", () => {
-    const html = renderToStaticMarkup(<WallInspector />);
+    const document = simpleWallDocument();
+    const wall = document.walls[0]!;
+    const html = renderToStaticMarkup(<SelectedWallInspector document={document} wall={wall} />);
 
     expect(html).toContain("Длина по оси стены");
     expect(html).toContain("Что остаётся на месте");
