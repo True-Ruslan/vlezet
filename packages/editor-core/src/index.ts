@@ -29,4 +29,5 @@ export type {
   AddTopologicalWallInput,
   DocumentEdit,
   WallEndpointIntent,
+  WallLengthAnchor,
 } from "./topology-editing";
