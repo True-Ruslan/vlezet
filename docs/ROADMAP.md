@@ -15,9 +15,10 @@ DONE        M3 Local-First Projects
 DONE        M4 Reference Plan Import
 DONE/MVP    M4.5 Assisted Recognition — merged; quality refinement backlog remains
 DONE        M4.6 Precision Geometry UX — accepted in browser and merged
-DONE        M5.1 Deterministic Spatial 3D Shell — accepted in browser and merged
-NOW         M5.2 Furniture in 3D
-NEXT        M5.4 Spatial Inspection / remaining M5 polish
+DONE        M5.1 Deterministic Spatial 3D Shell + Viewer — accepted and merged
+DONE        M5.2 Furniture in 3D — accepted and merged
+NOW         M5.4 Spatial Inspection
+POLISH      M5.3 camera/navigation refinements only where evidence requires them
 AFTER       M6 Intelligent Planning
 LATER       public-product infrastructure / optional expansion
 ```
@@ -43,8 +44,6 @@ Product position:
 Merge: `a718bf605d8b3bde8dc87953c340b7b0e9565fdb`.
 
 Accepted after strict CI and real browser verification.
-
-Solved the ordinary-user trust problem where wall centreline lengths looked like clear room dimensions.
 
 Delivered:
 
@@ -81,10 +80,10 @@ VlezetDocument
       ↓
 renderer-neutral SpatialScene
       ↓
-Three.js viewer
+plain Three.js viewer
 ```
 
-### M5.1 — Deterministic Spatial 3D Shell
+### M5.1 — Deterministic Spatial 3D Shell + Viewer
 
 PR #8 → squash merge `4acca82b04c87b3737eb87a03f9ee2ff360b5073`.
 
@@ -95,7 +94,7 @@ Delivered:
 - framework-independent `@vlezet/spatial`;
 - documented/tested 2D mm → 3D coordinate convention;
 - deterministic wall prisms with physical thickness;
-- constant projection wall height without schema migration;
+- projection-only wall height without schema migration;
 - wall segmentation around openings using existing geometry contracts;
 - room floors from existing derived usable polygons;
 - semantic schematic door/window markers without invented vertical authority;
@@ -114,17 +113,15 @@ Acceptance:
 - strict CI PASS;
 - real browser acceptance PASS on a user apartment project;
 - user confirmed: `Все есть`;
-- lifecycle review found and fixed one GridHelper resource leak before merge.
+- lifecycle review found and fixed a GridHelper resource leak before merge.
 
-M5.1 deliberately did **not** include furniture projection.
+### M5.2 — Furniture in 3D
 
-## NOW — M5.2 Furniture in 3D
+PR #9 → squash merge `7f7e8dfd9c875145bfa3d307638cd8cd27051a3a`.
 
-### Goal
+**Status:** DONE / ACCEPTED.
 
-Project the same `VlezetDocument.placedObjects` into the neutral spatial scene and render them as deterministic generic 3D primitives.
-
-### Architecture contract
+Architecture contract:
 
 ```text
 PlacedObject
@@ -143,33 +140,35 @@ heightWasDefaulted
 Three.js generic primitive
 ```
 
-### Requirements
+Delivered:
 
 - same persistent placed objects as 2D;
 - no separate 3D object state;
 - position maps to X/Z;
 - rotation maps deterministically to Y-axis rotation;
 - width/depth remain exact millimetres;
-- stored `height` is used when present;
-- missing height gets a clearly named projection-only default, never silently persisted;
+- stored height is used when present;
+- missing height uses projection-only `DEFAULT_OBJECT_HEIGHT_MM = 700`, never persisted;
 - generic primitive boxes first;
 - semantic object ID/name/category remain available for later inspection;
 - existing fit/collision/clearance engine remains authoritative;
-- mesh collision must not replace deterministic 2D/domain evaluation;
+- mesh collision does not replace deterministic evaluation;
+- invalid/non-finite/out-of-domain object geometry fails closed;
+- renderer lifecycle disposes object resources;
 - 3D remains read-only.
 
-### Acceptance
+Acceptance:
 
-- same object count represented in 3D where projection is valid;
-- furniture position/orientation matches 2D;
-- exact dimensions are preserved;
-- defaulted height is explicit in neutral projection data;
-- switching views does not mutate objects/history/autosave;
-- strict CI + real browser acceptance.
+- exact-head strict CI PASS: `1b955e01a3092e11427258b563871800cf82206a`, run `29940437536`;
+- paired real-project 2D/3D screenshots PASS;
+- all 3 placed objects appeared in matching room locations;
+- no visible M5.1 shell regression.
+
+Canonical checklist: `docs/milestones/m5-2-acceptance.md`.
 
 ## M5.3 — Camera/navigation
 
-Most original M5.3 foundation was intentionally pulled into M5.1 because it was required to validate the shell:
+The architectural foundation originally planned for M5.3 was intentionally delivered inside M5.1 because shell acceptance required real navigation:
 
 - orbit;
 - pan;
@@ -178,40 +177,61 @@ Most original M5.3 foundation was intentionally pulled into M5.1 because it was 
 - fit camera;
 - reliable 2D↔3D switching.
 
-Remaining work here should be evidence-driven polish only, not a separate architectural rewrite.
+Therefore M5.3 is **not a blocking standalone milestone**.
 
-Potential polish:
+Remaining work is evidence-driven polish only:
 
-- camera persistence only if users actually need it;
+- camera persistence only if users need it;
 - improved preset framing on unusual plans;
 - accessibility/input refinements;
 - explicit performance budgets from representative projects.
 
-## M5.4 — Spatial Inspection
+## NOW — M5.4 Spatial Inspection
 
-Planned after M5.2 is stable.
+### Goal
 
-Potential scope:
+Turn the read-only 3D view from a visual projection into a useful inspection surface while preserving the same trusted document and deterministic engines.
 
-- hover/select rooms/walls/objects using semantic IDs already carried by the spatial scene;
-- expose dimensions already known by the trusted model;
-- show existing fit status/reasons;
-- inspect without directly editing geometry;
-- no silent document mutation from 3D interactions.
+### Recommended scope
 
-## M5 non-goals
+- hover/select rooms, walls and placed objects using semantic IDs already carried by spatial primitives;
+- expose dimensions already known by `VlezetDocument` / `SpatialScene`;
+- show existing object fit status and reasons from the deterministic fit engine;
+- provide a compact read-only inspector/panel;
+- visually indicate hovered/selected 3D entities without modifying source geometry;
+- keep 3D interaction non-semantic unless an explicit future editing milestone is designed;
+- no document/history/autosave mutation from hover/select/camera interaction.
 
-Do not introduce during current M5 slices:
+### Architecture contract
 
-- photorealism;
-- ray tracing;
-- materials marketplace;
-- generative interior images as geometry authority;
-- separate 3D editing model;
-- VR;
-- BIM;
-- decorative asset pipeline before deterministic object projection is proven;
-- speculative ECS/LOD/worker architecture without measured need.
+```text
+Three.js hit
+      ↓ semantic id / entity kind
+inspection state (ephemeral)
+      ↓
+read trusted document / spatial values / deterministic fit engine
+      ↓
+read-only inspection UI
+```
+
+Must not introduce:
+
+- mesh geometry as measurement authority;
+- duplicate 3D object/wall state;
+- direct geometry editing;
+- implicit persistence;
+- decorative asset pipeline;
+- M6 planning/AI generation.
+
+### Acceptance
+
+- semantic hover/select works for the intended entity set;
+- selected entity maps reliably to the same domain/spatial ID;
+- shown dimensions match authoritative source values;
+- furniture fit information matches existing deterministic 2D logic;
+- 3D inspection does not mutate `VlezetDocument`, history or autosave state;
+- 2D↔3D consistency remains intact;
+- strict exact-head CI + real browser acceptance.
 
 ## AFTER — M6 Intelligent Planning
 
@@ -241,7 +261,7 @@ Potential scope:
 
 ## High-value precision follow-ups
 
-These remain useful but should be scheduled by evidence rather than interrupting M5.2 unless a real user blocker appears.
+These remain useful but should be scheduled by evidence instead of interrupting M5.4 unless a real user blocker appears.
 
 ### Recognition quality
 
@@ -266,13 +286,6 @@ Target:     11.70 m²
 Difference: -0.32 м²
 ```
 
-Possible locks:
-
-```text
-🔒 clear width = 3300 mm
-🎯 target area = 11.70 m²
-```
-
 Do not introduce a full parametric solver until simple dimension semantics remain stable under real usage.
 
 ### Wall classes/presets
@@ -289,8 +302,6 @@ Never infer structural/removability status without authoritative source data.
 
 ### Browser journeys
 
-Maintain high-value automated tests where practical, but never confuse them with final human visual acceptance.
-
 Priority journeys:
 
 - create project → draw shell → save/reload;
@@ -301,7 +312,8 @@ Priority journeys:
 - backup/import;
 - recognition safety/apply/undo;
 - 2D↔3D geometry consistency;
-- furniture 2D↔3D consistency.
+- furniture 2D↔3D consistency;
+- 3D semantic inspection consistency.
 
 ### Observability/privacy
 
@@ -344,7 +356,7 @@ Priority journeys:
 2. Prefer real-user evidence over impressive demos.
 3. Deterministic correctness beats AI/3D spectacle.
 4. Fix root causes, not screenshots/symptoms.
-5. Optional subsystems must stay isolated.
+5. Optional subsystems stay isolated.
 6. Local-first editing remains a core product property.
 7. Add complexity only when the previous simpler model has been validated.
 8. No second geometry authority in 3D.
