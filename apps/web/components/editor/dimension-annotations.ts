@@ -22,7 +22,7 @@ function bounds(points: readonly Point2[]): Readonly<{ minX: number; maxX: numbe
   };
 }
 
-function formatAreaM2FromSquareMillimeters(areaMm2: number): string {
+export function formatAreaM2FromSquareMillimeters(areaMm2: number): string {
   const hundredthsOfSquareMeter = Math.round(areaMm2 / 10_000);
   return (hundredthsOfSquareMeter / 100).toFixed(2);
 }
