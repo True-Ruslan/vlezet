@@ -84,8 +84,6 @@ export function projectDocumentToSpatialScene(document: VlezetDocument): Spatial
   for (const opening of document.openings) {
     try {
       const segment = openingSegment(document, opening);
-      const dx = segment.end.x - segment.start.x;
-      const dz = segment.end.y - segment.start.y;
       openingMarkers.push({
         id: `opening:${opening.id}`,
         openingId: opening.id,
