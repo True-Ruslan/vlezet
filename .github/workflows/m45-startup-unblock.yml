@@ -1,0 +1,26 @@
+name: M4.5 Startup Unblock
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  unblock:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply guarded startup unblock
+        run: node .github/scripts/m45-startup-unblock.mjs
+      - name: Commit fix and self-delete workflow
+        shell: bash
+        run: |
+          git rm .github/scripts/m45-startup-unblock.mjs .github/workflows/m45-startup-unblock.yml
+          git add apps/web/components/projects/project-app.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: keep recognition restore from blocking Vlezet startup"
+          git push
