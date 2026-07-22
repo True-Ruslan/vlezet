@@ -1,4 +1,9 @@
-import type { RecognitionProvider, RecognitionProviderInput, RecognitionProviderResult } from "@vlezet/recognition";
+import {
+  sanitizeCloudRecognitionResult,
+  type RecognitionProvider,
+  type RecognitionProviderInput,
+  type RecognitionProviderResult,
+} from "@vlezet/recognition";
 import { recognitionError, recognitionInfo } from "./recognition-debug";
 import { OPENROUTER_RECOGNITION_JSON_SCHEMA, normalizeOpenRouterRecognitionPayload } from "./openrouter-schema";
 
@@ -80,14 +85,20 @@ export async function listCompatibleOpenRouterModels(
   }
 }
 
-function prompt(localSummary: RecognitionProviderInput["localSummary"]): string {
-  const localContext = localSummary
-    ? `Локальный детектор уже предложил ${localSummary.walls.length} стен и ${localSummary.openings.length} проёмов. Используй это только как подсказку, проверяй по изображению.`
-    : "Локальных подсказок нет.";
+function prompt(input: RecognitionProviderInput): string {
+  const localContext = input.localSummary
+    ? `Локальный детектор уже предложил ${input.localSummary.walls.length} стен и ${input.localSummary.openings.length} проёмов. Используй это как геометрическую подсказку, но проверяй по самому изображению.`
+    : "Локальных геометрических подсказок нет.";
   return [
     "Проанализируй архитектурный план квартиры.",
+    `Размер исходного нормализованного растра: ${input.imageWidthPx} × ${input.imageHeightPx} px.`,
     "Верни только структурированные стены, двери/окна и необязательные подписи комнат по заданной JSON Schema.",
-    "Координаты используй в нормализованной целочисленной системе 0..10000 относительно всего изображения: x слева направо, y сверху вниз.",
+    "Координаты start/end/center/anchor используй в системе 0..10000 относительно всего изображения: x слева направо, y сверху вниз.",
+    "Каждая wall должна совпадать с видимой осевой линией реальной строительной стены на плане.",
+    "НЕ возвращай границу изображения, рамку листа, crop/page boundary, bounding box квартиры, прямоугольник вокруг плана или границы пустого белого поля как стены.",
+    "Не создавай enclosing rectangle только потому, что квартира визуально занимает прямоугольную область.",
+    "Если стена не видна достаточно уверенно, лучше не возвращай её вовсе.",
+    "Проём должен находиться на реально возвращённой стене; не придумывай двери/окна в пустом поле.",
     "Не придумывай метрические размеры и не реконструируй элементы, которых не видно уверенно.",
     "Для сомнительных элементов снижай confidence.",
     localContext,
@@ -129,7 +140,7 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
           messages: [{
             role: "user",
             content: [
-              { type: "text", text: prompt(input.localSummary) },
+              { type: "text", text: prompt(input) },
               { type: "image_url", image_url: { url: input.imageDataUrl } },
             ],
           }],
@@ -159,14 +170,18 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
       let parsed: unknown;
       try { parsed = JSON.parse(content); }
       catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "OpenRouter вернул некорректный JSON.", { cause }); }
-      let result: RecognitionProviderResult;
-      try { result = normalizeOpenRouterRecognitionPayload(parsed); }
-      catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "Ответ OpenRouter не прошёл проверку геометрического контракта.", { cause }); }
+
+      let normalized: RecognitionProviderResult;
+      try { normalized = normalizeOpenRouterRecognitionPayload(parsed); }
+      catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "Ответ OpenRouter не прошёл проверку структуры ответа.", { cause }); }
+
+      const result = sanitizeCloudRecognitionResult({ result: normalized, localSummary: input.localSummary });
       recognitionInfo("openrouter.request.complete", {
         modelId: this.#modelId,
         walls: result.walls.length,
         openings: result.openings.length,
         roomLabels: result.roomLabels.length,
+        diagnostics: result.diagnostics?.length ?? 0,
         durationMs: Math.round(performance.now() - startedAt),
       });
       return result;
