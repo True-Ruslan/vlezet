@@ -1,12 +1,26 @@
 "use client";
 
 import type { Opening, VlezetDocument, Wall } from "@vlezet/domain";
-import { MAX_WALL_THICKNESS_MM, MIN_WALL_THICKNESS_MM, topologicalWallLength } from "@vlezet/editor-core";
-import { deriveRooms, type DerivedRoom } from "@vlezet/geometry";
+import {
+  MAX_WALL_THICKNESS_MM,
+  MIN_WALL_THICKNESS_MM,
+  topologicalWallLength,
+  type ClearRoomDimensionAnchor,
+  type WallLengthAnchor,
+  type WallThicknessAlignment,
+} from "@vlezet/editor-core";
+import {
+  deriveRectangularRoomDimensions,
+  deriveRooms,
+  deriveSingleAdjacentRoomSide,
+  type DerivedRoom,
+} from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
+import { formatAreaM2FromSquareMillimeters } from "./dimension-annotations";
 import { ObjectInspector } from "./object-inspector";
 import { editorStore } from "./use-editor-store";
+import { resolveWallThicknessAlignment, type WallThicknessGrowthIntent } from "./wall-thickness-intent";
 
 function wallVersionKey(document: VlezetDocument, wall: Wall): string {
   const start = document.vertices.find((vertex) => vertex.id === wall.startVertexId)?.position;
@@ -23,33 +37,74 @@ function connectionCount(document: VlezetDocument, wall: Wall): number {
   return connected.size;
 }
 
-function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocument; wall: Wall }>) {
+export function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocument; wall: Wall }>) {
   const currentLength = topologicalWallLength(document, wall.id);
+  const interiorSide = deriveSingleAdjacentRoomSide(document, wall.id);
   const [lengthInput, setLengthInput] = useState(() => String(Math.round(currentLength)));
+  const [lengthAnchor, setLengthAnchor] = useState<WallLengthAnchor>("start");
   const [thicknessInput, setThicknessInput] = useState(() => String(Math.round(wall.thickness)));
+  const [thicknessGrowthIntent, setThicknessGrowthIntent] = useState<WallThicknessGrowthIntent>("center");
+  const [explicitThicknessAlignment, setExplicitThicknessAlignment] = useState<WallThicknessAlignment>("center");
   const [error, setError] = useState<string | null>(null);
   const applyLength = () => {
     const value = Number(lengthInput.replace(",", "."));
     if (!Number.isFinite(value) || value <= 0) { setError("Введите положительную длину в миллиметрах."); return; }
-    try { editorStore.getState().setSelectedWallLength(value); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить длину."); }
+    try { editorStore.getState().setSelectedWallLength(value, lengthAnchor); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить длину."); }
   };
   const applyThickness = () => {
     const value = Number(thicknessInput.replace(",", "."));
     if (!Number.isFinite(value)) { setError("Введите толщину стены в миллиметрах."); return; }
-    try { editorStore.getState().setSelectedWallThickness(value); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить толщину."); }
+    const alignment = interiorSide
+      ? resolveWallThicknessAlignment(interiorSide, thicknessGrowthIntent)
+      : explicitThicknessAlignment;
+    try { editorStore.getState().setSelectedWallThickness(value, alignment); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить толщину."); }
   };
   return <aside className="inspector-panel">
     <div className="inspector-heading"><span>Стена</span><code>{wall.id.slice(0,8)}</code></div>
-    <label className="field-label" htmlFor="wall-length">Точная длина</label><div className="length-field-row"><input id="wall-length" inputMode="decimal" value={lengthInput} onChange={(e)=>setLengthInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyLength();}}/><span>мм</span></div><button className="primary-action" type="button" onClick={applyLength}>Применить длину</button>
-    <label className="field-label" htmlFor="wall-thickness">Толщина стены</label><div className="length-field-row"><input id="wall-thickness" inputMode="decimal" min={MIN_WALL_THICKNESS_MM} max={MAX_WALL_THICKNESS_MM} value={thicknessInput} onChange={(e)=>setThicknessInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyThickness();}}/><span>мм</span></div><button className="secondary-action" type="button" onClick={applyThickness}>Применить толщину</button>
-    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Длина</dt><dd>{(currentLength/1000).toFixed(3)} м</dd></div><div><dt>Толщина</dt><dd>{wall.thickness} мм</dd></div><div><dt>Соединений</dt><dd>{connectionCount(document,wall)}</dd></div></dl><p className="inspector-hint">Стены соединены настоящими узлами. Изменение общей вершины не разрывает соседние стены.</p>
+    <label className="field-label" htmlFor="wall-length">Длина по оси стены</label><div className="length-field-row"><input id="wall-length" inputMode="decimal" value={lengthInput} onChange={(e)=>setLengthInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyLength();}}/><span>мм</span></div>
+    <label className="field-label" htmlFor="wall-length-anchor">Что остаётся на месте</label><select id="wall-length-anchor" className="inspector-select" value={lengthAnchor} onChange={(e)=>setLengthAnchor(e.target.value as WallLengthAnchor)}><option value="start">Начало</option><option value="center">Центр</option><option value="end">Конец</option></select>
+    <p className="inspector-hint">Длина по оси — расстояние между узлами стены. Это не всегда равно чистому внутреннему размеру комнаты.</p>
+    <button className="primary-action" type="button" onClick={applyLength}>Применить длину</button>
+    <label className="field-label" htmlFor="wall-thickness">Толщина стены</label><div className="length-field-row"><input id="wall-thickness" inputMode="decimal" min={MIN_WALL_THICKNESS_MM} max={MAX_WALL_THICKNESS_MM} value={thicknessInput} onChange={(e)=>setThicknessInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyThickness();}}/><span>мм</span></div>
+    {interiorSide?<>
+      <label className="field-label" htmlFor="wall-thickness-growth">Куда меняется толщина</label><select id="wall-thickness-growth" className="inspector-select" value={thicknessGrowthIntent} onChange={(e)=>setThicknessGrowthIntent(e.target.value as WallThicknessGrowthIntent)}><option value="inside">Внутрь помещения</option><option value="center">По центру</option><option value="outside">Наружу</option></select>
+      <p className="inspector-hint">Направление определено относительно единственного соседнего помещения. Vlezet сдвинет ось так, чтобы противоположная физическая грань осталась на месте.</p>
+    </>:<>
+      <label className="field-label" htmlFor="wall-thickness-face">Сохранить грань</label><select id="wall-thickness-face" className="inspector-select" value={explicitThicknessAlignment} onChange={(e)=>setExplicitThicknessAlignment(e.target.value as WallThicknessAlignment)}><option value="left-face">Левая грань</option><option value="center">По центру</option><option value="right-face">Правая грань</option></select>
+      <p className="inspector-hint">У стены нет одной однозначной стороны помещения, поэтому Vlezet не угадывает «внутрь» и «наружу». Выберите физическую грань явно.</p>
+    </>}
+    <button className="secondary-action" type="button" onClick={applyThickness}>Применить толщину</button>
+    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>По оси</dt><dd>{(currentLength/1000).toFixed(3)} м</dd></div><div><dt>Толщина</dt><dd>{wall.thickness} мм</dd></div><div><dt>Соединений</dt><dd>{connectionCount(document,wall)}</dd></div></dl><p className="inspector-hint">Стены соединены настоящими узлами. Изменение общей вершины не разрывает соседние стены.</p>
   </aside>;
 }
 
-function SelectedRoomInspector({ room }: Readonly<{ room: DerivedRoom }>) {
-  const [name,setName]=useState(room.name); const [error,setError]=useState<string|null>(null);
+export function SelectedRoomInspector({ room }: Readonly<{ room: DerivedRoom }>) {
+  const dimensions = deriveRectangularRoomDimensions(room);
+  const [name,setName]=useState(room.name);
+  const [widthInput,setWidthInput]=useState(()=>dimensions?String(Math.round(dimensions.widthMm)):"");
+  const [heightInput,setHeightInput]=useState(()=>dimensions?String(Math.round(dimensions.heightMm)):"");
+  const [widthAnchor,setWidthAnchor]=useState<ClearRoomDimensionAnchor>("min");
+  const [heightAnchor,setHeightAnchor]=useState<ClearRoomDimensionAnchor>("min");
+  const [error,setError]=useState<string|null>(null);
   const applyName=()=>{try{editorStore.getState().setSelectedRoomName(name);setError(null);}catch(cause){setError(cause instanceof Error?cause.message:"Не удалось переименовать комнату.");}};
-  return <aside className="inspector-panel"><div className="inspector-heading"><span>Комната</span><code>{room.id.slice(-10)}</code></div><label className="field-label" htmlFor="room-name">Название</label><div className="room-name-field"><input id="room-name" value={name} maxLength={80} onChange={(e)=>setName(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyName();}}/></div><button className="primary-action" type="button" onClick={applyName}>Сохранить название</button>{error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Полезная площадь</dt><dd>{room.areaM2.toFixed(2)} м²</dd></div></dl><p className="inspector-hint">Площадь считается автоматически по внутренним поверхностям стен и обновляется при изменении планировки.</p></aside>;
+  const applyDimension=(axis:"width"|"height", raw:string, anchor:ClearRoomDimensionAnchor)=>{
+    const value=Number(raw.replace(",","."));
+    if(!Number.isFinite(value)||value<=0){setError("Введите положительный чистый размер в миллиметрах.");return;}
+    try{editorStore.getState().setSelectedRoomClearDimension(axis,value,anchor);setError(null);}catch(cause){setError(cause instanceof Error?cause.message:"Не удалось изменить чистый размер комнаты.");}
+  };
+  return <aside className="inspector-panel">
+    <div className="inspector-heading"><span>Комната</span><code>{room.id.slice(-10)}</code></div>
+    <label className="field-label" htmlFor="room-name">Название</label><div className="room-name-field"><input id="room-name" value={name} maxLength={80} onChange={(e)=>setName(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyName();}}/></div><button className="primary-action" type="button" onClick={applyName}>Сохранить название</button>
+    {dimensions?<div className="room-clear-dimensions">
+      <strong>Чистые внутренние размеры</strong>
+      <label className="field-label" htmlFor="room-clear-width">Ширина</label><div className="length-field-row"><input id="room-clear-width" inputMode="decimal" value={widthInput} onChange={(e)=>setWidthInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyDimension("width",widthInput,widthAnchor);}}/><span>мм</span></div>
+      <label className="field-label" htmlFor="room-clear-width-anchor">Что остаётся на месте</label><select id="room-clear-width-anchor" className="inspector-select" value={widthAnchor} onChange={(e)=>setWidthAnchor(e.target.value as ClearRoomDimensionAnchor)}><option value="min">Левая сторона</option><option value="center">Центр</option><option value="max">Правая сторона</option></select><button className="secondary-action" type="button" onClick={()=>applyDimension("width",widthInput,widthAnchor)}>Применить ширину</button>
+      <label className="field-label" htmlFor="room-clear-height">Длина</label><div className="length-field-row"><input id="room-clear-height" inputMode="decimal" value={heightInput} onChange={(e)=>setHeightInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyDimension("height",heightInput,heightAnchor);}}/><span>мм</span></div>
+      <label className="field-label" htmlFor="room-clear-height-anchor">Что остаётся на месте</label><select id="room-clear-height-anchor" className="inspector-select" value={heightAnchor} onChange={(e)=>setHeightAnchor(e.target.value as ClearRoomDimensionAnchor)}><option value="min">Верхняя сторона</option><option value="center">Центр</option><option value="max">Нижняя сторона</option></select><button className="secondary-action" type="button" onClick={()=>applyDimension("height",heightInput,heightAnchor)}>Применить длину</button>
+      <p className="inspector-hint">Это расстояния между внутренними поверхностями стен. Для прямоугольной комнаты площадь считается из той же чистой геометрии.</p>
+    </div>:<p className="inspector-hint">Чистые размеры можно редактировать, когда комната является простой прямоугольной геометрией. Для сложных контуров Vlezet не угадывает неоднозначные размеры.</p>}
+    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Полезная площадь</dt><dd>{formatAreaM2FromSquareMillimeters(room.areaMm2)} м²</dd></div></dl><p className="inspector-hint">Площадь считается автоматически по внутренним поверхностям стен и обновляется при изменении планировки.</p>
+  </aside>;
 }
 
 function SelectedOpeningInspector({ opening }: Readonly<{ opening: Opening }>) {

@@ -16,6 +16,9 @@ export type WallEndpointIntent =
   | Readonly<{ kind: "new-vertex"; vertexId: string; position: Point2 }>
   | Readonly<{ kind: "wall-junction"; vertexId: string; wallId: string; position: Point2 }>;
 
+export type WallLengthAnchor = "start" | "center" | "end";
+export type WallThicknessAlignment = "center" | "left-face" | "right-face";
+
 export type AddTopologicalWallInput = Readonly<{
   wallId: string;
   start: WallEndpointIntent;
@@ -177,10 +180,30 @@ function assertMovedVertexStaysOnHostWalls(document: VlezetDocument, vertexId: s
   }
 }
 
+function assertJunctionsFitResizedWall(
+  document: VlezetDocument,
+  wall: Wall,
+  nextStart: Point2,
+  nextEnd: Point2,
+): void {
+  for (const junctionId of wall.junctionVertexIds) {
+    const junction = getVertex(document, junctionId);
+    const projection = projectPointToSegment(junction.position, nextStart, nextEnd);
+    if (
+      projection.distance > 1e-4 ||
+      projection.t <= GEOMETRY_EPSILON_MM ||
+      projection.t >= 1 - GEOMETRY_EPSILON_MM
+    ) {
+      throw new Error("Нельзя изменить длину стены так, чтобы существующее соединение оказалось за её пределами");
+    }
+  }
+}
+
 export function setTopologicalWallLength(
   document: VlezetDocument,
   wallId: string,
   lengthMm: number,
+  anchor: WallLengthAnchor = "start",
 ): VlezetDocument {
   if (!Number.isFinite(lengthMm) || lengthMm <= 0) {
     throw new RangeError("Длина стены должна быть положительным конечным числом");
@@ -196,36 +219,161 @@ export function setTopologicalWallLength(
 
   const ux = dx / currentLength;
   const uy = dy / currentLength;
-
-  for (const junctionId of wall.junctionVertexIds) {
-    const junction = getVertex(document, junctionId);
-    const offset = (junction.position.x - start.position.x) * ux + (junction.position.y - start.position.y) * uy;
-    if (offset >= lengthMm - GEOMETRY_EPSILON_MM) {
-      throw new Error("Нельзя укоротить стену дальше существующего соединения");
-    }
-  }
-
-  for (const opening of document.openings) {
-    if (opening.wallId === wallId && opening.offset + opening.width > lengthMm + GEOMETRY_EPSILON_MM) {
-      throw new Error("Нельзя укоротить стену дальше существующего проёма");
-    }
-  }
-
-  const nextPosition = {
-    x: start.position.x + ux * lengthMm,
-    y: start.position.y + uy * lengthMm,
+  const delta = lengthMm - currentLength;
+  const startShift = anchor === "start" ? 0 : anchor === "center" ? -delta / 2 : -delta;
+  const endShift = anchor === "end" ? 0 : anchor === "center" ? delta / 2 : delta;
+  const nextStart = {
+    x: start.position.x + ux * startShift,
+    y: start.position.y + uy * startShift,
   };
-  assertMovedVertexStaysOnHostWalls(document, end.id, nextPosition);
+  const nextEnd = {
+    x: end.position.x + ux * endShift,
+    y: end.position.y + uy * endShift,
+  };
+
+  if (startShift !== 0) assertMovedVertexStaysOnHostWalls(document, start.id, nextStart);
+  if (endShift !== 0) assertMovedVertexStaysOnHostWalls(document, end.id, nextEnd);
+  assertJunctionsFitResizedWall(document, wall, nextStart, nextEnd);
+
+  const nextOpenings = document.openings.map((opening) => {
+    if (opening.wallId !== wallId) return opening;
+    const nextOffset = opening.offset - startShift;
+    if (
+      nextOffset < -GEOMETRY_EPSILON_MM ||
+      nextOffset + opening.width > lengthMm + GEOMETRY_EPSILON_MM
+    ) {
+      throw new Error("Нельзя изменить длину стены так, чтобы существующий проём оказался за её пределами");
+    }
+    return { ...opening, offset: Math.max(0, nextOffset) };
+  });
 
   return {
     ...document,
-    vertices: document.vertices.map((vertex) =>
-      vertex.id === end.id ? { ...vertex, position: nextPosition } : vertex,
-    ),
+    vertices: document.vertices.map((vertex) => {
+      if (vertex.id === start.id) return { ...vertex, position: nextStart };
+      if (vertex.id === end.id) return { ...vertex, position: nextEnd };
+      return vertex;
+    }),
+    openings: nextOpenings,
   };
 }
 
-export function setWallThickness(document: VlezetDocument, wallId: string, thicknessMm: number): VlezetDocument {
+function vectorBetween(from: Point2, to: Point2): Point2 {
+  return { x: to.x - from.x, y: to.y - from.y };
+}
+
+function vectorLength(vector: Point2): number {
+  return Math.hypot(vector.x, vector.y);
+}
+
+function vectorsEqual(first: Point2, second: Point2, tolerance = 1e-4): boolean {
+  return Math.hypot(first.x - second.x, first.y - second.y) <= tolerance;
+}
+
+function pointWithMove(document: VlezetDocument, moved: ReadonlyMap<string, Point2>, vertexId: string): Point2 {
+  return moved.get(vertexId) ?? getVertex(document, vertexId).position;
+}
+
+function assertThicknessMoveCompatible(
+  document: VlezetDocument,
+  targetWallId: string,
+  moved: ReadonlyMap<string, Point2>,
+): void {
+  for (const wall of document.walls) {
+    if (wall.id === targetWallId) continue;
+    const { start, end } = getWallEndpoints(document, wall);
+    const oldDx = end.position.x - start.position.x;
+    const oldDy = end.position.y - start.position.y;
+    const oldLength = Math.hypot(oldDx, oldDy);
+    if (oldLength <= GEOMETRY_EPSILON_MM) {
+      throw new Error("Нельзя изменить толщину: связанная геометрия содержит нулевую стену");
+    }
+
+    const nextStart = pointWithMove(document, moved, start.id);
+    const nextEnd = pointWithMove(document, moved, end.id);
+    const startMove = vectorBetween(start.position, nextStart);
+    const endMove = vectorBetween(end.position, nextEnd);
+    const startMoved = vectorLength(startMove) > 1e-6;
+    const endMoved = vectorLength(endMove) > 1e-6;
+    const pureTranslation = startMoved && endMoved && vectorsEqual(startMove, endMove);
+    const ux = oldDx / oldLength;
+    const uy = oldDy / oldLength;
+
+    if (!pureTranslation) {
+      if (startMoved && Math.abs(startMove.x * uy - startMove.y * ux) > 1e-4) {
+        throw new Error("Нельзя изменить толщину: связанная геометрия стены станет наклонной или разорвётся");
+      }
+      if (endMoved && Math.abs(endMove.x * uy - endMove.y * ux) > 1e-4) {
+        throw new Error("Нельзя изменить толщину: связанная геометрия стены станет наклонной или разорвётся");
+      }
+    }
+
+    const nextDx = nextEnd.x - nextStart.x;
+    const nextDy = nextEnd.y - nextStart.y;
+    const nextLength = Math.hypot(nextDx, nextDy);
+    if (nextLength <= GEOMETRY_EPSILON_MM || nextDx * oldDx + nextDy * oldDy <= 0) {
+      throw new Error("Нельзя изменить толщину: связанная геометрия стены схлопнется или развернётся");
+    }
+
+    for (const junctionId of wall.junctionVertexIds) {
+      const nextJunction = pointWithMove(document, moved, junctionId);
+      if (!pointOnSegment(nextJunction, nextStart, nextEnd, 1e-4)) {
+        throw new Error("Нельзя изменить толщину: связанная геометрия T-соединения перестанет лежать на стене");
+      }
+    }
+  }
+}
+
+function updateOpeningsAfterThicknessMove(
+  before: VlezetDocument,
+  afterGeometry: VlezetDocument,
+  targetWallId: string,
+): VlezetDocument["openings"] {
+  return before.openings.map((opening) => {
+    const oldWall = before.walls.find((candidate) => candidate.id === opening.wallId);
+    const newWall = afterGeometry.walls.find((candidate) => candidate.id === opening.wallId);
+    if (!oldWall || !newWall) return opening;
+
+    const oldEndpoints = getWallEndpoints(before, oldWall);
+    const newEndpoints = getWallEndpoints(afterGeometry, newWall);
+    const oldDx = oldEndpoints.end.position.x - oldEndpoints.start.position.x;
+    const oldDy = oldEndpoints.end.position.y - oldEndpoints.start.position.y;
+    const oldLength = Math.hypot(oldDx, oldDy);
+    const newLength = Math.hypot(
+      newEndpoints.end.position.x - newEndpoints.start.position.x,
+      newEndpoints.end.position.y - newEndpoints.start.position.y,
+    );
+    if (oldLength <= GEOMETRY_EPSILON_MM || newLength <= GEOMETRY_EPSILON_MM) {
+      throw new Error("Нельзя изменить толщину: проём оказался на некорректной стене");
+    }
+
+    const startMove = vectorBetween(oldEndpoints.start.position, newEndpoints.start.position);
+    const endMove = vectorBetween(oldEndpoints.end.position, newEndpoints.end.position);
+    const pureTranslation = vectorsEqual(startMove, endMove) && (vectorLength(startMove) > 1e-6 || vectorLength(endMove) > 1e-6);
+    let nextOffset = opening.offset;
+
+    if (opening.wallId !== targetWallId && !pureTranslation) {
+      const ux = oldDx / oldLength;
+      const uy = oldDy / oldLength;
+      const signedStartShift = startMove.x * ux + startMove.y * uy;
+      nextOffset = opening.offset - signedStartShift;
+    }
+
+    if (nextOffset < -GEOMETRY_EPSILON_MM || nextOffset + opening.width > newLength + GEOMETRY_EPSILON_MM) {
+      throw new Error("Нельзя изменить толщину: существующий проём выйдет за пределы связанной стены");
+    }
+    return Math.abs(nextOffset - opening.offset) <= 1e-6
+      ? opening
+      : { ...opening, offset: Math.max(0, nextOffset) };
+  });
+}
+
+export function setWallThickness(
+  document: VlezetDocument,
+  wallId: string,
+  thicknessMm: number,
+  alignment: WallThicknessAlignment = "center",
+): VlezetDocument {
   if (
     !Number.isFinite(thicknessMm) ||
     thicknessMm < MIN_WALL_THICKNESS_MM ||
@@ -236,7 +384,42 @@ export function setWallThickness(document: VlezetDocument, wallId: string, thick
 
   const wall = document.walls.find((candidate) => candidate.id === wallId);
   if (!wall) throw new Error(`Wall does not exist: ${wallId}`);
-  return replaceWall(document, { ...wall, thickness: thicknessMm });
+  if (alignment === "center" || Math.abs(thicknessMm - wall.thickness) <= 1e-9) {
+    return replaceWall(document, { ...wall, thickness: thicknessMm });
+  }
+
+  const { start, end } = getWallEndpoints(document, wall);
+  const dx = end.position.x - start.position.x;
+  const dy = end.position.y - start.position.y;
+  const length = Math.hypot(dx, dy);
+  if (length <= GEOMETRY_EPSILON_MM) throw new RangeError("Нельзя изменить толщину нулевой стены");
+
+  const leftNormal = { x: -dy / length, y: dx / length };
+  const thicknessDelta = thicknessMm - wall.thickness;
+  const signedShift = alignment === "left-face" ? -thicknessDelta / 2 : thicknessDelta / 2;
+  const translation = { x: leftNormal.x * signedShift, y: leftNormal.y * signedShift };
+  const movedVertexIds = new Set([wall.startVertexId, wall.endVertexId, ...wall.junctionVertexIds]);
+  const moved = new Map<string, Point2>();
+  for (const vertexId of movedVertexIds) {
+    const current = getVertex(document, vertexId).position;
+    moved.set(vertexId, { x: current.x + translation.x, y: current.y + translation.y });
+  }
+
+  assertThicknessMoveCompatible(document, wallId, moved);
+
+  const afterGeometry: VlezetDocument = {
+    ...document,
+    vertices: document.vertices.map((vertex) => {
+      const position = moved.get(vertex.id);
+      return position ? { ...vertex, position } : vertex;
+    }),
+    walls: document.walls.map((candidate) => candidate.id === wallId ? { ...candidate, thickness: thicknessMm } : candidate),
+  };
+
+  return {
+    ...afterGeometry,
+    openings: updateOpeningsAfterThicknessMove(document, afterGeometry, wallId),
+  };
 }
 
 export function moveVertex(document: VlezetDocument, vertexId: string, position: Point2): VlezetDocument {

@@ -14,16 +14,21 @@ import {
   duplicatePlacedObject,
   executeCommand,
   redo as redoHistory,
+  setRectangularRoomClearDimension,
   setRoomName,
   setTopologicalWallLength,
   setWallThickness,
   undo as undoHistory,
   updateOpening,
   updatePlacedObject,
+  type ClearRoomDimensionAnchor,
+  type ClearRoomDimensionAxis,
   type HistoryState,
   type OpeningPatch,
   type PlacedObjectPatch,
   type WallEndpointIntent,
+  type WallLengthAnchor,
+  type WallThicknessAlignment,
 } from "@vlezet/editor-core";
 import { deriveRooms, proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";
 import { createStore, type StoreApi } from "zustand/vanilla";
@@ -73,9 +78,10 @@ export type EditorStoreState = {
   commitDraftWall: () => void;
   cancelDraft: () => void;
   cancelCurrentAction: () => void;
-  setSelectedWallLength: (lengthMm: number) => void;
-  setSelectedWallThickness: (thicknessMm: number) => void;
+  setSelectedWallLength: (lengthMm: number, anchor?: WallLengthAnchor) => void;
+  setSelectedWallThickness: (thicknessMm: number, alignment?: WallThicknessAlignment) => void;
   setSelectedRoomName: (name: string) => void;
+  setSelectedRoomClearDimension: (axis: ClearRoomDimensionAxis, lengthMm: number, anchor?: ClearRoomDimensionAnchor) => void;
   addOpeningAt: (wallId: string, pointerOffset: number) => void;
   updateSelectedOpening: (patch: OpeningPatch) => void;
   deleteSelectedOpening: () => void;
@@ -266,18 +272,18 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       }
       set({ draftWall: null, tool: "select" });
     },
-    setSelectedWallLength: (lengthMm) => {
+    setSelectedWallLength: (lengthMm, anchor = "start") => {
       const { history, selectedWallId } = get();
       if (!selectedWallId) return;
       const before = history.document;
-      const after = setTopologicalWallLength(before, selectedWallId, lengthMm);
+      const after = setTopologicalWallLength(before, selectedWallId, lengthMm, anchor);
       set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-length", before, after }) });
     },
-    setSelectedWallThickness: (thicknessMm) => {
+    setSelectedWallThickness: (thicknessMm, alignment = "center") => {
       const { history, selectedWallId } = get();
       if (!selectedWallId) return;
       const before = history.document;
-      const after = setWallThickness(before, selectedWallId, thicknessMm);
+      const after = setWallThickness(before, selectedWallId, thicknessMm, alignment);
       set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-thickness", before, after }) });
     },
     setSelectedRoomName: (name) => {
@@ -286,6 +292,13 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       const before = history.document;
       const after = setRoomName(before, selectedRoomId, name, idFactory("room-annotation"));
       set({ history: executeCommand(history, { type: "document/replace", label: "room-annotation/set-name", before, after }) });
+    },
+    setSelectedRoomClearDimension: (axis, lengthMm, anchor = "min") => {
+      const { history, selectedRoomId } = get();
+      if (!selectedRoomId) return;
+      const before = history.document;
+      const after = setRectangularRoomClearDimension(before, selectedRoomId, axis, lengthMm, anchor);
+      set({ history: executeCommand(history, { type: "document/replace", label: "room/set-clear-dimension", before, after }) });
     },
     addOpeningAt: (wallId, pointerOffset) => {
       const { history, tool } = get();

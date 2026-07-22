@@ -41,6 +41,8 @@ export type {
   ReferenceCalibration,
   ReferenceTransform,
 } from "./reference-plan";
+export { deriveRectangularRoomDimensions } from "./room-dimensions";
+export type { RectangularRoomDimensions } from "./room-dimensions";
 export { deriveRooms } from "./rooms";
 export type {
   DerivedRoom, DerivedRoomDiagnostic, DerivedRoomsResult, RoomAnnotationLike,
@@ -52,5 +54,9 @@ export { snapWallPoint } from "./snapping";
 export type { SnapGuide, SnapKind, SnapResult, SnapWallPointInput } from "./snapping";
 export { deriveAtomicWallEdges, topologyVertexMap, wallRunLength } from "./topology";
 export type { AtomicWallEdge, TopologyDocumentLike, TopologyVertexLike, TopologyWallLike } from "./topology";
+export { measureBetweenPoints } from "./two-point-measurement";
+export type { TwoPointMeasurement } from "./two-point-measurement";
 export { screenToWorld, worldToScreen, zoomViewportAt } from "./viewport";
 export type { ViewportTransform, ZoomLimits } from "./viewport";
+export { deriveSingleAdjacentRoomSide } from "./wall-room-side";
+export type { WallRoomSide } from "./wall-room-side";

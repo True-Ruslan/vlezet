@@ -13,6 +13,8 @@ export {
 export type { PlacedObjectPatch } from "./object-editing";
 export { addOpening, deleteOpening, updateOpening, validateOpening } from "./opening-editing";
 export type { OpeningPatch } from "./opening-editing";
+export { setRectangularRoomClearDimension } from "./room-dimension-editing";
+export type { ClearRoomDimensionAnchor, ClearRoomDimensionAxis } from "./room-dimension-editing";
 export { setRoomName } from "./room-editing";
 export {
   addConnectedWall,
@@ -29,4 +31,6 @@ export type {
   AddTopologicalWallInput,
   DocumentEdit,
   WallEndpointIntent,
+  WallLengthAnchor,
+  WallThicknessAlignment,
 } from "./topology-editing";
