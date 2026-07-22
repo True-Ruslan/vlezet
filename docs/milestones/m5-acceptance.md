@@ -175,14 +175,7 @@ pnpm build
 
 Все шаги PASS.
 
-Финальный documentation-only PR head до merge:
-
-```text
-d4507f3b065216e9b2c98c2f3d51cf7a86eac0e1
-29936841328 — PASS
-```
-
-Тот же strict gate прошёл полностью на exact PR head.
+Documentation-only acceptance heads также прошли тот же strict gate перед финальным merge decision. Конкретные runs сохранены в PR/Actions history.
 
 ## 10. Acceptance result
 
