@@ -7,13 +7,20 @@ import {
   topologicalWallLength,
   type ClearRoomDimensionAnchor,
   type WallLengthAnchor,
+  type WallThicknessAlignment,
 } from "@vlezet/editor-core";
-import { deriveRectangularRoomDimensions, deriveRooms, type DerivedRoom } from "@vlezet/geometry";
+import {
+  deriveRectangularRoomDimensions,
+  deriveRooms,
+  deriveSingleAdjacentRoomSide,
+  type DerivedRoom,
+} from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { formatAreaM2FromSquareMillimeters } from "./dimension-annotations";
 import { ObjectInspector } from "./object-inspector";
 import { editorStore } from "./use-editor-store";
+import { resolveWallThicknessAlignment, type WallThicknessGrowthIntent } from "./wall-thickness-intent";
 
 function wallVersionKey(document: VlezetDocument, wall: Wall): string {
   const start = document.vertices.find((vertex) => vertex.id === wall.startVertexId)?.position;
@@ -32,9 +39,12 @@ function connectionCount(document: VlezetDocument, wall: Wall): number {
 
 export function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocument; wall: Wall }>) {
   const currentLength = topologicalWallLength(document, wall.id);
+  const interiorSide = deriveSingleAdjacentRoomSide(document, wall.id);
   const [lengthInput, setLengthInput] = useState(() => String(Math.round(currentLength)));
   const [lengthAnchor, setLengthAnchor] = useState<WallLengthAnchor>("start");
   const [thicknessInput, setThicknessInput] = useState(() => String(Math.round(wall.thickness)));
+  const [thicknessGrowthIntent, setThicknessGrowthIntent] = useState<WallThicknessGrowthIntent>("center");
+  const [explicitThicknessAlignment, setExplicitThicknessAlignment] = useState<WallThicknessAlignment>("center");
   const [error, setError] = useState<string | null>(null);
   const applyLength = () => {
     const value = Number(lengthInput.replace(",", "."));
@@ -44,7 +54,10 @@ export function SelectedWallInspector({ document, wall }: Readonly<{ document: V
   const applyThickness = () => {
     const value = Number(thicknessInput.replace(",", "."));
     if (!Number.isFinite(value)) { setError("Введите толщину стены в миллиметрах."); return; }
-    try { editorStore.getState().setSelectedWallThickness(value); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить толщину."); }
+    const alignment = interiorSide
+      ? resolveWallThicknessAlignment(interiorSide, thicknessGrowthIntent)
+      : explicitThicknessAlignment;
+    try { editorStore.getState().setSelectedWallThickness(value, alignment); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить толщину."); }
   };
   return <aside className="inspector-panel">
     <div className="inspector-heading"><span>Стена</span><code>{wall.id.slice(0,8)}</code></div>
@@ -52,7 +65,15 @@ export function SelectedWallInspector({ document, wall }: Readonly<{ document: V
     <label className="field-label" htmlFor="wall-length-anchor">Что остаётся на месте</label><select id="wall-length-anchor" className="inspector-select" value={lengthAnchor} onChange={(e)=>setLengthAnchor(e.target.value as WallLengthAnchor)}><option value="start">Начало</option><option value="center">Центр</option><option value="end">Конец</option></select>
     <p className="inspector-hint">Длина по оси — расстояние между узлами стены. Это не всегда равно чистому внутреннему размеру комнаты.</p>
     <button className="primary-action" type="button" onClick={applyLength}>Применить длину</button>
-    <label className="field-label" htmlFor="wall-thickness">Толщина стены</label><div className="length-field-row"><input id="wall-thickness" inputMode="decimal" min={MIN_WALL_THICKNESS_MM} max={MAX_WALL_THICKNESS_MM} value={thicknessInput} onChange={(e)=>setThicknessInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyThickness();}}/><span>мм</span></div><button className="secondary-action" type="button" onClick={applyThickness}>Применить толщину</button>
+    <label className="field-label" htmlFor="wall-thickness">Толщина стены</label><div className="length-field-row"><input id="wall-thickness" inputMode="decimal" min={MIN_WALL_THICKNESS_MM} max={MAX_WALL_THICKNESS_MM} value={thicknessInput} onChange={(e)=>setThicknessInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyThickness();}}/><span>мм</span></div>
+    {interiorSide?<>
+      <label className="field-label" htmlFor="wall-thickness-growth">Куда меняется толщина</label><select id="wall-thickness-growth" className="inspector-select" value={thicknessGrowthIntent} onChange={(e)=>setThicknessGrowthIntent(e.target.value as WallThicknessGrowthIntent)}><option value="inside">Внутрь помещения</option><option value="center">По центру</option><option value="outside">Наружу</option></select>
+      <p className="inspector-hint">Направление определено относительно единственного соседнего помещения. Vlezet сдвинет ось так, чтобы противоположная физическая грань осталась на месте.</p>
+    </>:<>
+      <label className="field-label" htmlFor="wall-thickness-face">Сохранить грань</label><select id="wall-thickness-face" className="inspector-select" value={explicitThicknessAlignment} onChange={(e)=>setExplicitThicknessAlignment(e.target.value as WallThicknessAlignment)}><option value="left-face">Левая грань</option><option value="center">По центру</option><option value="right-face">Правая грань</option></select>
+      <p className="inspector-hint">У стены нет одной однозначной стороны помещения, поэтому Vlezet не угадывает «внутрь» и «наружу». Выберите физическую грань явно.</p>
+    </>}
+    <button className="secondary-action" type="button" onClick={applyThickness}>Применить толщину</button>
     {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>По оси</dt><dd>{(currentLength/1000).toFixed(3)} м</dd></div><div><dt>Толщина</dt><dd>{wall.thickness} мм</dd></div><div><dt>Соединений</dt><dd>{connectionCount(document,wall)}</dd></div></dl><p className="inspector-hint">Стены соединены настоящими узлами. Изменение общей вершины не разрывает соседние стены.</p>
   </aside>;
 }
