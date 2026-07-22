@@ -40,6 +40,8 @@ function labelBox(text: string, point: Point2, width: number, key: string) {
 export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeMeasurementToolProps) {
   const active = useStore(measurementToolStore, (state) => state.active);
   const document = useStore(editorStore, (state) => state.history.document);
+  const editorTool = useStore(editorStore, (state) => state.tool);
+  const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const [measurement, setMeasurement] = useState<TapeMeasurementState>(null);
 
   const resolvedWalls = useMemo(() => {
@@ -56,6 +58,11 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
   useEffect(() => {
     if (!active) setMeasurement(null);
   }, [active]);
+
+  useEffect(() => {
+    if (!active || (editorTool === "select" && !placementPresetId)) return;
+    measurementToolStore.getState().setActive(false);
+  }, [active, editorTool, placementPresetId]);
 
   useEffect(() => {
     if (!active) return;
@@ -97,6 +104,7 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
   const yMidpoint = cornerScreen && endScreen ? { x: endScreen.x, y: (cornerScreen.y + endScreen.y) / 2 } : null;
 
   const handlePointer = (event: KonvaEventObject<MouseEvent>, commit: boolean) => {
+    if (commit && event.evt.button !== 0) return;
     const pointer = pointerPosition(event);
     if (!pointer) return;
     event.cancelBubble = true;
