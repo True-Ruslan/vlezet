@@ -17,9 +17,9 @@ DONE/MVP    M4.5 Assisted Recognition — merged; quality refinement backlog rem
 DONE        M4.6 Precision Geometry UX — accepted in browser and merged
 DONE        M5.1 Deterministic Spatial 3D Shell + Viewer — accepted and merged
 DONE        M5.2 Furniture in 3D — accepted and merged
-NOW         M5.4 Spatial Inspection
-POLISH      M5.3 camera/navigation refinements only where evidence requires them
-AFTER       M6 Intelligent Planning
+DONE        M5.4 Spatial Inspection — accepted and merged
+POLISH      M5.3 camera/navigation/performance refinements only where evidence requires them
+NOW         M6 Intelligent Planning
 LATER       public-product infrastructure / optional expansion
 ```
 
@@ -65,7 +65,7 @@ clear room: 3550 × 3300 mm
 area:       11.72 m²
 ```
 
-## Completed M5 foundation
+## Completed M5 spatial foundation
 
 ### M5 architecture principle
 
@@ -89,24 +89,7 @@ PR #8 → squash merge `4acca82b04c87b3737eb87a03f9ee2ff360b5073`.
 
 **Status:** DONE / ACCEPTED.
 
-Delivered:
-
-- framework-independent `@vlezet/spatial`;
-- documented/tested 2D mm → 3D coordinate convention;
-- deterministic wall prisms with physical thickness;
-- projection-only wall height without schema migration;
-- wall segmentation around openings using existing geometry contracts;
-- room floors from existing derived usable polygons;
-- semantic schematic door/window markers without invented vertical authority;
-- fail-closed projection diagnostics;
-- plain Three.js viewer;
-- orbit/pan/zoom;
-- Perspective / Isometric / Top presets;
-- fit camera to apartment;
-- safe 2D↔3D switching;
-- no document/history mutation from view mode;
-- WebGL failure isolation;
-- explicit renderer/control/geometry/material/GridHelper cleanup.
+Delivered framework-independent spatial projection, deterministic wall prisms/thickness, opening-aware wall segmentation, usable room floors, schematic semantic opening markers, fail-closed diagnostics, plain Three.js viewer, orbit/pan/zoom, camera presets, fit camera, reliable 2D↔3D switching, WebGL isolation and explicit GPU-resource cleanup.
 
 Acceptance:
 
@@ -144,16 +127,14 @@ Delivered:
 
 - same persistent placed objects as 2D;
 - no separate 3D object state;
-- position maps to X/Z;
-- rotation maps deterministically to Y-axis rotation;
-- width/depth remain exact millimetres;
-- stored height is used when present;
-- missing height uses projection-only `DEFAULT_OBJECT_HEIGHT_MM = 700`, never persisted;
+- deterministic position/rotation mapping;
+- exact width/depth millimetres;
+- stored height when present;
+- projection-only `DEFAULT_OBJECT_HEIGHT_MM = 700` when height is absent;
 - generic primitive boxes first;
-- semantic object ID/name/category remain available for later inspection;
+- semantic object metadata preserved;
 - existing fit/collision/clearance engine remains authoritative;
-- mesh collision does not replace deterministic evaluation;
-- invalid/non-finite/out-of-domain object geometry fails closed;
+- invalid object geometry fails closed;
 - renderer lifecycle disposes object resources;
 - 3D remains read-only.
 
@@ -166,7 +147,47 @@ Acceptance:
 
 Canonical checklist: `docs/milestones/m5-2-acceptance.md`.
 
-## M5.3 — Camera/navigation
+### M5.4 — Spatial Inspection
+
+PR #10 → squash merge `0bffe36d74d2ff0865d700b51b17ee08e7001094`.
+
+**Status:** DONE / ACCEPTED.
+
+Architecture contract:
+
+```text
+Three.js ray hit
+      ↓ semantic id / entity kind
+inspection state (ephemeral)
+      ↓
+read trusted VlezetDocument / SpatialScene / deterministic geometry+fit
+      ↓
+read-only inspection UI
+```
+
+Delivered:
+
+- hover/select rooms, walls and placed objects using stable semantic IDs;
+- nearest inspectable hit resolution that skips schematic opening placeholders;
+- read-only inspector for authoritative dimensions/area/fit information;
+- canonical M4.6 area rounding reused in 3D;
+- semantic visual emphasis without geometry mutation;
+- all split segments of one logical wall highlight together;
+- deterministic fit statuses/reasons reused from M2;
+- temporary highlight material lifecycle and disposal;
+- stale/unknown IDs fail closed;
+- no document/history/autosave mutation from inspection.
+
+Acceptance:
+
+- final exact PR head `e9980f63d574d1a9cb6614980788270a50cde47e`;
+- GitHub Actions `29948749864` — PASS;
+- real-browser acceptance PASS on the representative apartment;
+- product owner confirmed: `Все работает круто как ты и описал.`
+
+Canonical checklist: `docs/milestones/m5-4-acceptance.md`.
+
+## M5.3 — Camera/navigation/performance polish
 
 The architectural foundation originally planned for M5.3 was intentionally delivered inside M5.1 because shell acceptance required real navigation:
 
@@ -182,86 +203,81 @@ Therefore M5.3 is **not a blocking standalone milestone**.
 Remaining work is evidence-driven polish only:
 
 - camera persistence only if users need it;
-- improved preset framing on unusual plans;
+- improved framing on unusual plans;
 - accessibility/input refinements;
-- explicit performance budgets from representative projects.
+- explicit performance budgets from representative projects;
+- batching/LOD only after measurement proves a need.
 
-## NOW — M5.4 Spatial Inspection
+## NOW — M6 Intelligent Planning
 
-### Goal
+### Product goal
 
-Turn the read-only 3D view from a visual projection into a useful inspection surface while preserving the same trusted document and deterministic engines.
+Turn Vlezet from a precise manual planner into an assistant that can propose, compare and explain valid furniture/layout alternatives while keeping deterministic geometry and fit rules authoritative.
 
-### Recommended scope
+The first M6 slice must stay deliberately narrow and explainable.
 
-- hover/select rooms, walls and placed objects using semantic IDs already carried by spatial primitives;
-- expose dimensions already known by `VlezetDocument` / `SpatialScene`;
-- show existing object fit status and reasons from the deterministic fit engine;
-- provide a compact read-only inspector/panel;
-- visually indicate hovered/selected 3D entities without modifying source geometry;
-- keep 3D interaction non-semantic unless an explicit future editing milestone is designed;
-- no document/history/autosave mutation from hover/select/camera interaction.
-
-### Architecture contract
+### Architecture direction
 
 ```text
-Three.js hit
-      ↓ semantic id / entity kind
-inspection state (ephemeral)
-      ↓
-read trusted document / spatial values / deterministic fit engine
-      ↓
-read-only inspection UI
+user goals / constraints + VlezetDocument
+        ↓
+framework-independent planning engine
+        ↓
+structured candidate layout(s)
+        ↓
+deterministic M2 fit/collision/clearance evaluation
+        ↓
+ranked + explainable alternatives
+        ↓
+explicit review/apply into ordinary VlezetDocument entities
 ```
 
-Must not introduce:
+Optional AI may help generate or interpret structured constraints later, but it must never replace deterministic validation.
 
-- mesh geometry as measurement authority;
-- duplicate 3D object/wall state;
-- direct geometry editing;
-- implicit persistence;
-- decorative asset pipeline;
-- M6 planning/AI generation.
+AI-generated images and Three.js meshes are never geometry authority.
 
-### Acceptance
+### Recommended M6.1 scope
 
-- semantic hover/select works for the intended entity set;
-- selected entity maps reliably to the same domain/spatial ID;
-- shown dimensions match authoritative source values;
-- furniture fit information matches existing deterministic 2D logic;
-- 3D inspection does not mutate `VlezetDocument`, history or autosave state;
-- 2D↔3D consistency remains intact;
-- strict exact-head CI + real browser acceptance.
+Start with one narrow user journey rather than a generic "AI designer".
 
-## AFTER — M6 Intelligent Planning
+Recommended first scenario:
 
-Architecture:
+> Given one room, existing walls/openings and a selected set of furniture objects, generate a small number of valid alternative placements that satisfy hard geometric constraints and explain why each candidate is good or rejected.
 
-```text
-constraints + VlezetDocument
-        ↓
-planning engine / optional AI
-        ↓
-structured candidate layout
-        ↓
-deterministic fit/collision/clearance evaluation
-        ↓
-editable alternatives
-```
+First-slice capabilities:
 
-AI-generated images are never geometry authority.
+1. framework-independent planning contracts for constraints, candidates and evaluation;
+2. deterministic candidate generation for a limited object/room case;
+3. reuse existing object dimensions, room containment, collisions, door swing and clearances;
+4. explicit hard-vs-soft constraints;
+5. deterministic scoring/ranking with human-readable reasons;
+6. preview alternatives without mutating the document;
+7. explicit Apply as a semantic, undoable document operation;
+8. no LLM required for the deterministic core.
 
-Potential scope:
+### Acceptance for first planning slice
 
-- user goals/constraints;
-- deterministic candidate generation/evaluation;
-- AI-assisted alternatives;
-- compare layouts;
-- explain why something fits/does not fit.
+- same input produces deterministic candidates/evaluation;
+- no invalid candidate bypasses M2 fit/collision/clearance rules;
+- candidate data is structured, not image-only;
+- preview does not mutate `VlezetDocument`;
+- Apply is explicit and undoable;
+- reasons explain important fit/rejection decisions;
+- no second furniture/geometry authority;
+- strict exact-head CI and representative browser acceptance.
 
-## High-value precision follow-ups
+### Explicit non-goals for the first slice
 
-These remain useful but should be scheduled by evidence instead of interrupting M5.4 unless a real user blocker appears.
+Do not begin M6 with:
+
+- photorealistic generation;
+- free-form AI geometry;
+- direct 3D editing;
+- a second layout state persisted independently of `VlezetDocument`;
+- broad "design my whole apartment" orchestration;
+- cloud/LLM dependency for core planning correctness.
+
+## High-value follow-ups — evidence-driven backlog
 
 ### Recognition quality
 
@@ -313,7 +329,8 @@ Priority journeys:
 - recognition safety/apply/undo;
 - 2D↔3D geometry consistency;
 - furniture 2D↔3D consistency;
-- 3D semantic inspection consistency.
+- 3D semantic inspection consistency;
+- planning candidate preview → compare → explicit apply → Undo.
 
 ### Observability/privacy
 
@@ -334,7 +351,7 @@ Priority journeys:
 
 - schema changes only when persistent semantics actually require them;
 - migrations deterministic;
-- derived/UI/spatial state is not persisted merely for convenience.
+- derived/UI/spatial/planning-preview state is not persisted merely for convenience.
 
 ## Deferred / optional future
 
@@ -360,3 +377,5 @@ Priority journeys:
 6. Local-first editing remains a core product property.
 7. Add complexity only when the previous simpler model has been validated.
 8. No second geometry authority in 3D.
+9. Planning candidates are proposals until explicitly applied.
+10. AI assistance never bypasses deterministic geometry/fit validation.
