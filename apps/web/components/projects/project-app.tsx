@@ -42,7 +42,7 @@ import { RecognitionController, type RecognitionControllerState } from "../recog
 import { commitRecognitionDocument } from "../recognition/recognition-editor-apply";
 import { blobToDataUrl, referenceBlobToAnalysisImageData } from "../recognition/recognition-image";
 import { IndexedDbRecognitionSessionRepository } from "../recognition/session-repository";
-import { ReferencePanel, type ReferenceInstallDraft } from "../reference/reference-panel";
+import type { ReferenceInstallDraft } from "../reference/reference-panel";
 import {
   installReferencePlan,
   removeReferencePlan,
@@ -295,7 +295,9 @@ export function ProjectApp() {
     const project = deleteProject;
     if (!repository || !project) return;
     try {
-      await recognitionRepositoryRef.current?.deleteForProject(project.id);
+      const recognitionRepository = recognitionRepositoryRef.current ?? new IndexedDbRecognitionSessionRepository();
+      recognitionRepositoryRef.current = recognitionRepository;
+      await recognitionRepository.deleteForProject(project.id);
       await repository.delete(project.id);
       setDeleteProject(null);
       await refreshProjects();
@@ -499,7 +501,10 @@ export function ProjectApp() {
       setCloudDialogOpen(false);
       showToast("AI-проверка завершена. Проверьте объединённый черновик.");
     } catch (cause) {
-      if (abortController.signal.aborted) throw cause;
+      if (abortController.signal.aborted) {
+        await controller.replaceDraft(session.draft, session.cloudMetadata);
+        return;
+      }
       const message = cause instanceof Error ? cause.message : "Не удалось выполнить AI-проверку.";
       await controller.returnToReviewWithError(message);
       throw cause;
