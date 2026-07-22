@@ -47,9 +47,11 @@ describe("reference service", () => {
       alignment: "horizontal",
       originWorld: { x: 0, y: 0 },
       assetId: "asset",
+      referenceRevision: "revision-1",
       now: NOW,
     });
     expect(installed.referencePlan?.transform.millimetersPerPixel).toBe(5);
+    expect(installed.referencePlan?.referenceRevision).toBe("revision-1");
     expect((await repository.get("project"))?.referencePlan?.assetId).toBe("asset");
     expect((await repository.getAsset("asset"))?.projectId).toBe("project");
   });
@@ -57,8 +59,9 @@ describe("reference service", () => {
   it("replaces the previous asset only after the new project metadata is valid", async () => {
     const repository = new MemoryReferenceRepository();
     const project = createProject({ id: "project", name: "Квартира", now: NOW });
-    const first = await installReferencePlan({ project, repository, raster, source: { kind: "image", originalMimeType: "image/png" }, pointA: { x: 0, y: 0 }, pointB: { x: 500, y: 0 }, knownLengthMm: 1000, alignment: "horizontal", originWorld: { x: 0, y: 0 }, assetId: "old", now: NOW });
-    await installReferencePlan({ project: first, repository, raster, source: { kind: "image", originalMimeType: "image/png" }, pointA: { x: 0, y: 0 }, pointB: { x: 500, y: 0 }, knownLengthMm: 1500, alignment: "horizontal", originWorld: { x: 0, y: 0 }, assetId: "new", now: "2026-07-21T20:01:00.000Z" });
+    const first = await installReferencePlan({ project, repository, raster, source: { kind: "image", originalMimeType: "image/png" }, pointA: { x: 0, y: 0 }, pointB: { x: 500, y: 0 }, knownLengthMm: 1000, alignment: "horizontal", originWorld: { x: 0, y: 0 }, assetId: "old", referenceRevision: "revision-old", now: NOW });
+    const second = await installReferencePlan({ project: first, repository, raster, source: { kind: "image", originalMimeType: "image/png" }, pointA: { x: 0, y: 0 }, pointB: { x: 500, y: 0 }, knownLengthMm: 1500, alignment: "horizontal", originWorld: { x: 0, y: 0 }, assetId: "new", referenceRevision: "revision-new", now: "2026-07-21T20:01:00.000Z" });
+    expect(second.referencePlan?.referenceRevision).toBe("revision-new");
     expect(await repository.getAsset("old")).toBeNull();
     expect(await repository.getAsset("new")).not.toBeNull();
   });
@@ -66,7 +69,7 @@ describe("reference service", () => {
   it("removes only the reference source and preserves apartment geometry", async () => {
     const repository = new MemoryReferenceRepository();
     const project = createProject({ id: "project", name: "Квартира", now: NOW });
-    const installed = await installReferencePlan({ project, repository, raster, source: { kind: "image", originalMimeType: "image/png" }, pointA: { x: 0, y: 0 }, pointB: { x: 500, y: 0 }, knownLengthMm: 1000, alignment: "horizontal", originWorld: { x: 0, y: 0 }, assetId: "asset", now: NOW });
+    const installed = await installReferencePlan({ project, repository, raster, source: { kind: "image", originalMimeType: "image/png" }, pointA: { x: 0, y: 0 }, pointB: { x: 500, y: 0 }, knownLengthMm: 1000, alignment: "horizontal", originWorld: { x: 0, y: 0 }, assetId: "asset", referenceRevision: "revision-1", now: NOW });
     const removed = await removeReferencePlan(installed, repository, "2026-07-21T20:02:00.000Z");
     expect(removed.referencePlan).toBeNull();
     expect(removed.document).toEqual(installed.document);
