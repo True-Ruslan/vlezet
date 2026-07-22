@@ -1,5 +1,6 @@
 import type { VlezetDocument } from "@vlezet/domain";
 import { placementOptionsForObject } from "./anchors";
+import { planningConstraintSetKey } from "./constraints";
 import {
   MAX_DISPLAYED_PLANNING_CANDIDATES,
   MAX_PLANNING_EVALUATIONS,
@@ -53,7 +54,10 @@ export function planLayoutAlternatives(
   request: PlanningRequest,
 ): PlanningResult {
   const context = validatePlanningRequest(document, request);
-  const optionSets = context.selectedObjects.map((object) => placementOptionsForObject(context.room, object));
+  const lockedIds = new Set(context.constraints.filter((constraint) => constraint.kind === "lock-object").map((constraint) => constraint.objectId));
+  const optionSets = context.selectedObjects.map((object) => lockedIds.has(object.id)
+    ? [{ position: { ...object.position }, rotationDeg: object.rotationDeg }]
+    : placementOptionsForObject(context.room, object));
   const seen = new Set<string>();
   const valid: RankedPlanningCandidate[] = [];
   let evaluatedCandidateCount = 0;
@@ -63,14 +67,17 @@ export function planLayoutAlternatives(
     if (objectIndex === context.selectedObjects.length) {
       evaluatedCandidateCount += 1;
       if (!changesAnyObject(document, placements)) return;
-      const provisional: PlanningCandidate = { id: "candidate:pending", roomId: context.room.id, placements: placements.map((placement) => ({
-        ...placement,
-        position: { ...placement.position },
-      })) };
-      const key = stableCandidateKey(provisional);
-      if (seen.has(key)) return;
-      seen.add(key);
-      const candidate: PlanningCandidate = { ...provisional, id: `candidate:${hashKey(key)}` };
+      const provisional: PlanningCandidate = {
+        id: "candidate:pending",
+        roomId: context.room.id,
+        placements: placements.map((placement) => ({ ...placement, position: { ...placement.position } })),
+        constraints: context.constraints,
+      };
+      const placementKey = stableCandidateKey(provisional);
+      if (seen.has(placementKey)) return;
+      seen.add(placementKey);
+      const intentKey = planningConstraintSetKey(context.constraints);
+      const candidate: PlanningCandidate = { ...provisional, id: `candidate:${hashKey(`${placementKey}|intent:${intentKey}`)}` };
       const evaluation = evaluatePlanningCandidate(document, candidate);
       if (evaluation.valid) valid.push({ candidate, evaluation });
       return;
