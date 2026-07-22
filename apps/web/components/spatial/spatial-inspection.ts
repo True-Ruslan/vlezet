@@ -16,6 +16,7 @@ export type SpatialRoomInspectionDetails = Readonly<{
   kind: "room";
   id: string;
   name: string;
+  areaMm2: number;
   areaM2: number;
   clearWidthMm?: number;
   clearLengthMm?: number;
@@ -95,6 +96,7 @@ export function buildSpatialInspectionDetails(
       kind: "room",
       id: room.id,
       name: room.name,
+      areaMm2: room.areaMm2,
       areaM2: room.areaM2,
       ...(dimensions
         ? { clearWidthMm: dimensions.widthMm, clearLengthMm: dimensions.heightMm }
