@@ -6,7 +6,10 @@ describe("OpenCV module loader", () => {
     const fakeModule = {
       Mat: class Mat {},
       then: Promise.prototype.then,
+      [Symbol.toStringTag]: "Module",
     };
+
+    expect(Object.prototype.toString.call(fakeModule)).toBe("[object Module]");
 
     const result = await resolveOpenCvModule(fakeModule);
 
