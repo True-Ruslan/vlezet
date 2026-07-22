@@ -4,24 +4,29 @@
 
 This is not only a package-release changelog. It also records milestone decisions, product feedback and RC failures that changed architecture or roadmap.
 
-## 2026-07-22 — M4.6 Precision Geometry UX — active Draft PR #7
+## 2026-07-22 — M4.6 Precision Geometry UX reaches implementation RC in PR #7
 
-### Why
+### Why M4.6 became the immediate priority
 
-A real ordinary-user test exposed a fundamental geometry-trust problem:
+A real ordinary-user test exposed a fundamental geometry-trust problem.
+
+The user entered wall lengths such as:
 
 ```text
-entered wall lengths: 3550 mm and 3300 mm
-wall thickness: 50 mm
-intuitive expected area: ≈ 11.72 m²
-old displayed area: ≈ 11.38 m²
+3550 × 3300 mm
 ```
 
-The old geometry could be technically consistent because the editable wall length was effectively the **wall centreline**, while room area was derived from **inner wall faces**.
+and naturally expected these to describe the **clear room dimensions**, therefore expecting approximately:
 
-The UX failure was that a non-CAD user naturally interpreted `3550 mm` as the clear internal room size.
+```text
+3.55 × 3.30 = 11.715 m² → 11.72 m²
+```
 
-Product conclusion:
+The existing editor actually treated the values as **wall centreline lengths**, while room area was derived from **inner wall faces**. With wall thickness, the usable room became smaller.
+
+The old math could be internally consistent, but the product mental model was not.
+
+Accepted conclusion:
 
 > Vlezet must remain simpler than CAD, but simplicity must not hide geometry semantics.
 
@@ -45,387 +50,303 @@ vertices + wall centrelines + physical thickness
 → updated VlezetDocument
 ```
 
-No duplicate persisted `internalLength` / `externalLength` fields were introduced.
+No duplicate persistent `internalLength` / `externalLength` fields were introduced.
 
 ### M4.6.1 — Honest wall-length semantics
 
 Implemented:
 
 - ambiguous `Точная длина` replaced by explicit `Длина по оси стены`;
-- inspector explains that centreline length is not always the clear internal room size;
-- explicit fixed anchor:
+- inspector explicitly explains that centreline length is not automatically clear room size;
+- wall-length anchor:
 
 ```text
 Начало | Центр | Конец
 ```
 
-- `Начало` keeps start fixed;
-- `Конец` keeps end fixed;
-- `Центр` keeps midpoint fixed;
-- legacy start-fixed behavior remains the default;
-- opening offsets are compensated when the wall start moves, preserving opening world position;
-- shrinking through an opening/junction or violating a host-wall constraint fails atomically;
-- one resize remains one semantic Undo/Redo operation.
+- legacy start-fixed behavior remains default;
+- centre/end anchoring moves endpoints deterministically;
+- opening offsets compensate when the wall start moves so opening world position is preserved;
+- invalid resize through openings/junction/host-wall constraints fails atomically;
+- one wall resize remains one semantic Undo/Redo operation.
 
-### M4.6.2 — First clear internal room-dimension vertical slice
+### M4.6.2 — Clear internal room dimensions
 
-Implemented for simple axis-aligned rectangular rooms:
+First conservative editable scope: simple axis-aligned rectangular rooms.
 
-- `deriveRectangularRoomDimensions()` derives clear width/height from the same usable inner polygon used for area;
-- room inspector exposes `Чистые внутренние размеры`;
-- editable `Ширина` and `Длина` in millimetres;
-- horizontal anchor:
+Implemented:
 
-```text
-Левая сторона | Центр | Правая сторона
-```
-
-- vertical anchor:
+- clear width/height derived from the same usable inner polygon as room area;
+- room inspector `Чистые внутренние размеры`;
+- editable `Ширина` and `Длина`;
+- fixed-side anchors:
 
 ```text
-Верхняя сторона | Центр | Нижняя сторона
+width:  Левая сторона | Центр | Правая сторона
+length: Верхняя сторона | Центр | Нижняя сторона
 ```
 
-- edits transform canonical walls/vertices rather than storing a duplicate annotation;
-- affected opening offsets are compensated to preserve world position;
-- the full room-dimension edit is one semantic history command;
-- complex/non-rectangular/T-junction rooms fail closed rather than guessing.
+- clear-size edits move canonical wall geometry rather than storing duplicate dimensions;
+- affected opening world positions are preserved where supported;
+- complete edit is one semantic history command;
+- complex/non-rectangular/T-junction cases fail closed instead of inventing width/length.
 
-Regression example:
+Regression contract:
 
 ```text
 centreline rectangle: 3650 × 3400 mm
-wall thickness:       100 mm
-clear inside:         3550 × 3300 mm
-area:                 11.715 m²
+wall thickness:        100 mm
+clear internal:        3550 × 3300 mm
+area:                  11.715 m²
+UI:                    11.72 m²
 ```
 
-Thus the clear dimensions and area are derived from the same inner geometry.
+A separate trust bug was found while implementing this: binary floating-point `toFixed(2)` could display `11.715` as `11.71`. Area display is now rounded deterministically from canonical square millimetres.
 
-### Verification
+### M4.6.4 — Dimension discoverability was pulled forward by user feedback
 
-Latest verified snapshot for this changelog entry:
+The real screenshot showed that implementing clear dimensions only in the inspector was insufficient: a user could still draw `3550 × 3300` as wall lengths and see a smaller area without immediately understanding why.
+
+Therefore dimension visibility was moved ahead of the originally planned order.
+
+Implemented:
+
+- room canvas labels show, for deterministic rectangles:
+  - room name;
+  - correctly rounded usable area;
+  - `Ш × Д мм внутри`;
+- selected rectangular room shows two dimension lines measured between inner wall faces;
+- selected wall shows a visually distinct technical dimension `... мм по оси`;
+- dimension-line offset stays visually stable in screen pixels while zoom changes;
+- annotations are derived every render/state update;
+- no dimension annotation becomes geometry authority;
+- no extra physical Konva Layer was added;
+- toolbar `Размеры` toggle shows/hides dimension lines; default is visible.
+
+Resulting user mental model:
 
 ```text
-HEAD: 7a80e1bbc5ab1f8bc0193d489c64033ae7574931
-GitHub Actions run: 29914228688
+entered as wall centrelines: 3550 × 3300
+canvas immediately shows actual clear room size + area
+→ select room
+→ enter desired clear 3550 × 3300
+→ Vlezet updates canonical geometry
+→ displayed usable area ≈ 11.72 m²
 ```
 
-- unit tests — PASS;
-- TypeScript typecheck — PASS;
-- ESLint — PASS;
-- production Next build — PASS.
+### M4.6.3 — Wall thickness alignment
 
-### Next
+Implemented after the dimension meaning became visible.
 
-- browser acceptance of M4.6.1/M4.6.2 on the real apartment workflow;
-- wall thickness alignment `inside / centre / outside`;
-- dimension lines directly on Canvas;
-- tape/measurement tool;
-- broaden clear-dimension editing only where semantics remain deterministic.
+Core alignment contract:
+
+```text
+center | left-face | right-face
+```
+
+A face-fixed thickness edit shifts the centreline by half of the thickness delta so the selected physical face remains fixed.
+
+For a wall with exactly one unambiguous adjacent room, the UI exposes user-oriented intent:
+
+```text
+Внутрь помещения | По центру | Наружу
+```
+
+For a wall with no single unambiguous room side, such as a partition between two rooms:
+
+```text
+Левая грань | По центру | Правая грань
+```
+
+Implemented safety behavior:
+
+- compatible orthogonal/shared topology moves atomically;
+- T-junction vertices remain coherent where supported;
+- affected connected-wall opening offsets compensate to preserve world position;
+- geometry that would skew/tear a connected wall is rejected instead of silently distorted;
+- one thickness edit remains one semantic Undo/Redo operation;
+- no structural/removability meaning is inferred.
+
+### M4.6.5 — Tape / measurement tool
+
+Implemented first ephemeral slice:
+
+- toolbar `Измерить`;
+- first click sets start;
+- pointer movement previews snapped endpoint;
+- second click commits measurement;
+- next click starts a new measurement;
+- snapping reuses vertices, wall projections and grid;
+- shows:
+  - direct distance;
+  - horizontal `ΔX`;
+  - vertical `ΔY`;
+- Escape clears current measurement;
+- switching to another editor tool/furniture placement deactivates and clears it;
+- middle-button panning remains available;
+- measurement never enters `VlezetDocument`, autosave, backup or semantic history;
+- no extra physical Konva Layer was added.
+
+Typical supported uses:
+
+- corner → door;
+- pier width;
+- balcony opening offset;
+- furniture clearance;
+- arbitrary verification.
+
+### M4.6 automated verification
+
+Last code-bearing head before canonical documentation synchronization:
+
+```text
+fcb4e1b306cd59244ababe73da40a664de3361b3
+```
+
+Strict GitHub Actions run:
+
+```text
+29921081469 — PASS
+```
+
+Passed:
+
+- frozen dependency install;
+- full unit suite;
+- TypeScript typecheck;
+- ESLint;
+- production Next build.
+
+M4.6 remains Draft until browser/manual visual acceptance on a real apartment workflow. CI is not browser acceptance.
+
+### Known M4.6 conservative boundaries
+
+- clear width/height editing is intentionally limited to deterministic simple axis-aligned rectangles;
+- complex room dimensions are not guessed;
+- face-fixed thickness edits reject incompatible geometry rather than skewing topology;
+- permanent associative CAD dimension objects are not introduced;
+- full parametric constraints/target-area solver are deferred;
+- advanced opening offsets from arbitrary reference corners are a follow-up.
 
 ---
 
-## 2026-07-22 — M4.5 Assisted Recognition accepted as MVP and merged
+## 2026-07-22 — M4.5 Assisted Recognition accepted and merged as MVP
 
-PR #6 `feat: M4.5 assisted recognition` was squash-merged to `main`:
+PR #6 squash merge:
 
 ```text
 b63bdd613db4e13c07d2a961981799bd360f256d
 ```
 
-### Final product feedback
+### Why
 
-Recognition became noticeably better and useful, but remained imperfect.
+M4 imported/calibrated real source plans, but exact manual tracing remained repetitive.
 
-Decision:
+Recognition was introduced to accelerate tracing without sacrificing trust.
 
-- accept M4.5 as a working assisted-recognition MVP;
-- treat further accuracy work as refinement rather than a roadmap blocker;
-- keep the feature explicitly **assisted / experimental**, not automatic reconstruction;
-- require broader future testing on representative developer/realtor/BTI plans.
+Rule:
 
-Canonical acceptance:
+> CV/LLM may suggest editable structured geometry; they are never geometry authority.
 
-`docs/milestones/m4-5-mvp-acceptance.md`
-
-### Trust boundary preserved
-
-- recognition creates editable suggestions only;
-- `RecognitionDraft` stays separate from `VlezetDocument` until explicit Apply;
-- deterministic validation remains authoritative;
-- existing geometry is never silently replaced;
-- one applied recognition batch = one semantic Undo/Redo operation;
-- provider API keys remain runtime-only;
-- unfinished recognition sessions do not enter backup/duplicate/import flows.
-
-### Known post-M4.5 quality backlog
-
-- representative real-plan fixture corpus;
-- measurable wall/opening/topology quality metrics;
-- CV preprocessing/tuning against fixtures;
-- better line merging/junction reconstruction;
-- cloud model quality/cost ranking;
-- stronger semantic validation;
-- custom ML only if metrics justify it.
-
-Recognition quality must not consume the M4.6 product cycle.
-
----
-
-## 2026-07-22 — M4.5 RC hardening history
-
-M4.5 was introduced after M4 made calibrated real-plan import possible but manual tracing remained repetitive.
-
-Approved rule:
-
-> Recognition may propose editable structured geometry, but neither CV nor an LLM is allowed to become the geometry authority.
-
-Architecture:
+Pipeline:
 
 ```text
 reference raster
-→ local CV first
-→ optional cloud vision refinement
+→ local CV
+→ optional cloud vision BYOK
 → reconciliation / semantic sanity
-→ editable RecognitionDraft
-→ user review
-→ deterministic apply
-→ ordinary Vlezet walls/openings
+→ RecognitionDraft
+→ review/edit
+→ explicit Apply
+→ ordinary Vlezet geometry
 ```
-
-### Major RC defects discovered and fixed
-
-#### Infinite startup loading
-
-**Observed:** `Открываем Vlezet…` could remain forever.
-
-**Cause:** optional recognition restore blocked editor startup.
-
-**Fix:** editor becomes visible first; recognition restore happens afterwards and errors are isolated.
-
-#### OpenCV Promise/Emscripten crash
-
-**Observed:** `Promise.prototype.then called on incompatible receiver [object Module]`.
-
-**Cause:** Emscripten Module was treated as a normal Promise/thenable.
-
-**Fix:** explicit Promise-vs-ready-module handling.
-
-#### Turbopack Node builtin resolution
-
-**Observed:** browser build could not resolve `fs/path/crypto` through OpenCV.
-
-**Fix:** browser-only Next/Turbopack aliases; server runtime unchanged.
-
-#### Too many Konva layers
-
-**Observed:** 6+ physical Layer warning and performance risk.
-
-**Fix:** geometry rendering consolidated to at most 5 physical layers and regression-tested.
-
-#### Local CV returned zero candidates
-
-**Observed:** a real developer plan produced `0 walls / 0 openings`.
-
-**Cause:** first thresholds were too strict and tied to arbitrary pixels.
-
-**Fix:** calibrated `millimetersPerPixel`, scale-aware adaptive fallback and explicit empty-state.
-
-#### AI submit looked active but did nothing
-
-**Cause:** hidden requirement for a selected `modelId`.
-
-**Fix:** one-step key → analyze flow can discover/select a compatible model automatically.
-
-#### Browser fetch `Illegal invocation`
-
-**Cause:** native fetch invoked with incompatible receiver.
-
-**Fix:** safe `globalThis.fetch` wrapper.
-
-#### One malformed cloud candidate killed the full response
-
-**Cause:** all-or-nothing normalization.
-
-**Fix:** tolerant per-candidate parsing; good candidates survive.
-
-#### Schema-valid AI hallucinated a giant frame
-
-**Observed:** model returned page/image bounding-box walls and false openings.
-
-**Cause:** JSON schema validates structure, not architectural plausibility.
-
-**Fix:** prompt hardening + semantic sanity filter + orphan-opening rejection.
-
-### Lesson
-
-Structured output is not the same as trustworthy geometry. Cloud/CV output must remain non-authoritative and pass deterministic semantic boundaries.
-
----
-
-## 2026-07-22 — Geometry/dimensions UX feedback changes roadmap priority
-
-Detailed feedback established that the next major priority after M4.5 must be precision semantics rather than 3D.
-
-Accepted M4.6 P0 themes:
-
-- internal clear dimension vs wall centreline vs external dimension;
-- explicit dimension semantics;
-- length-change anchor;
-- wall-thickness alignment;
-- dimension lines directly on Canvas;
-- tape/measurement tool.
-
-High-value follow-ups:
-
-- door/window offsets from corners;
-- target room area;
-- locked dimensional/area constraints;
-- wall-type presets;
-- visual wall classes.
-
-Canonical feedback:
-
-`docs/product/2026-07-22-geometry-dimensions-ux-feedback.md`
-
----
-
-## 2026-07-21 — M4 Reference Plan Import — merged
-
-PR #5  
-Merge commit: `12e9696e11572ad5ec055f3dfad98ad7826184e2`
-
-### Why
-
-Users often already have a developer/realtor/BTI plan. Rebuilding it from a blank canvas wastes time and makes exact reproduction harder.
 
 ### Delivered
 
-- JPG/PNG/PDF import;
-- magic-byte validation;
-- PDF page selection/local rasterization;
-- safe raster limits/normalization;
-- two-point metric calibration;
-- horizontal/vertical alignment;
-- reference visibility/opacity/lock/position/rotation;
-- tracing mode;
-- IndexedDB binary asset store;
-- independent duplicate assets;
-- portable `.vlezet.json` v2 with raster;
-- backward import of v1 backups;
-- clean PNG and PNG with source.
+- local OpenCV/Web Worker recognition;
+- scale-aware adaptive fallback;
+- persistent recognition session separate from document;
+- review overlay;
+- endpoint edit;
+- accept/reject/bulk confident accept;
+- opening reclassification;
+- deterministic image→millimetre projection;
+- duplicate-existing protection;
+- accepted openings can attach to compatible existing walls;
+- one applied batch = one Undo/Redo operation;
+- stale reference/calibration/engine-version protection;
+- OpenRouter BYOK, runtime-only key;
+- model discovery;
+- tolerant per-candidate structured parsing;
+- local/cloud reconciliation;
+- semantic sanity filtering;
+- safe diagnostics without secrets/base64;
+- unfinished sessions excluded from backup/duplicate/import.
 
-The source plan remains a separate calibrated asset, not apartment geometry.
+### Important RC failures discovered and fixed
 
----
+- editor startup could freeze while waiting for optional recognition restore;
+- OpenCV Emscripten module was incorrectly treated as a normal Promise;
+- browser build could resolve Node `fs/path/crypto` through OpenCV/Turbopack;
+- excessive physical Konva Layer count;
+- local CV could return zero candidates on thick/fragmented plans due pixel-based thresholds;
+- AI submit looked active while a hidden model prerequisite blocked it;
+- browser native `fetch` could fail with `Illegal invocation`;
+- one malformed model candidate could kill the entire response;
+- schema-valid cloud hallucinations could create giant page-frame walls/orphan openings.
 
-## 2026-07-21 — M3 Local-First Projects — merged
+### Accepted limitation
 
-PR #4  
-Merge commit: `6c32249acc8e333e62fceee2ea4e76ca83890c77`
+Real-plan testing showed recognition quality improved and is useful, but is not perfect.
 
-Delivered:
+Decision:
 
-- project dashboard;
-- create/open/rename/duplicate/delete;
-- `@vlezet/projects`;
-- IndexedDB repositories;
-- autosave with visible retryable status;
-- last-project/viewport restoration;
-- JSON backup/import with migrations;
-- clean PNG renderer;
-- lifecycle/error/accessibility hardening.
-
----
-
-## 2026-07-21 — M2 Furnishing and Fit — merged
-
-PR #3  
-Merge commit: `aa34f24572f2e67714604634587a1c41e4067cd8`
-
-Delivered:
-
-- generic furniture/appliance catalogue;
-- custom objects;
-- real dimensions/position/rotation/height;
-- drag/resize/rotate/duplicate/delete;
-- snapping/guides;
-- SAT collisions;
-- room containment;
-- door-swing blocking;
-- functional clearance hints;
-- directional measurements;
-- explainable fit statuses;
-- semantic undo/redo.
+- accept as assisted/experimental MVP;
+- document quality/noise as backlog;
+- never auto-apply;
+- do not weaken deterministic validators to improve apparent recall;
+- later build a representative plan fixture corpus and measurable recognition metrics.
 
 ---
 
-## 2026-07-21 — M1 Apartment Shell — merged
+## Historical milestone summary
 
-PR #2  
-Merge commit: `3944c7f9d668a645e1dc05805f476d2f3290eb94`
+### M4 — Reference Plan Import
 
-Delivered:
+PR #5 → `12e9696e11572ad5ec055f3dfad98ad7826184e2`.
 
-- explicit topological wall graph;
-- stable wall identity/T-junctions;
-- physical wall thickness;
-- connected editing/exact lengths;
-- derived room detection;
-- usable inner polygons/areas;
-- room naming;
-- doors/windows as host-wall openings;
-- wall gaps/door swings/opening constraints;
-- visible diagnostics for ambiguous geometry.
+Delivered local JPG/PNG/PDF import, safe validation/rasterization, calibration, reference transform controls, tracing, reference-aware viewport fitting, embedded-reference backup and PNG export options.
 
----
+### M3 — Local-First Projects
 
-## 2026-07-21 — M0 Foundation and Infinite Canvas — merged
+PR #4 → `6c32249acc8e333e62fceee2ea4e76ca83890c77`.
 
-PR #1  
-Merge commit: `099a202413459674d2b50c33d2c1fa125a0fef6f`
+Delivered project dashboard/lifecycle, IndexedDB persistence, autosave/retry, viewport restore, backup/import and clean PNG export.
 
-Delivered:
+### M2 — Furnishing and Fit
 
-- TypeScript/pnpm/Turborepo monorepo;
-- Next.js shell;
-- domain/geometry/editor-core boundaries;
-- schema-versioned millimetre document;
-- infinite canvas;
-- pointer-centred pan/zoom;
-- adaptive grid;
-- wall creation/exact length;
-- snapping;
-- semantic undo/redo;
-- tests/frozen installs/CI.
+PR #3 → `aa34f24572f2e67714604634587a1c41e4067cd8`.
 
----
+Delivered furniture/appliance objects, exact dimensions/transforms, collision/containment/door-swing/clearance evaluation and explainable fit statuses.
 
-## Original product direction — approved 2026-07-21
+### M1 — Apartment Shell
 
-Core strategic decisions:
+PR #2 → `3944c7f9d668a645e1dc05805f476d2f3290eb94`.
+
+Delivered topological walls/vertices, thickness, T-junctions, deterministic rooms/usable area, room names and host-wall openings.
+
+### M0 — Foundation and Infinite Canvas
+
+PR #1 → `099a202413459674d2b50c33d2c1fa125a0fef6f`.
+
+Delivered TypeScript monorepo boundaries, infinite canvas, mm world coordinates, pan/zoom/grid, wall drawing, snapping, semantic history and reproducible CI.
+
+## Original product direction that remains valid
 
 - precision before decoration;
-- easier than CAD, more trustworthy than decorative planners;
-- millimetres and structured domain model as truth;
-- useful 2D product before 3D;
-- imported/AI-generated results remain editable;
-- local-first editing;
-- no speculative billing/marketplace/BIM/VR/photorealistic scope early.
-
-Canonical original design:
-
-`docs/superpowers/specs/2026-07-21-vlezet-product-design.md`
-
-## How to maintain this changelog
-
-For every future milestone, major product decision or serious RC incident, record:
-
-1. date/status/PR/merge SHA;
-2. why the change was needed;
-3. architecture/product decision;
-4. what was actually delivered;
-5. failures discovered and their root causes;
-6. what remains intentionally deferred;
-7. verification evidence where relevant.
+- easier than professional CAD, but never misleading about geometry;
+- millimetre structured truth;
+- 2D trust before 3D;
+- imported/AI results remain editable;
+- local-first core;
+- no speculative billing/marketplace/BIM/VR/photorealism before core value is proven.
