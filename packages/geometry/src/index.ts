@@ -41,6 +41,8 @@ export type {
   ReferenceCalibration,
   ReferenceTransform,
 } from "./reference-plan";
+export { deriveRectangularRoomDimensions } from "./room-dimensions";
+export type { RectangularRoomDimensions } from "./room-dimensions";
 export { deriveRooms } from "./rooms";
 export type {
   DerivedRoom, DerivedRoomDiagnostic, DerivedRoomsResult, RoomAnnotationLike,
