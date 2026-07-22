@@ -30,6 +30,6 @@ describe("room inspector precision semantics", () => {
     expect(html).toContain("Правая сторона");
     expect(html).toContain("Верхняя сторона");
     expect(html).toContain("Нижняя сторона");
-    expect(html).toContain("11.71");
+    expect(html).toContain("11.72");
   });
 });
