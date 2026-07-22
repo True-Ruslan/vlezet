@@ -25,6 +25,35 @@ function rectangleCornerDocument(): VlezetDocument {
   };
 }
 
+function singleWallWithOpening(): VlezetDocument {
+  return {
+    schemaVersion: 3,
+    vertices: [
+      { id: "a", position: { x: 0, y: 0 } },
+      { id: "b", position: { x: 4000, y: 0 } },
+    ],
+    walls: [
+      { id: "wall", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 200 },
+    ],
+    openings: [
+      {
+        id: "door",
+        wallId: "wall",
+        kind: "door",
+        offset: 1000,
+        width: 900,
+        doorSwing: { hinge: "start", side: "left" },
+      },
+    ],
+    roomAnnotations: [],
+    placedObjects: [],
+  };
+}
+
+function vertexPosition(document: VlezetDocument, vertexId: string) {
+  return document.vertices.find((vertex) => vertex.id === vertexId)?.position;
+}
+
 describe("topological wall editing", () => {
   it("creates a first wall with two explicit vertices", () => {
     const result = addTopologicalWall(createEmptyDocument(), {
@@ -97,6 +126,33 @@ describe("topological wall editing", () => {
     expect(b?.position).toEqual({ x: 8000, y: 0 });
     expect(topologicalWallLength(resized, "ab")).toBeCloseTo(8000, 10);
     expect(resized.walls.find((wall) => wall.id === "bc")?.startVertexId).toBe("b");
+  });
+
+  it("keeps legacy start-fixed behavior when the anchor is omitted", () => {
+    const resized = setTopologicalWallLength(rectangleCornerDocument(), "ab", 8000);
+    expect(vertexPosition(resized, "a")).toEqual({ x: 0, y: 0 });
+    expect(vertexPosition(resized, "b")).toEqual({ x: 8000, y: 0 });
+  });
+
+  it("keeps the end fixed when resizing with the end anchor", () => {
+    const resized = setTopologicalWallLength(singleWallWithOpening(), "wall", 5000, "end");
+    expect(vertexPosition(resized, "a")).toEqual({ x: -1000, y: 0 });
+    expect(vertexPosition(resized, "b")).toEqual({ x: 4000, y: 0 });
+  });
+
+  it("keeps the midpoint fixed when resizing with the center anchor", () => {
+    const resized = setTopologicalWallLength(singleWallWithOpening(), "wall", 6000, "center");
+    expect(vertexPosition(resized, "a")).toEqual({ x: -1000, y: 0 });
+    expect(vertexPosition(resized, "b")).toEqual({ x: 5000, y: 0 });
+  });
+
+  it("preserves opening world position when the start endpoint moves", () => {
+    const resized = setTopologicalWallLength(singleWallWithOpening(), "wall", 5000, "end");
+    expect(resized.openings[0]?.offset).toBe(2000);
+  });
+
+  it("rejects an end-anchored shrink that would consume an opening", () => {
+    expect(() => setTopologicalWallLength(singleWallWithOpening(), "wall", 1500, "end")).toThrow(/проём/i);
   });
 
   it("rejects shortening a host wall past an internal junction", () => {
