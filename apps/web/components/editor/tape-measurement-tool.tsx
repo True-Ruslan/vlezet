@@ -55,9 +55,9 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
 
   const endpoints = useMemo(() => document.vertices.map((vertex) => vertex.position), [document.vertices]);
 
-  useEffect(() => {
-    if (!active) setMeasurement(null);
-  }, [active]);
+  useEffect(() => measurementToolStore.subscribe((state) => {
+    if (!state.active) setMeasurement(null);
+  }), []);
 
   useEffect(() => {
     if (!active || (editorTool === "select" && !placementPresetId)) return;
