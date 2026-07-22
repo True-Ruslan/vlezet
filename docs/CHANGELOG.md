@@ -4,6 +4,141 @@
 
 This is not only a package-release changelog. It records milestone decisions, product feedback, RC failures and architecture changes that materially changed the roadmap.
 
+## 2026-07-22 — M5.4 Spatial Inspection accepted and merged
+
+PR #10 squash merge:
+
+```text
+0bffe36d74d2ff0865d700b51b17ee08e7001094
+```
+
+### Why
+
+M5.1 and M5.2 proved that Vlezet could deterministically project the trusted apartment shell and placed furniture into 3D. The remaining gap was usability: the 3D mode could be viewed, but not meaningfully inspected.
+
+Product rule:
+
+> 3D inspection must expose the same trusted semantic apartment data already owned by `VlezetDocument`, geometry and fit engines. Three.js meshes must never become a second source of measurements, collision truth or persistent state.
+
+Architecture:
+
+```text
+Three.js ray hit
+      ↓
+stable semantic entity id / kind
+      ↓
+ephemeral hover / selection
+      ↓
+VlezetDocument + SpatialScene + deterministic geometry/fit engines
+      ↓
+read-only inspector
+```
+
+### Delivered
+
+Semantic inspection:
+
+- room floors resolve to stable `roomId`;
+- wall meshes resolve to stable `wallId`;
+- placed-object meshes resolve to stable `objectId`;
+- schematic opening placeholders are intentionally not independent inspection authority;
+- nearest inspectable hit skips non-authoritative placeholders;
+- stale/unknown metadata fails closed.
+
+Interaction:
+
+- hover previews an inspectable entity;
+- click selects persistently;
+- empty click clears selection;
+- pointer leave clears hover;
+- drag-vs-click threshold protects OrbitControls interaction;
+- selected entity takes precedence over hover.
+
+Read-only inspector:
+
+- room name, usable area and deterministic clear rectangular dimensions;
+- wall centreline length, thickness and rendered split-segment count;
+- object dimensions, rotation and projection height semantics;
+- existing deterministic M2 fit status/reasons reused directly.
+
+Visual emphasis:
+
+- temporary cloned materials only for matched semantic meshes;
+- all rendered segments sharing one `wallId` highlight together;
+- unrelated meshes remain untouched;
+- base materials are restored when emphasis changes/clears;
+- temporary materials are explicitly disposed;
+- renderer disposal clears active emphasis first.
+
+Non-negotiable boundaries preserved:
+
+- no document/history/autosave mutation from hover/select;
+- no direct 3D editing;
+- no mesh-based measurement authority;
+- no mesh collision replacing M2 deterministic fit logic;
+- no decorative asset pipeline mixed into inspection;
+- no M6 planning/AI scope mixed into M5.4.
+
+### TDD / RC findings fixed
+
+Observed RED→GREEN cycles and integration findings:
+
+1. missing pure `spatial-inspection` semantic contract → authoritative resolver implemented;
+2. renderer had no semantic emphasis lifecycle → multi-segment emphasis + disposal added;
+3. missing read-only `SpatialInspector` → component contract implemented;
+4. direct `11.715.toFixed(2)` reproduced `11.71` floating-point display regression → canonical M4.6 square-mm formatter reused, restoring `11.72`;
+5. opening placeholders could intercept ray hits → nearest inspectable resolver skips them;
+6. React lint rejected synchronous stale-selection state clearing in an effect → changed to derived fail-closed resolution without effect-driven state writes.
+
+### Automated verification
+
+Final exact PR head before merge:
+
+```text
+e9980f63d574d1a9cb6614980788270a50cde47e
+GitHub Actions 29948749864 — PASS
+```
+
+Passed:
+
+- `pnpm install --frozen-lockfile`;
+- full unit suite;
+- TypeScript typecheck;
+- ESLint;
+- production Next build.
+
+### Manual browser acceptance
+
+**PASS — 2026-07-22.**
+
+Acceptance was performed on the representative real apartment used for prior spatial milestones. Screenshots confirmed semantic furniture and wall selection with the read-only inspector in the real 3D scene.
+
+Product owner explicitly confirmed:
+
+> «Все работает круто как ты и описал.»
+
+Canonical evidence:
+
+```text
+docs/milestones/m5-4-acceptance.md
+```
+
+### Roadmap consequence
+
+M5.4 is complete and merged.
+
+The original M5.3 camera/navigation foundation was already delivered inside M5.1. Remaining camera/navigation/performance work is evidence-driven polish only.
+
+Next major product slice:
+
+```text
+M6 Intelligent Planning
+```
+
+M6 must begin with structured deterministic planning contracts and reuse existing geometry/fit authority rather than starting with photorealistic or free-form AI generation.
+
+---
+
 ## 2026-07-22 — M5.2 Furniture in 3D accepted and merged
 
 PR #9 squash merge:
@@ -14,7 +149,7 @@ PR #9 squash merge:
 
 ### Why
 
-M5.1 proved the deterministic spatial shell/viewer, but the 3D mode still omitted the furniture/appliances already present in the trusted 2D document.
+M5.1 proved the deterministic spatial shell/viewer, but the 3D mode still omitted furniture/appliances already present in the trusted 2D document.
 
 Product rule:
 
@@ -41,59 +176,29 @@ Three.js generic primitive
 
 ### Delivered
 
-Neutral spatial model:
-
-- added `SpatialScene.objects`;
-- added renderer-neutral `SpatialObject`;
+- added `SpatialScene.objects` and renderer-neutral `SpatialObject`;
 - exact document `x/y → scene X/Z` mapping;
-- exact `width` / `depth` millimetres;
+- exact width/depth millimetres;
 - deterministic `rotationDeg → rotationYRad`;
-- stored `height` remains authoritative when present;
-- missing height uses projection-only `DEFAULT_OBJECT_HEIGHT_MM = 700`;
-- projection default is never silently persisted;
-- semantic object ID/name/category preserved for future inspection.
-
-Fail-closed safety:
-
-- invalid/non-finite object geometry is isolated per object;
-- finite dimensions outside persistent domain bounds also fail closed;
-- spatial validation reuses the same domain `MIN/MAX_PLACED_OBJECT_DIMENSION_MM` constants instead of duplicating limits.
-
-Three.js renderer:
-
-- generic deterministic box primitives;
-- exact neutral width/height/depth mapping;
-- exact center and Y-axis rotation mapping;
-- semantic `userData` retained for later M5.4 inspection;
-- object material/geometry participate in existing renderer disposal lifecycle.
-
-Explicit non-goals preserved:
-
-- no schema migration;
-- no second 3D furniture state;
-- no decorative/glTF asset pipeline;
-- no direct 3D furniture editing;
-- no mesh-collision product authority;
-- deterministic M2 fit/collision/clearance logic remains authoritative.
+- stored height remains authoritative when present;
+- missing height uses projection-only `DEFAULT_OBJECT_HEIGHT_MM = 700` and is never persisted;
+- semantic object ID/name/category preserved;
+- invalid/non-finite/out-of-domain geometry fails closed per object;
+- Three.js uses deterministic generic box primitives;
+- object materials/geometries participate in renderer disposal lifecycle;
+- no schema migration, second 3D furniture state, direct 3D editing or mesh-collision authority.
 
 ### TDD / RC evidence
 
-Observed RED→GREEN cycles:
+RED→GREEN cycles covered:
 
-1. object projection tests failed before `SpatialObject` implementation;
-2. renderer object mesh test failed before Three.js box mapping;
-3. out-of-domain finite-dimension test failed before persistent domain bounds were reused.
+1. missing neutral `SpatialObject` projection;
+2. missing Three.js placed-object mesh;
+3. finite dimensions outside persistent domain limits.
 
-An intermediate integration failure also exposed that existing `SpatialScene` test fixtures needed the new mandatory `objects` field. The fixture contract was updated before renderer work continued.
+An intermediate integration failure exposed stale `SpatialScene` fixtures missing the mandatory `objects` field; fixtures were corrected before proceeding.
 
-### Automated verification
-
-Pre-acceptance RC:
-
-```text
-94805c73116f97648ef22a701cfd1bb607d4bd87
-GitHub Actions 29938901932 — PASS
-```
+### Verification
 
 Final exact accepted PR head:
 
@@ -102,47 +207,21 @@ Final exact accepted PR head:
 GitHub Actions 29940437536 — PASS
 ```
 
-Required gates:
-
-- `pnpm install --frozen-lockfile`;
-- full unit suite;
-- TypeScript typecheck;
-- ESLint;
-- production Next build.
-
-All PASS.
+All required gates PASS.
 
 ### Manual browser acceptance
 
 **PASS — 2026-07-22.**
 
-User provided paired screenshots from the same real project:
+Paired 2D/3D screenshots from the same real project confirmed:
 
-- toolbar shows `3 предметов`;
-- all three objects appear in 3D;
-- room placement matches the 2D view;
-- one object appears in the left small room and two in the right small room in both views;
-- M5.1 shell remains visually intact.
+- toolbar showed `3 предметов`;
+- all three objects appeared in 3D;
+- room placement matched the 2D view;
+- one object appeared in the left small room and two in the right small room in both views;
+- no visible M5.1 shell regression.
 
-Canonical evidence:
-
-```text
-docs/milestones/m5-2-acceptance.md
-```
-
-### Roadmap consequence
-
-M5.2 is complete.
-
-The original M5.3 navigation foundation was already delivered in M5.1 (orbit/pan/zoom, camera presets, fit, 2D↔3D switching), so remaining M5.3 work is evidence-driven polish only.
-
-Next active product slice:
-
-```text
-M5.4 Spatial Inspection
-```
-
-Goal: inspect semantic rooms/walls/objects in read-only 3D and surface already-authoritative dimensions/fit information without introducing a second geometry authority.
+Canonical evidence: `docs/milestones/m5-2-acceptance.md`.
 
 ---
 
@@ -176,11 +255,11 @@ plain Three.js viewer
 
 ### Delivered
 
-- new framework-independent `@vlezet/spatial`;
+- framework-independent `@vlezet/spatial`;
 - document X/Y → scene X/Z, height → Y;
 - millimetres remain millimetres;
 - deterministic wall prisms with exact thickness;
-- projection-only wall height `2700 mm` without schema migration;
+- projection-only wall height without schema migration;
 - wall splitting around existing openings;
 - room floors from derived usable polygons;
 - schematic semantic door/window placeholders without invented vertical authority;
@@ -191,20 +270,13 @@ plain Three.js viewer
 - fit camera;
 - safe 2D↔3D switching;
 - no document/history mutation from view mode;
-- WebGL failure isolation.
+- WebGL failure isolation and explicit renderer/control/resource cleanup.
 
 ### RC issue found before merge
 
 Self-review found a `GridHelper` GPU-resource lifecycle gap.
 
-TDD cycle:
-
-```text
-ea672213f3554d7acf7c604be290718ae37da02f — RED disposal regression test
-7d037ae7ecfc544a2efde4aedcfaa4c7ff9d9799 — disposal helper
-a0da8785c8793833c8ff0f66b65a19684f0457a0 — viewer cleanup wired
-29936603959 — PASS
-```
+TDD cycle added disposal regression coverage, a shared disposal helper and viewer cleanup wiring before merge.
 
 ### Manual acceptance
 
@@ -393,11 +465,11 @@ reference raster
 ### Important RC failures found and fixed
 
 - optional recognition restore could block editor startup;
-- OpenCV/Emscripten lifecycle mismatch;
+- OpenCV/Emscripten Promise-vs-Module lifecycle mismatch;
 - browser build could resolve Node-only dependencies;
 - excessive Konva layer use;
-- local CV thresholds could return zero candidates;
-- hidden cloud-model prerequisites made submit misleading;
+- local CV pixel thresholds could return zero candidates;
+- hidden cloud-model prerequisite made submit appear active but do nothing;
 - native `fetch` binding issue;
 - malformed cloud candidate could kill an entire response;
 - schema-valid cloud hallucinations could create giant page-frame/orphan geometry.
@@ -415,34 +487,109 @@ Decision:
 
 ---
 
-## Historical milestone summary
-
-### M4 — Reference Plan Import
+## 2026-07-22 — M4 Reference Plan Import merged
 
 PR #5 → `12e9696e11572ad5ec055f3dfad98ad7826184e2`.
 
-Delivered local JPG/PNG/PDF import, safe validation/rasterization, calibration, reference transforms, local asset persistence, tracing, reference-aware fitting, embedded-reference backup and PNG export options.
+### Why
 
-### M3 — Local-First Projects
+Users needed to work from real developer/contract floor plans rather than redraw everything from scratch.
+
+### Delivered
+
+- local JPG/PNG/PDF import;
+- magic-byte/type validation and safe limits;
+- local PDF rasterization;
+- metric two-point calibration;
+- reference alignment/transform;
+- separate local raster asset rather than embedding pixels into geometry;
+- opacity/lock/position/rotation controls;
+- exact tracing over the calibrated reference;
+- reference-aware fit-to-plan;
+- portable backup/import support;
+- clean/source PNG export options.
+
+Architecture rule established:
+
+> Raster/reference data may assist editing, but structured geometry remains the source of truth.
+
+---
+
+## M3 — Local-First Projects merged
 
 PR #4 → `6c32249acc8e333e62fceee2ea4e76ca83890c77`.
 
-Delivered dashboard/project lifecycle, IndexedDB persistence, autosave/retry, viewport restore, backup/import and clean PNG export.
+Delivered:
 
-### M2 — Furnishing and Fit
+- dashboard project CRUD;
+- IndexedDB-backed persistence abstraction;
+- autosave/retry;
+- viewport restore;
+- JSON backup/import;
+- PNG export;
+- local-first editing independent of network latency.
+
+---
+
+## M2 — Furnishing and Fit merged
 
 PR #3 → `aa34f24572f2e67714604634587a1c41e4067cd8`.
 
-Delivered furniture/appliance objects, exact dimensions/transforms, collision/containment/door-swing/clearance evaluation and explainable fit statuses.
+Delivered:
 
-### M1 — Apartment Shell
+- catalogue/custom placed objects;
+- exact dimensions, move/resize/rotate;
+- snapping/guides;
+- SAT-style object collision evaluation;
+- room containment;
+- door-swing obstruction;
+- clearance recommendations;
+- directional measurements;
+- explainable `fits / tight / blocked` results.
+
+Architecture consequence:
+
+> Deterministic fit/collision/clearance evaluation is product authority and must remain reusable by later 3D and planning layers.
+
+---
+
+## M1 — Apartment Shell merged
 
 PR #2 → `3944c7f9d668a645e1dc05805f476d2f3290eb94`.
 
-Delivered topological walls, physical thickness, T-junctions, deterministic rooms/area, room naming, wall-hosted openings and geometry diagnostics.
+Delivered:
 
-### M0 — Foundation + Infinite Canvas
+- true wall topology with shared vertices;
+- connected walls and T-junctions;
+- physical wall thickness;
+- deterministic planar-face/room derivation;
+- usable area from inner wall faces;
+- room annotations/names;
+- host-wall doors/windows;
+- topology/geometry diagnostics.
+
+Architecture consequence:
+
+> Rooms and areas are derived from structured wall geometry; they are not independently persisted drawing artifacts.
+
+---
+
+## M0 — Foundation and Infinite Canvas merged
 
 PR #1 → `099a202413459674d2b50c33d2c1fa125a0fef6f`.
 
-Delivered monorepo boundaries, mm world model, infinite canvas, pan/zoom/grid, snapping, wall drawing, semantic Undo/Redo and reproducible CI.
+Delivered:
+
+- TypeScript pnpm/Turborepo monorepo;
+- package boundaries for domain/geometry/editor-core;
+- infinite canvas;
+- millimetres as canonical world coordinates;
+- pan/zoom/grid;
+- wall drawing and exact lengths;
+- snapping;
+- semantic Undo/Redo;
+- reproducible CI.
+
+Foundational rule:
+
+> Pixels are rendering coordinates only; real apartment geometry is stored in millimetres.
