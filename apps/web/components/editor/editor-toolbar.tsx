@@ -3,6 +3,7 @@
 import type { SaveStatus } from "@vlezet/projects";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
+import { spatialViewModeStore, type SpatialViewMode } from "../spatial/view-mode-store";
 import { dimensionVisibilityStore } from "./dimension-visibility-store";
 import { measurementToolStore } from "./measurement-tool-store";
 import { editorStore, type EditorTool } from "./use-editor-store";
@@ -54,6 +55,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const tool = useStore(editorStore, (state) => state.tool);
   const measurementActive = useStore(measurementToolStore, (state) => state.active);
   const dimensionsVisible = useStore(dimensionVisibilityStore, (state) => state.visible);
+  const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
   const canUndo = useStore(editorStore, (state) => state.history.past.length > 0);
@@ -61,25 +63,36 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const wallCount = useStore(editorStore, (state) => state.history.document.walls.length);
   const openingCount = useStore(editorStore, (state) => state.history.document.openings.length);
   const objectCount = useStore(editorStore, (state) => state.history.document.placedObjects.length);
+  const editingDisabled = viewMode === "3d";
 
   const chooseTool = (next: EditorTool) => {
+    if (editingDisabled) return;
     measurementToolStore.getState().setActive(false);
     editorStore.getState().setTool(next);
   };
   const activateMeasurement = () => {
+    if (editingDisabled) return;
     editorStore.getState().setTool("select");
     measurementToolStore.getState().setActive(true);
+  };
+  const chooseViewMode = (next: SpatialViewMode) => {
+    if (next === "3d") {
+      measurementToolStore.getState().setActive(false);
+      editorStore.getState().cancelCurrentAction();
+    }
+    spatialViewModeStore.getState().setMode(next);
   };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "m" || event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return;
+      if (event.key.toLowerCase() !== "m" || event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target) || editingDisabled) return;
       event.preventDefault();
-      activateMeasurement();
+      editorStore.getState().setTool("select");
+      measurementToolStore.getState().setActive(true);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [editingDisabled]);
 
   return (
     <header className="editor-toolbar">
@@ -90,19 +103,24 @@ export function EditorToolbar(props: EditorToolbarProps) {
       </div>
 
       <div className="tool-group" aria-label="Инструменты редактора">
-        <button className={tool === "select" && !placementPresetId && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("select")} title="Выбор (V)">Выбор <kbd>V</kbd></button>
-        <button className={tool === "wall" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("wall")} title="Стена (W)">Стена <kbd>W</kbd></button>
-        <button className={tool === "door" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("door")} title="Дверь (D)">Дверь <kbd>D</kbd></button>
-        <button className={tool === "window" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("window")} title="Окно (O)">Окно <kbd>O</kbd></button>
-        <button className={measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={activateMeasurement} aria-pressed={measurementActive} title="Измерить произвольное расстояние между двумя точками (M)">Измерить <kbd>M</kbd></button>
-        <button className={dimensionsVisible ? "tool-button is-active" : "tool-button"} type="button" onClick={() => dimensionVisibilityStore.getState().toggle()} aria-pressed={dimensionsVisible} title="Показать или скрыть размерные линии выбранной комнаты или стены">Размеры</button>
-        <button className={props.furnitureCatalogOpen || placementPresetId ? "tool-button furniture-tool is-active" : "tool-button furniture-tool"} type="button" onClick={() => { measurementToolStore.getState().setActive(false); props.onToggleFurnitureCatalog(); }} title="Показать или скрыть мебель и технику (F)" aria-pressed={props.furnitureCatalogOpen}>Мебель <kbd>F</kbd></button>
-        <button className={props.referencePanelOpen ? "tool-button reference-tool is-active" : "tool-button reference-tool"} type="button" onClick={props.onToggleReferencePanel} aria-pressed={props.referencePanelOpen} title="Загрузить или настроить исходный план">Подложка{props.hasReferencePlan ? <span className="reference-present-dot" aria-label="подложка загружена" /> : null}</button>
-        <button className={props.recognitionPanelOpen ? "tool-button recognition-tool is-active" : "tool-button recognition-tool"} type="button" onClick={props.onToggleRecognitionPanel} aria-pressed={props.recognitionPanelOpen} title="Локально распознать стены и проверить план с AI" disabled={!props.hasReferencePlan}>Распознать <span aria-hidden="true">✦</span></button>
+        <button disabled={editingDisabled} className={tool === "select" && !placementPresetId && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("select")} title="Выбор (V)">Выбор <kbd>V</kbd></button>
+        <button disabled={editingDisabled} className={tool === "wall" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("wall")} title="Стена (W)">Стена <kbd>W</kbd></button>
+        <button disabled={editingDisabled} className={tool === "door" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("door")} title="Дверь (D)">Дверь <kbd>D</kbd></button>
+        <button disabled={editingDisabled} className={tool === "window" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("window")} title="Окно (O)">Окно <kbd>O</kbd></button>
+        <button disabled={editingDisabled} className={measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={activateMeasurement} aria-pressed={measurementActive} title="Измерить произвольное расстояние между двумя точками (M)">Измерить <kbd>M</kbd></button>
+        <button disabled={editingDisabled} className={dimensionsVisible ? "tool-button is-active" : "tool-button"} type="button" onClick={() => dimensionVisibilityStore.getState().toggle()} aria-pressed={dimensionsVisible} title="Показать или скрыть размерные линии выбранной комнаты или стены">Размеры</button>
+        <button disabled={editingDisabled} className={props.furnitureCatalogOpen || placementPresetId ? "tool-button furniture-tool is-active" : "tool-button furniture-tool"} type="button" onClick={() => { measurementToolStore.getState().setActive(false); props.onToggleFurnitureCatalog(); }} title="Показать или скрыть мебель и технику (F)" aria-pressed={props.furnitureCatalogOpen}>Мебель <kbd>F</kbd></button>
+        <button disabled={editingDisabled} className={props.referencePanelOpen ? "tool-button reference-tool is-active" : "tool-button reference-tool"} type="button" onClick={props.onToggleReferencePanel} aria-pressed={props.referencePanelOpen} title="Загрузить или настроить исходный план">Подложка{props.hasReferencePlan ? <span className="reference-present-dot" aria-label="подложка загружена" /> : null}</button>
+        <button disabled={editingDisabled || !props.hasReferencePlan} className={props.recognitionPanelOpen ? "tool-button recognition-tool is-active" : "tool-button recognition-tool"} type="button" onClick={props.onToggleRecognitionPanel} aria-pressed={props.recognitionPanelOpen} title="Локально распознать стены и проверить план с AI">Распознать <span aria-hidden="true">✦</span></button>
+      </div>
+
+      <div className="tool-group" aria-label="Режим представления">
+        <button type="button" className={viewMode === "2d" ? "tool-button is-active" : "tool-button"} aria-pressed={viewMode === "2d"} onClick={() => chooseViewMode("2d")}>2D</button>
+        <button type="button" className={viewMode === "3d" ? "tool-button is-active" : "tool-button"} aria-pressed={viewMode === "3d"} onClick={() => chooseViewMode("3d")}>3D</button>
       </div>
 
       <div className="toolbar-spacer" />
-      {selectedObjectId ? <div className="selection-shortcuts" title="Горячие клавиши выбранного предмета">R — 90° · ⌘D — копия · Delete</div> : null}
+      {selectedObjectId && !editingDisabled ? <div className="selection-shortcuts" title="Горячие клавиши выбранного предмета">R — 90° · ⌘D — копия · Delete</div> : null}
       <div className="document-status" title="Объекты текущего плана">{wallCount} стен · {openingCount} проёмов · {objectCount} предметов</div>
       <button className="toolbar-utility-button" type="button" onClick={props.onFit} title="Показать весь план">Весь план</button>
       <details className="export-menu">
@@ -114,8 +132,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
         </div>
       </details>
       <div className="tool-group" aria-label="История изменений">
-        <button className="icon-button" type="button" disabled={!canUndo} onClick={() => editorStore.getState().undo()} title="Отменить (Ctrl/Cmd+Z)">↶</button>
-        <button className="icon-button" type="button" disabled={!canRedo} onClick={() => editorStore.getState().redo()} title="Повторить (Ctrl/Cmd+Shift+Z)">↷</button>
+        <button className="icon-button" type="button" disabled={editingDisabled || !canUndo} onClick={() => editorStore.getState().undo()} title="Отменить (Ctrl/Cmd+Z)">↶</button>
+        <button className="icon-button" type="button" disabled={editingDisabled || !canRedo} onClick={() => editorStore.getState().redo()} title="Повторить (Ctrl/Cmd+Shift+Z)">↷</button>
       </div>
     </header>
   );

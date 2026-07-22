@@ -4,9 +4,11 @@ import type { ProjectViewport, ReferencePlan, SaveStatus } from "@vlezet/project
 import type { NormalizedPoint, RecognitionDecision, RecognitionOpeningCandidate } from "@vlezet/recognition";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { useStore } from "zustand";
 import { RecognitionPanel } from "../recognition/recognition-panel";
 import type { RecognitionControllerState } from "../recognition/recognition-controller";
 import { ReferencePanel, type ReferenceInstallDraft } from "../reference/reference-panel";
+import { spatialViewModeStore } from "../spatial/view-mode-store";
 import { EditorToolbar } from "./editor-toolbar";
 import { FurnitureCatalog } from "./furniture-catalog";
 import { getEditorShortcut } from "./keyboard";
@@ -16,6 +18,11 @@ import { WallInspector } from "./wall-inspector";
 const EditorCanvas = dynamic(() => import("./editor-canvas").then((module) => module.EditorCanvas), {
   ssr: false,
   loading: () => <div className="canvas-loading">Подготавливаем рабочее поле…</div>,
+});
+
+const SpatialViewer = dynamic(() => import("../spatial/spatial-viewer").then((module) => module.SpatialViewer), {
+  ssr: false,
+  loading: () => <div className="canvas-loading">Строим пространственный вид…</div>,
 });
 
 export type ApartmentEditorProps = Readonly<{
@@ -71,13 +78,26 @@ function reviewDraft(state: RecognitionControllerState) {
 export function ApartmentEditor(props: ApartmentEditorProps) {
   const [fitRequest, setFitRequest] = useState(0);
   const [fitReferenceRequest, setFitReferenceRequest] = useState(0);
+  const [fit3dRequest, setFit3dRequest] = useState(0);
+  const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const recognitionDraft = reviewDraft(props.recognitionState);
+
+  useEffect(() => {
+    spatialViewModeStore.getState().setMode("2d");
+  }, [props.projectId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target) && event.key !== "Escape") return;
       const shortcut = getEditorShortcut(event);
       if (!shortcut) return;
+      if (viewMode === "3d") {
+        if (shortcut === "cancel") {
+          event.preventDefault();
+          spatialViewModeStore.getState().setMode("2d");
+        }
+        return;
+      }
       event.preventDefault();
       const store = editorStore.getState();
       switch (shortcut) {
@@ -103,7 +123,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [props]);
+  }, [props, viewMode]);
 
   const workspaceClass = [
     "editor-workspace",
@@ -127,30 +147,33 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         onToggleReferencePanel={props.onToggleReferencePanel}
         onToggleRecognitionPanel={props.onToggleRecognitionPanel}
         onRetrySave={props.onRetrySave}
-        onFit={() => setFitRequest((value) => value + 1)}
+        onFit={() => viewMode === "3d" ? setFit3dRequest((value) => value + 1) : setFitRequest((value) => value + 1)}
         onExportJson={props.onExportJson}
         onExportPng={props.onExportPng}
         onExportPngWithReference={props.onExportPngWithReference}
       />
       <section className={workspaceClass}>
-        {props.furnitureCatalogOpen ? <FurnitureCatalog /> : null}
-        <EditorCanvas
-          key={props.projectId}
-          initialViewport={props.initialViewport}
-          onViewportChange={props.onViewportChange}
-          fitRequest={fitRequest}
-          fitReferenceRequest={fitReferenceRequest}
-          referencePlan={props.referencePlan}
-          referenceAssetBlob={props.referenceAssetBlob}
-          tracingMode={props.tracingMode}
-          recognitionDraft={recognitionDraft}
-          selectedRecognitionCandidateId={props.selectedRecognitionCandidateId}
-          recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}
-          onSelectRecognitionCandidate={props.onSelectRecognitionCandidate}
-          onEditRecognitionWall={props.onEditRecognitionWall}
-          onReferenceMoveEnd={props.onReferenceMoveEnd}
-        />
-        {props.recognitionPanelOpen ? (
+        {viewMode === "2d" && props.furnitureCatalogOpen ? <FurnitureCatalog /> : null}
+        <div style={{ display: viewMode === "2d" ? "contents" : "none" }}>
+          <EditorCanvas
+            key={props.projectId}
+            initialViewport={props.initialViewport}
+            onViewportChange={props.onViewportChange}
+            fitRequest={fitRequest}
+            fitReferenceRequest={fitReferenceRequest}
+            referencePlan={props.referencePlan}
+            referenceAssetBlob={props.referenceAssetBlob}
+            tracingMode={props.tracingMode}
+            recognitionDraft={recognitionDraft}
+            selectedRecognitionCandidateId={props.selectedRecognitionCandidateId}
+            recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}
+            onSelectRecognitionCandidate={props.onSelectRecognitionCandidate}
+            onEditRecognitionWall={props.onEditRecognitionWall}
+            onReferenceMoveEnd={props.onReferenceMoveEnd}
+          />
+        </div>
+        {viewMode === "3d" ? <SpatialViewer fitRequest={fit3dRequest} /> : null}
+        {viewMode === "2d" ? (props.recognitionPanelOpen ? (
           <RecognitionPanel
             state={props.recognitionState}
             selectedCandidateId={props.selectedRecognitionCandidateId}
@@ -178,10 +201,10 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             onFitReference={() => setFitReferenceRequest((value) => value + 1)}
             onClose={props.onToggleReferencePanel}
           />
-        ) : <WallInspector />}
+        ) : <WallInspector />) : null}
       </section>
-      {props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
-      {props.recognitionPanelOpen && recognitionDraft ? <div className="recognition-banner" role="status"><strong>Проверка распознавания</strong><span>Цветные линии — только черновик. Реальная квартира не изменится до применения.</span></div> : null}
+      {viewMode === "2d" && props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
+      {viewMode === "2d" && props.recognitionPanelOpen && recognitionDraft ? <div className="recognition-banner" role="status"><strong>Проверка распознавания</strong><span>Цветные линии — только черновик. Реальная квартира не изменится до применения.</span></div> : null}
     </main>
   );
 }
