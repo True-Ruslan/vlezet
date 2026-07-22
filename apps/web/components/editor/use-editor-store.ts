@@ -6,6 +6,7 @@ import {
 } from "@vlezet/domain";
 import {
   addOpening,
+  applyPlanningCandidate as applyPlanningCandidateEdit,
   addPlacedObject,
   addTopologicalWall,
   createHistoryState,
@@ -31,6 +32,7 @@ import {
   type WallThicknessAlignment,
 } from "@vlezet/editor-core";
 import { deriveRooms, proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";
+import type { PlanningCandidate } from "@vlezet/planning";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { getFurniturePreset } from "./furniture-presets";
 
@@ -90,6 +92,7 @@ export type EditorStoreState = {
   rotateSelectedObject90: () => void;
   duplicateSelectedObject: () => void;
   deleteSelectedObject: () => void;
+  applyPlanningCandidate: (candidate: PlanningCandidate) => void;
   beginObjectGesture: (objectId: string, kind: ObjectGestureKind) => void;
   previewObjectGesture: (patch: PlacedObjectPatch) => void;
   commitObjectGesture: () => void;
@@ -403,6 +406,25 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
         history: executeCommand(history, { type: "document/replace", label: "object/delete", before, after }),
         selectedObjectId: null,
         objectGesture: null,
+      });
+    },
+    applyPlanningCandidate: (candidate) => {
+      const { history } = get();
+      const before = history.document;
+      const after = applyPlanningCandidateEdit(before, candidate);
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "planning/apply-candidate",
+          before,
+          after,
+        }),
+        selectedWallId: null,
+        selectedRoomId: candidate.roomId,
+        selectedOpeningId: null,
+        selectedObjectId: null,
+        objectGesture: null,
+        placementPresetId: null,
       });
     },
     beginObjectGesture: (objectId, kind) => {
