@@ -321,7 +321,7 @@ If a user draws centreline walls `3550 × 3300` with 150 mm walls, the canvas no
 
 Implemented first ephemeral slice:
 
-- toolbar `Измерить` tool;
+- toolbar `Измерить` tool and keyboard shortcut `M`;
 - first click = start;
 - pointer movement = snapped preview;
 - second click = completed measurement;
@@ -332,7 +332,7 @@ Implemented first ephemeral slice:
 - `ΔY` vertical delta;
 - Escape clears current measurement;
 - switching to another editor tool/furniture placement deactivates and clears it;
-- middle-button panning is not intercepted;
+- middle-button and `Space + drag` panning are not intercepted, including after the first measurement point;
 - measurement is not persisted and does not enter history/autosave/backup;
 - interaction is implemented without adding a new physical Konva Layer.
 
@@ -341,13 +341,13 @@ Implemented first ephemeral slice:
 Last code-bearing head before this documentation update:
 
 ```text
-fcb4e1b306cd59244ababe73da40a664de3361b3
+ead57ae6081e00a6d589633d18d246e92df327de
 ```
 
 GitHub Actions run:
 
 ```text
-29921081469 — PASS
+29922108775 — PASS
 ```
 
 Passed:
@@ -389,9 +389,9 @@ Manual acceptance must cover at least:
 8. change wall thickness using `Внутрь / По центру / Наружу` on an unambiguous boundary wall;
 9. verify ambiguous walls use explicit physical face choices instead of guessed inside/outside;
 10. verify Undo/Redo for clear-size/thickness edits;
-11. use `Измерить` for corner→wall/opening/arbitrary points and verify direct/ΔX/ΔY values;
+11. use `Измерить` / `M` for corner→wall/opening/arbitrary points and verify direct/ΔX/ΔY values;
 12. verify Escape clears measurement and tool switching deactivates it;
-13. verify zoom and middle-button pan do not change measured values;
+13. verify zoom, middle-button pan and `Space + drag` do not change measured values or get blocked by the tape tool;
 14. smoke-test M0–M4.5 workflows for regression;
 15. verify exact merge head passes strict CI.
 
