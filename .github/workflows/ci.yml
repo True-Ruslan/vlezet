@@ -15,9 +15,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Apply staged M6 patch
-        if: github.event_name == 'push'
         shell: bash
         run: |
           if [ ! -f .m6-apply-patch ]; then
@@ -31,7 +32,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "feat: apply M6.1 integration patch"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          target="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git push origin "HEAD:${target}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
