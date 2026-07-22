@@ -52,6 +52,26 @@ describe("editor store topology", () => {
     const state = store.getState(); const end = state.history.document.vertices.find((vertex) => vertex.id === "vertex-2"); expect(end?.position.x).toBeCloseTo(6000, 10); expect(end?.position.y).toBeCloseTo(8000, 10); expect(state.history.document.walls[0]?.thickness).toBe(240); expect(state.history.past).toHaveLength(3);
   });
 
+  it("passes a center anchor through as one semantic wall-length command", () => {
+    const store = createEditorStore({ idFactory: sequentialIds() });
+    store.getState().setTool("wall");
+    store.getState().beginWall({ x: 0, y: 0 });
+    store.getState().updateDraftWall(noSnap(4000, 0));
+    store.getState().commitDraftWall();
+    store.getState().cancelDraft();
+    store.getState().selectWall("wall-1");
+
+    store.getState().setSelectedWallLength(6000, "center");
+
+    const state = store.getState();
+    const start = state.history.document.vertices.find((vertex) => vertex.id === "vertex-1");
+    const end = state.history.document.vertices.find((vertex) => vertex.id === "vertex-2");
+    expect(start?.position).toEqual({ x: -1000, y: 0 });
+    expect(end?.position).toEqual({ x: 5000, y: 0 });
+    expect(state.history.past).toHaveLength(2);
+    expect(state.history.past.at(-1)?.forward.label).toBe("wall/set-length");
+  });
+
   it("cancels a draft without creating history", () => {
     const store = createEditorStore({ idFactory: sequentialIds() }); store.getState().beginWall({ x: 0, y: 0 }); store.getState().updateDraftWall(noSnap(1000, 0)); store.getState().cancelDraft(); expect(store.getState().draftWall).toBeNull(); expect(store.getState().history.past).toHaveLength(0);
   });
