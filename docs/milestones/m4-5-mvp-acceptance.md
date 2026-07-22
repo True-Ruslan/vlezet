@@ -1,7 +1,7 @@
 # M4.5 — Assisted Recognition MVP acceptance
 
-**Date:** 2026-07-22
-**Status:** Accepted as MVP / assisted experimental feature
+**Date:** 2026-07-22  
+**Status:** Accepted as MVP / assisted experimental feature  
 **PR:** #6 `feat: M4.5 assisted recognition`
 
 ## Product acceptance
