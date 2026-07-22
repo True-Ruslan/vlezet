@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -15,6 +15,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Apply lifecycle hardening and persist lockfile
+        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          node .github/scripts/m45-lifecycle-hardening.mjs
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -30,13 +36,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Upload generated lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-lockfile
-          path: pnpm-lock.yaml
-          if-no-files-found: error
-          retention-days: 3
+      - name: Commit lifecycle hardening and lockfile
+        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        shell: bash
+        run: |
+          git add apps/web/components/projects/project-app.tsx pnpm-lock.yaml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: harden recognition lifecycle and lock dependencies"
+          git push
 
       - name: Unit tests
         id: tests
