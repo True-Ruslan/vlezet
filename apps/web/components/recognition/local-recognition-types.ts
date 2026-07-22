@@ -6,15 +6,17 @@ export type LocalRecognitionInput = Readonly<{
   imageData: ImageData;
   sourceWidthPx?: number;
   sourceHeightPx?: number;
+  sourceMillimetersPerPixel?: number;
   projectId: string;
   referenceAssetId: string;
   referenceRevision: string;
   now: string;
 }>;
 
-export type MaterializedLocalRecognitionInput = Omit<LocalRecognitionInput, "sourceWidthPx" | "sourceHeightPx"> & Readonly<{
+export type MaterializedLocalRecognitionInput = Omit<LocalRecognitionInput, "sourceWidthPx" | "sourceHeightPx" | "sourceMillimetersPerPixel"> & Readonly<{
   sourceWidthPx: number;
   sourceHeightPx: number;
+  sourceMillimetersPerPixel: number | null;
 }>;
 
 export type LocalRecognitionProgress = Readonly<{
