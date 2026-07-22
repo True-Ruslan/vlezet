@@ -48,11 +48,18 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
   const [preset, setPreset] = useState<SpatialCameraPreset>("perspective");
   const [hoveredTarget, setHoveredTarget] = useState<SpatialInspectionTarget | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<SpatialInspectionTarget | null>(null);
-  const activeTarget = selectedTarget ?? hoveredTarget;
-  const details = useMemo(
-    () => activeTarget ? buildSpatialInspectionDetails(document, projection.scene, activeTarget) : null,
-    [activeTarget, document, projection.scene],
-  );
+  const inspection = useMemo(() => {
+    if (selectedTarget) {
+      const selectedDetails = buildSpatialInspectionDetails(document, projection.scene, selectedTarget);
+      if (selectedDetails) return { target: selectedTarget, details: selectedDetails, selected: true } as const;
+    }
+    if (hoveredTarget) {
+      const hoveredDetails = buildSpatialInspectionDetails(document, projection.scene, hoveredTarget);
+      if (hoveredDetails) return { target: hoveredTarget, details: hoveredDetails, selected: false } as const;
+    }
+    return null;
+  }, [document, hoveredTarget, projection.scene, selectedTarget]);
+  const activeTarget = inspection?.target ?? null;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -208,14 +215,8 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
   }, [fitRequest, preset]);
 
   useEffect(() => {
-    runtimeRef.current?.emphasize(activeTarget, selectedTarget ? "selected" : "hover");
-  }, [activeTarget, projection.scene, selectedTarget]);
-
-  useEffect(() => {
-    if (!activeTarget || details) return;
-    setSelectedTarget(null);
-    setHoveredTarget(null);
-  }, [activeTarget, details]);
+    runtimeRef.current?.emphasize(activeTarget, inspection?.selected ? "selected" : "hover");
+  }, [activeTarget, inspection?.selected, projection.scene]);
 
   const choosePreset = (next: SpatialCameraPreset) => {
     setPreset(next);
@@ -230,10 +231,10 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
         <button type="button" className={preset === "isometric" ? styles.active : undefined} onClick={() => choosePreset("isometric")}>Изометрия</button>
         <button type="button" className={preset === "top" ? styles.active : undefined} onClick={() => choosePreset("top")}>Сверху</button>
       </div>
-      {details ? (
+      {inspection ? (
         <SpatialInspector
-          details={details}
-          selected={selectedTarget !== null}
+          details={inspection.details}
+          selected={inspection.selected}
           onClear={() => setSelectedTarget(null)}
         />
       ) : null}
