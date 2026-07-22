@@ -18,23 +18,23 @@ describe("OpenRouter direct recognition provider", () => {
         walls: [{ id: "w1", start: { x: 1000, y: 2000 }, end: { x: 9000, y: 2000 }, estimatedThicknessPx: 20, confidence: "high", score: 0.95 }],
         openings: [], roomLabels: [],
       }) } }] }), { status: 200, headers: { "Content-Type": "application/json" } });
-    }) as unknown as typeof fetch;
+    });
 
-    const provider = new OpenRouterDirectProvider({ apiKey: "secret-key", modelId: "vision/model", fetcher });
+    const provider = new OpenRouterDirectProvider({ apiKey: "secret-key", modelId: "vision/model", fetcher: fetcher as unknown as typeof fetch });
     const result = await provider.recognize({ imageDataUrl: "data:image/png;base64,AAAA", imageWidthPx: 1000, imageHeightPx: 800, localSummary: null }, signal);
     expect(result.walls[0]?.start).toEqual({ x: 0.1, y: 0.2 });
     expect(fetcher).toHaveBeenCalledWith("https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ method: "POST", signal }));
   });
 
   it("filters discovered models to image + structured output capabilities and requests low-cost ordering", async () => {
-    const fetcher = vi.fn(async () => new Response(JSON.stringify({ data: [
+    const fetcherSpy = vi.fn(async () => new Response(JSON.stringify({ data: [
       { id: "good", name: "Good", context_length: 100000, architecture: { input_modalities: ["text", "image"] }, supported_parameters: ["structured_outputs", "response_format"] },
       { id: "text-only", name: "Text", architecture: { input_modalities: ["text"] }, supported_parameters: ["structured_outputs"] },
       { id: "vision-json-object", name: "No schema", architecture: { input_modalities: ["image", "text"] }, supported_parameters: ["temperature"] },
-    ] }), { status: 200 })) as unknown as typeof fetch;
-    const models = await listCompatibleOpenRouterModels("key", signal, fetcher);
+    ] }), { status: 200 }));
+    const models = await listCompatibleOpenRouterModels("key", signal, fetcherSpy as unknown as typeof fetch);
     expect(models).toEqual([{ id: "good", name: "Good", contextLength: 100000 }]);
-    expect(String(fetcher.mock.calls[0]?.[0])).toContain("sort=pricing-low-to-high");
+    expect(String(fetcherSpy.mock.calls[0]?.[0])).toContain("sort=pricing-low-to-high");
   });
 
   it("maps payment failures to a product-safe error", async () => {
