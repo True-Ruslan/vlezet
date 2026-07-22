@@ -28,7 +28,7 @@ function connectionCount(document: VlezetDocument, wall: Wall): number {
   return connected.size;
 }
 
-function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocument; wall: Wall }>) {
+export function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocument; wall: Wall }>) {
   const currentLength = topologicalWallLength(document, wall.id);
   const [lengthInput, setLengthInput] = useState(() => String(Math.round(currentLength)));
   const [lengthAnchor, setLengthAnchor] = useState<WallLengthAnchor>("start");
