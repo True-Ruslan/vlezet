@@ -1,6 +1,10 @@
 /// <reference lib="webworker" />
 
-import { buildWallCandidates, LOCAL_RECOGNITION_ENGINE_VERSION } from "@vlezet/recognition";
+import {
+  buildOpeningHypotheses,
+  buildWallCandidates,
+  LOCAL_RECOGNITION_ENGINE_VERSION,
+} from "@vlezet/recognition";
 import type { DetectedLineSegment, RecognitionDraft } from "@vlezet/recognition";
 import type { RecognitionWorkerMessage, RecognitionWorkerRequest } from "./local-recognition-types";
 
@@ -57,7 +61,13 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
     post({ type: "progress", requestId, progress: { phase: "walls", progress: 0.72 } });
     const walls = buildWallCandidates({ widthPx: input.imageData.width, heightPx: input.imageData.height, segments });
     post({ type: "progress", requestId, progress: { phase: "openings", progress: 0.9 } });
-    const decisions = Object.fromEntries(walls.map((wall) => [wall.id, "pending" as const]));
+    const openings = buildOpeningHypotheses({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      wallCandidates: walls,
+      segments,
+    });
+    const decisions = Object.fromEntries([...walls, ...openings].map((candidate) => [candidate.id, "pending" as const]));
     const draft: RecognitionDraft = {
       id: crypto.randomUUID(),
       projectId: input.projectId,
@@ -66,7 +76,7 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
       engineVersion: LOCAL_RECOGNITION_ENGINE_VERSION,
       status: "local-complete",
       walls,
-      openings: [],
+      openings,
       roomLabels: [],
       diagnostics: walls.length === 0 ? [{
         code: "no-structural-walls",
