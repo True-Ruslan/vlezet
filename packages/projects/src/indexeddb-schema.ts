@@ -1,0 +1,9 @@
+export const VLEZET_DATABASE_NAME = "vlezet" as const;
+export const VLEZET_DATABASE_VERSION = 3 as const;
+export const PROJECTS_STORE = "projects" as const;
+export const SETTINGS_STORE = "settings" as const;
+export const ASSETS_STORE = "assets" as const;
+export const RECOGNITION_SESSIONS_STORE = "recognitionSessions" as const;
+export const UPDATED_AT_INDEX = "updatedAt" as const;
+export const PROJECT_ID_INDEX = "projectId" as const;
+export const LAST_PROJECT_KEY = "lastProjectId" as const;

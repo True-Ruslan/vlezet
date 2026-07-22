@@ -25,6 +25,7 @@ export type InstallReferencePlanInput = Readonly<{
   alignment: ReferenceAlignment;
   originWorld: Point2;
   assetId: string;
+  referenceRevision: string;
   now: string;
 }>;
 
@@ -47,6 +48,7 @@ export async function installReferencePlan(input: InstallReferencePlanInput): Pr
   });
   const next = replaceProjectReferencePlan(input.project, {
     assetId: asset.id,
+    referenceRevision: input.referenceRevision,
     source: input.source,
     widthPx: calibrated.widthPx,
     heightPx: calibrated.heightPx,

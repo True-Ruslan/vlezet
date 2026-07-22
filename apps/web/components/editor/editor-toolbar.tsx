@@ -10,11 +10,13 @@ export type EditorToolbarProps = Readonly<{
   saveStatus: SaveStatus;
   furnitureCatalogOpen: boolean;
   referencePanelOpen: boolean;
+  recognitionPanelOpen: boolean;
   hasReferencePlan: boolean;
   onBack: () => void;
   onRenameProject: (name: string) => void;
   onToggleFurnitureCatalog: () => void;
   onToggleReferencePanel: () => void;
+  onToggleRecognitionPanel: () => void;
   onRetrySave: () => void;
   onFit: () => void;
   onExportJson: () => void;
@@ -64,6 +66,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
         <button className={tool === "window" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("window")} title="Окно (O)">Окно <kbd>O</kbd></button>
         <button className={props.furnitureCatalogOpen || placementPresetId ? "tool-button furniture-tool is-active" : "tool-button furniture-tool"} type="button" onClick={props.onToggleFurnitureCatalog} title="Показать или скрыть мебель и технику (F)" aria-pressed={props.furnitureCatalogOpen}>Мебель <kbd>F</kbd></button>
         <button className={props.referencePanelOpen ? "tool-button reference-tool is-active" : "tool-button reference-tool"} type="button" onClick={props.onToggleReferencePanel} aria-pressed={props.referencePanelOpen} title="Загрузить или настроить исходный план">Подложка{props.hasReferencePlan ? <span className="reference-present-dot" aria-label="подложка загружена" /> : null}</button>
+        <button className={props.recognitionPanelOpen ? "tool-button recognition-tool is-active" : "tool-button recognition-tool"} type="button" onClick={props.onToggleRecognitionPanel} aria-pressed={props.recognitionPanelOpen} title="Локально распознать стены и проверить план с AI" disabled={!props.hasReferencePlan}>Распознать <span aria-hidden="true">✦</span></button>
       </div>
 
       <div className="toolbar-spacer" />

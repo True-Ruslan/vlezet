@@ -1,15 +1,17 @@
 import { validateProjectAsset, type ProjectAssetRecord, type ProjectAssetRepository } from "./assets";
+import {
+  ASSETS_STORE,
+  LAST_PROJECT_KEY,
+  PROJECTS_STORE,
+  PROJECT_ID_INDEX,
+  RECOGNITION_SESSIONS_STORE,
+  SETTINGS_STORE,
+  UPDATED_AT_INDEX,
+  VLEZET_DATABASE_NAME,
+  VLEZET_DATABASE_VERSION,
+} from "./indexeddb-schema";
 import { validateProject, type VlezetProjectRecord } from "./project";
 import type { ProjectRepository } from "./repository";
-
-const DATABASE_NAME = "vlezet";
-const DATABASE_VERSION = 2;
-const PROJECTS_STORE = "projects";
-const SETTINGS_STORE = "settings";
-const ASSETS_STORE = "assets";
-const UPDATED_AT_INDEX = "updatedAt";
-const PROJECT_ID_INDEX = "projectId";
-const LAST_PROJECT_KEY = "lastProjectId";
 
 type SettingRecord = Readonly<{ key: string; value: string | null }>;
 
@@ -39,7 +41,7 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     let request: IDBOpenDBRequest;
     try {
-      request = factory.open(DATABASE_NAME, DATABASE_VERSION);
+      request = factory.open(VLEZET_DATABASE_NAME, VLEZET_DATABASE_VERSION);
     } catch (error) {
       reject(new ProjectStorageError(undefined, { cause: error }));
       return;
@@ -61,6 +63,12 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
         : database.createObjectStore(ASSETS_STORE, { keyPath: "id" });
       if (!assets.indexNames.contains(PROJECT_ID_INDEX)) {
         assets.createIndex(PROJECT_ID_INDEX, "projectId", { unique: false });
+      }
+      const recognitionSessions = database.objectStoreNames.contains(RECOGNITION_SESSIONS_STORE)
+        ? request.transaction!.objectStore(RECOGNITION_SESSIONS_STORE)
+        : database.createObjectStore(RECOGNITION_SESSIONS_STORE, { keyPath: "id" });
+      if (!recognitionSessions.indexNames.contains(PROJECT_ID_INDEX)) {
+        recognitionSessions.createIndex(PROJECT_ID_INDEX, "projectId", { unique: true });
       }
     };
     request.onsuccess = () => {

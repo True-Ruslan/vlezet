@@ -16,7 +16,8 @@ export type EditorCommandLabel =
   | "object/resize"
   | "object/update"
   | "object/duplicate"
-  | "object/delete";
+  | "object/delete"
+  | "recognition/apply";
 
 export type EditorCommand = Readonly<{
   type: "document/replace";
