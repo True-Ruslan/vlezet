@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -15,6 +15,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Apply staged M6 patch
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if [ ! -f .m6-apply-patch ]; then
+            echo "No staged M6 patch"
+            exit 0
+          fi
+          git apply --check .m6-apply-patch
+          git apply .m6-apply-patch
+          rm .m6-apply-patch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: apply M6.1 integration patch"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
