@@ -1,7 +1,10 @@
 import type { RecognitionProvider, RecognitionProviderInput, RecognitionProviderResult } from "@vlezet/recognition";
+import { recognitionError, recognitionInfo } from "./recognition-debug";
 import { OPENROUTER_RECOGNITION_JSON_SCHEMA, normalizeOpenRouterRecognitionPayload } from "./openrouter-schema";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+
+const defaultBrowserFetch: typeof fetch = (input, init) => globalThis.fetch(input, init);
 
 export type OpenRouterModelOption = Readonly<{
   id: string;
@@ -38,33 +41,43 @@ async function responseError(response: Response): Promise<never> {
 export async function listCompatibleOpenRouterModels(
   apiKey: string,
   signal: AbortSignal,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = defaultBrowserFetch,
 ): Promise<readonly OpenRouterModelOption[]> {
   const key = apiKey.trim();
   if (!key) throw new OpenRouterRecognitionError("invalid-key", "Введите OpenRouter API key.");
-  const response = await fetcher(`${OPENROUTER_BASE_URL}/models?input_modalities=image&supported_parameters=structured_outputs&sort=pricing-low-to-high`, {
-    method: "GET",
-    headers: authHeaders(key),
-    signal,
-  });
-  if (!response.ok) return responseError(response);
-  const payload = await response.json() as { data?: unknown };
-  if (!Array.isArray(payload.data)) throw new OpenRouterRecognitionError("invalid-response", "OpenRouter вернул некорректный список моделей.");
-  return payload.data.flatMap((entry): OpenRouterModelOption[] => {
-    if (!entry || typeof entry !== "object") return [];
-    const model = entry as Record<string, unknown>;
-    const architecture = model.architecture && typeof model.architecture === "object" ? model.architecture as Record<string, unknown> : {};
-    const modalities = Array.isArray(architecture.input_modalities) ? architecture.input_modalities : [];
-    const parameters = Array.isArray(model.supported_parameters) ? model.supported_parameters : [];
-    const supportsVision = modalities.includes("image");
-    const supportsStructured = parameters.includes("structured_outputs") || parameters.includes("response_format");
-    if (!supportsVision || !supportsStructured || typeof model.id !== "string" || !model.id) return [];
-    return [{
-      id: model.id,
-      name: typeof model.name === "string" && model.name.trim() ? model.name : model.id,
-      contextLength: typeof model.context_length === "number" && Number.isFinite(model.context_length) ? model.context_length : null,
-    }];
-  });
+  const startedAt = performance.now();
+  recognitionInfo("openrouter.models.start");
+  try {
+    const response = await fetcher(`${OPENROUTER_BASE_URL}/models?input_modalities=image&supported_parameters=structured_outputs&sort=pricing-low-to-high`, {
+      method: "GET",
+      headers: authHeaders(key),
+      signal,
+    });
+    recognitionInfo("openrouter.models.response", { status: response.status, durationMs: Math.round(performance.now() - startedAt) });
+    if (!response.ok) return responseError(response);
+    const payload = await response.json() as { data?: unknown };
+    if (!Array.isArray(payload.data)) throw new OpenRouterRecognitionError("invalid-response", "OpenRouter вернул некорректный список моделей.");
+    const models = payload.data.flatMap((entry): OpenRouterModelOption[] => {
+      if (!entry || typeof entry !== "object") return [];
+      const model = entry as Record<string, unknown>;
+      const architecture = model.architecture && typeof model.architecture === "object" ? model.architecture as Record<string, unknown> : {};
+      const modalities = Array.isArray(architecture.input_modalities) ? architecture.input_modalities : [];
+      const parameters = Array.isArray(model.supported_parameters) ? model.supported_parameters : [];
+      const supportsVision = modalities.includes("image");
+      const supportsStructured = parameters.includes("structured_outputs") || parameters.includes("response_format");
+      if (!supportsVision || !supportsStructured || typeof model.id !== "string" || !model.id) return [];
+      return [{
+        id: model.id,
+        name: typeof model.name === "string" && model.name.trim() ? model.name : model.id,
+        contextLength: typeof model.context_length === "number" && Number.isFinite(model.context_length) ? model.context_length : null,
+      }];
+    });
+    recognitionInfo("openrouter.models.complete", { compatibleModels: models.length, durationMs: Math.round(performance.now() - startedAt) });
+    return models;
+  } catch (cause) {
+    recognitionError("openrouter.models.error", cause, { durationMs: Math.round(performance.now() - startedAt) });
+    throw cause;
+  }
 }
 
 function prompt(localSummary: RecognitionProviderInput["localSummary"]): string {
@@ -91,47 +104,78 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
   constructor(input: Readonly<{ apiKey: string; modelId: string; fetcher?: typeof fetch }>) {
     this.#apiKey = input.apiKey.trim();
     this.#modelId = input.modelId.trim();
-    this.#fetcher = input.fetcher ?? fetch;
+    this.#fetcher = input.fetcher ?? defaultBrowserFetch;
     if (!this.#apiKey) throw new OpenRouterRecognitionError("invalid-key", "Введите OpenRouter API key.");
     if (!this.#modelId) throw new OpenRouterRecognitionError("unsupported-model", "Выберите модель OpenRouter.");
   }
 
   async recognize(input: RecognitionProviderInput, signal: AbortSignal): Promise<RecognitionProviderResult> {
-    const response = await this.#fetcher(`${OPENROUTER_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: authHeaders(this.#apiKey),
-      signal,
-      body: JSON.stringify({
-        model: this.#modelId,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: prompt(input.localSummary) },
-            { type: "image_url", image_url: { url: input.imageDataUrl } },
-          ],
-        }],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "vlezet_floor_plan_recognition",
-            strict: true,
-            schema: OPENROUTER_RECOGNITION_JSON_SCHEMA,
-          },
-        },
-        provider: { require_parameters: true },
-        stream: false,
-      }),
+    const startedAt = performance.now();
+    recognitionInfo("openrouter.request.start", {
+      modelId: this.#modelId,
+      imageWidthPx: input.imageWidthPx,
+      imageHeightPx: input.imageHeightPx,
+      localWalls: input.localSummary?.walls.length ?? 0,
+      localOpenings: input.localSummary?.openings.length ?? 0,
     });
-    if (!response.ok) return responseError(response);
-    const payload = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content.trim()) {
-      throw new OpenRouterRecognitionError("invalid-response", "OpenRouter не вернул структурированный результат распознавания.");
+    try {
+      const fetcher = this.#fetcher;
+      const response = await fetcher(`${OPENROUTER_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: authHeaders(this.#apiKey),
+        signal,
+        body: JSON.stringify({
+          model: this.#modelId,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt(input.localSummary) },
+              { type: "image_url", image_url: { url: input.imageDataUrl } },
+            ],
+          }],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "vlezet_floor_plan_recognition",
+              strict: true,
+              schema: OPENROUTER_RECOGNITION_JSON_SCHEMA,
+            },
+          },
+          provider: { require_parameters: true },
+          stream: false,
+        }),
+      });
+      recognitionInfo("openrouter.request.response", {
+        modelId: this.#modelId,
+        status: response.status,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+      if (!response.ok) return responseError(response);
+      const payload = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
+      const content = payload.choices?.[0]?.message?.content;
+      if (typeof content !== "string" || !content.trim()) {
+        throw new OpenRouterRecognitionError("invalid-response", "OpenRouter не вернул структурированный результат распознавания.");
+      }
+      let parsed: unknown;
+      try { parsed = JSON.parse(content); }
+      catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "OpenRouter вернул некорректный JSON.", { cause }); }
+      let result: RecognitionProviderResult;
+      try { result = normalizeOpenRouterRecognitionPayload(parsed); }
+      catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "Ответ OpenRouter не прошёл проверку геометрического контракта.", { cause }); }
+      recognitionInfo("openrouter.request.complete", {
+        modelId: this.#modelId,
+        walls: result.walls.length,
+        openings: result.openings.length,
+        roomLabels: result.roomLabels.length,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+      return result;
+    } catch (cause) {
+      recognitionError("openrouter.request.error", cause, {
+        modelId: this.#modelId,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+      throw cause;
     }
-    let parsed: unknown;
-    try { parsed = JSON.parse(content); }
-    catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "OpenRouter вернул некорректный JSON.", { cause }); }
-    try { return normalizeOpenRouterRecognitionPayload(parsed); }
-    catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "Ответ OpenRouter не прошёл проверку геометрического контракта.", { cause }); }
   }
 }
