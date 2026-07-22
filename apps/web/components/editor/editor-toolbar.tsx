@@ -1,7 +1,7 @@
 "use client";
 
 import type { SaveStatus } from "@vlezet/projects";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { dimensionVisibilityStore } from "./dimension-visibility-store";
 import { measurementToolStore } from "./measurement-tool-store";
@@ -25,6 +25,13 @@ export type EditorToolbarProps = Readonly<{
   onExportPng: () => void;
   onExportPngWithReference: () => void;
 }>;
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable);
+}
 
 function ProjectNameField({ name, onRename }: Readonly<{ name: string; onRename: (name: string) => void }>) {
   const [value, setValue] = useState(name);
@@ -64,6 +71,16 @@ export function EditorToolbar(props: EditorToolbarProps) {
     measurementToolStore.getState().setActive(true);
   };
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "m" || event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return;
+      event.preventDefault();
+      activateMeasurement();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <header className="editor-toolbar">
       <div className="project-toolbar-block">
@@ -77,7 +94,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
         <button className={tool === "wall" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("wall")} title="Стена (W)">Стена <kbd>W</kbd></button>
         <button className={tool === "door" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("door")} title="Дверь (D)">Дверь <kbd>D</kbd></button>
         <button className={tool === "window" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("window")} title="Окно (O)">Окно <kbd>O</kbd></button>
-        <button className={measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={activateMeasurement} aria-pressed={measurementActive} title="Измерить произвольное расстояние между двумя точками">Измерить</button>
+        <button className={measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={activateMeasurement} aria-pressed={measurementActive} title="Измерить произвольное расстояние между двумя точками (M)">Измерить <kbd>M</kbd></button>
         <button className={dimensionsVisible ? "tool-button is-active" : "tool-button"} type="button" onClick={() => dimensionVisibilityStore.getState().toggle()} aria-pressed={dimensionsVisible} title="Показать или скрыть размерные линии выбранной комнаты или стены">Размеры</button>
         <button className={props.furnitureCatalogOpen || placementPresetId ? "tool-button furniture-tool is-active" : "tool-button furniture-tool"} type="button" onClick={() => { measurementToolStore.getState().setActive(false); props.onToggleFurnitureCatalog(); }} title="Показать или скрыть мебель и технику (F)" aria-pressed={props.furnitureCatalogOpen}>Мебель <kbd>F</kbd></button>
         <button className={props.referencePanelOpen ? "tool-button reference-tool is-active" : "tool-button reference-tool"} type="button" onClick={props.onToggleReferencePanel} aria-pressed={props.referencePanelOpen} title="Загрузить или настроить исходный план">Подложка{props.hasReferencePlan ? <span className="reference-present-dot" aria-label="подложка загружена" /> : null}</button>
