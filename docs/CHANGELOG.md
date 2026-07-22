@@ -1,8 +1,121 @@
 # Vlezet — Changelog
 
-**Purpose:** preserve the development history in a form that explains **when**, **why**, **how** and **what** changed, so a new chat can reconstruct project context without relying on conversation memory.
+**Purpose:** preserve development history in a form that explains **when**, **why**, **how** and **what** changed, so a new chat can reconstruct project context without relying on conversation memory.
 
-This is not a package-release changelog only. It also records milestone decisions and important RC failures that changed the architecture.
+This is not only a package-release changelog. It also records milestone decisions, product feedback and RC failures that changed architecture or roadmap.
+
+## 2026-07-22 — Geometry/dimensions UX feedback changes roadmap priority
+
+### Context
+
+A detailed ordinary-user review exposed a fundamental trust problem in the current exact-wall workflow.
+
+Observed real case:
+
+```text
+entered wall lengths: 3550 mm and 3300 mm
+wall thickness: 50 mm
+intuitive expected area: ≈ 11.72 m²
+shown area: ≈ 11.38 m²
+```
+
+The geometry may be technically consistent because the editable wall length is effectively based around the **wall centreline**, while room area is calculated from **inner wall faces**.
+
+The UX problem is that a non-CAD user naturally interprets `3550 mm` as the **clear internal room size**.
+
+The interface currently does not explain:
+
+- whether a dimension means internal size, centreline or external size;
+- which endpoint moves when length changes;
+- where added wall thickness grows;
+- how these choices affect room area.
+
+### Product conclusion
+
+This is considered more important than starting 3D.
+
+The roadmap was changed from:
+
+```text
+M4.5 → M5 3D → M6
+```
+
+to:
+
+```text
+M4.5 Assisted Recognition
+→ M4.6 Precision Geometry UX
+→ M5 Spatial 3D
+→ M6 Intelligent Planning
+```
+
+### Accepted M4.6 P0 themes
+
+- internal clear dimension vs wall centreline vs external dimension;
+- explicit dimension mode/semantics;
+- length-change anchor: start / centre / end;
+- wall-thickness alignment: inside / centre / outside;
+- dimension lines directly on canvas;
+- tape/measurement tool.
+
+High-value follow-ups:
+
+- door/window offsets from corners;
+- target room area;
+- locked dimensional/area constraints;
+- wall-type presets;
+- visual wall classes.
+
+Canonical feedback document:
+
+`docs/product/2026-07-22-geometry-dimensions-ux-feedback.md`
+
+### Important product lesson
+
+Vlezet should remain simpler than CAD, but **simplicity must not hide geometry semantics**.
+
+A user should never have to discover through area mismatch that `3550 mm` meant something different from what they thought.
+
+---
+
+## 2026-07-22 — M4.5 recognition quality recorded as known limitation
+
+Latest real-plan testing after several RC hardening cycles still shows recognition output that is noticeably inaccurate/noisy.
+
+Observed:
+
+- misplaced/incomplete wall candidates;
+- false/noisy openings;
+- unreliable topology;
+- large quality differences between cloud models;
+- substantial manual review still required.
+
+### Decision
+
+Recognition quality is now explicitly recorded as a **known bug/quality limitation**, not a requirement to keep the whole roadmap blocked indefinitely.
+
+M4.5 remains an **assisted/experimental** feature:
+
+- suggestions only;
+- explicit review;
+- explicit apply;
+- deterministic validation;
+- one-step Undo/Redo;
+- no automatic replacement of apartment geometry.
+
+M4.5 may merge once safety/lifecycle behaviour is accepted even if recognition remains imperfect.
+
+Future accuracy work should use:
+
+1. representative real-plan fixtures;
+2. measurable quality metrics;
+3. CV tuning against fixtures;
+4. better line/junction reconstruction;
+5. model-quality ranking;
+6. stronger semantic validation;
+7. only then advanced/custom ML if justified.
+
+---
 
 ## 2026-07-22 — M4.5 Assisted Recognition — active RC, not merged
 
@@ -11,15 +124,15 @@ PR: #6 `feat: M4.5 assisted recognition`
 
 ### Why
 
-M4 made it possible to import and accurately calibrate a real plan, but tracing every wall manually remained repetitive. M4.5 was introduced to accelerate that work without sacrificing Vlezet's core trust model.
+M4 made it possible to import and accurately calibrate a real plan, but tracing every wall manually remained repetitive.
 
-The central rule was approved before implementation:
+M4.5 was introduced to accelerate tracing without sacrificing Vlezet's trust model.
+
+Approved central rule:
 
 > Recognition may propose editable structured geometry, but neither CV nor an LLM is allowed to become the geometry authority.
 
-### Architecture chosen
-
-Hybrid pipeline:
+### Architecture
 
 ```text
 reference raster
@@ -32,118 +145,118 @@ reference raster
 → ordinary Vlezet walls/openings
 ```
 
-Local CV provides privacy-preserving baseline evidence. AI acts as an optional second expert through a provider abstraction. OpenRouter BYOK is the first provider; a future managed Vlezet provider can implement the same contract.
+Local CV is the privacy-preserving baseline. OpenRouter BYOK is the first optional cloud provider behind a provider abstraction.
 
 ### Core implementation
 
-- added `@vlezet/recognition`;
-- normalized image-space candidate coordinates `[0,1]`;
-- recognition sessions stored separately from `VlezetDocument`;
-- IndexedDB persistence for drafts;
-- Web Worker local analysis with OpenCV.js;
-- strict and scale-aware adaptive wall recognition passes;
+- `@vlezet/recognition` package;
+- normalized image-space candidates `[0,1]`;
+- recognition sessions outside `VlezetDocument`;
+- IndexedDB draft persistence;
+- OpenCV.js Web Worker analysis;
+- strict + scale-aware adaptive wall passes;
 - conservative opening hypotheses;
 - confidence/evidence/diagnostics;
-- dedicated review mode and overlay;
-- edit/accept/reject/bulk-accept workflow;
+- dedicated review mode;
+- edit/accept/reject/bulk accept;
 - deterministic image→world calibration transform;
-- safe duplicate/existing-geometry handling;
-- atomic apply with one semantic Undo/Redo entry;
-- stale draft handling by reference revision and recognition engine version;
-- OpenRouter BYOK with ephemeral API keys;
+- duplicate-existing geometry protection;
+- existing walls can host recognized openings;
+- one recognition apply batch = one semantic history operation;
+- stale handling by reference revision and engine version;
+- OpenRouter BYOK with ephemeral keys;
 - compatible vision/structured-output model discovery;
-- strict JSON Schema requests;
+- structured JSON-schema requests;
+- tolerant per-candidate cloud parsing;
 - local/cloud reconciliation;
-- development diagnostics that never log secrets or image base64.
+- semantic cloud sanity filtering;
+- safe dev diagnostics without secrets or image base64.
 
-### RC hardening and lessons
+### RC hardening history
 
-#### Startup freeze
+#### Infinite startup loading
 
-**Observed:** `Открываем Vlezet…` forever while Next dev server was already ready.
+**Observed:** `Открываем Vlezet…` forever while Next was already ready.
 
-**Cause:** optional recognition restore was awaited before showing the editor.
+**Cause:** optional recognition restore blocked editor startup.
 
-**Change:** editor startup no longer depends on recognition storage. Optional subsystems cannot block the core product lifecycle.
+**Fix:** editor becomes visible first; recognition restore happens afterwards and errors are isolated.
 
-#### OpenCV Promise/Emscripten module crash
+#### OpenCV Promise/Emscripten crash
 
 **Observed:** `Promise.prototype.then called on incompatible receiver [object Module]`.
 
-**Cause:** raw Emscripten module was treated as a Promise/thenable across an async boundary.
+**Cause:** Emscripten Module was treated as a Promise/thenable.
 
-**Change:** explicit Promise-vs-ready-module loader handling; regression coverage added.
+**Fix:** explicit Promise-vs-ready-module handling.
 
 #### Turbopack Node builtin resolution
 
-**Observed:** production build could not resolve `fs/path/crypto` through OpenCV.
+**Observed:** browser build could not resolve `fs/path/crypto` through OpenCV.
 
-**Cause:** browser package contains Node-capable UMD references.
-
-**Change:** Next 16 browser-only Turbopack aliases; server runtime left untouched.
+**Fix:** browser-only Next/Turbopack aliases; server runtime unchanged.
 
 #### Too many Konva layers
 
-**Observed:** Konva warning about 6+ physical layers and potential performance degradation.
+**Observed:** 6+ physical layers warning and performance risk.
 
-**Change:** geometry-related rendering consolidated; maximum physical Stage layers reduced to 5 and regression-tested.
+**Fix:** geometry rendering consolidated to at most 5 physical layers and regression-tested.
 
 #### Local CV returned zero candidates
 
 **Observed:** real developer plan produced `0 walls / 0 openings`.
 
-**Cause:** first post-processing thresholds were too strict and tied to arbitrary pixels.
+**Cause:** first thresholds were too strict and tied to arbitrary pixels.
 
-**Change:** calibrated millimetres-per-pixel now reaches the worker; adaptive thresholds derive from physical scale; fallback output stays medium-confidence/reviewable.
+**Fix:** calibrated `millimetersPerPixel`, scale-aware adaptive fallback and explicit empty-state.
 
 #### AI submit looked active but did nothing
 
-**Cause:** UI required a selected `modelId`, but the user-facing button did not communicate that hidden prerequisite.
+**Cause:** hidden requirement for a selected `modelId`.
 
-**Change:** paste-key → `Анализировать` can automatically discover/select a compatible model. Manual selection remains optional.
+**Fix:** one-step key → analyze flow can discover/select a compatible model automatically.
 
 #### Browser fetch `Illegal invocation`
 
-**Observed:** model discovery succeeded, but chat-completion request failed with `Failed to execute 'fetch' on 'Window': Illegal invocation`.
+**Observed:** model discovery succeeded, but chat request failed.
 
-**Cause:** native `fetch` was stored and invoked with an incompatible receiver.
+**Cause:** native fetch invoked with incompatible receiver.
 
-**Change:** safe `globalThis.fetch` wrapper plus categorized diagnostics.
+**Fix:** safe `globalThis.fetch` wrapper and categorized diagnostics.
 
 #### One malformed cloud candidate killed the full response
 
 **Observed:** `Ответ OpenRouter не прошёл проверку геометрического контракта.`
 
-**Cause:** validation was all-or-nothing after schema parsing.
+**Cause:** all-or-nothing normalization.
 
-**Change:** tolerant per-candidate normalization. Bad individual walls/openings/labels are dropped with diagnostics; valid candidates survive.
+**Fix:** tolerant per-candidate parsing; good candidates survive.
 
 #### Schema-valid AI hallucinated a giant frame
 
-**Observed:** another vision model returned a large rectangle around the plan/empty area and false openings. Structurally valid JSON was semantically wrong.
+**Observed:** model returned a large rectangle around plan/empty image area and false openings.
 
-**Cause:** JSON Schema guarantees shape, not architectural plausibility.
+**Cause:** JSON schema validates structure, not architectural plausibility.
 
-**Change:** semantic cloud sanity layer now:
+**Fix:** prompt hardening + semantic sanity filter + orphan-opening rejection.
 
-- compares cloud-only walls with local-CV-confirmed bounds;
-- removes long unsupported frame/page/bounding-box-like lines outside the confirmed plan area;
-- drops openings hosted by removed/unknown cloud walls;
-- records diagnostics;
-- prompt explicitly forbids page/crop/image/bounding-box frames as walls.
+### Current M4.5 merge philosophy
 
-### Current acceptance state
+Recognition accuracy is no longer expected to be production-perfect before merge.
 
-Automation is green on the current RC, but real-plan acceptance remains the merge gate.
+Required before merge:
 
-Still to verify manually on the latest RC:
+- startup/reload stable;
+- no project corruption on CV/cloud failures;
+- review-only until explicit apply;
+- edit/accept/reject usable;
+- apply creates normal geometry;
+- one-step Undo/Redo works;
+- current-version draft reload works;
+- M0–M4 regression smoke passes;
+- exact merge head has green strict CI.
 
-- local recognition quality on the same real plan;
-- tolerant behavior of the previously contract-failing model;
-- removal of the previously observed giant-frame artifact;
-- meaningful reconciliation;
-- apply + one-step Undo/Redo + reload;
-- no regressions in M0–M4.
+Recognition noise remains a known post-merge quality bug.
 
 ---
 
@@ -156,38 +269,35 @@ Merge commit: `12e9696e11572ad5ec055f3dfad98ad7826184e2`
 
 Users often already have a developer/realtor/BTI plan. Rebuilding it from a blank canvas wastes time and makes exact reproduction harder.
 
-### How
+### Architecture
 
-The imported plan was deliberately implemented as a **separate calibrated project asset**, not apartment geometry.
+The source plan is a **separate calibrated project asset**, not apartment geometry.
 
 ```text
-source JPG/PNG/PDF
+JPG/PNG/PDF
 → normalize raster
 → calibrate with known length
 → render below semantic geometry
-→ manual tracing creates ordinary Vlezet entities
+→ tracing creates ordinary Vlezet entities
 ```
 
 ### Delivered
 
 - JPG/PNG/PDF import;
 - magic-byte validation;
-- PDF page selection and local rasterization;
+- PDF page selection/local rasterization;
 - safe raster limits/normalization;
-- two-point calibration in mm/metres;
+- two-point mm/metre calibration;
 - horizontal/vertical alignment;
 - reference visibility/opacity/lock/position/rotation;
 - tracing mode;
 - IndexedDB binary asset store;
-- storage migration to v2;
 - independent duplicate assets;
-- portable `.vlezet.json` v2 with normalized raster;
+- portable `.vlezet.json` v2 with raster;
 - backward import of v1 backups;
 - clean PNG and PNG with source.
 
-### Deliberately deferred
-
-OCR, automatic recognition, perspective correction, DWG/BIM, cloud processing and multi-floor support were kept out of M4 and moved to later milestones.
+Deferred: OCR, automatic recognition, perspective correction, DWG/BIM, cloud processing and multi-floor support.
 
 ---
 
@@ -198,21 +308,16 @@ Merge commit: `6c32249acc8e333e62fceee2ea4e76ca83890c77`
 
 ### Why
 
-The editor had become useful, but a useful planning product must survive browser closes/reloads and support multiple independent apartments.
-
-### How
-
-Persistence was isolated behind a framework-independent repository abstraction so IndexedDB is an adapter rather than a React concern.
+A useful planner must survive reload/browser close and support multiple independent apartments.
 
 ### Delivered
 
 - project dashboard;
 - create/open/rename/duplicate/delete;
-- `@vlezet/projects` package;
+- `@vlezet/projects`;
 - IndexedDB repositories;
-- autosave with visible status/retry;
-- last-project and viewport restoration;
-- independent project UI state;
+- autosave with visible retryable status;
+- last-project/viewport restoration;
 - JSON backup/import with migrations;
 - clean PNG renderer;
 - lifecycle/error/accessibility hardening.
@@ -226,26 +331,22 @@ Merge commit: `aa34f24572f2e67714604634587a1c41e4067cd8`
 
 ### Why
 
-The product promise is not only to draw an apartment but answer the practical question **“Влезет?”** before furniture purchases or renovation decisions.
-
-### How
-
-Furniture is persistent structured geometry with real dimensions. Fit evaluation is deterministic geometry rather than visual guessing.
+The product promise is not only to draw an apartment but answer **«Влезет?»** before furniture purchases/renovation decisions.
 
 ### Delivered
 
 - generic furniture/appliance catalogue;
 - custom objects;
-- real width/depth/height/rotation/position;
+- real dimensions/position/rotation/height;
 - drag/resize/rotate/duplicate/delete;
-- object/grid/edge/centre snapping;
+- snapping/guides;
 - SAT collisions;
 - room containment;
 - door-swing blocking;
 - functional clearance hints;
 - directional measurements;
-- explainable fit statuses and reasons;
-- semantic undo/redo for gestures.
+- explainable fit statuses;
+- semantic undo/redo.
 
 ---
 
@@ -258,21 +359,17 @@ Merge commit: `3944c7f9d668a645e1dc05805f476d2f3290eb94`
 
 A trustworthy planner needs real topology and areas, not disconnected decorative lines.
 
-### How
-
-Walls were redesigned around explicit vertices/topological relationships. Rooms became deterministic derived geometry rather than manually maintained polygons.
-
 ### Delivered
 
 - explicit topological wall graph;
-- stable wall identity and T-junctions;
+- stable wall identity/T-junctions;
 - physical wall thickness;
-- connected editing and exact lengths;
-- derived half-edge room detection;
-- usable inner polygons and areas;
-- room naming metadata;
+- connected editing/exact lengths;
+- derived room detection;
+- usable inner polygons/areas;
+- room naming;
 - doors/windows as host-wall openings;
-- wall gaps, door swings and opening constraints;
+- wall gaps/door swings/opening constraints;
 - visible diagnostics for ambiguous geometry.
 
 ---
@@ -284,25 +381,21 @@ Merge commit: `099a202413459674d2b50c33d2c1fa125a0fef6f`
 
 ### Why
 
-Before adding product features, Vlezet needed a geometry-safe editor foundation that would not later collapse under 3D/import/AI requirements.
-
-### How
-
-The initial architecture separated domain, geometry, editor behavior and visual rendering from day one.
+Before product features, Vlezet needed a geometry-safe editor foundation that would survive import, 3D and AI expansion.
 
 ### Delivered
 
 - TypeScript/pnpm/Turborepo monorepo;
-- Next.js application shell;
+- Next.js shell;
 - domain/geometry/editor-core boundaries;
 - schema-versioned millimetre document;
 - infinite canvas;
-- pointer-centred zoom/pan;
+- pointer-centred pan/zoom;
 - adaptive grid;
-- wall creation and exact length;
-- deterministic snapping;
-- command-oriented undo/redo;
-- tests, frozen installs and CI.
+- wall creation/exact length;
+- snapping;
+- semantic undo/redo;
+- tests/frozen installs/CI.
 
 ---
 
@@ -313,10 +406,10 @@ Core strategic decisions:
 - precision before decoration;
 - easier than CAD, more trustworthy than decorative planners;
 - millimetres and structured domain model as truth;
-- 2D useful product before 3D;
+- useful 2D product before 3D;
 - imported/AI-generated results remain editable;
 - local-first editing;
-- no speculative billing/marketplace/BIM/VR/photorealistic scope in early product.
+- no speculative billing/marketplace/BIM/VR/photorealistic scope early.
 
 Canonical original design:
 
@@ -324,14 +417,14 @@ Canonical original design:
 
 ## How to maintain this changelog
 
-For every future milestone or significant RC incident, add:
+For every future milestone, major product decision or serious RC incident, record:
 
-1. **date/status/PR/merge SHA**;
-2. **why** the change existed;
-3. **how** the architecture solved it;
-4. **what** users gained;
-5. any important rejected alternatives or deliberate non-goals;
+1. date/status/PR/merge SHA;
+2. why the change existed;
+3. architecture/UX decision;
+4. what users gained;
+5. rejected alternatives/non-goals where important;
 6. acceptance/verification state;
-7. root cause and architectural lesson for serious regressions.
+7. root cause and lesson for serious regressions.
 
-Do not rewrite history to make an RC look cleaner than it was. The failure history is valuable project context.
+Do not rewrite history to make an RC look cleaner than it was. Failure history is useful project context.
