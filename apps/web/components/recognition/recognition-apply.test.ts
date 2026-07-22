@@ -57,6 +57,23 @@ describe("recognition apply planning", () => {
     expect(second.diagnostics[0]?.message).toMatch(/не добавлена повторно/i);
   });
 
+  it("can attach a reviewed opening to a matching wall that already exists", () => {
+    const first = planRecognitionApply({ draft: draft(), referencePlan, document: createEmptyDocument(), idFactory: ids() });
+    const source = draft();
+    const withDoor: RecognitionDraft = {
+      ...source,
+      openings: [{
+        id: "door-candidate", kind: "door", hostWallCandidateId: "wall-candidate", center: { x: 0.5, y: 0.2 }, widthPx: 50, orientationDeg: 0,
+        confidence: "medium", evidence: { localScore: 0.7, cloudScore: null, reasons: ["wall-gap", "door-arc-like-line"] }, origin: "local", conflict: null,
+      }],
+      decisions: { ...source.decisions, "door-candidate": "accepted" },
+    };
+    const second = planRecognitionApply({ draft: withDoor, referencePlan, document: first.document, idFactory: ids() });
+    expect(second.document.walls).toHaveLength(1);
+    expect(second.document.openings).toHaveLength(1);
+    expect(second.appliedCandidateIds).toEqual(["door-candidate"]);
+  });
+
   it("skips unknown openings until they are classified", () => {
     const source = draft();
     const withOpening: RecognitionDraft = {
