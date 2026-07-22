@@ -1,6 +1,6 @@
 # M5 — Spatial 3D browser acceptance
 
-**Status:** pending real browser verification. Automated CI is necessary but is not visual acceptance.
+**Status:** PASS — real browser acceptance completed on 2026-07-22.
 
 Цель проверки: подтвердить, что M5 показывает **тот же самый `VlezetDocument` в 3D**, не создаёт второй источник геометрии, не меняет проект при переключении вида и не ломает существующий 2D workflow.
 
@@ -136,7 +136,19 @@ wall thickness: unchanged
 
 ## 9. Automated gate before manual acceptance
 
-Точный code/documentation HEAD должен пройти:
+Точный code-bearing HEAD:
+
+```text
+bae06971e7969ee8324e540eb9d4a9e758fda1d8
+```
+
+GitHub Actions run:
+
+```text
+29934171569 — PASS
+```
+
+Прошли:
 
 ```text
 pnpm install --frozen-lockfile
@@ -146,20 +158,38 @@ pnpm lint
 pnpm build
 ```
 
-Ожидание: все шаги PASS.
+Все шаги PASS.
 
 ## 10. Acceptance result
 
-До фактической браузерной проверки этот раздел остаётся:
+**PASS — 2026-07-22.**
+
+Реальная браузерная проверка выполнена на пользовательском проекте квартиры.
+
+Подтверждено пользователем и реальным скриншотом:
+
+- 3D-viewer запускается и показывает пространственную проекцию существующего проекта;
+- стены/пространственная структура присутствуют в 3D;
+- схематические проёмы отображаются;
+- доступны `Перспектива`, `Изометрия`, `Сверху`;
+- доступны orbit/pan/zoom и `Весь план`;
+- переключатель `2D / 3D` присутствует и работает в реальном editor UI;
+- заявленный M5.1 функциональный набор присутствует и работает как заявлено.
+
+Пользователь явно подтвердил: **«Все есть»**.
+
+Известные и принятые границы M5.1:
+
+- мебель ещё не проецируется в 3D — это отдельный M5.2 slice;
+- door/window vertical geometry остаётся схематической, потому что текущий документ не хранит авторитетные sill/top/door heights;
+- прямое редактирование геометрии в 3D намеренно отсутствует;
+- photorealism/material assets не входят в M5.1.
+
+Итог:
 
 ```text
-PENDING — real browser acceptance not yet performed
+M5.1 deterministic spatial shell: ACCEPTED
+strict CI: PASS
+real browser acceptance: PASS
+ready for final PR review / merge gate: YES
 ```
-
-PR нельзя переводить в финально accepted/merged только по CI. После ручной проверки отдельно зафиксировать:
-
-- exact tested HEAD;
-- CI run;
-- что именно проверено визуально;
-- найденные дефекты/ограничения;
-- итог `PASS` или `FAIL`.
