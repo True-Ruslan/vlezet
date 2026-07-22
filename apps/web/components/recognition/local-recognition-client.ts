@@ -2,6 +2,7 @@ import { validateRecognitionDraft, type RecognitionDraft } from "@vlezet/recogni
 import type {
   LocalRecognitionInput,
   LocalRecognitionProgress,
+  MaterializedLocalRecognitionInput,
   RecognitionWorkerMessage,
   RecognitionWorkerRequest,
 } from "./local-recognition-types";
@@ -24,8 +25,26 @@ export type LocalRecognitionOptions = Readonly<{
   workerFactory?: () => RecognitionWorkerLike;
 }>;
 
+type ImageDataWithSourceSize = ImageData & Partial<Readonly<{
+  sourceWidthPx: number;
+  sourceHeightPx: number;
+}>>;
+
 function defaultWorkerFactory(): RecognitionWorkerLike {
   return new Worker(new URL("./recognition.worker.ts", import.meta.url), { type: "module" });
+}
+
+function positiveDimension(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function materializeInput(input: LocalRecognitionInput): MaterializedLocalRecognitionInput {
+  const image = input.imageData as ImageDataWithSourceSize;
+  return {
+    ...input,
+    sourceWidthPx: positiveDimension(input.sourceWidthPx ?? image.sourceWidthPx, input.imageData.width),
+    sourceHeightPx: positiveDimension(input.sourceHeightPx ?? image.sourceHeightPx, input.imageData.height),
+  };
 }
 
 export function runLocalRecognition(
@@ -73,7 +92,7 @@ export function runLocalRecognition(
     };
     options.signal?.addEventListener("abort", abort, { once: true });
 
-    const request: RecognitionWorkerRequest = { type: "recognize", requestId, input };
+    const request: RecognitionWorkerRequest = { type: "recognize", requestId, input: materializeInput(input) };
     worker.postMessage(request);
   });
 }
