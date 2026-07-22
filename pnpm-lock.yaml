@@ -23,6 +23,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@techstark/opencv-js':
+        specifier: 5.0.0-release.1
+        version: 5.0.0-release.1
       '@vlezet/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -35,6 +38,9 @@ importers:
       '@vlezet/projects':
         specifier: workspace:*
         version: link:../../packages/projects
+      '@vlezet/recognition':
+        specifier: workspace:*
+        version: link:../../packages/recognition
       konva:
         specifier: 10.3.0
         version: 10.3.0
@@ -710,6 +716,9 @@ packages:
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
+
+  '@techstark/opencv-js@5.0.0-release.1':
+    resolution: {integrity: sha512-PIm+eB0MFtieXoNC2GRao0dv/02sehG+Nv2nSW5D6pQm6J/4WqvDHm0RyoqOmGYQm67jdGiaOdIeTShCY3PIUg==}
 
   '@turbo/darwin-64@2.10.5':
     resolution: {integrity: sha512-ENvPwy3x5yS7MwNYHeWjqOBXkwIMp39Pd+/zXC6PoiNzF8EIvvLZOZZ+ny6L9x4WgS5vxUii2LM5gM+zjPdnWw==}
@@ -2895,6 +2904,8 @@ snapshots:
   '@swc/helpers@0.5.15':
     dependencies:
       tslib: 2.8.1
+
+  '@techstark/opencv-js@5.0.0-release.1': {}
 
   '@turbo/darwin-64@2.10.5':
     optional: true
