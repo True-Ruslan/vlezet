@@ -1,0 +1,26 @@
+name: M4.5 Konva Layer Budget
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  consolidate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply guarded Konva layer consolidation
+        run: node .github/scripts/m45-konva-layer-budget.mjs
+      - name: Commit fix and self-delete workflow
+        shell: bash
+        run: |
+          git rm .github/scripts/m45-konva-layer-budget.mjs .github/workflows/m45-konva-layer-budget.yml
+          git add apps/web/components/editor/editor-canvas.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "perf: keep editor within Konva layer budget"
+          git push
