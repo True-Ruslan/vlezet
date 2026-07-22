@@ -4,6 +4,8 @@
 
 Сервис позволяет загрузить реальный план застройщика, воспроизвести квартиру в миллиметрах, расставить мебель и технику в настоящем масштабе, проверить проходы, открывание дверей, столкновения и удобство использования — без освоения профессионального CAD.
 
+> Для быстрого восстановления полного контекста проекта сначала читайте [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md), затем [`docs/ROADMAP.md`](docs/ROADMAP.md) и [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
 ## Что уже работает
 
 ### Квартира
@@ -72,7 +74,7 @@
 - импорт старых резервных копий версии 1;
 - чистый PNG и отдельный PNG с исходной подложкой.
 
-### Умное распознавание плана — M4.5
+### Умное распознавание плана — M4.5 RC
 
 - локальный анализ откалиброванного плана прямо в браузере;
 - OpenCV/Web Worker pipeline без блокировки основного Canvas;
@@ -87,10 +89,12 @@
 - весь принятый batch применяется одной semantic operation и отменяется одним Undo;
 - опциональная AI-проверка через OpenRouter BYOK;
 - список моделей фильтруется по vision + structured-output capability;
-- cloud-ответ нормализуется и reconciliates с локальными geometric evidence;
+- tolerant per-candidate parsing и cloud semantic sanity filtering;
 - cloud-only и конфликтные candidates остаются редактируемыми предложениями;
 - OpenRouter API key существует только в runtime-памяти формы и не сохраняется;
 - незавершённые recognition sessions не входят в `.vlezet.json` и не копируются при duplicate/import.
+
+M4.5 находится в Draft PR #6 и ещё проходит ручной acceptance на реальном плане; подробный актуальный статус зафиксирован в `docs/PROJECT_STATE.md`.
 
 Все проекты и исходные планы хранятся **локально в браузере на текущем устройстве**. Локальное распознавание также выполняется в браузере. Изображение отправляется внешнему AI-провайдеру только после явного запуска `Проверить с AI`; облачной синхронизации проектов пока нет.
 
@@ -155,7 +159,7 @@ pnpm lint
 pnpm build
 ```
 
-CI устанавливает зависимости через frozen lockfile и сохраняет краткоживущие diagnostic artifacts только при падении tests, typecheck или lint.
+CI устанавливает зависимости через frozen lockfile и сохраняет краткоживущие diagnostic artifacts при падении проверок.
 
 ## Roadmap
 
@@ -164,11 +168,21 @@ CI устанавливает зависимости через frozen lockfile 
 - **M2 — Furnishing and Fit:** завершён — предметы, трансформации, измерения, коллизии и clearance hints.
 - **M3 — Local-First Projects:** завершён — проекты, autosave, restore, backup, PNG и UX-полировка.
 - **M4 — Reference Plan Import:** завершён — JPG/PNG/PDF, калибровка, подложка и ручная точная обводка.
-- **M4.5 — Assisted Recognition:** реализуется в feature-ветке — local CV, editable review draft, OpenRouter BYOK и deterministic apply.
+- **M4.5 — Assisted Recognition:** RC в Draft PR #6 — local CV, editable review draft, OpenRouter BYOK, reconciliation и deterministic apply; требуется финальный real-plan acceptance.
 - **M5 — Spatial 3D:** детерминированная 3D-проекция той же модели.
 - **M6 — Intelligent Planning:** редактируемые AI-варианты планировки с геометрической проверкой.
 
+Полная приоритизированная версия: [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
 ## Документация
+
+### Контекст проекта — читать первым
+
+- [Current project state](docs/PROJECT_STATE.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Changelog](docs/CHANGELOG.md)
+
+### Product / milestone documents
 
 - [Product design](docs/superpowers/specs/2026-07-21-vlezet-product-design.md)
 - [M1 Apartment Shell design](docs/superpowers/specs/2026-07-21-m1-apartment-shell-design.md)
