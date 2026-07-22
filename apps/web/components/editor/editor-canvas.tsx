@@ -37,6 +37,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Layer, Line, Stage, Text } from "react-konva";
 import { useStore } from "zustand";
+import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionLayer } from "../recognition/recognition-layer";
 import { ReferenceLayer } from "../reference/reference-layer";
 import { useReferenceImage } from "../reference/use-reference-image";
@@ -156,6 +157,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const objectGesture = useStore(editorStore, (state) => state.objectGesture);
+  const planningPreviewCandidate = useStore(planningUiStore, (state) => state.previewCandidate);
 
   const visibleOpeningPreview = tool === "door" || tool === "window" ? openingPreview : null;
   const visiblePlacementPreview = placementPresetId && placementPreview?.presetId === placementPresetId ? placementPreview : null;
@@ -209,6 +211,26 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   }), [displayedObjects, document, visiblePlacementPreview]);
 
   const fitEvaluation = useMemo(() => evaluateObjectFits(evaluationDocument), [evaluationDocument]);
+  const planningPreviewObjects = useMemo(() => {
+    if (!planningPreviewCandidate) return [];
+    const placements = new Map(planningPreviewCandidate.placements.map((placement) => [placement.objectId, placement]));
+    return displayedObjects.flatMap((object) => {
+      const placement = placements.get(object.id);
+      return placement ? [{ ...object, position: { ...placement.position }, rotationDeg: placement.rotationDeg }] : [];
+    });
+  }, [displayedObjects, planningPreviewCandidate]);
+  const planningPreviewDocument = useMemo(() => {
+    if (!planningPreviewCandidate) return document;
+    const placements = new Map(planningPreviewCandidate.placements.map((placement) => [placement.objectId, placement]));
+    return {
+      ...document,
+      placedObjects: document.placedObjects.map((object) => {
+        const placement = placements.get(object.id);
+        return placement ? { ...object, position: { ...placement.position }, rotationDeg: placement.rotationDeg } : object;
+      }),
+    };
+  }, [document, planningPreviewCandidate]);
+  const planningPreviewFit = useMemo(() => evaluateObjectFits(planningPreviewDocument), [planningPreviewDocument]);
   const selectedObject = displayedObjects.find((object) => object.id === selectedObjectId) ?? null;
   const selectedClearances = useMemo<DirectionalClearances | null>(() => {
     if (!selectedObject) return null;
@@ -498,6 +520,16 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
               onGestureStart={(kind) => editorStore.getState().beginObjectGesture(object.id, kind)}
               onGesturePreview={(patch) => previewObjectGesture(object.id, patch)}
               onGestureCommit={() => { editorStore.getState().commitObjectGesture(); setObjectGuides([]); }}
+            />
+          ))}
+          {planningPreviewObjects.map((object) => (
+            <PlacedObjectShape
+              key={`planning-preview:${object.id}`}
+              object={object}
+              viewport={viewport}
+              selected={false}
+              preview
+              fitStatus={planningPreviewFit.byObjectId.get(object.id)?.status ?? "blocked"}
             />
           ))}
           {visiblePlacementPreview ? (

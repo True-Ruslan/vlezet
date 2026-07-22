@@ -67,7 +67,7 @@ export function PlanningPanelView({
           <h3>Варианты расстановки</h3>
           <p className="inspector-help">{roomName}. Выберите от 1 до 3 существующих предметов.</p>
         </div>
-        <button type="button" className="secondary-button" onClick={onClose}>Закрыть</button>
+        <button type="button" className="secondary-action" onClick={onClose}>Закрыть</button>
       </div>
 
       <div className="inspector-section">
@@ -88,12 +88,12 @@ export function PlanningPanelView({
             ))}
           </div>
         )}
-        <button type="button" className="primary-button" disabled={!canGenerate} onClick={onGenerate}>
+        <button type="button" className="primary-action" disabled={!canGenerate} onClick={onGenerate}>
           Найти варианты
         </button>
       </div>
 
-      {errorMessage ? <div className="inspector-warning" role="status">{errorMessage}</div> : null}
+      {errorMessage ? <div className="field-error" role="status">{errorMessage}</div> : null}
 
       {result ? (
         <div className="inspector-section planning-results">
@@ -114,10 +114,10 @@ export function PlanningPanelView({
                   {candidate.evaluation.reasons.slice(0, 4).map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
                 <div className="planning-result-actions">
-                  <button type="button" className="secondary-button" onClick={() => onPreview(candidate)}>
+                  <button type="button" className="secondary-action" onClick={() => onPreview(candidate)}>
                     {previewing ? "Предпросмотр включён" : "Предпросмотр"}
                   </button>
-                  <button type="button" className="primary-button" onClick={() => onApply(candidate)}>Применить</button>
+                  <button type="button" className="primary-action" onClick={() => onApply(candidate)}>Применить</button>
                 </div>
               </article>
             );
