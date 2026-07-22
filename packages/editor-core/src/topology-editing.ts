@@ -16,6 +16,8 @@ export type WallEndpointIntent =
   | Readonly<{ kind: "new-vertex"; vertexId: string; position: Point2 }>
   | Readonly<{ kind: "wall-junction"; vertexId: string; wallId: string; position: Point2 }>;
 
+export type WallLengthAnchor = "start" | "center" | "end";
+
 export type AddTopologicalWallInput = Readonly<{
   wallId: string;
   start: WallEndpointIntent;
@@ -177,10 +179,30 @@ function assertMovedVertexStaysOnHostWalls(document: VlezetDocument, vertexId: s
   }
 }
 
+function assertJunctionsFitResizedWall(
+  document: VlezetDocument,
+  wall: Wall,
+  nextStart: Point2,
+  nextEnd: Point2,
+): void {
+  for (const junctionId of wall.junctionVertexIds) {
+    const junction = getVertex(document, junctionId);
+    const projection = projectPointToSegment(junction.position, nextStart, nextEnd);
+    if (
+      projection.distance > 1e-4 ||
+      projection.t <= GEOMETRY_EPSILON_MM ||
+      projection.t >= 1 - GEOMETRY_EPSILON_MM
+    ) {
+      throw new Error("Нельзя изменить длину стены так, чтобы существующее соединение оказалось за её пределами");
+    }
+  }
+}
+
 export function setTopologicalWallLength(
   document: VlezetDocument,
   wallId: string,
   lengthMm: number,
+  anchor: WallLengthAnchor = "start",
 ): VlezetDocument {
   if (!Number.isFinite(lengthMm) || lengthMm <= 0) {
     throw new RangeError("Длина стены должна быть положительным конечным числом");
@@ -196,32 +218,42 @@ export function setTopologicalWallLength(
 
   const ux = dx / currentLength;
   const uy = dy / currentLength;
-
-  for (const junctionId of wall.junctionVertexIds) {
-    const junction = getVertex(document, junctionId);
-    const offset = (junction.position.x - start.position.x) * ux + (junction.position.y - start.position.y) * uy;
-    if (offset >= lengthMm - GEOMETRY_EPSILON_MM) {
-      throw new Error("Нельзя укоротить стену дальше существующего соединения");
-    }
-  }
-
-  for (const opening of document.openings) {
-    if (opening.wallId === wallId && opening.offset + opening.width > lengthMm + GEOMETRY_EPSILON_MM) {
-      throw new Error("Нельзя укоротить стену дальше существующего проёма");
-    }
-  }
-
-  const nextPosition = {
-    x: start.position.x + ux * lengthMm,
-    y: start.position.y + uy * lengthMm,
+  const delta = lengthMm - currentLength;
+  const startShift = anchor === "start" ? 0 : anchor === "center" ? -delta / 2 : -delta;
+  const endShift = anchor === "end" ? 0 : anchor === "center" ? delta / 2 : delta;
+  const nextStart = {
+    x: start.position.x + ux * startShift,
+    y: start.position.y + uy * startShift,
   };
-  assertMovedVertexStaysOnHostWalls(document, end.id, nextPosition);
+  const nextEnd = {
+    x: end.position.x + ux * endShift,
+    y: end.position.y + uy * endShift,
+  };
+
+  if (startShift !== 0) assertMovedVertexStaysOnHostWalls(document, start.id, nextStart);
+  if (endShift !== 0) assertMovedVertexStaysOnHostWalls(document, end.id, nextEnd);
+  assertJunctionsFitResizedWall(document, wall, nextStart, nextEnd);
+
+  const nextOpenings = document.openings.map((opening) => {
+    if (opening.wallId !== wallId) return opening;
+    const nextOffset = opening.offset - startShift;
+    if (
+      nextOffset < -GEOMETRY_EPSILON_MM ||
+      nextOffset + opening.width > lengthMm + GEOMETRY_EPSILON_MM
+    ) {
+      throw new Error("Нельзя изменить длину стены так, чтобы существующий проём оказался за её пределами");
+    }
+    return { ...opening, offset: Math.max(0, nextOffset) };
+  });
 
   return {
     ...document,
-    vertices: document.vertices.map((vertex) =>
-      vertex.id === end.id ? { ...vertex, position: nextPosition } : vertex,
-    ),
+    vertices: document.vertices.map((vertex) => {
+      if (vertex.id === start.id) return { ...vertex, position: nextStart };
+      if (vertex.id === end.id) return { ...vertex, position: nextEnd };
+      return vertex;
+    }),
+    openings: nextOpenings,
   };
 }
 
