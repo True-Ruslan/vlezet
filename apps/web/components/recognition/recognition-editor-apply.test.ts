@@ -18,8 +18,8 @@ describe("recognition editor batch commit", () => {
 
     commitRecognitionDocument(store, after);
     expect(store.getState().history.document.walls).toHaveLength(1);
-    expect(store.getState().history.undoStack).toHaveLength(1);
-    expect(store.getState().history.undoStack[0]?.label).toBe("recognition/apply");
+    expect(store.getState().history.past).toHaveLength(1);
+    expect(store.getState().history.past[0]?.forward.label).toBe("recognition/apply");
 
     store.getState().undo();
     expect(store.getState().history.document).toEqual(before);
