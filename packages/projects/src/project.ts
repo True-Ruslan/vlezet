@@ -60,6 +60,7 @@ export type ReferencePlanDisplay = Readonly<{
 
 export type ReferencePlan = Readonly<{
   assetId: string;
+  referenceRevision: string;
   source: ReferencePlanSource;
   widthPx: number;
   heightPx: number;
@@ -201,6 +202,31 @@ function validateReferenceSource(value: unknown): ReferencePlanSource {
   throw new ProjectValidationError("Тип источника подложки не поддерживается.");
 }
 
+function legacyReferenceRevision(
+  assetId: string,
+  input: Record<string, unknown>,
+  transform: Record<string, unknown>,
+  calibration: Record<string, unknown>,
+): string {
+  const payload = JSON.stringify([
+    assetId,
+    input.source,
+    input.widthPx,
+    input.heightPx,
+    transform.millimetersPerPixel,
+    calibration.pointA,
+    calibration.pointB,
+    calibration.knownLengthMm,
+    calibration.alignment,
+  ]);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < payload.length; index += 1) {
+    hash ^= payload.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `legacy-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 export function validateReferencePlan(value: unknown): ReferencePlan {
   const input = record(value, "Подложка");
   const assetId = text(input.assetId, "Идентификатор подложки").trim();
@@ -216,6 +242,9 @@ export function validateReferencePlan(value: unknown): ReferencePlan {
   }
   return {
     assetId,
+    referenceRevision: input.referenceRevision === undefined
+      ? legacyReferenceRevision(assetId, input, transform, calibration)
+      : text(input.referenceRevision, "Ревизия подложки"),
     source: validateReferenceSource(input.source),
     widthPx: positive(input.widthPx, "Ширина подложки"),
     heightPx: positive(input.heightPx, "Высота подложки"),

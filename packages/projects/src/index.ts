@@ -80,3 +80,15 @@ export type {
 
 export { AutosaveCoordinator } from "./autosave";
 export type { AutosaveCoordinatorOptions, SaveStatus } from "./autosave";
+
+export {
+  ASSETS_STORE,
+  LAST_PROJECT_KEY,
+  PROJECTS_STORE,
+  PROJECT_ID_INDEX,
+  RECOGNITION_SESSIONS_STORE,
+  SETTINGS_STORE,
+  UPDATED_AT_INDEX,
+  VLEZET_DATABASE_NAME,
+  VLEZET_DATABASE_VERSION,
+} from "./indexeddb-schema";

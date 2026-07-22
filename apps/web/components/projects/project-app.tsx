@@ -312,6 +312,7 @@ export function ProjectApp() {
       alignment: draft.alignment,
       originWorld: { x: 0, y: 0 },
       assetId: crypto.randomUUID(),
+      referenceRevision: crypto.randomUUID(),
       now: new Date().toISOString(),
     });
     activeProjectRef.current = installed;
