@@ -9,7 +9,12 @@ import {
   rescaleRecognitionPixelEvidence,
   sourceRasterPixelScale,
 } from "@vlezet/recognition";
-import type { DetectedLineSegment, RecognitionDraft, RecognitionWallCandidate } from "@vlezet/recognition";
+import type {
+  DetectedLineSegment,
+  LocalRecognitionOptions,
+  RecognitionDraft,
+  RecognitionWallCandidate,
+} from "@vlezet/recognition";
 import type { RecognitionWorkerMessage, RecognitionWorkerRequest } from "./local-recognition-types";
 import { resolveOpenCvModule } from "./opencv-loader";
 
@@ -24,6 +29,19 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function imageRelativeAdaptiveOptions(widthPx: number, heightPx: number): LocalRecognitionOptions {
+  const shortSide = Math.min(widthPx, heightPx);
+  return {
+    minimumSegmentLengthPx: clamp(shortSide * 0.018, 18, 60),
+    maximumAngleDeltaDeg: 7,
+    minimumWallThicknessPx: 3,
+    maximumWallThicknessPx: clamp(shortSide * 0.18, 90, 320),
+    minimumParallelOverlapRatio: 0.22,
+    collinearMergeGapPx: clamp(shortSide * 0.04, 24, 120),
+    collinearOffsetTolerancePx: clamp(shortSide * 0.008, 4, 18),
+  };
+}
+
 function markAdaptiveCandidates(candidates: readonly RecognitionWallCandidate[]): RecognitionWallCandidate[] {
   return candidates.map((candidate) => ({
     ...candidate,
@@ -31,7 +49,7 @@ function markAdaptiveCandidates(candidates: readonly RecognitionWallCandidate[])
     evidence: {
       ...candidate.evidence,
       localScore: Math.min(candidate.evidence.localScore ?? 0.68, 0.72),
-      reasons: [...new Set([...candidate.evidence.reasons, "adaptive-physical-thresholds"])],
+      reasons: [...new Set([...candidate.evidence.reasons, "adaptive-thresholds"])],
     },
   }));
 }
@@ -56,7 +74,7 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
       ? null
       : input.sourceMillimetersPerPixel * rasterScale;
     const adaptiveOptions = analysisMillimetersPerPixel == null
-      ? null
+      ? imageRelativeAdaptiveOptions(input.imageData.width, input.imageData.height)
       : createAdaptiveLocalRecognitionOptions({
           analysisMillimetersPerPixel,
           widthPx: input.imageData.width,
@@ -74,8 +92,8 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
     post({ type: "progress", requestId, progress: { phase: "edges", progress: 0.25 } });
     cv.Canny(blurred, edges, 50, 150, 3, false);
     post({ type: "progress", requestId, progress: { phase: "lines", progress: 0.5 } });
-    const houghMinimumLength = adaptiveOptions ? Math.round(adaptiveOptions.minimumSegmentLengthPx) : 40;
-    const houghMaximumGap = adaptiveOptions ? Math.round(clamp(adaptiveOptions.collinearMergeGapPx / 3, 12, 36)) : 12;
+    const houghMinimumLength = Math.round(adaptiveOptions.minimumSegmentLengthPx);
+    const houghMaximumGap = Math.round(clamp(adaptiveOptions.collinearMergeGapPx / 3, 12, 36));
     cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 50, houghMinimumLength, houghMaximumGap);
 
     const segments: DetectedLineSegment[] = [];
@@ -97,7 +115,7 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
     });
     let usedAdaptiveFallback = false;
     let analysisWalls = strictWalls;
-    if (strictWalls.length < MIN_STRICT_WALLS && adaptiveOptions) {
+    if (strictWalls.length < MIN_STRICT_WALLS) {
       const adaptiveWalls = buildWallCandidates({
         widthPx: input.imageData.width,
         heightPx: input.imageData.height,
@@ -131,7 +149,9 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
       diagnostics.push({
         code: "adaptive-local-fallback",
         severity: "info" as const,
-        message: "Строгий локальный анализ нашёл мало стен, поэтому применены более гибкие пороги по физическому масштабу. Проверьте найденные линии перед применением.",
+        message: analysisMillimetersPerPixel == null
+          ? "Строгий локальный анализ нашёл мало стен, поэтому применены более гибкие пороги относительно размера изображения. Проверьте найденные линии перед применением."
+          : "Строгий локальный анализ нашёл мало стен, поэтому применены более гибкие пороги по физическому масштабу. Проверьте найденные линии перед применением.",
         candidateId: null,
       });
     }
