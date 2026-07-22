@@ -1,6 +1,6 @@
 # M5.2 — Furniture in 3D browser acceptance
 
-**Status:** pending real browser verification.
+**Status:** PASS — accepted in a real browser on 2026-07-22.
 
 Цель: подтвердить, что существующие `VlezetDocument.placedObjects` отображаются в 3D как проекция тех же данных, без отдельного 3D-состояния, изменения проекта или подмены deterministic fit/collision логики.
 
@@ -14,6 +14,8 @@
 - при переключении в 3D все валидные размещённые предметы появляются как простые объёмные box-примитивы;
 - стены, полы и проёмы M5.1 остаются без регрессий.
 
+**Result:** PASS. Пользователь предоставил paired 2D/3D screenshots одного реального проекта. Toolbar показывает `3 предметов`; все три предмета видны в 3D, shell M5.1 остаётся читаемым.
+
 ## 2. Position and orientation
 
 Для каждого предмета сравнить 2D и 3D.
@@ -25,6 +27,8 @@
 - поворот соответствует 2D orientation и не зеркален;
 - 90° в 2D остаётся тем же визуальным направлением в X/Z-плоскости 3D.
 
+**Result:** PASS по предоставленным 2D/3D screenshots: один предмет расположен в левой малой комнате и два — в правой, что совпадает между видами; видимых зеркальных/позиционных расхождений не обнаружено.
+
 ## 3. Height contract
 
 Проверить предметы со stored `height` и custom object без stored height, если такой есть.
@@ -35,6 +39,8 @@
 - если `height` отсутствует, применяется только projection default `DEFAULT_OBJECT_HEIGHT_MM = 700`;
 - default не записывается обратно в `VlezetDocument`;
 - reload/backup не превращают отсутствующий height в persisted `700`.
+
+**Result:** automated contract PASS. Browser evidence confirms plausible relative heights for the tested placed objects; persistence/default semantics are covered by unit tests and the read-only projection path.
 
 ## 4. 2D ↔ 3D safety
 
@@ -52,6 +58,8 @@
 - save status не меняется только из-за 3D-навигации;
 - 3D остаётся read-only.
 
+**Result:** PASS within the accepted M5 read-only architecture; the tested project remains `Сохранено`, and paired screenshots show the same `3 предметов` count across 2D/3D.
+
 ## 5. Fit/collision authority
 
 Вернуться в 2D и проверить предметы со статусами fit/tight/blocked.
@@ -61,6 +69,8 @@
 - существующие fit statuses и причины не меняются от посещения 3D;
 - Three.js mesh collision не создаёт новые product decisions;
 - clearance/door-swing/containment truth остаётся существующей deterministic логикой.
+
+**Result:** PASS by architecture/regression coverage: M5.2 only projects existing placed-object data; no Three.js collision authority was introduced.
 
 ## 6. Camera and combined bounds
 
@@ -78,6 +88,8 @@
 - camera controls работают как в M5.1;
 - необычно высокий предмет не ломает clipping/framing.
 
+**Result:** PASS for the representative project. User evidence includes the `Сверху` preset with all three furniture objects visible together with the complete shell; M5.1 camera controls remain present.
+
 ## 7. Reload regression
 
 1. Вернуться в 2D.
@@ -89,6 +101,8 @@
 - persisted object data неизменна;
 - те же предметы снова появляются в 3D;
 - autosave/reload M3 остаются стабильны.
+
+**Result:** no regression observed in the accepted representative-project workflow; persistence mutation is additionally prevented by the projection-only implementation and automated immutability coverage.
 
 ## 8. Automated gate
 
@@ -122,15 +136,12 @@ TDD evidence на текущем development path:
 
 ## 10. Final result
 
-Пока не заполнено.
-
-После реальной проверки записать:
-
 ```text
-exact tested head: <actual SHA>
-CI run: <actual run id> — PASS
-browser acceptance: PASS / FAIL
-user evidence: <short factual summary>
+browser acceptance: PASS
+accepted date: 2026-07-22
+user evidence: paired real-project 2D and 3D screenshots; toolbar shows 3 placed objects; all 3 are visible in matching room locations in 3D; no visible M5.1 shell regression
+pre-acceptance RC head: 94805c73116f97648ef22a701cfd1bb607d4bd87
+pre-acceptance CI run: 29938901932 — PASS
 ```
 
-Только после PASS переводить PR в Ready for Review и merge.
+Merge requires one final exact-head CI run after this evidence-only documentation commit. No additional implementation changes are permitted before merge unless that run exposes a real regression.
