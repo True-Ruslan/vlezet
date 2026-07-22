@@ -35,6 +35,18 @@ const scene: SpatialScene = {
       { x: 50, y: 0, z: 3350 },
     ],
   }],
+  objects: [{
+    id: "object:sofa-1",
+    objectId: "sofa-1",
+    name: "Диван",
+    category: "seating",
+    center: { x: 1800, y: 425, z: 1200 },
+    widthMm: 2200,
+    depthMm: 900,
+    heightMm: 850,
+    rotationYRad: -Math.PI / 2,
+    heightWasDefaulted: false,
+  }],
 };
 
 describe("buildSpatialSceneGroup", () => {
@@ -69,6 +81,29 @@ describe("buildSpatialSceneGroup", () => {
 
     expect(floor).toBeDefined();
     expect(floor.userData.roomId).toBe("room");
+
+    resources.dispose();
+  });
+
+  it("renders spatial objects as exact generic box primitives with semantic identity", () => {
+    const resources = buildSpatialSceneGroup(scene);
+    const object = resources.group.children.find(
+      (child) => child.userData.kind === "placed-object",
+    ) as THREE.Mesh<THREE.BoxGeometry>;
+
+    expect(object).toBeDefined();
+    expect(object.geometry.parameters.width).toBe(2200);
+    expect(object.geometry.parameters.height).toBe(850);
+    expect(object.geometry.parameters.depth).toBe(900);
+    expect(object.position.toArray()).toEqual([1800, 425, 1200]);
+    expect(object.rotation.y).toBeCloseTo(-Math.PI / 2, 12);
+    expect(object.userData).toEqual(expect.objectContaining({
+      kind: "placed-object",
+      objectId: "sofa-1",
+      name: "Диван",
+      category: "seating",
+      heightWasDefaulted: false,
+    }));
 
     resources.dispose();
   });

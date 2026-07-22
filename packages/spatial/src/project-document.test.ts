@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { VlezetDocument } from "@vlezet/domain";
 import {
+  DEFAULT_OBJECT_HEIGHT_MM,
   DEFAULT_WALL_HEIGHT_MM,
   projectDocumentToSpatialScene,
 } from "./index";
@@ -50,6 +51,7 @@ describe("projectDocumentToSpatialScene", () => {
     expect(result.scene.wallSegments).toEqual([]);
     expect(result.scene.openingMarkers).toEqual([]);
     expect(result.scene.floors).toEqual([]);
+    expect(result.scene.objects).toEqual([]);
     expect(result.diagnostics).toEqual([]);
     expect(JSON.stringify(document)).toBe(before);
   });
@@ -159,5 +161,91 @@ describe("projectDocumentToSpatialScene", () => {
     expect(result.diagnostics).toEqual([
       expect.objectContaining({ entityId: "broken", entityKind: "wall", severity: "error" }),
     ]);
+  });
+
+  it("projects placed objects with exact dimensions, position, height and rotation", () => {
+    const document: VlezetDocument = {
+      ...emptyDocument(),
+      placedObjects: [{
+        id: "sofa-1",
+        presetId: "sofa",
+        name: "Диван",
+        category: "seating",
+        position: { x: 1800, y: 1200 },
+        width: 2200,
+        depth: 900,
+        height: 850,
+        rotationDeg: 90,
+        clearance: { front: 600, right: 0, back: 0, left: 0 },
+      }],
+    };
+
+    const result = projectDocumentToSpatialScene(document);
+
+    expect(result.scene.objects).toEqual([{
+      id: "object:sofa-1",
+      objectId: "sofa-1",
+      name: "Диван",
+      category: "seating",
+      center: { x: 1800, y: 425, z: 1200 },
+      widthMm: 2200,
+      depthMm: 900,
+      heightMm: 850,
+      rotationYRad: -Math.PI / 2,
+      heightWasDefaulted: false,
+    }]);
+  });
+
+  it("uses an explicit projection-only default height without mutating the document", () => {
+    const document: VlezetDocument = {
+      ...emptyDocument(),
+      placedObjects: [{
+        id: "table-1",
+        presetId: null,
+        name: "Стол",
+        category: "table",
+        position: { x: 500, y: 700 },
+        width: 1200,
+        depth: 700,
+        rotationDeg: 0,
+        clearance: { front: 0, right: 0, back: 0, left: 0 },
+      }],
+    };
+    const before = JSON.stringify(document);
+
+    const object = projectDocumentToSpatialScene(document).scene.objects[0]!;
+
+    expect(object.heightMm).toBe(DEFAULT_OBJECT_HEIGHT_MM);
+    expect(object.center.y).toBe(DEFAULT_OBJECT_HEIGHT_MM / 2);
+    expect(object.heightWasDefaulted).toBe(true);
+    expect(JSON.stringify(document)).toBe(before);
+    expect(document.placedObjects[0]?.height).toBeUndefined();
+  });
+
+  it("isolates invalid placed objects instead of projecting misleading 3D", () => {
+    const document = {
+      ...emptyDocument(),
+      placedObjects: [{
+        id: "broken-object",
+        presetId: null,
+        name: "Broken",
+        category: "custom",
+        position: { x: Number.NaN, y: 0 },
+        width: 1000,
+        depth: 500,
+        rotationDeg: 0,
+        clearance: { front: 0, right: 0, back: 0, left: 0 },
+      }],
+    } as VlezetDocument;
+
+    const result = projectDocumentToSpatialScene(document);
+
+    expect(result.scene.objects).toEqual([]);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "invalid-object",
+      entityKind: "placed-object",
+      entityId: "broken-object",
+      severity: "error",
+    }));
   });
 });

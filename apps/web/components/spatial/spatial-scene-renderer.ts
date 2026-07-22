@@ -72,6 +72,25 @@ function floorMesh(floor: SpatialScene["floors"][number], material: THREE.Materi
   return mesh;
 }
 
+function objectMesh(
+  object: SpatialScene["objects"][number],
+  material: THREE.Material,
+): THREE.Mesh {
+  const geometry = new THREE.BoxGeometry(object.widthMm, object.heightMm, object.depthMm);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(object.center.x, object.center.y, object.center.z);
+  mesh.rotation.y = object.rotationYRad;
+  mesh.userData = {
+    kind: "placed-object",
+    objectId: object.objectId,
+    spatialObjectId: object.id,
+    name: object.name,
+    category: object.category,
+    heightWasDefaulted: object.heightWasDefaulted,
+  };
+  return mesh;
+}
+
 export function buildSpatialSceneGroup(scene: SpatialScene): SpatialRenderResources {
   const group = new THREE.Group();
   group.name = "vlezet-spatial-scene";
@@ -82,6 +101,11 @@ export function buildSpatialSceneGroup(scene: SpatialScene): SpatialRenderResour
     roughness: 1,
     metalness: 0,
     side: THREE.DoubleSide,
+  });
+  const objectMaterial = new THREE.MeshStandardMaterial({
+    color: 0xb9a58f,
+    roughness: 0.9,
+    metalness: 0,
   });
   const doorMaterial = new THREE.MeshBasicMaterial({
     color: 0x1769ff,
@@ -97,12 +121,18 @@ export function buildSpatialSceneGroup(scene: SpatialScene): SpatialRenderResour
     opacity: 0.38,
     depthWrite: false,
   });
-  const materials = [wallMaterial, floorMaterial, doorMaterial, windowMaterial];
+  const materials = [wallMaterial, floorMaterial, objectMaterial, doorMaterial, windowMaterial];
   const geometries: THREE.BufferGeometry[] = [];
 
   for (const floor of scene.floors) {
     const mesh = floorMesh(floor, floorMaterial);
     if (!mesh) continue;
+    geometries.push(mesh.geometry);
+    group.add(mesh);
+  }
+
+  for (const object of scene.objects) {
+    const mesh = objectMesh(object, objectMaterial);
     geometries.push(mesh.geometry);
     group.add(mesh);
   }
