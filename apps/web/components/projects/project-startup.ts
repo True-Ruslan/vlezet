@@ -5,6 +5,10 @@ export type FinishProjectStartupOptions = Readonly<{
   onRecognitionError: (cause: unknown) => void;
 }>;
 
+/**
+ * Makes the core editor visible before optional recognition-session recovery finishes.
+ * Recognition restore errors stay isolated from the project startup lifecycle.
+ */
 export async function finishProjectStartup(options: FinishProjectStartupOptions): Promise<void> {
   await options.persistLastProject();
   options.showEditor();
