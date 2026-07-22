@@ -35,6 +35,9 @@ importers:
       '@vlezet/geometry':
         specifier: workspace:*
         version: link:../../packages/geometry
+      '@vlezet/planning':
+        specifier: workspace:*
+        version: link:../../packages/planning
       '@vlezet/projects':
         specifier: workspace:*
         version: link:../../packages/projects
@@ -105,6 +108,9 @@ importers:
       '@vlezet/geometry':
         specifier: workspace:*
         version: link:../geometry
+      '@vlezet/planning':
+        specifier: workspace:*
+        version: link:../planning
     devDependencies:
       typescript:
         specifier: 6.0.3
