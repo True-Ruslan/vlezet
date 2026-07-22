@@ -72,7 +72,27 @@
 - импорт старых резервных копий версии 1;
 - чистый PNG и отдельный PNG с исходной подложкой.
 
-Все проекты и исходные планы хранятся **локально в браузере на текущем устройстве**. Облачной синхронизации пока нет, поэтому для резервного копирования и переноса используйте экспорт Vlezet JSON.
+### Умное распознавание плана — M4.5
+
+- локальный анализ откалиброванного плана прямо в браузере;
+- OpenCV/Web Worker pipeline без блокировки основного Canvas;
+- предложения стен вместо необратимой автогенерации;
+- консервативные гипотезы дверей, окон и неизвестных проёмов;
+- `high / medium / low` confidence и объяснимые конфликты;
+- отдельный persistent recognition draft, который переживает перезагрузку страницы;
+- review mode: выбрать, поправить endpoints, принять или отклонить предложение;
+- bulk-action `Принять уверенные`;
+- существующие ручные стены не заменяются и не дублируются молча;
+- deterministic validation перед применением;
+- весь принятый batch применяется одной semantic operation и отменяется одним Undo;
+- опциональная AI-проверка через OpenRouter BYOK;
+- список моделей фильтруется по vision + structured-output capability;
+- cloud-ответ нормализуется и reconciliates с локальными geometric evidence;
+- cloud-only и конфликтные candidates остаются редактируемыми предложениями;
+- OpenRouter API key существует только в runtime-памяти формы и не сохраняется;
+- незавершённые recognition sessions не входят в `.vlezet.json` и не копируются при duplicate/import.
+
+Все проекты и исходные планы хранятся **локально в браузере на текущем устройстве**. Локальное распознавание также выполняется в браузере. Изображение отправляется внешнему AI-провайдеру только после явного запуска `Проверить с AI`; облачной синхронизации проектов пока нет.
 
 ## Архитектурные принципы
 
@@ -82,6 +102,8 @@
 - Geometry engine не зависит от React, Konva и Next.js.
 - Project repository отделён от UI и конкретного IndexedDB-адаптера.
 - Растровая подложка является project asset и никогда не попадает в `VlezetDocument`.
+- Recognition draft хранится отдельно от `VlezetDocument`; AI/CV никогда не являются geometry authority.
+- Recognition candidates используют нормализованные координаты подложки `[0,1]` и становятся миллиметрами только через calibrated transform.
 - Комнаты и fit results выводятся из структурированной геометрии.
 - Каталог — только шаблон вставки; размещённый предмет хранит полный snapshot.
 - Жёсткие коллизии отделены от рекомендаций по удобству.
@@ -122,7 +144,7 @@ pnpm dev
 | Панорама | `Space + drag` или средняя кнопка |
 | Масштаб | Колесо мыши |
 | Undo | `Ctrl/Cmd + Z` |
-| Redo | `Ctrl/Cmd + Shift + Z` или `Ctrl/Cmd + Y` |
+| Redo | `Ctrl/Cmd + Shift+Z` или `Ctrl/Cmd + Y` |
 
 ## Quality gate
 
@@ -133,7 +155,7 @@ pnpm lint
 pnpm build
 ```
 
-CI устанавливает зависимости через frozen lockfile и сохраняет краткоживущие диагностические artifacts только при падении tests, typecheck или lint.
+CI устанавливает зависимости через frozen lockfile и сохраняет краткоживущие diagnostic artifacts только при падении tests, typecheck или lint.
 
 ## Roadmap
 
@@ -141,8 +163,8 @@ CI устанавливает зависимости через frozen lockfile 
 - **M1 — Apartment Shell:** завершён — связанные стены, комнаты, полезная площадь, двери и окна.
 - **M2 — Furnishing and Fit:** завершён — предметы, трансформации, измерения, коллизии и clearance hints.
 - **M3 — Local-First Projects:** завершён — проекты, autosave, restore, backup, PNG и UX-полировка.
-- **M4 — Reference Plan Import:** реализован в feature-ветке — JPG/PNG/PDF, калибровка, подложка и обводка.
-- **M4.5 — Assisted Recognition:** будущий экспериментальный редактируемый черновик стен и проёмов.
+- **M4 — Reference Plan Import:** завершён — JPG/PNG/PDF, калибровка, подложка и ручная точная обводка.
+- **M4.5 — Assisted Recognition:** реализуется в feature-ветке — local CV, editable review draft, OpenRouter BYOK и deterministic apply.
 - **M5 — Spatial 3D:** детерминированная 3D-проекция той же модели.
 - **M6 — Intelligent Planning:** редактируемые AI-варианты планировки с геометрической проверкой.
 
@@ -158,3 +180,6 @@ CI устанавливает зависимости через frozen lockfile 
 - [M4 Reference Plan Import design](docs/superpowers/specs/2026-07-21-m4-plan-import-design.md)
 - [M4 implementation plan](docs/superpowers/plans/2026-07-21-m4-plan-import.md)
 - [M4 browser acceptance](docs/milestones/m4-acceptance.md)
+- [M4.5 Assisted Recognition design](docs/superpowers/specs/2026-07-22-m4-5-assisted-recognition-design.md)
+- [M4.5 implementation plan](docs/superpowers/plans/2026-07-22-m4-5-assisted-recognition.md)
+- [M4.5 browser acceptance](docs/milestones/m4-5-acceptance.md)
