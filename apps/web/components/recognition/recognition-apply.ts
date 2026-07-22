@@ -64,11 +64,14 @@ function wallEndpointDistance(
   return Math.min(direct, reverse);
 }
 
-function isDuplicateWall(document: VlezetDocument, start: Point2, end: Point2): boolean {
-  return document.walls.some((wall) => {
+function findDuplicateWallId(document: VlezetDocument, start: Point2, end: Point2): string | null {
+  for (const wall of document.walls) {
     const endpoints = getWallEndpoints(document, wall);
-    return wallEndpointDistance(start, end, endpoints.start.position, endpoints.end.position) <= DUPLICATE_WALL_TOLERANCE_MM;
-  });
+    if (wallEndpointDistance(start, end, endpoints.start.position, endpoints.end.position) <= DUPLICATE_WALL_TOLERANCE_MM) {
+      return wall.id;
+    }
+  }
+  return null;
 }
 
 function nearestVertex(document: VlezetDocument, point: Point2): string | null {
@@ -133,7 +136,7 @@ function applyWalls(
 
   for (const candidate of draft.walls) {
     if (!accepted(draft, candidate.id)) continue;
-    if (candidate.conflict) {
+    if (candidate.conflict && candidate.conflict !== "duplicate-existing") {
       diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Кандидат стены содержит конфликт и не был применён." });
       continue;
     }
@@ -143,8 +146,10 @@ function applyWalls(
       diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Слишком короткая стена пропущена." });
       continue;
     }
-    if (isDuplicateWall(document, start, end)) {
-      diagnostics.push({ candidateId: candidate.id, severity: "info", message: "Совпадающая существующая стена не добавлена повторно." });
+    const duplicateWallId = findDuplicateWallId(document, start, end);
+    if (duplicateWallId) {
+      candidateToWallId.set(candidate.id, duplicateWallId);
+      diagnostics.push({ candidateId: candidate.id, severity: "info", message: "Совпадающая существующая стена не добавлена повторно, но может принять распознанные проёмы." });
       continue;
     }
 
@@ -201,7 +206,7 @@ function applyOpenings(
     }
     const wallId = candidateToWallId.get(candidate.hostWallCandidateId);
     if (!wallId) {
-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Стена для проёма не была применена, поэтому проём пропущен." });
+      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Стена для проёма не была применена или сопоставлена, поэтому проём пропущен." });
       continue;
     }
     const width = openingWidthMm(candidate, reference);
