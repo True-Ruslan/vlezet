@@ -115,6 +115,24 @@ describe("projectDocumentToSpatialScene", () => {
     ]);
   });
 
+  it("rejects an opening outside its host wall instead of projecting misleading 3D", () => {
+    const base = rectangularDocument();
+    const document: VlezetDocument = {
+      ...base,
+      openings: [{ id: "broken-opening", wallId: "top", kind: "door", offset: 3400, width: 900 }],
+    };
+
+    const result = projectDocumentToSpatialScene(document);
+
+    expect(result.scene.openingMarkers).toEqual([]);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      entityId: "broken-opening",
+      entityKind: "opening",
+      code: "invalid-opening",
+      severity: "error",
+    }));
+  });
+
   it("projects derived room inner polygons directly onto the X/Z floor plane", () => {
     const result = projectDocumentToSpatialScene(rectangularDocument());
 
