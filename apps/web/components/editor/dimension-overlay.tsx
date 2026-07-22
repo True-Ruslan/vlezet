@@ -2,8 +2,10 @@
 
 import type { ViewportTransform } from "@vlezet/geometry";
 import { Group, Line, Rect, Text } from "react-konva";
+import { useStore } from "zustand";
 import { formatDimensionValue, type LinearDimensionAnnotation } from "./dimension-annotations";
 import { projectDimensionAnnotation } from "./dimension-overlay-geometry";
+import { dimensionVisibilityStore } from "./dimension-visibility-store";
 
 export type DimensionOverlayProps = Readonly<{
   annotations: readonly LinearDimensionAnnotation[];
@@ -15,6 +17,9 @@ const LABEL_HEIGHT_PX = 20;
 const TICK_HALF_PX = 5;
 
 export function DimensionOverlay({ annotations, viewport }: DimensionOverlayProps) {
+  const visible = useStore(dimensionVisibilityStore, (state) => state.visible);
+  if (!visible) return null;
+
   return <>
     {annotations.map((annotation, index) => {
       const geometry = projectDimensionAnnotation(annotation, viewport);
