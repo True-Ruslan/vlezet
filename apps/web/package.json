@@ -15,18 +15,21 @@
     "@vlezet/geometry": "workspace:*",
     "@vlezet/projects": "workspace:*",
     "@vlezet/recognition": "workspace:*",
+    "@vlezet/spatial": "workspace:*",
     "konva": "10.3.0",
     "next": "16.2.10",
     "pdfjs-dist": "6.1.200",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-konva": "19.2.5",
+    "three": "0.185.1",
     "zustand": "5.0.14"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "@types/three": "0.185.1",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   }
