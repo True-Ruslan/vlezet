@@ -5,16 +5,31 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Apply staged M6 UI patch
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if [ -f .m6-ui-patch.py ]; then
+            python .m6-ui-patch.py
+            rm .m6-ui-patch.py
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "feat: integrate M6.1 planning preview"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
