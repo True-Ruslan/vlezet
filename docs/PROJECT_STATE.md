@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-07-22  
-**Status:** M0–M5.4 are merged and accepted in `main`. M5.1 delivered the deterministic spatial shell/viewer, M5.2 added deterministic furniture projection, and M5.4 added semantic read-only spatial inspection. The next major product slice is **M6 Intelligent Planning**. M5.3 remains evidence-driven camera/navigation/performance polish only, not a blocking architectural milestone.
+**Status:** M0–M6.1 are merged and accepted in `main`. M6.1 delivered the first deterministic Intelligent Planning slice: bounded, explainable furniture alternatives with non-mutating preview and atomic Apply/Undo/Redo. The next implementation slice is **M6.2 Constraint-Aware Planning**. M5.3 remains evidence-driven camera/navigation/performance polish only, not a blocking architectural milestone.
 
 > **Read this file first in a new chat.** It is the canonical short-form answer to what Vlezet is, what is stable, what remains intentionally limited, and what should happen next.
 
@@ -43,6 +43,8 @@ Product priorities:
 16. 3D projects the same `VlezetDocument`; it does not introduce a parallel editor state.
 17. Three.js mesh collision is never product authority for fit/clearance decisions.
 18. 3D hover/select/inspection state is ephemeral and must never mutate document/history/autosave state.
+19. Planning candidates/preview state are ephemeral structured suggestions; only explicit Apply may mutate ordinary `VlezetDocument` entities.
+20. Planning validation/ranking must reuse deterministic geometry/fit authority; AI/LLM output can never bypass it.
 
 ## 3. Repository and stack
 
@@ -56,6 +58,7 @@ packages/editor-core     semantic editor operations/history/snapping
 packages/projects        local-first project/persistence abstraction
 packages/recognition     assisted-recognition model/CV/reconciliation
 packages/spatial         renderer-neutral deterministic 3D projection
+packages/planning        framework-independent deterministic planning contracts/generation/evaluation
 ```
 
 Rendering:
@@ -213,6 +216,38 @@ Real-browser acceptance PASS. Product owner explicitly confirmed: **«Все р�
 
 Canonical checklist: `docs/milestones/m5-4-acceptance.md`.
 
+### M6.1 — Deterministic Layout Alternatives
+
+PR #11 → squash merge `f2bbf1c4989ef4582ee86aba19c75a71679034be`.
+
+**Product status:** DONE / ACCEPTED after TDD, strict exact-head CI and representative real-browser acceptance.
+
+Delivered:
+
+- framework-independent `@vlezet/planning`;
+- deliberately narrow supported scope: one deterministic axis-aligned rectangular room and 1–3 existing selected objects;
+- non-selected furniture remains fixed obstacle context;
+- deterministic footprint-aware placement anchors and normalized orientations;
+- bounded search (`MAX_PLANNING_EVALUATIONS = 6000`);
+- existing M2 `evaluateObjectFits()` remains authoritative for containment, collisions, door swing and clearances;
+- deterministic hard rejection, ranking and human-readable reasons;
+- maximum three displayed alternatives;
+- ephemeral 2D ghost preview that does not mutate document/history/autosave;
+- explicit revalidated Apply changing only selected-object position/canonical rotation;
+- one semantic `planning/apply-candidate` history operation for multi-object Undo/Redo;
+- no LLM/API dependency or second persisted layout authority.
+
+Final accepted PR head before merge:
+
+```text
+acaa352545245ff079f55fb8ce85ba2a23f2312d
+GitHub Actions 29953127208 — PASS
+```
+
+Real-browser acceptance PASS. Product owner explicitly confirmed: **«Все работает строго по сценарию.»**
+
+Canonical checklist: `docs/milestones/m6-1-acceptance.md`.
+
 ## 5. Current known limitations / technical debt
 
 ### Recognition
@@ -263,60 +298,59 @@ M0–M4.6                    ✅ merged and accepted
 M5.1 spatial shell/viewer  ✅ merged and accepted
 M5.2 furniture in 3D       ✅ merged and accepted
 M5.4 spatial inspection    ✅ merged and accepted
+M6.1 layout alternatives   ✅ merged and accepted
         ↓
-M6 Intelligent Planning    ← NEXT MAJOR SLICE
+M6.2 constraint-aware planning  ← NEXT
 ```
 
-M5.3 is not a separate blocking milestone. Its architectural camera/navigation foundation was delivered in M5.1. Remaining work is evidence-driven polish only:
+M5.3 is not a separate blocking milestone. Its architectural camera/navigation foundation was delivered in M5.1. Remaining work is evidence-driven polish only.
 
-- camera persistence only if real usage justifies it;
-- unusual-plan framing;
-- accessibility/input refinements;
-- measured performance budgets and batching/LOD only when representative projects require them.
-
-## 7. Next implementation slice — M6 Intelligent Planning
+## 7. Next implementation slice — M6.2 Constraint-Aware Planning
 
 Goal:
 
-> Help users find and compare valid furniture/layout alternatives using the same trusted apartment geometry and deterministic fit rules, without turning AI-generated images or Three.js meshes into product authority.
+> Let users express explicit planning intent and constraints so alternatives optimize for what the user actually cares about, while keeping M2 deterministic fit/geometry rules as hard authority.
+
+Recommended narrow scope:
+
+1. structured framework-independent planning constraint/goal contracts;
+2. explicit hard vs soft semantics;
+3. support a small safe set first, such as fixed/locked objects, preferred wall/corner proximity, pairwise near/far relationships and minimum user-defined spacing where semantics are unambiguous;
+4. deterministic scoring/ranking evidence for every supported soft preference;
+5. unsupported/ambiguous constraints fail closed instead of being guessed;
+6. preview remains ephemeral and Apply remains explicit/atomic;
+7. no LLM required for correctness — optional natural-language interpretation can come only after structured contracts are stable.
 
 Architecture direction:
 
 ```text
-user goals / constraints + VlezetDocument
+VlezetDocument + explicit structured goals/constraints
         ↓
-planning engine / optional AI assistance
+@vlezet/planning deterministic generator/evaluator
         ↓
-structured candidate layout(s)
+M2 authoritative fit/collision/door/clearance validation
         ↓
-deterministic fit / collision / clearance evaluation
+constraint-aware deterministic ranking + reasons
         ↓
-editable, explainable alternatives
+ephemeral compare/preview
+        ↓ explicit Apply
+ordinary VlezetDocument entities + one semantic history step
 ```
 
-Recommended first slice:
-
-1. define a framework-independent planning candidate/constraint contract;
-2. start with deterministic candidate generation/evaluation for a deliberately narrow scenario;
-3. reuse M2 fit/collision/clearance as hard authority;
-4. rank/explain alternatives using deterministic evidence;
-5. keep applying a candidate explicit, reviewable and undoable;
-6. keep optional LLM assistance behind structured contracts — never image/mesh authority.
-
-Do **not** begin M6 with photorealistic generation, free-form AI geometry or a second 3D editor state.
+Do **not** jump directly to whole-apartment AI orchestration, photorealistic generation, free-form geometry or opaque LLM scoring.
 
 ## 8. Recommended workflow
 
 ```text
-M6 focused product/design spec
-→ choose one narrow planning journey
-→ define constraints + structured candidate contract
-→ TDD deterministic generator/evaluator
-→ explainable comparison UI
-→ explicit apply into ordinary VlezetDocument entities
-→ browser acceptance on representative apartment
+M6.2 focused product/design spec
+→ define the minimal constraint vocabulary and hard/soft semantics
+→ TDD pure validation/scoring contracts
+→ extend bounded candidate ranking without duplicating M2 authority
+→ explainable constraint-aware comparison UI
+→ explicit preview/apply
+→ representative browser acceptance
 → strict exact-head CI
 → merge
 ```
 
-High-value precision/recognition follow-ups remain evidence-driven backlog and should not interrupt M6 unless they become real user blockers.
+High-value precision/recognition/M5 polish remains evidence-driven backlog and should not interrupt M6 unless it becomes a real user blocker.

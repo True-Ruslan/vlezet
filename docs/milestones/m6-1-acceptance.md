@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-22  
 **PR:** #11 `feat: M6.1 deterministic layout alternatives`  
-**Status:** implementation complete; automated gates PASS; representative real-browser acceptance required before merge.
+**Status:** DONE / ACCEPTED / MERGED. Automated gates PASS and representative real-browser acceptance PASS.
 
 ## Product contract
 
@@ -184,26 +184,26 @@ Changed-file review confirms:
 
 Use the same representative apartment used for M5 acceptance, preferably a rectangular room containing at least 2–3 placed objects.
 
-- [ ] Select a rectangular room in 2D.
-- [ ] Confirm `Варианты расстановки` is visible in the room inspector.
-- [ ] Open the planning panel.
-- [ ] Select one object and generate alternatives.
-- [ ] Select 2–3 objects and generate alternatives again.
-- [ ] Confirm no more than three alternatives are displayed.
-- [ ] Confirm result cards show deterministic explanation text.
-- [ ] Preview each available alternative.
-- [ ] Confirm preview appears as ghost furniture while original furniture remains visible.
-- [ ] Confirm preview alone does not mark/save a document change and does not create an Undo step.
-- [ ] Confirm offered alternatives do not visibly leave the room, collide with fixed furniture or block door opening.
-- [ ] Apply one alternative.
-- [ ] Confirm 2D ordinary furniture transforms match the chosen preview.
-- [ ] Switch to 3D and confirm M5.2 projects the newly applied ordinary document positions.
-- [ ] Use M5.4 inspection on moved furniture and confirm dimensions/fit remain correct.
-- [ ] Undo exactly once and confirm all objects changed by the candidate return to original transforms.
-- [ ] Redo exactly once and confirm all candidate transforms return.
-- [ ] Reload the project and confirm only explicitly applied ordinary document transforms persist.
-- [ ] Confirm manual furniture editing still works normally after planning.
-- [ ] Confirm no M2 fit, M5 spatial shell/furniture or M5.4 inspection regression.
+- [x] Select a rectangular room in 2D.
+- [x] Confirm `Варианты расстановки` is visible in the room inspector.
+- [x] Open the planning panel.
+- [x] Select one object and generate alternatives.
+- [x] Select 2–3 objects and generate alternatives again.
+- [x] Confirm no more than three alternatives are displayed.
+- [x] Confirm result cards show deterministic explanation text.
+- [x] Preview each available alternative.
+- [x] Confirm preview appears as ghost furniture while original furniture remains visible.
+- [x] Confirm preview alone does not mark/save a document change and does not create an Undo step.
+- [x] Confirm offered alternatives do not visibly leave the room, collide with fixed furniture or block door opening.
+- [x] Apply one alternative.
+- [x] Confirm 2D ordinary furniture transforms match the chosen preview.
+- [x] Switch to 3D and confirm M5.2 projects the newly applied ordinary document positions.
+- [x] Use M5.4 inspection on moved furniture and confirm dimensions/fit remain correct.
+- [x] Undo exactly once and confirm all objects changed by the candidate return to original transforms.
+- [x] Redo exactly once and confirm all candidate transforms return.
+- [x] Reload the project and confirm only explicitly applied ordinary document transforms persist.
+- [x] Confirm manual furniture editing still works normally after planning.
+- [x] Confirm no M2 fit, M5 spatial shell/furniture or M5.4 inspection regression.
 
 ## Merge gate
 
@@ -222,3 +222,19 @@ mark PR #11 Ready for Review
 → update PROJECT_STATE.md / ROADMAP.md / CHANGELOG.md with final merge SHA and accepted scope
 → choose next evidence-driven M6 slice
 ```
+
+## Final acceptance / merge
+
+**Real-browser acceptance:** PASS — 2026-07-22.
+
+Product owner confirmed:
+
+> «Все работает строго по сценарию.»
+
+PR #11 was then marked Ready and squash-merged:
+
+```text
+f2bbf1c4989ef4582ee86aba19c75a71679034be
+```
+
+M6.1 is now canonical stable scope in `main`.

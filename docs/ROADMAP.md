@@ -18,8 +18,9 @@ DONE        M4.6 Precision Geometry UX — accepted in browser and merged
 DONE        M5.1 Deterministic Spatial 3D Shell + Viewer — accepted and merged
 DONE        M5.2 Furniture in 3D — accepted and merged
 DONE        M5.4 Spatial Inspection — accepted and merged
+DONE        M6.1 Deterministic Layout Alternatives — accepted and merged
 POLISH      M5.3 camera/navigation/performance refinements only where evidence requires them
-NOW         M6 Intelligent Planning
+NOW         M6.2 Constraint-Aware Planning
 LATER       public-product infrastructure / optional expansion
 ```
 
@@ -208,74 +209,114 @@ Remaining work is evidence-driven polish only:
 - explicit performance budgets from representative projects;
 - batching/LOD only after measurement proves a need.
 
-## NOW — M6 Intelligent Planning
+## Completed M6.1 — Deterministic Layout Alternatives
+
+PR #11 → squash merge `f2bbf1c4989ef4582ee86aba19c75a71679034be`.
+
+**Status:** DONE / ACCEPTED.
+
+Architecture:
+
+```text
+selected rectangular room + 1–3 existing objects
+        ↓
+@vlezet/planning bounded deterministic generator
+        ↓
+structured transform candidates
+        ↓
+existing M2 evaluateObjectFits() authority
+        ↓
+hard rejection + deterministic ranking/reasons
+        ↓
+ephemeral 2D ghost preview
+        ↓ explicit Apply
+one semantic VlezetDocument/history operation
+```
+
+Delivered:
+
+- validated framework-independent planning contracts;
+- one supported axis-aligned rectangular room;
+- 1–3 selected existing objects, with non-selected objects fixed as ordinary obstacles;
+- deterministic footprint-aware anchors and stable orientation generation;
+- search budget `MAX_PLANNING_EVALUATIONS = 6000`;
+- maximum three ranked/displayed alternatives;
+- M2-authoritative containment/collision/door-swing/clearance validation;
+- deterministic ranking and human-readable reasons;
+- non-mutating ghost preview;
+- revalidated explicit Apply;
+- canonical rotation persistence;
+- one Apply = one Undo/Redo for all selected transforms;
+- no LLM/API dependency and no second layout authority.
+
+Acceptance:
+
+- final exact PR head `acaa352545245ff079f55fb8ce85ba2a23f2312d`;
+- GitHub Actions `29953127208` — PASS;
+- representative real-browser acceptance PASS;
+- product owner confirmed: `Все работает строго по сценарию.`
+
+Canonical checklist: `docs/milestones/m6-1-acceptance.md`.
+
+## NOW — M6.2 Constraint-Aware Planning
 
 ### Product goal
 
-Turn Vlezet from a precise manual planner into an assistant that can propose, compare and explain valid furniture/layout alternatives while keeping deterministic geometry and fit rules authoritative.
+M6.1 proved that Vlezet can deterministically propose and safely apply valid alternatives. M6.2 should make those alternatives **intent-aware** without sacrificing trust.
 
-The first M6 slice must stay deliberately narrow and explainable.
+The user should be able to express a small, explicit set of goals/constraints and understand how each one affected ranking.
 
-### Architecture direction
+### Recommended narrow scope
+
+Start with structured constraints whose semantics are unambiguous and testable. Candidate examples:
+
+- fixed/locked objects that planning may never move;
+- preferred wall/corner proximity;
+- explicit pairwise `near` / `far` preferences;
+- user-entered minimum spacing where a precise measurement definition is available.
+
+Hard constraints must reject a candidate. Soft preferences may only affect deterministic ranking and must produce explainable evidence.
+
+### Architecture
 
 ```text
-user goals / constraints + VlezetDocument
+VlezetDocument + PlanningConstraint[] + PlanningGoal[]
         ↓
-framework-independent planning engine
+@vlezet/planning
+        ↓ bounded deterministic candidates
+M2 authoritative hard fit validation
         ↓
-structured candidate layout(s)
+constraint validation + deterministic soft scoring
         ↓
-deterministic M2 fit/collision/clearance evaluation
+ranked explanations
         ↓
-ranked + explainable alternatives
-        ↓
-explicit review/apply into ordinary VlezetDocument entities
+ephemeral preview / explicit atomic Apply
 ```
 
-Optional AI may help generate or interpret structured constraints later, but it must never replace deterministic validation.
+### Acceptance
 
-AI-generated images and Three.js meshes are never geometry authority.
-
-### Recommended M6.1 scope
-
-Start with one narrow user journey rather than a generic "AI designer".
-
-Recommended first scenario:
-
-> Given one room, existing walls/openings and a selected set of furniture objects, generate a small number of valid alternative placements that satisfy hard geometric constraints and explain why each candidate is good or rejected.
-
-First-slice capabilities:
-
-1. framework-independent planning contracts for constraints, candidates and evaluation;
-2. deterministic candidate generation for a limited object/room case;
-3. reuse existing object dimensions, room containment, collisions, door swing and clearances;
-4. explicit hard-vs-soft constraints;
-5. deterministic scoring/ranking with human-readable reasons;
-6. preview alternatives without mutating the document;
-7. explicit Apply as a semantic, undoable document operation;
-8. no LLM required for the deterministic core.
-
-### Acceptance for first planning slice
-
-- same input produces deterministic candidates/evaluation;
-- no invalid candidate bypasses M2 fit/collision/clearance rules;
-- candidate data is structured, not image-only;
-- preview does not mutate `VlezetDocument`;
-- Apply is explicit and undoable;
-- reasons explain important fit/rejection decisions;
-- no second furniture/geometry authority;
+- supported constraints have explicit units/semantics and deterministic validation;
+- same document + same constraints produce the same ordered alternatives;
+- hard constraints cannot be bypassed by scoring;
+- soft scores are explainable and stable;
+- M2 fit/collision/door/clearance remains authoritative;
+- unsupported/ambiguous constraints fail closed;
+- preview remains non-mutating;
+- Apply remains one semantic Undo/Redo operation;
 - strict exact-head CI and representative browser acceptance.
 
-### Explicit non-goals for the first slice
+### Explicit non-goals
 
-Do not begin M6 with:
+Do not make M6.2:
 
-- photorealistic generation;
-- free-form AI geometry;
+- whole-apartment autonomous design;
+- free-form LLM layout generation;
+- opaque AI scoring;
+- photorealistic/interior-style generation;
 - direct 3D editing;
-- a second layout state persisted independently of `VlezetDocument`;
-- broad "design my whole apartment" orchestration;
-- cloud/LLM dependency for core planning correctness.
+- a second persisted planning/layout document.
+
+Optional natural-language → structured-constraint interpretation may be explored only after the deterministic constraint vocabulary is stable and must never bypass validation.
 
 ## High-value follow-ups — evidence-driven backlog
 

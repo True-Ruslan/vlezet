@@ -4,6 +4,79 @@
 
 This is not only a package-release changelog. It records milestone decisions, product feedback, RC failures and architecture changes that materially changed the roadmap.
 
+## 2026-07-22 — M6.1 Deterministic Layout Alternatives accepted and merged
+
+PR #11 squash merge:
+
+```text
+f2bbf1c4989ef4582ee86aba19c75a71679034be
+```
+
+### Why
+
+After M0–M5 established trusted geometry, fit rules, persistence and spatial understanding, Vlezet still required users to manually discover furniture layouts. M6.1 introduced the first narrow Intelligent Planning capability without weakening the product's source-of-truth model.
+
+Product rule:
+
+> Planning may propose structured alternatives, but ordinary `VlezetDocument` geometry/furniture plus deterministic M2 validation remain authoritative. Preview is ephemeral; only explicit Apply may change the document.
+
+### Delivered
+
+- new framework-independent `@vlezet/planning`;
+- one supported deterministic rectangular room;
+- rearrangement of 1–3 selected existing objects;
+- non-selected objects remain fixed ordinary obstacles;
+- footprint-aware deterministic corner/side/center/current anchors;
+- stable normalized orientation generation;
+- bounded generation with `MAX_PLANNING_EVALUATIONS = 6000`;
+- existing M2 `evaluateObjectFits()` used as hard authority;
+- invalid containment/collision/door-obstruction candidates rejected;
+- deterministic ranking by tight status, recommendations, rotation changes, movement and stable key;
+- human-readable deterministic reasons;
+- maximum three displayed alternatives;
+- non-mutating 2D ghost preview;
+- explicit revalidated Apply;
+- canonical rotation normalization before persistence;
+- one multi-object Apply = one semantic Undo/Redo step.
+
+### TDD / RC findings fixed
+
+1. missing planning request contracts → fail-closed request validation;
+2. missing deterministic anchors/evaluation/planner → bounded generator and M2-authoritative ranking;
+3. missing revalidated Apply/editor adapter → atomic structured Apply;
+4. missing store-level planning command → one-command multi-object Undo/Redo;
+5. missing ephemeral planning panel/preview → isolated UI-only planning state and ghost rendering;
+6. persisted rotation invariant gap (`450°`) → canonical domain normalization (`90°`) before persistence.
+
+### Verification
+
+Final exact PR head before merge:
+
+```text
+acaa352545245ff079f55fb8ce85ba2a23f2312d
+GitHub Actions 29953127208 — PASS
+```
+
+Passed frozen install, full unit suite, typecheck, lint and production build.
+
+### Manual browser acceptance
+
+**PASS — 2026-07-22.**
+
+The representative apartment passed the planned scenario: room entry point, 1–3 object selection, bounded alternatives, explanations, non-mutating ghost preview, explicit Apply, 2D→3D consistency and one-step Undo/Redo.
+
+Product owner explicitly confirmed:
+
+> «Все работает строго по сценарию.»
+
+Canonical evidence: `docs/milestones/m6-1-acceptance.md`.
+
+### Roadmap consequence
+
+M6.1 is complete and merged. The next slice is **M6.2 Constraint-Aware Planning**: add a deliberately small structured vocabulary of user goals/constraints with deterministic hard/soft semantics and explainable ranking before attempting any broad AI orchestration.
+
+---
+
 ## 2026-07-22 — M5.4 Spatial Inspection accepted and merged
 
 PR #10 squash merge:
