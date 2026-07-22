@@ -1,8 +1,11 @@
 "use client";
 
 import type { ProjectViewport, ReferencePlan, SaveStatus } from "@vlezet/projects";
+import type { NormalizedPoint, RecognitionDecision, RecognitionOpeningCandidate } from "@vlezet/recognition";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { RecognitionPanel } from "../recognition/recognition-panel";
+import type { RecognitionControllerState } from "../recognition/recognition-controller";
 import { ReferencePanel, type ReferenceInstallDraft } from "../reference/reference-panel";
 import { EditorToolbar } from "./editor-toolbar";
 import { FurnitureCatalog } from "./furniture-catalog";
@@ -22,14 +25,18 @@ export type ApartmentEditorProps = Readonly<{
   initialViewport: ProjectViewport;
   furnitureCatalogOpen: boolean;
   referencePanelOpen: boolean;
+  recognitionPanelOpen: boolean;
   referencePlan: ReferencePlan | null;
   referenceAssetBlob: Blob | null;
   missingReferenceAsset: boolean;
   tracingMode: boolean;
+  recognitionState: RecognitionControllerState;
+  selectedRecognitionCandidateId: string | null;
   onBack: () => void;
   onRenameProject: (name: string) => void;
   onToggleFurnitureCatalog: () => void;
   onToggleReferencePanel: () => void;
+  onToggleRecognitionPanel: () => void;
   onViewportChange: (viewport: ProjectViewport) => void;
   onRetrySave: () => void;
   onExportJson: () => void;
@@ -41,15 +48,30 @@ export type ApartmentEditorProps = Readonly<{
   onStartTracing: () => void;
   onStopTracing: () => void;
   onReferenceMoveEnd: (originWorld: Readonly<{ x: number; y: number }>) => void;
+  onStartRecognition: () => void;
+  onSelectRecognitionCandidate: (candidateId: string | null) => void;
+  onRecognitionDecision: (candidateId: string, decision: RecognitionDecision) => void;
+  onEditRecognitionWall: (candidateId: string, patch: Readonly<{ start?: NormalizedPoint; end?: NormalizedPoint }>) => void;
+  onReclassifyRecognitionOpening: (candidateId: string, kind: RecognitionOpeningCandidate["kind"]) => void;
+  onAcceptHighConfidenceRecognition: () => void;
+  onRunCloudRecognition: () => void;
+  onApplyRecognition: () => void;
+  onDiscardRecognition: () => void;
 }>;
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
 }
 
+function reviewDraft(state: RecognitionControllerState) {
+  if (state.kind === "review" || state.kind === "running-cloud" || state.kind === "error") return state.session?.draft ?? null;
+  return null;
+}
+
 export function ApartmentEditor(props: ApartmentEditorProps) {
   const [fitRequest, setFitRequest] = useState(0);
   const [fitReferenceRequest, setFitReferenceRequest] = useState(0);
+  const recognitionDraft = reviewDraft(props.recognitionState);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -61,14 +83,15 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       switch (shortcut) {
         case "undo": store.undo(); break;
         case "redo": store.redo(); break;
-        case "select-tool": store.setTool("select"); break;
-        case "wall-tool": store.setTool("wall"); break;
-        case "door-tool": store.setTool("door"); break;
-        case "window-tool": store.setTool("window"); break;
-        case "furnishing-catalog": props.onToggleFurnitureCatalog(); break;
-        case "rotate-object": store.rotateSelectedObject90(); break;
-        case "duplicate-object": store.duplicateSelectedObject(); break;
+        case "select-tool": if (!props.recognitionPanelOpen) store.setTool("select"); break;
+        case "wall-tool": if (!props.recognitionPanelOpen) store.setTool("wall"); break;
+        case "door-tool": if (!props.recognitionPanelOpen) store.setTool("door"); break;
+        case "window-tool": if (!props.recognitionPanelOpen) store.setTool("window"); break;
+        case "furnishing-catalog": if (!props.recognitionPanelOpen) props.onToggleFurnitureCatalog(); break;
+        case "rotate-object": if (!props.recognitionPanelOpen) store.rotateSelectedObject90(); break;
+        case "duplicate-object": if (!props.recognitionPanelOpen) store.duplicateSelectedObject(); break;
         case "delete-selection":
+          if (props.recognitionPanelOpen) break;
           if (store.selectedObjectId) store.deleteSelectedObject();
           else if (store.selectedOpeningId) store.deleteSelectedOpening();
           break;
@@ -86,6 +109,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     "editor-workspace",
     props.furnitureCatalogOpen ? "" : "catalog-closed",
     props.referencePanelOpen ? "reference-open" : "",
+    props.recognitionPanelOpen ? "recognition-open" : "",
   ].filter(Boolean).join(" ");
 
   return (
@@ -95,11 +119,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         saveStatus={props.saveStatus}
         furnitureCatalogOpen={props.furnitureCatalogOpen}
         referencePanelOpen={props.referencePanelOpen}
+        recognitionPanelOpen={props.recognitionPanelOpen}
         hasReferencePlan={props.referencePlan !== null}
         onBack={props.onBack}
         onRenameProject={props.onRenameProject}
         onToggleFurnitureCatalog={props.onToggleFurnitureCatalog}
         onToggleReferencePanel={props.onToggleReferencePanel}
+        onToggleRecognitionPanel={props.onToggleRecognitionPanel}
         onRetrySave={props.onRetrySave}
         onFit={() => setFitRequest((value) => value + 1)}
         onExportJson={props.onExportJson}
@@ -117,9 +143,30 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           referencePlan={props.referencePlan}
           referenceAssetBlob={props.referenceAssetBlob}
           tracingMode={props.tracingMode}
+          recognitionDraft={recognitionDraft}
+          selectedRecognitionCandidateId={props.selectedRecognitionCandidateId}
+          recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}
+          onSelectRecognitionCandidate={props.onSelectRecognitionCandidate}
+          onEditRecognitionWall={props.onEditRecognitionWall}
           onReferenceMoveEnd={props.onReferenceMoveEnd}
         />
-        {props.referencePanelOpen ? (
+        {props.recognitionPanelOpen ? (
+          <RecognitionPanel
+            state={props.recognitionState}
+            selectedCandidateId={props.selectedRecognitionCandidateId}
+            hasReferencePlan={props.referencePlan !== null}
+            missingReferenceAsset={props.missingReferenceAsset}
+            onStartLocal={props.onStartRecognition}
+            onSelect={props.onSelectRecognitionCandidate}
+            onDecision={props.onRecognitionDecision}
+            onReclassifyOpening={props.onReclassifyRecognitionOpening}
+            onAcceptHighConfidence={props.onAcceptHighConfidenceRecognition}
+            onRunCloud={props.onRunCloudRecognition}
+            onApply={props.onApplyRecognition}
+            onDiscard={props.onDiscardRecognition}
+            onClose={props.onToggleRecognitionPanel}
+          />
+        ) : props.referencePanelOpen ? (
           <ReferencePanel
             referencePlan={props.referencePlan}
             assetBlob={props.referenceAssetBlob}
@@ -134,6 +181,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         ) : <WallInspector />}
       </section>
       {props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
+      {props.recognitionPanelOpen && recognitionDraft ? <div className="recognition-banner" role="status"><strong>Проверка распознавания</strong><span>Цветные линии — только черновик. Реальная квартира не изменится до применения.</span></div> : null}
     </main>
   );
 }
