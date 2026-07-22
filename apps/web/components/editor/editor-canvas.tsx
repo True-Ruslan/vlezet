@@ -31,6 +31,7 @@ import {
   type ViewportTransform,
 } from "@vlezet/geometry";
 import type { ReferencePlan } from "@vlezet/projects";
+import type { NormalizedPoint, RecognitionDraft } from "@vlezet/recognition";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -39,6 +40,7 @@ import { useStore } from "zustand";
 import { getFurniturePreset } from "./furniture-presets";
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
+import { RecognitionLayer } from "../recognition/recognition-layer";
 import { ReferenceLayer } from "../reference/reference-layer";
 import { useReferenceImage } from "../reference/use-reference-image";
 import { editorStore, type TopologySnapTarget } from "./use-editor-store";
@@ -103,12 +105,17 @@ export type EditorCanvasProps = Readonly<{
   referencePlan: ReferencePlan | null;
   referenceAssetBlob: Blob | null;
   tracingMode: boolean;
+  recognitionDraft: RecognitionDraft | null;
+  selectedRecognitionCandidateId: string | null;
+  recognitionReviewActive: boolean;
+  onSelectRecognitionCandidate: (candidateId: string | null) => void;
+  onEditRecognitionWall: (candidateId: string, patch: Readonly<{ start?: NormalizedPoint; end?: NormalizedPoint }>) => void;
   onReferenceMoveEnd: (originWorld: Point2) => void;
 }>;
 
 type ViewportUpdater = ViewportTransform | ((current: ViewportTransform) => ViewportTransform);
 
-export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, onReferenceMoveEnd }: EditorCanvasProps) {
+export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, recognitionDraft, selectedRecognitionCandidateId, recognitionReviewActive, onSelectRecognitionCandidate, onEditRecognitionWall, onReferenceMoveEnd }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
@@ -320,6 +327,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     const shouldPan = event.evt.button === 1 || (event.evt.button === 0 && spacePressed);
     if (shouldPan) { event.evt.preventDefault(); panRef.current = { active: true, last: pointer }; return; }
     if (event.evt.button !== 0) return;
+    if (recognitionReviewActive) { onSelectRecognitionCandidate(null); return; }
 
     if (placementPresetId && visiblePlacementPreview) {
       editorStore.getState().placeSelectedPreset(visiblePlacementPreview.position);
@@ -348,6 +356,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
       updateViewport((current) => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
       return;
     }
+    if (recognitionReviewActive) return;
     if (placementPresetId) updatePlacementPreview(pointer);
     else if (tool === "wall" && draftWall) {
       const resolved = snapPointer(pointer, draftWall.start);
@@ -453,8 +462,9 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
           }))}
           {document.openings.flatMap((opening) => renderOpeningSymbol(opening))}
           {visibleOpeningPreview ? renderOpeningSymbol(visibleOpeningPreview.opening, true) : null}
-          {tool === "wall" ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
+          {tool === "wall" && !recognitionReviewActive ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
         </Layer>
+        {recognitionDraft && referencePlan ? <Layer><RecognitionLayer draft={recognitionDraft} referencePlan={referencePlan} viewport={viewport} selectedCandidateId={selectedRecognitionCandidateId} onSelect={onSelectRecognitionCandidate} onEditWall={onEditRecognitionWall} /></Layer> : null}
         <Layer>
           {clearancePolygon ? <Line points={screenPolygon(clearancePolygon, viewport)} closed fill="#f59e0b" opacity={0.08} stroke="#d97706" strokeWidth={1.2} dash={[6, 5]} listening={false} /> : null}
           {displayedObjects.map((object) => (
