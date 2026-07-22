@@ -24,6 +24,7 @@ import {
   type OpeningPatch,
   type PlacedObjectPatch,
   type WallEndpointIntent,
+  type WallLengthAnchor,
 } from "@vlezet/editor-core";
 import { deriveRooms, proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";
 import { createStore, type StoreApi } from "zustand/vanilla";
@@ -73,7 +74,7 @@ export type EditorStoreState = {
   commitDraftWall: () => void;
   cancelDraft: () => void;
   cancelCurrentAction: () => void;
-  setSelectedWallLength: (lengthMm: number) => void;
+  setSelectedWallLength: (lengthMm: number, anchor?: WallLengthAnchor) => void;
   setSelectedWallThickness: (thicknessMm: number) => void;
   setSelectedRoomName: (name: string) => void;
   addOpeningAt: (wallId: string, pointerOffset: number) => void;
@@ -266,11 +267,11 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       }
       set({ draftWall: null, tool: "select" });
     },
-    setSelectedWallLength: (lengthMm) => {
+    setSelectedWallLength: (lengthMm, anchor = "start") => {
       const { history, selectedWallId } = get();
       if (!selectedWallId) return;
       const before = history.document;
-      const after = setTopologicalWallLength(before, selectedWallId, lengthMm);
+      const after = setTopologicalWallLength(before, selectedWallId, lengthMm, anchor);
       set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-length", before, after }) });
     },
     setSelectedWallThickness: (thicknessMm) => {
