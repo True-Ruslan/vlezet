@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@vlezet/domain": "workspace:*",
-    "@vlezet/geometry": "workspace:*"
+    "@vlezet/geometry": "workspace:*",
+    "@vlezet/planning": "workspace:*"
   }
 }
