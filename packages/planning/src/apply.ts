@@ -1,4 +1,4 @@
-import type { VlezetDocument } from "@vlezet/domain";
+import { normalizeRotationDeg, type VlezetDocument } from "@vlezet/domain";
 import { PlanningError, type PlanningCandidate } from "./contracts";
 import { evaluatePlanningCandidate } from "./evaluation";
 
@@ -19,7 +19,7 @@ export function applyPlanningCandidateToDocument(
       return placement ? {
         ...object,
         position: { ...placement.position },
-        rotationDeg: placement.rotationDeg,
+        rotationDeg: normalizeRotationDeg(placement.rotationDeg),
       } : object;
     }),
   };
