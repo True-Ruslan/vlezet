@@ -18,6 +18,8 @@ type Runtime = Readonly<{
   fit: (preset: SpatialCameraPreset) => void;
 }>;
 
+const WEBGL_FAILURE_MESSAGE = "3D недоступен в этом браузере или видеорежиме. План в 2D остаётся полностью доступен.";
+
 function fallbackBounds(): THREE.Box3 {
   return new THREE.Box3(
     new THREE.Vector3(-1000, 0, -1000),
@@ -29,13 +31,14 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
   const document = useStore(editorStore, (state) => state.history.document);
   const projection = useMemo(() => projectDocumentToSpatialScene(document), [document]);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const failureRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<Runtime | null>(null);
   const [preset, setPreset] = useState<SpatialCameraPreset>("perspective");
-  const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    if (failureRef.current) failureRef.current.hidden = true;
 
     let renderer: THREE.WebGLRenderer | null = null;
     let controls: OrbitControls | null = null;
@@ -110,7 +113,10 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
       });
     } catch (error) {
       console.error("[Vlezet:SPATIAL] viewer initialization failed", error);
-      setFailure("3D недоступен в этом браузере или видеорежиме. План в 2D остаётся полностью доступен.");
+      if (failureRef.current) {
+        failureRef.current.textContent = WEBGL_FAILURE_MESSAGE;
+        failureRef.current.hidden = false;
+      }
     }
 
     return () => {
@@ -143,7 +149,7 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
       </div>
       <div className={styles.help}>ЛКМ — вращение · ПКМ — панорама · колесо — масштаб</div>
       {projection.diagnostics.length > 0 ? <div className={styles.warning} role="status">Часть 3D-геометрии пропущена: {projection.diagnostics[0]?.message}</div> : null}
-      {failure ? <div className={styles.error} role="alert">{failure}</div> : null}
+      <div ref={failureRef} className={styles.error} role="alert" hidden />
       {projection.scene.wallSegments.length === 0 && projection.scene.floors.length === 0 ? <div className={styles.empty}>Сначала создайте стены в 2D — здесь появится их пространственная проекция.</div> : null}
     </section>
   );
