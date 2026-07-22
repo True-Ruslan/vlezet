@@ -115,6 +115,8 @@ wall thickness: unchanged
 - нет заметного последовательного падения производительности;
 - renderer, controls, geometries и materials старой 3D-сессии освобождаются при unmount.
 
+После browser acceptance review дополнительно найден и исправлен потенциальный leak `GridHelper` geometry/material. Исправление покрыто отдельным lifecycle dispose test и прошло финальный strict CI.
+
 ## 8. M0–M4.6 regression smoke
 
 После 3D-проверки вернуться в 2D и подтвердить:
@@ -134,9 +136,9 @@ wall thickness: unchanged
 - backup/import/PNG;
 - M4.5 recognition остаётся optional и не зависит от 3D.
 
-## 9. Automated gate before manual acceptance
+## 9. Automated gate
 
-Точный code-bearing HEAD:
+Первичный accepted code-bearing HEAD:
 
 ```text
 bae06971e7969ee8324e540eb9d4a9e758fda1d8
@@ -148,7 +150,20 @@ GitHub Actions run:
 29934171569 — PASS
 ```
 
-Прошли:
+После browser acceptance self-review выявил потенциальный `GridHelper` resource leak. TDD regression cycle:
+
+```text
+ea672213f3554d7acf7c604be290718ae37da02f — RED (new disposal test)
+a0da8785c8793833c8ff0f66b65a19684f0457a0 — GREEN (cleanup fix)
+```
+
+Final exact code HEAD GitHub Actions run:
+
+```text
+29936603959 — PASS
+```
+
+На финальном code HEAD прошли:
 
 ```text
 pnpm install --frozen-lockfile
@@ -191,5 +206,6 @@ pnpm build
 M5.1 deterministic spatial shell: ACCEPTED
 strict CI: PASS
 real browser acceptance: PASS
-ready for final PR review / merge gate: YES
+final review lifecycle fix: PASS
+ready for merge: YES
 ```
