@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -15,6 +15,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Apply M4.5 foundation codemod
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          node .github/scripts/m45-foundation.mjs
+          git add packages/projects/src/project.ts packages/projects/src/indexeddb.ts packages/projects/src/index.ts apps/web/components/reference/reference-service.ts apps/web/components/projects/project-app.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: add recognition storage foundation"
+          git push
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
