@@ -1,3 +1,5 @@
+import type { ObjectCategory } from "@vlezet/domain";
+
 export type Point3 = Readonly<{
   x: number;
   y: number;
@@ -33,16 +35,30 @@ export type SpatialFloor = Readonly<{
   polygon: readonly Point3[];
 }>;
 
+export type SpatialObject = Readonly<{
+  id: string;
+  objectId: string;
+  name: string;
+  category: ObjectCategory;
+  center: Point3;
+  widthMm: number;
+  depthMm: number;
+  heightMm: number;
+  rotationYRad: number;
+  heightWasDefaulted: boolean;
+}>;
+
 export type SpatialScene = Readonly<{
   wallSegments: readonly SpatialWallSegment[];
   openingMarkers: readonly SpatialOpeningMarker[];
   floors: readonly SpatialFloor[];
+  objects: readonly SpatialObject[];
 }>;
 
 export type SpatialProjectionDiagnostic = Readonly<{
-  code: "invalid-wall" | "invalid-opening" | "invalid-floor";
+  code: "invalid-wall" | "invalid-opening" | "invalid-floor" | "invalid-object";
   severity: "error" | "warning";
-  entityKind: "wall" | "opening" | "room";
+  entityKind: "wall" | "opening" | "room" | "placed-object";
   entityId: string;
   message: string;
 }>;
