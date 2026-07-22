@@ -1,3 +1,4 @@
+import { formatAreaM2FromSquareMillimeters } from "../editor/dimension-annotations";
 import type { SpatialInspectionDetails } from "./spatial-inspection";
 import styles from "./spatial-viewer.module.css";
 
@@ -43,7 +44,7 @@ export function SpatialInspector({ details, selected, onClear }: SpatialInspecto
       <aside className={styles.inspector} aria-label="Инспектор 3D">
         <Header title={details.name} selected={selected} onClear={onClear} />
         <dl className={styles.inspectorList}>
-          <div><dt>Полезная площадь</dt><dd>{details.areaM2.toFixed(2)} м²</dd></div>
+          <div><dt>Полезная площадь</dt><dd>{formatAreaM2FromSquareMillimeters(details.areaMm2)} м²</dd></div>
           {details.clearWidthMm !== undefined && details.clearLengthMm !== undefined ? (
             <div>
               <dt>Чистые внутренние размеры</dt>
