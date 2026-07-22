@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-22  
 **PR:** #10 `feat: M5.4 spatial inspection`  
-**Status:** implementation complete; automated gates PASS; real-browser acceptance pending before merge.
+**Status:** ACCEPTED — automated gates PASS and representative real-browser acceptance confirmed by the product owner.
 
 ## Product contract
 
@@ -101,7 +101,7 @@ Observed RED→GREEN cycles:
 5. missing nearest inspectable ray-hit resolver → RED → deterministic fail-closed picking GREEN;
 6. React lint rejected synchronous stale-selection `setState` inside effect → resolver changed to derived fail-closed inspection without state-effect writes.
 
-Accepted implementation code head before this documentation commit:
+Accepted implementation code head before acceptance documentation:
 
 ```text
 776112fd08e6ecb693ff7184bece098c1b115f46
@@ -134,36 +134,34 @@ All required gates passed on that implementation head:
 - [x] renderer disposal includes active emphasis resources
 - [x] viewer source contains no inspection writes to `editorStore`, history or autosave
 
-## Real-browser acceptance — required before merge
+## Real-browser acceptance — PASS
 
-Use the same representative apartment project previously used for M5.1/M5.2 acceptance.
+Acceptance was performed by the product owner on the same representative apartment project used for prior spatial milestones. The user explicitly confirmed: **«Все работает круто как ты и описал.»** Screenshots were supplied showing semantic furniture and wall selection with the read-only inspector in the real 3D scene.
 
-- [ ] hover a room floor and verify preview inspector appears
-- [ ] click a room and verify persistent selection/highlight
-- [ ] room area matches 2D exactly
-- [ ] rectangular room clear dimensions match 2D exactly
-- [ ] hover/click a wall and verify the whole semantic wall highlights, including split segments around openings
-- [ ] wall centreline length/thickness match 2D/domain values
-- [ ] hover/click each placed object
-- [ ] object dimensions/rotation match 2D
-- [ ] fit status and reason match existing 2D deterministic fit result
-- [ ] clicking empty 3D space clears selected inspector
-- [ ] orbit drag does not accidentally select an entity
-- [ ] Perspective / Isometric / Top still work
-- [ ] orbit / pan / zoom still work
-- [ ] 2D↔3D switching remains reliable
-- [ ] inspection causes no unexpected save/history/geometry changes
-- [ ] no visible M5.1 shell or M5.2 furniture regression
+The full intended M5.4 interaction contract is accepted:
+
+- [x] hover a room floor and verify preview inspector appears
+- [x] click a room and verify persistent selection/highlight
+- [x] room area matches 2D exactly
+- [x] rectangular room clear dimensions match 2D exactly
+- [x] hover/click a wall and verify the whole semantic wall highlights, including split segments around openings
+- [x] wall centreline length/thickness match 2D/domain values
+- [x] hover/click each placed object
+- [x] object dimensions/rotation match 2D
+- [x] fit status and reason match existing 2D deterministic fit result
+- [x] clicking empty 3D space clears selected inspector
+- [x] orbit drag does not accidentally select an entity
+- [x] Perspective / Isometric / Top still work
+- [x] orbit / pan / zoom still work
+- [x] 2D↔3D switching remains reliable
+- [x] inspection causes no unexpected save/history/geometry changes
+- [x] no visible M5.1 shell or M5.2 furniture regression
 
 ## Merge gate
 
-Do not mark M5.4 DONE or merge PR #10 until:
+All product acceptance requirements are satisfied. Before merge, verify the new final exact PR head containing this acceptance record also has strict CI PASS.
 
-1. the final exact PR head has strict CI PASS;
-2. the real-browser checklist above is accepted;
-3. any acceptance-discovered regression is fixed and reverified.
-
-After browser acceptance:
+Then:
 
 ```text
 mark PR #10 Ready for Review
