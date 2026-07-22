@@ -213,3 +213,25 @@ kbd { padding:1px 5px; border:1px solid #d9dde3; border-bottom-width:2px; border
 .tracing-banner button { padding:6px 10px; border:0; border-radius:7px; background:#1769ff; color:#fff; font-size:10px; font-weight:700; cursor:pointer; }
 .empty-actions { display:flex; gap:8px; }
 @media (max-width:980px) { .reference-panel { display:none; } .tracing-banner span { display:none; } }
+
+
+/* M6.1 planning */
+.planning-panel { max-height: calc(100vh - 130px); overflow: auto; }
+.planning-panel .inspector-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.planning-panel .inspector-kicker { display: block; margin-bottom: 4px; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.planning-panel h3 { margin: 0; font-size: 16px; }
+.planning-panel .inspector-help { margin: 6px 0 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+.planning-panel .inspector-section { display: grid; gap: 10px; padding-top: 12px; margin-top: 12px; border-top: 1px solid #e5e7eb; }
+.planning-object-list { display: grid; gap: 6px; }
+.planning-object-choice { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 8px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: 12px; cursor: pointer; }
+.planning-object-choice input { margin: 0; }
+.planning-results { gap: 8px !important; }
+.planning-results-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.planning-results-heading span { color: #64748b; font-size: 10px; }
+.planning-result-card { display: grid; gap: 8px; padding: 10px; border: 1px solid #dfe4ea; border-radius: 10px; background: #fff; }
+.planning-result-card.is-previewing { border-color: #93c5fd; background: #eff6ff; }
+.planning-result-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.planning-best-badge { padding: 2px 6px; border-radius: 999px; background: #dcfce7; color: #166534; font-size: 10px; font-weight: 700; }
+.planning-reasons { display: grid; gap: 4px; margin: 0; padding-left: 16px; color: #475569; font-size: 11px; line-height: 1.4; }
+.planning-result-actions { display: flex; gap: 6px; }
+.planning-result-actions button { flex: 1; }

@@ -13,6 +13,7 @@ export {
 export type { PlacedObjectPatch } from "./object-editing";
 export { addOpening, deleteOpening, updateOpening, validateOpening } from "./opening-editing";
 export type { OpeningPatch } from "./opening-editing";
+export { applyPlanningCandidate } from "./planning-editing";
 export { setRectangularRoomClearDimension } from "./room-dimension-editing";
 export type { ClearRoomDimensionAnchor, ClearRoomDimensionAxis } from "./room-dimension-editing";
 export { setRoomName } from "./room-editing";

@@ -13,6 +13,7 @@
     "@vlezet/domain": "workspace:*",
     "@vlezet/editor-core": "workspace:*",
     "@vlezet/geometry": "workspace:*",
+    "@vlezet/planning": "workspace:*",
     "@vlezet/projects": "workspace:*",
     "@vlezet/recognition": "workspace:*",
     "@vlezet/spatial": "workspace:*",

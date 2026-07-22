@@ -1,5 +1,5 @@
 {
-  "name": "@vlezet/editor-core",
+  "name": "@vlezet/planning",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,13 +11,12 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@vlezet/domain": "workspace:*",
+    "@vlezet/geometry": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "6.0.3",
     "vitest": "4.1.10"
-  },
-  "dependencies": {
-    "@vlezet/domain": "workspace:*",
-    "@vlezet/geometry": "workspace:*",
-    "@vlezet/planning": "workspace:*"
   }
 }
