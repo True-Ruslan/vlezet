@@ -38,12 +38,17 @@ function positiveDimension(value: number | undefined, fallback: number): number 
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function positiveScale(value: number | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function materializeInput(input: LocalRecognitionInput): MaterializedLocalRecognitionInput {
   const image = input.imageData as ImageDataWithSourceSize;
   return {
     ...input,
     sourceWidthPx: positiveDimension(input.sourceWidthPx ?? image.sourceWidthPx, input.imageData.width),
     sourceHeightPx: positiveDimension(input.sourceHeightPx ?? image.sourceHeightPx, input.imageData.height),
+    sourceMillimetersPerPixel: positiveScale(input.sourceMillimetersPerPixel),
   };
 }
 
