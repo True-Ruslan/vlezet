@@ -4,6 +4,7 @@ import { deriveRooms } from "@vlezet/geometry";
 import type { SpatialScene } from "@vlezet/spatial";
 import {
   buildSpatialInspectionDetails,
+  firstSpatialInspectionTarget,
   spatialInspectionTargetFromUserData,
 } from "./spatial-inspection";
 
@@ -93,13 +94,26 @@ describe("spatialInspectionTargetFromUserData", () => {
     expect(spatialInspectionTargetFromUserData({ kind: "wall" })).toBeNull();
     expect(spatialInspectionTargetFromUserData({})).toBeNull();
   });
+
+  it("returns the nearest inspectable semantic target while skipping non-inspectable hits", () => {
+    expect(firstSpatialInspectionTarget([
+      { userData: { kind: "opening-placeholder", openingId: "door" } },
+      { userData: { kind: "wall", wallId: "wall-behind-door" } },
+      { userData: { kind: "floor", roomId: "room-behind-wall" } },
+    ])).toEqual({ kind: "wall", id: "wall-behind-door" });
+
+    expect(firstSpatialInspectionTarget([
+      { userData: { kind: "opening-placeholder", openingId: "door" } },
+      { userData: {} },
+    ])).toBeNull();
+  });
 });
 
 describe("buildSpatialInspectionDetails", () => {
   it("derives room area and clear dimensions from authoritative geometry", () => {
     const details = buildSpatialInspectionDetails(document, scene, { kind: "room", id: roomId });
 
-    expect(details).toMatchObject({ kind: "room", id: roomId, areaM2: 11.715 });
+    expect(details).toMatchObject({ kind: "room", id: roomId, areaMm2: 11_715_000, areaM2: 11.715 });
     if (!details || details.kind !== "room") throw new Error("Expected room details");
     expect(details.clearWidthMm).toBe(3550);
     expect(details.clearLengthMm).toBe(3300);
