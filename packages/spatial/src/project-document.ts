@@ -1,4 +1,9 @@
-import { getWallEndpoints, type VlezetDocument } from "@vlezet/domain";
+import {
+  getWallEndpoints,
+  MAX_PLACED_OBJECT_DIMENSION_MM,
+  MIN_PLACED_OBJECT_DIMENSION_MM,
+  type VlezetDocument,
+} from "@vlezet/domain";
 import {
   deriveRooms,
   deriveVisibleWallIntervals,
@@ -39,7 +44,7 @@ function errorMessage(error: unknown): string {
 }
 
 function assertProjectableObject(object: VlezetDocument["placedObjects"][number]): void {
-  const values = [
+  const finiteValues = [
     object.position.x,
     object.position.y,
     object.width,
@@ -47,11 +52,15 @@ function assertProjectableObject(object: VlezetDocument["placedObjects"][number]
     object.rotationDeg,
     ...(object.height === undefined ? [] : [object.height]),
   ];
-  if (values.some((value) => !Number.isFinite(value))) {
+  if (finiteValues.some((value) => !Number.isFinite(value))) {
     throw new Error(`Placed object ${object.id} contains non-finite geometry`);
   }
-  if (object.width <= 0 || object.depth <= 0 || (object.height !== undefined && object.height <= 0)) {
-    throw new Error(`Placed object ${object.id} contains invalid dimensions`);
+
+  const dimensions = [object.width, object.depth, ...(object.height === undefined ? [] : [object.height])];
+  if (dimensions.some(
+    (value) => value < MIN_PLACED_OBJECT_DIMENSION_MM || value > MAX_PLACED_OBJECT_DIMENSION_MM,
+  )) {
+    throw new Error(`Placed object ${object.id} contains dimensions outside the domain contract`);
   }
 }
 
