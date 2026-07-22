@@ -58,6 +58,32 @@ describe("applyPlanningCandidateToDocument", () => {
     expect(applied.placedObjects[0]?.rotationDeg).toBe(90);
   });
 
+  it("fails atomically when a locked object changed after candidate generation", () => {
+    const original = documentFixture();
+    const room = deriveRooms(original).rooms[0]!;
+    const table = original.placedObjects[1]!;
+    const candidate: PlanningCandidate = {
+      id: "candidate:locked",
+      roomId: room.id,
+      placements: [
+        { objectId: "sofa", position: { x: 1000, y: 2100 }, rotationDeg: 90 },
+        { objectId: "table", position: { ...table.position }, rotationDeg: table.rotationDeg },
+      ],
+      constraints: [{ kind: "lock-object", objectId: "table" }],
+    };
+    const staleCurrent: VlezetDocument = {
+      ...original,
+      placedObjects: original.placedObjects.map((object) => object.id === "table"
+        ? { ...object, position: { x: object.position.x + 100, y: object.position.y } }
+        : object),
+    };
+    const before = JSON.stringify(staleCurrent);
+
+    expect(() => applyPlanningCandidateToDocument(staleCurrent, candidate))
+      .toThrowError(expect.objectContaining<Partial<PlanningError>>({ code: "candidate-invalid" }));
+    expect(JSON.stringify(staleCurrent)).toBe(before);
+  });
+
   it("fails atomically when the candidate became invalid against the current document", () => {
     const original = documentFixture();
     const candidate = candidateFor(original);
