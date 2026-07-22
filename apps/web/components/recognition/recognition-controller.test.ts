@@ -13,7 +13,7 @@ function fakeImageData(width = 1, height = 1): ImageData {
   return { width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: "srgb" } as ImageData;
 }
 
-function draft(engineVersion = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionDraft {
+function draft(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionDraft {
   return {
     id: "draft", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion,
     status: "local-complete",
@@ -22,7 +22,7 @@ function draft(engineVersion = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionDra
   };
 }
 
-function session(engineVersion = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionSessionRecord {
+function session(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionSessionRecord {
   const value = draft(engineVersion);
   return { id: "session", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion, draft: value, cloudMetadata: null, createdAt: NOW, updatedAt: NOW };
 }
