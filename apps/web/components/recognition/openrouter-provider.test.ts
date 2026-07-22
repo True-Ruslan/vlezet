@@ -27,7 +27,7 @@ describe("OpenRouter direct recognition provider", () => {
   });
 
   it("filters discovered models to image + structured output capabilities and requests low-cost ordering", async () => {
-    const fetcherSpy = vi.fn(async () => new Response(JSON.stringify({ data: [
+    const fetcherSpy = vi.fn(async (_url: string | URL | Request) => new Response(JSON.stringify({ data: [
       { id: "good", name: "Good", context_length: 100000, architecture: { input_modalities: ["text", "image"] }, supported_parameters: ["structured_outputs", "response_format"] },
       { id: "text-only", name: "Text", architecture: { input_modalities: ["text"] }, supported_parameters: ["structured_outputs"] },
       { id: "vision-json-object", name: "No schema", architecture: { input_modalities: ["image", "text"] }, supported_parameters: ["temperature"] },
