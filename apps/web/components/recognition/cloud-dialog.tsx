@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { resolveCloudRecognitionRequest } from "./cloud-dialog-flow";
 import { listCompatibleOpenRouterModels, type OpenRouterModelOption } from "./openrouter-provider";
 
 export type CloudRecognitionRequest = Readonly<{ apiKey: string; modelId: string }>;
@@ -25,28 +26,41 @@ function CloudDialogContent(props: Omit<CloudDialogProps, "open">) {
     props.onClose();
   };
 
-  const loadModels = async () => {
-    if (!apiKey.trim()) { setError("Введите OpenRouter API key."); return; }
+  const fetchCompatibleModels = async (): Promise<readonly OpenRouterModelOption[]> => {
+    if (!apiKey.trim()) throw new Error("Введите OpenRouter API key.");
     setLoadingModels(true);
-    setError(null);
-    const controller = new AbortController();
     try {
-      const compatible = await listCompatibleOpenRouterModels(apiKey, controller.signal);
+      const compatible = await listCompatibleOpenRouterModels(apiKey, new AbortController().signal);
       setModels(compatible);
       setModelId((current) => current && compatible.some((model) => model.id === current) ? current : compatible[0]?.id ?? "");
-      if (compatible.length === 0) setError("Для этого аккаунта не найдено совместимых vision-моделей со structured output.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Не удалось получить список моделей OpenRouter.");
+      return compatible;
     } finally {
       setLoadingModels(false);
     }
   };
 
-  const run = async () => {
-    if (!apiKey.trim() || !modelId) { setError("Введите API key и выберите модель."); return; }
+  const loadModels = async () => {
     setError(null);
     try {
-      await props.onRun({ apiKey: apiKey.trim(), modelId });
+      const compatible = await fetchCompatibleModels();
+      if (compatible.length === 0) setError("Для этого аккаунта не найдено совместимых vision-моделей со structured output.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось получить список моделей OpenRouter.");
+    }
+  };
+
+  const run = async () => {
+    setError(null);
+    try {
+      const resolved = await resolveCloudRecognitionRequest({
+        apiKey,
+        selectedModelId: modelId,
+        knownModels: models,
+        loadModels: fetchCompatibleModels,
+      });
+      setModels(resolved.models);
+      setModelId(resolved.modelId);
+      await props.onRun({ apiKey: resolved.apiKey, modelId: resolved.modelId });
       setApiKey("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Не удалось выполнить AI-проверку.");
@@ -67,15 +81,15 @@ function CloudDialogContent(props: Omit<CloudDialogProps, "open">) {
         <input type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="sk-or-v1-…" disabled={props.busy} />
       </label>
       <div className="recognition-inline-actions">
-        <button className="secondary-action" type="button" onClick={() => void loadModels()} disabled={loadingModels || props.busy || !apiKey.trim()}>{loadingModels ? "Проверяем модели…" : "Найти совместимые модели"}</button>
+        <button className="secondary-action" type="button" onClick={() => void loadModels()} disabled={loadingModels || props.busy || !apiKey.trim()}>{loadingModels ? "Проверяем модели…" : "Выбрать модель вручную"}</button>
       </div>
       {models.length > 0 ? <label className="recognition-field">
         <span>Vision-модель</span>
-        <select value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={props.busy}>
+        <select value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={props.busy || loadingModels}>
           {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
         </select>
         {selectedModel?.contextLength ? <small>Контекст: до {selectedModel.contextLength.toLocaleString("ru-RU")} токенов</small> : null}
-      </label> : null}
+      </label> : <p className="recognition-model-hint">Можно сразу нажать «Анализировать» — Vlezet сам подберёт первую совместимую vision-модель. Для ручного выбора откройте список выше.</p>}
       <div className="recognition-privacy-note">
         <strong>Ключ не сохраняется.</strong>
         <span>Он живёт только в памяти этой формы, не попадает в проект, IndexedDB или резервную копию.</span>
@@ -83,7 +97,7 @@ function CloudDialogContent(props: Omit<CloudDialogProps, "open">) {
       {error ? <p className="reference-error" role="alert">{error}</p> : null}
       <footer>
         <button className="secondary-action" type="button" onClick={close}>{props.busy ? "Отменить запрос" : "Отмена"}</button>
-        <button className="primary-action" type="button" onClick={() => void run()} disabled={props.busy || !modelId || !apiKey.trim()}>{props.busy ? "AI анализирует…" : "Анализировать"}</button>
+        <button className="primary-action" type="button" onClick={() => void run()} disabled={props.busy || loadingModels || !apiKey.trim()}>{props.busy ? "AI анализирует…" : loadingModels ? "Подбираем модель…" : "Анализировать"}</button>
       </footer>
     </section>
   </div>;
