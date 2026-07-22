@@ -25,8 +25,34 @@ jobs:
             echo "No staged M6 patch"
             exit 0
           fi
-          git apply --check .m6-apply-patch
-          git apply .m6-apply-patch
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/components/editor/use-editor-store.ts')
+          source = path.read_text()
+          replacements = [
+              (
+                  '  addOpening,\n',
+                  '  addOpening,\n  applyPlanningCandidate as applyPlanningCandidateEdit,\n',
+              ),
+              (
+                  'import { deriveRooms, proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";\n',
+                  'import { deriveRooms, proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";\nimport type { PlanningCandidate } from "@vlezet/planning";\n',
+              ),
+              (
+                  '  deleteSelectedObject: () => void;\n  beginObjectGesture:',
+                  '  deleteSelectedObject: () => void;\n  applyPlanningCandidate: (candidate: PlanningCandidate) => void;\n  beginObjectGesture:',
+              ),
+              (
+                  '    beginObjectGesture: (objectId, kind) => {',
+                  '''    applyPlanningCandidate: (candidate) => {\n      const { history } = get();\n      const before = history.document;\n      const after = applyPlanningCandidateEdit(before, candidate);\n      set({\n        history: executeCommand(history, {\n          type: "document/replace",\n          label: "planning/apply-candidate",\n          before,\n          after,\n        }),\n        selectedWallId: null,\n        selectedRoomId: candidate.roomId,\n        selectedOpeningId: null,\n        selectedObjectId: null,\n        objectGesture: null,\n        placementPresetId: null,\n      });\n    },\n    beginObjectGesture: (objectId, kind) => {''',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in source:
+                  raise SystemExit(f'Missing expected store marker: {old!r}')
+              source = source.replace(old, new, 1)
+          path.write_text(source)
+          PY
           rm .m6-apply-patch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
