@@ -1,7 +1,7 @@
 # Vlezet — Roadmap
 
 **Last updated:** 2026-07-22  
-**Rule:** roadmap order is intentional. Do not start a later major milestone while a more fundamental product-trust problem is unresolved.
+**Rule:** roadmap order is intentional. Resolve product-trust and geometry-semantics problems before visually impressive later layers.
 
 For current truth, read `docs/PROJECT_STATE.md` first.
 
@@ -13,95 +13,70 @@ DONE        M1 Apartment Shell
 DONE        M2 Furnishing + Fit
 DONE        M3 Local-First Projects
 DONE        M4 Reference Plan Import
-NOW         M4.5 Assisted Recognition — stabilize/merge as assisted experimental feature
-NEXT        M4.6 Precision Geometry UX — dimension semantics + measurement workflow
+DONE/MVP    M4.5 Assisted Recognition — merged; quality refinement backlog remains
+NOW         M4.6 Precision Geometry UX — active Draft PR #7
 THEN        M5 Spatial 3D
 AFTER       M6 Intelligent Planning
 LATER       public-product infrastructure / optional expansion
 ```
 
-## P0 — Finish M4.5 Assisted Recognition safely
+---
 
-**Status:** Draft PR #6, RC tested on a real developer plan.
+## Completed — M4.5 Assisted Recognition MVP
+
+PR #6 was squash-merged to `main`:
+
+```text
+b63bdd613db4e13c07d2a961981799bd360f256d
+```
 
 ### Product position
 
-M4.5 is **assisted recognition**, not automatic apartment reconstruction.
+M4.5 is **assisted / experimental recognition**, not automatic apartment reconstruction.
 
-It may accelerate tracing, but every result remains:
+It is accepted as an MVP because it can accelerate tracing while preserving the trust boundary:
 
-- editable;
-- reviewable;
-- non-authoritative;
-- explicitly applied by the user;
-- protected by deterministic validation.
+- candidates are editable/reviewable;
+- suggestions remain separate from `VlezetDocument` until explicit Apply;
+- deterministic validation is authoritative;
+- existing geometry is never silently replaced;
+- one applied batch is one semantic Undo/Redo operation.
 
-### Known quality limitation
+Real-plan accuracy is improved but still imperfect. That is now a quality backlog, not a blocker for M4.6.
 
-Real-plan testing still shows inaccurate/noisy recognition:
-
-- some walls are misplaced/incomplete;
-- openings can be false/noisy;
-- topology is not reliable enough for automatic reconstruction;
-- cloud model quality varies strongly.
-
-This is now a documented **known bug/quality limitation**, not an endless blocker for the entire roadmap.
-
-Do not weaken validators just to increase candidate count.
-
-### Final merge gate
-
-M4.5 may be merged when safety and lifecycle are proven, even if recognition accuracy remains imperfect.
-
-Required:
-
-1. project startup/reload stable;
-2. recognition failures never corrupt projects;
-3. suggestions remain separate from `VlezetDocument` until explicit apply;
-4. edit/accept/reject works;
-5. apply creates ordinary Vlezet walls/openings;
-6. one Undo removes the full applied batch;
-7. Redo restores it;
-8. valid current-version draft restores after reload;
-9. M0–M4 workflows remain intact;
-10. exact merge head has green strict CI.
-
-### Post-merge recognition-quality backlog
+### Recognition quality backlog
 
 Improve later in this order:
 
 1. representative real-plan fixture corpus;
-2. measurable recognition metrics;
+2. measurable wall/opening/topology metrics;
 3. preprocessing/CV tuning against fixtures;
 4. better line merging/junction reconstruction;
-5. cloud model quality ranking;
+5. cloud model quality/cost ranking;
 6. stronger semantic validation;
 7. only then consider custom ML/advanced recognition.
 
 Any future recognition must still produce editable candidates and pass deterministic apply.
 
-### Completion action
+Canonical acceptance:
 
-```text
-safety/smoke acceptance
-→ Ready for Review
-→ verify exact head + CI
-→ squash merge PR #6
-→ record merge SHA/date
-→ begin M4.6 brainstorming/design
-```
+`docs/milestones/m4-5-mvp-acceptance.md`
 
 ---
 
-## P1 — M4.6 Precision Geometry UX
+## P0 — M4.6 Precision Geometry UX
 
-**Status:** accepted product priority; detailed design not yet approved/implemented.
+**Status:** active development in Draft PR #7 `feat: M4.6 precision geometry UX`.
 
 Canonical feedback:
 
 `docs/product/2026-07-22-geometry-dimensions-ux-feedback.md`
 
-### Why this milestone was inserted before 3D
+Canonical design:
+
+`docs/superpowers/specs/2026-07-22-m4-6-precision-geometry-ux-design.md`
+
+### Why M4.6 precedes 3D
 
 Real user test:
 
@@ -109,18 +84,16 @@ Real user test:
 entered walls: 3550 mm × 3300 mm
 wall thickness: 50 mm
 expected intuitively: ≈ 11.72 m²
-actual displayed area: ≈ 11.38 m²
+old UX could show: ≈ 11.38 m²
 ```
 
-The geometry can be technically consistent because wall length is based around the centreline while room area is derived from inner faces.
+The old geometry could be internally consistent because editable wall length was a centreline length while room area came from inner wall faces.
 
-The product problem is more serious:
+The product problem was more serious:
 
-> a normal user interprets `3550 mm` as the clear internal room size, but the interface does not explain that this is not necessarily what is being edited.
+> a normal user interprets `3550 mm` as the clear internal room size, while the UI did not explain that the edited value was a different geometric concept.
 
-This creates a trust problem: the editor looks simple enough to understand while hiding CAD-like geometric semantics.
-
-3D would make the same ambiguous geometry prettier, not more trustworthy.
+3D would make the same ambiguity prettier, not more trustworthy.
 
 ### M4.6 product goal
 
@@ -129,78 +102,118 @@ Make exact apartment reconstruction understandable for a person who does not kno
 A user should always understand:
 
 - what dimension they are editing;
-- which part of the geometry will move;
+- which geometry remains fixed;
+- which geometry moves;
 - where wall thickness grows;
 - how displayed dimensions relate to room area;
 - how to verify arbitrary distances.
 
-### P0 design topics
+### M4.6 architecture rule
 
-#### M4.6.1 Dimension semantics
-
-Explicitly distinguish:
-
-- internal clear dimension;
-- wall centreline dimension;
-- external-face dimension.
-
-Preferred direction to validate in design:
+Keep one geometry source of truth:
 
 ```text
-Dimension mode
-● Internal clear dimension
-○ Wall centreline
-○ External dimension
+VlezetDocument
+(vertices + wall centrelines + physical thickness)
+        ↓
+deterministic inner faces / rooms / measurements
+        ↓
+explicit semantic edit intents
+        ↓
+updated VlezetDocument
 ```
 
-For normal users, **Internal clear dimension** is the leading default candidate.
+Do **not** persist duplicate `internalLength` / `externalLength` values that can disagree with geometry.
 
-Ambiguous label `Точная длина` should be replaced with explicit semantics.
+### Implemented — M4.6.1 Honest wall-length semantics
 
-#### M4.6.2 Related dimension explanation
+Already implemented in PR #7:
 
-Selected wall/room should explain the relation between:
-
-- clear internal size;
-- centreline size;
-- external size;
-- wall thickness.
-
-The exact formulas must be topology-aware and deterministic.
-
-#### M4.6.3 Length-change anchor
-
-Changing wall length must explicitly define what stays fixed:
+- `Точная длина` replaced by explicit `Длина по оси стены`;
+- helper explanation that centreline length is not automatically clear internal size;
+- length anchor:
 
 ```text
-Fixed anchor
-● Start
-○ Centre
-○ End
+Начало | Центр | Конец
 ```
 
-The chosen anchor should be visible on canvas.
+- `Начало` keeps start fixed;
+- `Конец` keeps end fixed;
+- `Центр` keeps midpoint fixed;
+- legacy behavior remains start-fixed by default;
+- opening offsets compensate when wall start moves, preserving opening world position;
+- invalid resize through opening/junction/host constraints fails atomically;
+- one resize = one semantic Undo/Redo operation.
 
-#### M4.6.4 Thickness alignment
+### Implemented — first M4.6.2 Clear internal room dimensions slice
 
-Changing wall thickness must define direction:
+For simple axis-aligned rectangular rooms:
+
+- clear width/height are derived from the same usable inner polygon as area;
+- room inspector exposes `Чистые внутренние размеры`;
+- editable `Ширина` and `Длина`;
+- horizontal fixed side:
 
 ```text
-Inside | Centre | Outside
+Левая сторона | Центр | Правая сторона
 ```
 
-The editor must visually indicate the side because area changes depend on it.
+- vertical fixed side:
 
-#### M4.6.5 Dimension lines
+```text
+Верхняя сторона | Центр | Нижняя сторона
+```
 
-Add derived plan annotations:
+Regression target:
 
-- selected-wall dimensions;
-- room/internal dimensions where deterministic;
+```text
+centreline:     3650 × 3400 mm
+walls:          100 mm
+clear internal: 3550 × 3300 mm
+area:           11.715 m²
+```
+
+This directly addresses the original user expectation: clear dimensions and displayed area now come from the same inner geometry.
+
+The first edit scope intentionally supports only simple deterministic rectangles. Complex/non-rectangular/T-junction rooms fail closed rather than inventing a width/length.
+
+### Next — M4.6.3 Wall thickness alignment
+
+Changing thickness must explicitly define where the new thickness goes:
+
+```text
+Внутрь | По центру | Наружу
+```
+
+Requirements:
+
+- selected reference face/side remains deterministic;
+- centreline shifts when required;
+- area changes are predictable;
+- UI visually indicates the relevant side;
+- no structural/removability meaning is inferred without authoritative data.
+
+### Next — M4.6.4 Dimension lines
+
+Add derived Canvas annotations:
+
+- selected-wall centreline dimension;
+- deterministic room clear dimensions;
 - show/hide dimensions toggle;
-- annotations are not geometry source-of-truth.
+- annotations are projections only, never geometry authority.
 
-#### M4.6.6 Tape / measurement tool
+Example:
+
+```text
+       ←────── 3550 mm ──────→
+┌────────────────────────────┐
+│                            │
+│          11.72 m²          │ 3300 mm
+│                            │
+└────────────────────────────┘
+```
+
+### Next — M4.6.5 Tape / measurement tool
 
 Two-point measurement should show:
 
@@ -208,24 +221,26 @@ Two-point measurement should show:
 - horizontal delta;
 - vertical delta.
 
-Typical cases:
+Typical uses:
 
 - corner → door;
 - pier width;
-- balcony opening;
+- balcony opening offset;
 - furniture clearance;
 - arbitrary verification.
 
-### High-value follow-up verticals after P0
+Measurement is ephemeral/derived in the first slice.
 
-#### M4.6.x Opening precision
+### High-value follow-ups after P0
+
+#### Opening precision
 
 - door/window width;
 - offset from selected/reference corner;
 - door swing/hinge semantics;
 - optional sill/window height metadata.
 
-#### M4.6.x Target area
+#### Target room area
 
 ```text
 Actual: 11.38 m²
@@ -235,9 +250,9 @@ Difference: -0.32 m²
 
 Potential deterministic suggestion for how a selected dimension must change.
 
-#### M4.6.x Locked constraints
+#### Locked constraints
 
-Potential future constraints:
+Potential later constraints:
 
 - locked dimension;
 - locked target area;
@@ -245,7 +260,7 @@ Potential future constraints:
 
 Do not implement before base dimension semantics are stable.
 
-#### M4.6.x Wall presets/classes
+#### Wall presets/classes
 
 Potential convenience:
 
@@ -255,7 +270,7 @@ Potential convenience:
 
 Never imply removability/structural status without actual data.
 
-### M4.6 non-goals for first slice
+### M4.6 non-goals
 
 - full parametric CAD constraint solver;
 - BIM semantics;
@@ -276,7 +291,7 @@ without external explanation.
 
 ---
 
-## P2 — M5 Spatial 3D
+## P1 — M5 Spatial 3D
 
 **Status:** planned direction; postponed until M4.6 precision semantics are stable.
 
@@ -336,7 +351,7 @@ Never create separate 2D and 3D sources of truth.
 
 ---
 
-## P3 — M6 Intelligent Planning
+## P2 — M6 Intelligent Planning
 
 **Status:** planned direction.
 
@@ -365,13 +380,6 @@ editable alternative
 
 No generated image is an authoritative plan.
 
-### Scope direction
-
-- constraint model;
-- deterministic candidate generation/evaluation;
-- AI-assisted alternatives;
-- compare variants using measurable differences.
-
 ---
 
 ## Later product/infrastructure backlog
@@ -397,4 +405,4 @@ before
 visual impressiveness / feature count
 ```
 
-This is why M4.6 now precedes 3D.
+This is why M4.6 precedes 3D and why recognition quality refinement remains a separate measured backlog rather than blocking the main product path.
