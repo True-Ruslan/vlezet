@@ -1,5 +1,6 @@
 import {
   validateNormalizedPoint,
+  type RecognitionDiagnostic,
   type RecognitionOpeningCandidate,
   type RecognitionRoomLabelCandidate,
   type RecognitionWallCandidate,
@@ -19,6 +20,7 @@ export type RecognitionProviderResult = Readonly<{
   walls: readonly RecognitionWallCandidate[];
   openings: readonly RecognitionOpeningCandidate[];
   roomLabels: readonly RecognitionRoomLabelCandidate[];
+  diagnostics?: readonly RecognitionDiagnostic[];
 }>;
 
 export interface RecognitionProvider {
@@ -99,5 +101,18 @@ export function validateRecognitionProviderResult(value: unknown): RecognitionPr
       origin: "cloud",
     };
   });
-  return { walls, openings, roomLabels };
+  const diagnostics = input.diagnostics === undefined
+    ? undefined
+    : requireArray(input.diagnostics, "Диагностика провайдера").map((entry, index): RecognitionDiagnostic => {
+        const diagnostic = requireRecord(entry, `Диагностика ${index + 1}`);
+        const severity = diagnostic.severity;
+        if (severity !== "info" && severity !== "warning" && severity !== "error") throw new Error(`Диагностика ${index + 1}.severity не поддерживается.`);
+        return {
+          code: requireString(diagnostic.code, `Диагностика ${index + 1}.code`),
+          severity,
+          message: requireString(diagnostic.message, `Диагностика ${index + 1}.message`),
+          candidateId: diagnostic.candidateId === null ? null : requireString(diagnostic.candidateId, `Диагностика ${index + 1}.candidateId`),
+        };
+      });
+  return { walls, openings, roomLabels, ...(diagnostics ? { diagnostics } : {}) };
 }
