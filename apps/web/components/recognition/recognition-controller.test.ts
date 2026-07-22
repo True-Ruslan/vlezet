@@ -43,6 +43,20 @@ describe("recognition controller", () => {
     expect((await repository.getForProject("project"))?.draft.decisions.w1).toBe("accepted");
   });
 
+  it("persists endpoint edits only in the recognition draft", async () => {
+    const repository = new MemoryRecognitionSessionRepository();
+    await repository.put(session());
+    const controller = new RecognitionController({ repository, runLocal: vi.fn(), onState: vi.fn() });
+    await controller.restore("project", { assetId: "asset", referenceRevision: "revision" });
+
+    await controller.editWall("w1", { start: { x: 0.2, y: 0.25 } });
+
+    const persisted = await repository.getForProject("project");
+    expect(persisted?.draft.walls[0]?.start).toEqual({ x: 0.2, y: 0.25 });
+    expect(persisted?.draft.decisions.w1).toBe("edited");
+    expect(controller.state.kind).toBe("review");
+  });
+
   it("restores a matching current-engine session and explicitly marks revision mismatches stale", async () => {
     const repository = new MemoryRecognitionSessionRepository();
     await repository.put(session());
@@ -72,5 +86,20 @@ describe("recognition controller", () => {
     expect(controller.state.kind).toBe("error");
     expect(controller.state.session?.id).toBe("session");
     expect(await repository.getForProject("project")).not.toBeNull();
+  });
+
+  it("preserves the current session when cloud recognition returns an error", async () => {
+    const repository = new MemoryRecognitionSessionRepository();
+    await repository.put(session());
+    const controller = new RecognitionController({ repository, runLocal: vi.fn(), onState: vi.fn() });
+    await controller.restore("project", { assetId: "asset", referenceRevision: "revision" });
+
+    controller.setRunningCloud();
+    expect(controller.state.kind).toBe("running-cloud");
+    await controller.returnToReviewWithError("provider failed");
+
+    expect(controller.state.kind).toBe("error");
+    expect(controller.state.session?.id).toBe("session");
+    expect((await repository.getForProject("project"))?.draft).toEqual(draft());
   });
 });
