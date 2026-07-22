@@ -1,7 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { OpenRouterDirectProvider, listCompatibleOpenRouterModels } from "./openrouter-provider";
 
 const signal = new AbortController().signal;
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  vi.stubGlobal("fetch", originalFetch);
+});
+
+function successfulRecognitionResponse(): Response {
+  return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+    walls: [{ id: "w1", start: { x: 1000, y: 2000 }, end: { x: 9000, y: 2000 }, estimatedThicknessPx: 20, confidence: "high", score: 0.95 }],
+    openings: [], roomLabels: [],
+  }) } }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
 
 describe("OpenRouter direct recognition provider", () => {
   it("uses strict structured output, image input and request-only bearer key", async () => {
@@ -14,16 +26,27 @@ describe("OpenRouter direct recognition provider", () => {
       expect(body.provider.require_parameters).toBe(true);
       expect(body.messages[0].content[0].type).toBe("text");
       expect(body.messages[0].content[1]).toEqual({ type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } });
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-        walls: [{ id: "w1", start: { x: 1000, y: 2000 }, end: { x: 9000, y: 2000 }, estimatedThicknessPx: 20, confidence: "high", score: 0.95 }],
-        openings: [], roomLabels: [],
-      }) } }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      return successfulRecognitionResponse();
     });
 
     const provider = new OpenRouterDirectProvider({ apiKey: "secret-key", modelId: "vision/model", fetcher: fetcher as unknown as typeof fetch });
     const result = await provider.recognize({ imageDataUrl: "data:image/png;base64,AAAA", imageWidthPx: 1000, imageHeightPx: 800, localSummary: null }, signal);
     expect(result.walls[0]?.start).toEqual({ x: 0.1, y: 0.2 });
     expect(fetcher).toHaveBeenCalledWith("https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ method: "POST", signal }));
+  });
+
+  it("preserves the browser receiver when using native global fetch", async () => {
+    const receiverSensitiveFetch = vi.fn(function (this: unknown, _url: string | URL | Request, _init?: RequestInit) {
+      if (this !== globalThis) throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+      return Promise.resolve(successfulRecognitionResponse());
+    });
+    vi.stubGlobal("fetch", receiverSensitiveFetch as unknown as typeof fetch);
+
+    const provider = new OpenRouterDirectProvider({ apiKey: "secret-key", modelId: "vision/model" });
+    const result = await provider.recognize({ imageDataUrl: "data:image/png;base64,AAAA", imageWidthPx: 1000, imageHeightPx: 800, localSummary: null }, signal);
+
+    expect(result.walls).toHaveLength(1);
+    expect(receiverSensitiveFetch).toHaveBeenCalledOnce();
   });
 
   it("filters discovered models to image + structured output capabilities and requests low-cost ordering", async () => {
