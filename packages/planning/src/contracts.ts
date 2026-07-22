@@ -5,6 +5,15 @@ import {
   evaluateObjectFits,
   type DerivedRoom,
 } from "@vlezet/geometry";
+import {
+  MAX_PLANNING_CONSTRAINTS,
+  normalizePlanningConstraints,
+  planningConstraintIdentityKey,
+  type PlanningConstraint,
+} from "./constraints";
+
+export { MAX_PLANNING_CONSTRAINTS } from "./constraints";
+export type { PlanningConstraint } from "./constraints";
 
 export const MAX_SELECTED_PLANNING_OBJECTS = 3;
 export const MAX_PLANNING_EVALUATIONS = 6000;
@@ -13,6 +22,7 @@ export const MAX_DISPLAYED_PLANNING_CANDIDATES = 3;
 export type PlanningRequest = Readonly<{
   roomId: string;
   objectIds: readonly string[];
+  constraints?: readonly PlanningConstraint[];
 }>;
 
 export type PlanningPlacement = Readonly<{
@@ -25,6 +35,7 @@ export type PlanningCandidate = Readonly<{
   id: string;
   roomId: string;
   placements: readonly PlanningPlacement[];
+  constraints?: readonly PlanningConstraint[];
 }>;
 
 export type PlanningErrorCode =
@@ -32,6 +43,7 @@ export type PlanningErrorCode =
   | "room-missing"
   | "room-unsupported"
   | "invalid-object-selection"
+  | "invalid-constraints"
   | "object-missing"
   | "object-outside-target-room"
   | "candidate-invalid";
@@ -49,10 +61,58 @@ export class PlanningError extends Error {
 export type ValidatedPlanningContext = Readonly<{
   room: DerivedRoom;
   selectedObjects: readonly PlacedObject[];
+  constraints: readonly PlanningConstraint[];
 }>;
 
 function invalidSelection(message: string): never {
   throw new PlanningError("invalid-object-selection", message);
+}
+
+function invalidConstraints(message: string): never {
+  throw new PlanningError("invalid-constraints", message);
+}
+
+function validateConstraints(
+  constraints: readonly PlanningConstraint[],
+  selectedObjectIds: ReadonlySet<string>,
+): readonly PlanningConstraint[] {
+  if (constraints.length > MAX_PLANNING_CONSTRAINTS) {
+    invalidConstraints(`At most ${MAX_PLANNING_CONSTRAINTS} planning constraints are supported.`);
+  }
+
+  let normalized: readonly PlanningConstraint[];
+  try {
+    normalized = normalizePlanningConstraints(constraints);
+  } catch (error) {
+    invalidConstraints(error instanceof Error ? error.message : "Invalid planning constraints.");
+  }
+
+  const seen = new Set<string>();
+  const locked = new Set<string>();
+  for (const constraint of normalized) {
+    const identity = planningConstraintIdentityKey(constraint);
+    if (seen.has(identity)) invalidConstraints(`Duplicate or conflicting planning constraint: ${identity}`);
+    seen.add(identity);
+
+    if (constraint.kind === "pair-distance") {
+      const [first, second] = constraint.objectIds;
+      if (first === second) invalidConstraints("Pair-distance constraint requires two distinct objects.");
+      if (!selectedObjectIds.has(first) || !selectedObjectIds.has(second)) {
+        invalidConstraints("Pair-distance constraint references an object outside the planning selection.");
+      }
+      continue;
+    }
+
+    if (!selectedObjectIds.has(constraint.objectId)) {
+      invalidConstraints("Planning constraint references an object outside the planning selection.");
+    }
+    if (constraint.kind === "lock-object") locked.add(constraint.objectId);
+  }
+
+  if (selectedObjectIds.size > 0 && locked.size === selectedObjectIds.size) {
+    invalidConstraints("At least one selected object must remain movable.");
+  }
+  return normalized;
 }
 
 export function validatePlanningRequest(
@@ -69,7 +129,7 @@ export function validatePlanningRequest(
     throw new PlanningError("room-missing", `Planning room does not exist: ${request.roomId}`);
   }
   if (!deriveRectangularRoomDimensions(room)) {
-    throw new PlanningError("room-unsupported", "M6.1 supports deterministic axis-aligned rectangular rooms only.");
+    throw new PlanningError("room-unsupported", "M6 supports deterministic axis-aligned rectangular rooms only.");
   }
 
   if (request.objectIds.length < 1 || request.objectIds.length > MAX_SELECTED_PLANNING_OBJECTS) {
@@ -98,5 +158,6 @@ export function validatePlanningRequest(
     }
   }
 
-  return { room, selectedObjects };
+  const constraints = validateConstraints(request.constraints ?? [], new Set(request.objectIds));
+  return { room, selectedObjects, constraints };
 }
