@@ -7,8 +7,7 @@ import {
 } from "@vlezet/geometry";
 import {
   MAX_PLANNING_CONSTRAINTS,
-  normalizePlanningConstraints,
-  planningConstraintIdentityKey,
+  validatePlanningConstraintSet,
   type PlanningConstraint,
 } from "./constraints";
 
@@ -68,51 +67,18 @@ function invalidSelection(message: string): never {
   throw new PlanningError("invalid-object-selection", message);
 }
 
-function invalidConstraints(message: string): never {
-  throw new PlanningError("invalid-constraints", message);
-}
-
 function validateConstraints(
-  constraints: readonly PlanningConstraint[],
+  constraints: readonly PlanningConstraint[] | undefined,
   selectedObjectIds: ReadonlySet<string>,
 ): readonly PlanningConstraint[] {
-  if (constraints.length > MAX_PLANNING_CONSTRAINTS) {
-    invalidConstraints(`At most ${MAX_PLANNING_CONSTRAINTS} planning constraints are supported.`);
-  }
-
-  let normalized: readonly PlanningConstraint[];
   try {
-    normalized = normalizePlanningConstraints(constraints);
+    return validatePlanningConstraintSet(constraints, selectedObjectIds);
   } catch (error) {
-    invalidConstraints(error instanceof Error ? error.message : "Invalid planning constraints.");
+    throw new PlanningError(
+      "invalid-constraints",
+      error instanceof Error ? error.message : `At most ${MAX_PLANNING_CONSTRAINTS} valid planning constraints are supported.`,
+    );
   }
-
-  const seen = new Set<string>();
-  const locked = new Set<string>();
-  for (const constraint of normalized) {
-    const identity = planningConstraintIdentityKey(constraint);
-    if (seen.has(identity)) invalidConstraints(`Duplicate or conflicting planning constraint: ${identity}`);
-    seen.add(identity);
-
-    if (constraint.kind === "pair-distance") {
-      const [first, second] = constraint.objectIds;
-      if (first === second) invalidConstraints("Pair-distance constraint requires two distinct objects.");
-      if (!selectedObjectIds.has(first) || !selectedObjectIds.has(second)) {
-        invalidConstraints("Pair-distance constraint references an object outside the planning selection.");
-      }
-      continue;
-    }
-
-    if (!selectedObjectIds.has(constraint.objectId)) {
-      invalidConstraints("Planning constraint references an object outside the planning selection.");
-    }
-    if (constraint.kind === "lock-object") locked.add(constraint.objectId);
-  }
-
-  if (selectedObjectIds.size > 0 && locked.size === selectedObjectIds.size) {
-    invalidConstraints("At least one selected object must remain movable.");
-  }
-  return normalized;
 }
 
 export function validatePlanningRequest(
@@ -158,6 +124,6 @@ export function validatePlanningRequest(
     }
   }
 
-  const constraints = validateConstraints(request.constraints ?? [], new Set(request.objectIds));
+  const constraints = validateConstraints(request.constraints, new Set(request.objectIds));
   return { room, selectedObjects, constraints };
 }
