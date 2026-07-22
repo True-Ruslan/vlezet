@@ -70,9 +70,9 @@ describe("planning constraint validation", () => {
     ];
     const normalized = normalizePlanningConstraints(constraints);
     expect(normalized).toEqual([
+      { kind: "prefer-room-boundary", objectId: "sofa", target: "wall" },
       { kind: "lock-object", objectId: "table" },
       { kind: "pair-distance", objectIds: ["sofa", "table"], preference: "near" },
-      { kind: "prefer-room-boundary", objectId: "sofa", target: "wall" },
     ]);
     expect(planningConstraintSetKey(constraints)).toBe(planningConstraintSetKey([...constraints].reverse()));
   });
