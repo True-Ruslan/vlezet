@@ -84,6 +84,15 @@ export function projectDocumentToSpatialScene(document: VlezetDocument): Spatial
   for (const opening of document.openings) {
     try {
       const segment = openingSegment(document, opening);
+      if (
+        !Number.isFinite(opening.offset) ||
+        !Number.isFinite(opening.width) ||
+        opening.offset < 0 ||
+        opening.width <= 0 ||
+        opening.offset + opening.width > segment.wallLength
+      ) {
+        throw new Error(`Opening ${opening.id} does not fit its host wall`);
+      }
       openingMarkers.push({
         id: `opening:${opening.id}`,
         openingId: opening.id,
