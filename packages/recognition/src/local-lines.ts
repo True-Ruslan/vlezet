@@ -1,6 +1,6 @@
 import type { RecognitionConfidence, RecognitionWallCandidate } from "./model";
 
-export const LOCAL_RECOGNITION_ENGINE_VERSION = "1" as const;
+export const LOCAL_RECOGNITION_ENGINE_VERSION = "2" as const;
 
 export type DetectedLineSegment = Readonly<{
   x1: number;
@@ -28,6 +28,40 @@ export const DEFAULT_LOCAL_RECOGNITION_OPTIONS: LocalRecognitionOptions = Object
   collinearMergeGapPx: 32,
   collinearOffsetTolerancePx: 4,
 });
+
+export type AdaptiveLocalRecognitionScaleInput = Readonly<{
+  analysisMillimetersPerPixel: number;
+  widthPx: number;
+  heightPx: number;
+}>;
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+export function createAdaptiveLocalRecognitionOptions(
+  input: AdaptiveLocalRecognitionScaleInput,
+): LocalRecognitionOptions {
+  const millimetersPerPixel = finitePositive(input.analysisMillimetersPerPixel, "Масштаб изображения");
+  const widthPx = finitePositive(input.widthPx, "Ширина изображения");
+  const heightPx = finitePositive(input.heightPx, "Высота изображения");
+  const shortSide = Math.min(widthPx, heightPx);
+  const minimumThickness = clamp(45 / millimetersPerPixel, 3, Math.max(4, shortSide * 0.04));
+  const maximumThickness = Math.max(
+    minimumThickness + 2,
+    clamp(650 / millimetersPerPixel, 80, Math.max(90, shortSide * 0.18)),
+  );
+
+  return {
+    minimumSegmentLengthPx: clamp(160 / millimetersPerPixel, 18, 70),
+    maximumAngleDeltaDeg: 7,
+    minimumWallThicknessPx: minimumThickness,
+    maximumWallThicknessPx: maximumThickness,
+    minimumParallelOverlapRatio: 0.22,
+    collinearMergeGapPx: clamp(300 / millimetersPerPixel, 24, 120),
+    collinearOffsetTolerancePx: clamp(70 / millimetersPerPixel, 4, 18),
+  };
+}
 
 export type BuildWallCandidatesInput = Readonly<{
   widthPx: number;
