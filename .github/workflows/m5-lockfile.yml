@@ -4,12 +4,9 @@ on:
   push:
     branches:
       - feat/m5-spatial-3d
-  pull_request:
-    branches:
-      - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   lockfile:
@@ -17,6 +14,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: feat/m5-spatial-3d
       - uses: pnpm/action-setup@v4
         with:
           version: 11.15.1
@@ -26,10 +25,14 @@ jobs:
           node-version: 22.16.0
       - name: Generate lockfile
         run: pnpm install --lockfile-only --no-frozen-lockfile
-      - name: Upload lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: m5-pnpm-lock
-          path: pnpm-lock.yaml
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit lockfile when changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          if git diff --cached --quiet; then
+            echo "Lockfile already current"
+            exit 0
+          fi
+          git commit -m "build: refresh pnpm lockfile for M5"
+          git push origin HEAD:feat/m5-spatial-3d
