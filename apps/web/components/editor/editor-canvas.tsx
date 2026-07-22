@@ -49,6 +49,7 @@ import { DimensionOverlay } from "./dimension-overlay";
 import { getFurniturePreset } from "./furniture-presets";
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
+import { TapeMeasurementTool } from "./tape-measurement-tool";
 import { editorStore, type TopologySnapTarget } from "./use-editor-store";
 
 const MIN_SCALE = 0.01;
@@ -508,6 +509,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
               fitStatus={fitEvaluation.byObjectId.get(PLACEMENT_PREVIEW_ID)?.status ?? "blocked"}
             />
           ) : null}
+          <TapeMeasurementTool width={size.width} height={size.height} viewport={viewport} gridStep={gridStep} />
         </Layer>
         <Layer listening={false}>
           <DimensionOverlay annotations={canvasDimensionAnnotations} viewport={viewport} />
