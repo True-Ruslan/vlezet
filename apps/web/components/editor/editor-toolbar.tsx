@@ -87,7 +87,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== "m" || event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target) || editingDisabled) return;
       event.preventDefault();
-      activateMeasurement();
+      editorStore.getState().setTool("select");
+      measurementToolStore.getState().setActive(true);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -113,9 +114,9 @@ export function EditorToolbar(props: EditorToolbarProps) {
         <button disabled={editingDisabled || !props.hasReferencePlan} className={props.recognitionPanelOpen ? "tool-button recognition-tool is-active" : "tool-button recognition-tool"} type="button" onClick={props.onToggleRecognitionPanel} aria-pressed={props.recognitionPanelOpen} title="Локально распознать стены и проверить план с AI">Распознать <span aria-hidden="true">✦</span></button>
       </div>
 
-      <div className="view-mode-switch" aria-label="Режим представления">
-        <button type="button" className={viewMode === "2d" ? "is-active" : ""} aria-pressed={viewMode === "2d"} onClick={() => chooseViewMode("2d")}>2D</button>
-        <button type="button" className={viewMode === "3d" ? "is-active" : ""} aria-pressed={viewMode === "3d"} onClick={() => chooseViewMode("3d")}>3D</button>
+      <div className="tool-group" aria-label="Режим представления">
+        <button type="button" className={viewMode === "2d" ? "tool-button is-active" : "tool-button"} aria-pressed={viewMode === "2d"} onClick={() => chooseViewMode("2d")}>2D</button>
+        <button type="button" className={viewMode === "3d" ? "tool-button is-active" : "tool-button"} aria-pressed={viewMode === "3d"} onClick={() => chooseViewMode("3d")}>3D</button>
       </div>
 
       <div className="toolbar-spacer" />
