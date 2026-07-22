@@ -52,6 +52,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { downloadBlob, downloadText } from "./download";
 import { renderPlanPngBlob } from "./plan-png";
 import { ProjectDashboard } from "./project-dashboard";
+import { finishProjectStartup } from "./project-startup";
 
 type AppMode = "loading" | "dashboard" | "editor" | "recovery";
 
@@ -160,10 +161,6 @@ export function ProjectApp() {
     setTracingMode(false);
     loadEditorDocument(project.document);
     await loadReferenceAsset(project, repository);
-    await ensureRecognitionController().restore(project.id, project.referencePlan ? {
-      assetId: project.referencePlan.assetId,
-      referenceRevision: project.referencePlan.referenceRevision,
-    } : null);
     setSelectedRecognitionCandidateId(null);
 
     const coordinator = new AutosaveCoordinator<VlezetProjectRecord>({
@@ -179,9 +176,25 @@ export function ProjectApp() {
       const current = activeProjectRef.current;
       if (current) queueProject(replaceProjectDocument(current, state.history.document, new Date().toISOString()));
     });
-    await repository.setLastProjectId(project.id);
-    setError(null);
-    setMode("editor");
+    await finishProjectStartup({
+      persistLastProject: () => repository.setLastProjectId(project.id),
+      showEditor: () => {
+        setError(null);
+        setMode("editor");
+      },
+      restoreRecognition: () => ensureRecognitionController().restore(project.id, project.referencePlan ? {
+        assetId: project.referencePlan.assetId,
+        referenceRevision: project.referencePlan.referenceRevision,
+      } : null),
+      onRecognitionError: (cause) => {
+        console.error(cause);
+        setRecognitionState({
+          kind: "error",
+          session: null,
+          message: "Не удалось восстановить черновик распознавания. Редактор продолжает работать.",
+        });
+      },
+    });
   }, [ensureRecognitionController, loadReferenceAsset, queueProject, stopSession]);
 
   useEffect(() => {
