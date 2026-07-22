@@ -4,6 +4,10 @@ import { RecognitionController } from "./recognition-controller";
 
 const NOW = "2026-07-22T00:00:00.000Z";
 
+function fakeImageData(width = 1, height = 1): ImageData {
+  return { width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: "srgb" } as ImageData;
+}
+
 function draft(): RecognitionDraft {
   return {
     id: "draft", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion: "1",
@@ -27,7 +31,7 @@ describe("recognition controller", () => {
       runLocal: async (_input, options) => { options.onProgress?.({ phase: "walls", progress: 0.7 }); return draft(); },
       onState: (state) => states.push(state.kind),
     });
-    await controller.startLocal({ imageData: new ImageData(1, 1), projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", now: NOW });
+    await controller.startLocal({ imageData: fakeImageData(), projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", now: NOW });
     expect(states).toContain("running-local");
     expect(controller.state.kind).toBe("review");
     await controller.updateDecision("w1", "accepted");
@@ -49,7 +53,7 @@ describe("recognition controller", () => {
     await repository.put(session());
     const controller = new RecognitionController({ repository, runLocal: async () => { throw new Error("cv failed"); }, onState: vi.fn() });
     await controller.restore("project", { assetId: "asset", referenceRevision: "revision" });
-    await controller.startLocal({ imageData: new ImageData(1, 1), projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", now: NOW });
+    await controller.startLocal({ imageData: fakeImageData(), projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", now: NOW });
     expect(controller.state.kind).toBe("error");
     expect(controller.state.session?.id).toBe("session");
     expect(await repository.getForProject("project")).not.toBeNull();
