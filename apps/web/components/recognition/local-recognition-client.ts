@@ -1,4 +1,5 @@
 import { validateRecognitionDraft, type RecognitionDraft } from "@vlezet/recognition";
+import { recognitionError, recognitionInfo } from "./recognition-debug";
 import type {
   LocalRecognitionInput,
   LocalRecognitionProgress,
@@ -59,6 +60,16 @@ export function runLocalRecognition(
   if (options.signal?.aborted) return Promise.reject(new DOMException("Распознавание отменено.", "AbortError"));
   const worker = (options.workerFactory ?? defaultWorkerFactory)();
   const requestId = crypto.randomUUID();
+  const materialized = materializeInput(input);
+  const startedAt = performance.now();
+
+  recognitionInfo("local.start", {
+    analysisWidthPx: materialized.imageData.width,
+    analysisHeightPx: materialized.imageData.height,
+    sourceWidthPx: materialized.sourceWidthPx,
+    sourceHeightPx: materialized.sourceHeightPx,
+    millimetersPerPixel: materialized.sourceMillimetersPerPixel,
+  });
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -72,32 +83,48 @@ export function runLocalRecognition(
       cleanup();
       callback();
     };
-    const abort = () => finish(() => reject(new DOMException("Распознавание отменено.", "AbortError")));
+    const abort = () => {
+      recognitionInfo("local.abort", { durationMs: Math.round(performance.now() - startedAt) });
+      finish(() => reject(new DOMException("Распознавание отменено.", "AbortError")));
+    };
 
     worker.onmessage = (event) => {
       const message = event.data;
       if (message.requestId !== requestId) return;
       if (message.type === "progress") {
+        recognitionInfo("local.progress", { phase: message.progress.phase, progress: Math.round(message.progress.progress * 100) });
         options.onProgress?.(message.progress);
         return;
       }
       if (message.type === "error") {
-        finish(() => reject(new LocalRecognitionError(message.message)));
+        const error = new LocalRecognitionError(message.message);
+        recognitionError("local.error", error, { durationMs: Math.round(performance.now() - startedAt) });
+        finish(() => reject(error));
         return;
       }
       try {
         const draft = validateRecognitionDraft(message.draft);
+        recognitionInfo("local.complete", {
+          walls: draft.walls.length,
+          openings: draft.openings.length,
+          diagnostics: draft.diagnostics.length,
+          durationMs: Math.round(performance.now() - startedAt),
+        });
         finish(() => resolve(draft));
       } catch (cause) {
-        finish(() => reject(new LocalRecognitionError("Локальный движок вернул некорректный черновик.", { cause })));
+        const error = new LocalRecognitionError("Локальный движок вернул некорректный черновик.", { cause });
+        recognitionError("local.invalid-result", error, { durationMs: Math.round(performance.now() - startedAt) });
+        finish(() => reject(error));
       }
     };
     worker.onerror = (event) => {
-      finish(() => reject(new LocalRecognitionError(event.message || undefined)));
+      const error = new LocalRecognitionError(event.message || undefined);
+      recognitionError("local.worker-error", error, { durationMs: Math.round(performance.now() - startedAt) });
+      finish(() => reject(error));
     };
     options.signal?.addEventListener("abort", abort, { once: true });
 
-    const request: RecognitionWorkerRequest = { type: "recognize", requestId, input: materializeInput(input) };
+    const request: RecognitionWorkerRequest = { type: "recognize", requestId, input: materialized };
     worker.postMessage(request);
   });
 }
