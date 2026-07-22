@@ -59,14 +59,28 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
     }
 
     post({ type: "progress", requestId, progress: { phase: "walls", progress: 0.72 } });
-    const walls = buildWallCandidates({ widthPx: input.imageData.width, heightPx: input.imageData.height, segments });
+    const analysisWalls = buildWallCandidates({ widthPx: input.imageData.width, heightPx: input.imageData.height, segments });
     post({ type: "progress", requestId, progress: { phase: "openings", progress: 0.9 } });
-    const openings = buildOpeningHypotheses({
+    const analysisOpenings = buildOpeningHypotheses({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
-      wallCandidates: walls,
+      wallCandidates: analysisWalls,
       segments,
     });
+
+    const sourcePixelScale = (
+      input.sourceWidthPx / input.imageData.width +
+      input.sourceHeightPx / input.imageData.height
+    ) / 2;
+    const walls = analysisWalls.map((wall) => ({
+      ...wall,
+      estimatedThicknessPx: wall.estimatedThicknessPx == null ? null : wall.estimatedThicknessPx * sourcePixelScale,
+    }));
+    const openings = analysisOpenings.map((opening) => ({
+      ...opening,
+      widthPx: opening.widthPx == null ? null : opening.widthPx * sourcePixelScale,
+    }));
+
     const decisions = Object.fromEntries([...walls, ...openings].map((candidate) => [candidate.id, "pending" as const]));
     const draft: RecognitionDraft = {
       id: crypto.randomUUID(),
