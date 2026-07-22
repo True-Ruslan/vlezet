@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -15,17 +15,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Apply guarded M4.5 project lifecycle integration
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          node .github/scripts/m45-project-recognition.mjs
-          git add apps/web/components/projects/project-app.tsx
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "feat: connect recognition to project lifecycle"
-          git push
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
