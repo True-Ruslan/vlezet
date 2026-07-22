@@ -14,12 +14,15 @@ import {
   duplicatePlacedObject,
   executeCommand,
   redo as redoHistory,
+  setRectangularRoomClearDimension,
   setRoomName,
   setTopologicalWallLength,
   setWallThickness,
   undo as undoHistory,
   updateOpening,
   updatePlacedObject,
+  type ClearRoomDimensionAnchor,
+  type ClearRoomDimensionAxis,
   type HistoryState,
   type OpeningPatch,
   type PlacedObjectPatch,
@@ -77,6 +80,7 @@ export type EditorStoreState = {
   setSelectedWallLength: (lengthMm: number, anchor?: WallLengthAnchor) => void;
   setSelectedWallThickness: (thicknessMm: number) => void;
   setSelectedRoomName: (name: string) => void;
+  setSelectedRoomClearDimension: (axis: ClearRoomDimensionAxis, lengthMm: number, anchor?: ClearRoomDimensionAnchor) => void;
   addOpeningAt: (wallId: string, pointerOffset: number) => void;
   updateSelectedOpening: (patch: OpeningPatch) => void;
   deleteSelectedOpening: () => void;
@@ -287,6 +291,13 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       const before = history.document;
       const after = setRoomName(before, selectedRoomId, name, idFactory("room-annotation"));
       set({ history: executeCommand(history, { type: "document/replace", label: "room-annotation/set-name", before, after }) });
+    },
+    setSelectedRoomClearDimension: (axis, lengthMm, anchor = "min") => {
+      const { history, selectedRoomId } = get();
+      if (!selectedRoomId) return;
+      const before = history.document;
+      const after = setRectangularRoomClearDimension(before, selectedRoomId, axis, lengthMm, anchor);
+      set({ history: executeCommand(history, { type: "document/replace", label: "room/set-clear-dimension", before, after }) });
     },
     addOpeningAt: (wallId, pointerOffset) => {
       const { history, tool } = get();
