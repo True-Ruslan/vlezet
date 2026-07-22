@@ -1,4 +1,11 @@
-import { validateRecognitionProviderResult, type RecognitionProviderResult } from "@vlezet/recognition";
+import {
+  validateRecognitionProviderResult,
+  type RecognitionDiagnostic,
+  type RecognitionOpeningCandidate,
+  type RecognitionProviderResult,
+  type RecognitionRoomLabelCandidate,
+  type RecognitionWallCandidate,
+} from "@vlezet/recognition";
 
 const pointSchema = {
   type: "object",
@@ -85,20 +92,71 @@ function normalizePoint(value: unknown): { x: number; y: number } {
   return { x: input.x / 10000, y: input.y / 10000 };
 }
 
+function rawCandidateId(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const id = (value as Record<string, unknown>).id;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function invalidDiagnostic(kind: "wall" | "opening" | "room-label", entry: unknown, error: unknown): RecognitionDiagnostic {
+  const labels = { wall: "стену", opening: "проём", "room-label": "подпись комнаты" } as const;
+  const reason = error instanceof Error ? error.message : "Некорректные данные.";
+  return {
+    code: `cloud-invalid-${kind}`,
+    severity: "warning",
+    message: `AI вернул некорректную ${labels[kind]}; элемент отброшен. ${reason}`,
+    candidateId: rawCandidateId(entry),
+  };
+}
+
 export function normalizeOpenRouterRecognitionPayload(value: unknown): RecognitionProviderResult {
   const input = record(value, "Ответ AI");
-  return validateRecognitionProviderResult({
-    walls: array(input.walls, "Стены AI").map((entry) => {
+  const diagnostics: RecognitionDiagnostic[] = [];
+  const walls: RecognitionWallCandidate[] = [];
+  const openings: RecognitionOpeningCandidate[] = [];
+  const roomLabels: RecognitionRoomLabelCandidate[] = [];
+
+  for (const entry of array(input.walls, "Стены AI")) {
+    try {
       const wall = record(entry, "Стена AI");
-      return { ...wall, start: normalizePoint(wall.start), end: normalizePoint(wall.end) };
-    }),
-    openings: array(input.openings, "Проёмы AI").map((entry) => {
+      const parsed = validateRecognitionProviderResult({
+        walls: [{ ...wall, start: normalizePoint(wall.start), end: normalizePoint(wall.end) }],
+        openings: [],
+        roomLabels: [],
+      });
+      if (parsed.walls[0]) walls.push(parsed.walls[0]);
+    } catch (error) {
+      diagnostics.push(invalidDiagnostic("wall", entry, error));
+    }
+  }
+
+  for (const entry of array(input.openings, "Проёмы AI")) {
+    try {
       const opening = record(entry, "Проём AI");
-      return { ...opening, center: normalizePoint(opening.center) };
-    }),
-    roomLabels: array(input.roomLabels, "Названия комнат AI").map((entry) => {
+      const parsed = validateRecognitionProviderResult({
+        walls: [],
+        openings: [{ ...opening, center: normalizePoint(opening.center) }],
+        roomLabels: [],
+      });
+      if (parsed.openings[0]) openings.push(parsed.openings[0]);
+    } catch (error) {
+      diagnostics.push(invalidDiagnostic("opening", entry, error));
+    }
+  }
+
+  for (const entry of array(input.roomLabels, "Названия комнат AI")) {
+    try {
       const label = record(entry, "Название комнаты AI");
-      return { ...label, anchor: normalizePoint(label.anchor) };
-    }),
-  });
+      const parsed = validateRecognitionProviderResult({
+        walls: [],
+        openings: [],
+        roomLabels: [{ ...label, anchor: normalizePoint(label.anchor) }],
+      });
+      if (parsed.roomLabels[0]) roomLabels.push(parsed.roomLabels[0]);
+    } catch (error) {
+      diagnostics.push(invalidDiagnostic("room-label", entry, error));
+    }
+  }
+
+  return { walls, openings, roomLabels, diagnostics };
 }
