@@ -2,15 +2,13 @@ name: M6 Patch Helper
 
 on:
   push:
-    paths:
-      - .m6-apply-patch
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.ref_name == 'feat/m6-1-deterministic-layout-alternatives'
+    if: github.ref_name == 'feat/m6-1-deterministic-layout-alternatives' && github.event.head_commit.message != 'feat: apply M6.1 integration patch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -21,6 +19,7 @@ jobs:
       - name: Apply feature patch
         shell: bash
         run: |
+          test -f .m6-apply-patch
           git apply --check .m6-apply-patch
           git apply .m6-apply-patch
           rm .m6-apply-patch
