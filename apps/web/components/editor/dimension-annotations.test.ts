@@ -32,7 +32,7 @@ describe("canvas dimension annotations", () => {
     expect(annotations).toHaveLength(2);
     expect(annotations.map((item) => item.valueMm)).toEqual([3550, 3300]);
     expect(annotations.map((item) => item.kind)).toEqual(["clear-room", "clear-room"]);
-    expect(formatRoomCanvasLabel(room())).toBe("Комната 3\n11.71 м²\n3550 × 3300 мм внутри");
+    expect(formatRoomCanvasLabel(room())).toBe("Комната 3\n11.72 м²\n3550 × 3300 мм внутри");
     expect(formatDimensionValue(annotations[0]!)).toBe("3550 мм внутри");
     expect(formatDimensionValue(annotations[1]!)).toBe("3300 мм внутри");
   });
