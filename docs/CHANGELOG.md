@@ -4,44 +4,50 @@
 
 This is not only a package-release changelog. It also records milestone decisions, product feedback and RC failures that changed architecture or roadmap.
 
-## 2026-07-22 — M4.6 Precision Geometry UX reaches implementation RC in PR #7
+## 2026-07-22 — M4.6 Precision Geometry UX accepted and merged
 
-### Why M4.6 became the immediate priority
+PR #7 squash merge:
 
-A real ordinary-user test exposed a fundamental geometry-trust problem.
+```text
+a718bf605d8b3bde8dc87953c340b7b0e9565fdb
+```
 
-The user entered wall lengths such as:
+### Why M4.6 became P0
+
+A real ordinary-user test exposed a geometry-trust problem.
+
+The user entered wall lengths:
 
 ```text
 3550 × 3300 mm
 ```
 
-and naturally expected these to describe the **clear room dimensions**, therefore expecting approximately:
+and naturally expected clear room dimensions and therefore:
 
 ```text
 3.55 × 3.30 = 11.715 m² → 11.72 m²
 ```
 
-The existing editor actually treated the values as **wall centreline lengths**, while room area was derived from **inner wall faces**. With wall thickness, the usable room became smaller.
+The editor historically interpreted those values as **wall centreline lengths**, while useful room area was correctly derived from **inner wall faces**. With wall thickness, the room therefore became smaller than the user's mental model.
 
-The old math could be internally consistent, but the product mental model was not.
+The math was internally consistent; the UX semantics were not.
 
-Accepted conclusion:
+Accepted product rule:
 
-> Vlezet must remain simpler than CAD, but simplicity must not hide geometry semantics.
+> Vlezet must remain simpler than CAD, but simplicity must never hide geometry semantics.
 
-Roadmap changed to:
+Roadmap changed from immediate 3D work to:
 
 ```text
-M4.5 Assisted Recognition — MVP
+M4.5 Assisted Recognition
 → M4.6 Precision Geometry UX
 → M5 Spatial 3D
 → M6 Intelligent Planning
 ```
 
-### Architecture decision
+### Architecture preserved
 
-`VlezetDocument` remains the only geometry source of truth:
+`VlezetDocument` remains the only persistent geometry source of truth:
 
 ```text
 vertices + wall centrelines + physical thickness
@@ -50,15 +56,15 @@ vertices + wall centrelines + physical thickness
 → updated VlezetDocument
 ```
 
-No duplicate persistent `internalLength` / `externalLength` fields were introduced.
+No duplicate persistent `internalLength` / `externalLength` values were introduced.
 
 ### M4.6.1 — Honest wall-length semantics
 
 Implemented:
 
 - ambiguous `Точная длина` replaced by explicit `Длина по оси стены`;
-- inspector explicitly explains that centreline length is not automatically clear room size;
-- wall-length anchor:
+- wall inspector explains that centreline length is not automatically clear room size;
+- resize anchor:
 
 ```text
 Начало | Центр | Конец
@@ -66,7 +72,7 @@ Implemented:
 
 - legacy start-fixed behavior remains default;
 - centre/end anchoring moves endpoints deterministically;
-- opening offsets compensate when the wall start moves so opening world position is preserved;
+- opening offsets compensate when wall start moves so opening world position is preserved;
 - invalid resize through openings/junction/host-wall constraints fails atomically;
 - one wall resize remains one semantic Undo/Redo operation.
 
@@ -79,7 +85,7 @@ Implemented:
 - clear width/height derived from the same usable inner polygon as room area;
 - room inspector `Чистые внутренние размеры`;
 - editable `Ширина` and `Длина`;
-- fixed-side anchors:
+- anchors:
 
 ```text
 width:  Левая сторона | Центр | Правая сторона
@@ -94,49 +100,36 @@ length: Верхняя сторона | Центр | Нижняя сторона
 Regression contract:
 
 ```text
-centreline rectangle: 3650 × 3400 mm
-wall thickness:        100 mm
-clear internal:        3550 × 3300 mm
-area:                  11.715 m²
-UI:                    11.72 m²
+clear internal: 3550 × 3300 mm
+area:           11.715 m²
+UI:             11.72 m²
 ```
 
-A separate trust bug was found while implementing this: binary floating-point `toFixed(2)` could display `11.715` as `11.71`. Area display is now rounded deterministically from canonical square millimetres.
+A separate trust bug was found during implementation: binary floating-point `toFixed(2)` could display `11.715` as `11.71`. Area display now rounds deterministically from canonical square millimetres.
 
-### M4.6.4 — Dimension discoverability was pulled forward by user feedback
+### M4.6.4 — Dimension discoverability pulled forward
 
-The real screenshot showed that implementing clear dimensions only in the inspector was insufficient: a user could still draw `3550 × 3300` as wall lengths and see a smaller area without immediately understanding why.
+Real browser feedback showed that clear dimensions only in the inspector were not enough. A user could still enter centreline wall values and see a smaller area without understanding why.
 
-Therefore dimension visibility was moved ahead of the originally planned order.
+Therefore dimension visibility was promoted ahead of the original sequence.
 
 Implemented:
 
-- room canvas labels show, for deterministic rectangles:
+- rectangular room canvas label shows:
   - room name;
   - correctly rounded usable area;
   - `Ш × Д мм внутри`;
-- selected rectangular room shows two dimension lines measured between inner wall faces;
-- selected wall shows a visually distinct technical dimension `... мм по оси`;
-- dimension-line offset stays visually stable in screen pixels while zoom changes;
-- annotations are derived every render/state update;
+- selected rectangular room shows clear dimension lines between inner wall faces;
+- selected wall shows a visually distinct technical `... мм по оси` dimension;
+- dimension-line offset remains stable in screen pixels across zoom;
+- annotations are derived projections only;
 - no dimension annotation becomes geometry authority;
 - no extra physical Konva Layer was added;
-- toolbar `Размеры` toggle shows/hides dimension lines; default is visible.
-
-Resulting user mental model:
-
-```text
-entered as wall centrelines: 3550 × 3300
-canvas immediately shows actual clear room size + area
-→ select room
-→ enter desired clear 3550 × 3300
-→ Vlezet updates canonical geometry
-→ displayed usable area ≈ 11.72 m²
-```
+- toolbar `Размеры` toggles dimension-line visibility; default is visible.
 
 ### M4.6.3 — Wall thickness alignment
 
-Implemented after the dimension meaning became visible.
+Implemented after dimension meaning became visible.
 
 Core alignment contract:
 
@@ -146,19 +139,19 @@ center | left-face | right-face
 
 A face-fixed thickness edit shifts the centreline by half of the thickness delta so the selected physical face remains fixed.
 
-For a wall with exactly one unambiguous adjacent room, the UI exposes user-oriented intent:
+For a wall with exactly one unambiguous adjacent room, UI intent is:
 
 ```text
 Внутрь помещения | По центру | Наружу
 ```
 
-For a wall with no single unambiguous room side, such as a partition between two rooms:
+For a wall with no single unambiguous room side, such as a partition:
 
 ```text
 Левая грань | По центру | Правая грань
 ```
 
-Implemented safety behavior:
+Safety behavior:
 
 - compatible orthogonal/shared topology moves atomically;
 - T-junction vertices remain coherent where supported;
@@ -172,6 +165,7 @@ Implemented safety behavior:
 Implemented first ephemeral slice:
 
 - toolbar `Измерить`;
+- keyboard shortcut `M`;
 - first click sets start;
 - pointer movement previews snapped endpoint;
 - second click commits measurement;
@@ -182,12 +176,12 @@ Implemented first ephemeral slice:
   - horizontal `ΔX`;
   - vertical `ΔY`;
 - Escape clears current measurement;
-- switching to another editor tool/furniture placement deactivates and clears it;
-- middle-button panning remains available;
+- switching to another tool/furniture placement deactivates and clears it;
+- middle-button and `Space + drag` panning remain available even after the first measurement point;
 - measurement never enters `VlezetDocument`, autosave, backup or semantic history;
 - no extra physical Konva Layer was added.
 
-Typical supported uses:
+Typical uses:
 
 - corner → door;
 - pier width;
@@ -195,18 +189,30 @@ Typical supported uses:
 - furniture clearance;
 - arbitrary verification.
 
-### M4.6 automated verification
+### M4.6 verification
 
-Last code-bearing head before canonical documentation synchronization:
+Code-bearing head:
 
 ```text
-fcb4e1b306cd59244ababe73da40a664de3361b3
+ead57ae6081e00a6d589633d18d246e92df327de
 ```
 
-Strict GitHub Actions run:
+Strict GitHub Actions:
 
 ```text
-29921081469 — PASS
+29922108775 — PASS
+```
+
+Final PR head including canonical docs:
+
+```text
+6dd0d63673d602697a3b17e821be40fc0a9c683d
+```
+
+Strict GitHub Actions:
+
+```text
+29922436070 — PASS
 ```
 
 Passed:
@@ -217,16 +223,41 @@ Passed:
 - ESLint;
 - production Next build.
 
-M4.6 remains Draft until browser/manual visual acceptance on a real apartment workflow. CI is not browser acceptance.
+### Manual browser acceptance
 
-### Known M4.6 conservative boundaries
+**PASS — 2026-07-22.**
 
-- clear width/height editing is intentionally limited to deterministic simple axis-aligned rectangles;
-- complex room dimensions are not guessed;
-- face-fixed thickness edits reject incompatible geometry rather than skewing topology;
-- permanent associative CAD dimension objects are not introduced;
-- full parametric constraints/target-area solver are deferred;
-- advanced opening offsets from arbitrary reference corners are a follow-up.
+Real browser screenshots confirmed:
+
+```text
+Чистые внутренние размеры:
+3550 × 3300 мм
+
+Полезная площадь:
+11.72 м²
+```
+
+Also visually confirmed:
+
+- inner-face dimension lines;
+- clear-size inspector values;
+- dimension labels;
+- tape measurement overlay with diagonal/direct distance and axis deltas;
+- behavior matched the announced M4.6 contract.
+
+The user explicitly confirmed that everything works as declared.
+
+### Final decision
+
+PR #7 was moved from Draft to Ready after manual acceptance and then squash-merged to `main`.
+
+Next milestone:
+
+```text
+M5 Spatial 3D — fresh design/brainstorming first
+```
+
+M5 must remain a projection of the same trusted `VlezetDocument`, never a second geometry source.
 
 ---
 
