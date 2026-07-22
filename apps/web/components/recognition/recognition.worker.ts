@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import cvModule from "@techstark/opencv-js";
 import {
   buildOpeningHypotheses,
   buildWallCandidates,
@@ -8,6 +9,7 @@ import {
 } from "@vlezet/recognition";
 import type { DetectedLineSegment, RecognitionDraft } from "@vlezet/recognition";
 import type { RecognitionWorkerMessage, RecognitionWorkerRequest } from "./local-recognition-types";
+import { resolveOpenCvModule } from "./opencv-loader";
 
 const context: DedicatedWorkerGlobalScope = self as DedicatedWorkerGlobalScope;
 
@@ -15,20 +17,10 @@ function post(message: RecognitionWorkerMessage): void {
   context.postMessage(message);
 }
 
-async function loadOpenCv() {
-  const imported = await import("@techstark/opencv-js");
-  const cvModule = await imported.default;
-  if (cvModule.Mat) return cvModule;
-  await new Promise<void>((resolve) => {
-    cvModule.onRuntimeInitialized = () => resolve();
-  });
-  return cvModule;
-}
-
 async function recognize(request: RecognitionWorkerRequest): Promise<RecognitionDraft> {
   const { input, requestId } = request;
   post({ type: "progress", requestId, progress: { phase: "prepare", progress: 0.05 } });
-  const cv = await loadOpenCv();
+  const { cv } = await resolveOpenCvModule(cvModule);
   let source: InstanceType<typeof cv.Mat> | null = null;
   let gray: InstanceType<typeof cv.Mat> | null = null;
   let blurred: InstanceType<typeof cv.Mat> | null = null;
