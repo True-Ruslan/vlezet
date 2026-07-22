@@ -3,7 +3,8 @@
 import type { SaveStatus } from "@vlezet/projects";
 import { useState } from "react";
 import { useStore } from "zustand";
-import { editorStore } from "./use-editor-store";
+import { measurementToolStore } from "./measurement-tool-store";
+import { editorStore, type EditorTool } from "./use-editor-store";
 
 export type EditorToolbarProps = Readonly<{
   projectName: string;
@@ -43,6 +44,7 @@ function SaveIndicator({ status, onRetry }: Readonly<{ status: SaveStatus; onRet
 
 export function EditorToolbar(props: EditorToolbarProps) {
   const tool = useStore(editorStore, (state) => state.tool);
+  const measurementActive = useStore(measurementToolStore, (state) => state.active);
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
   const canUndo = useStore(editorStore, (state) => state.history.past.length > 0);
@@ -50,6 +52,15 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const wallCount = useStore(editorStore, (state) => state.history.document.walls.length);
   const openingCount = useStore(editorStore, (state) => state.history.document.openings.length);
   const objectCount = useStore(editorStore, (state) => state.history.document.placedObjects.length);
+
+  const chooseTool = (next: EditorTool) => {
+    measurementToolStore.getState().setActive(false);
+    editorStore.getState().setTool(next);
+  };
+  const activateMeasurement = () => {
+    editorStore.getState().setTool("select");
+    measurementToolStore.getState().setActive(true);
+  };
 
   return (
     <header className="editor-toolbar">
@@ -60,11 +71,12 @@ export function EditorToolbar(props: EditorToolbarProps) {
       </div>
 
       <div className="tool-group" aria-label="Инструменты редактора">
-        <button className={tool === "select" && !placementPresetId ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("select")} title="Выбор (V)">Выбор <kbd>V</kbd></button>
-        <button className={tool === "wall" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("wall")} title="Стена (W)">Стена <kbd>W</kbd></button>
-        <button className={tool === "door" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("door")} title="Дверь (D)">Дверь <kbd>D</kbd></button>
-        <button className={tool === "window" ? "tool-button is-active" : "tool-button"} type="button" onClick={() => editorStore.getState().setTool("window")} title="Окно (O)">Окно <kbd>O</kbd></button>
-        <button className={props.furnitureCatalogOpen || placementPresetId ? "tool-button furniture-tool is-active" : "tool-button furniture-tool"} type="button" onClick={props.onToggleFurnitureCatalog} title="Показать или скрыть мебель и технику (F)" aria-pressed={props.furnitureCatalogOpen}>Мебель <kbd>F</kbd></button>
+        <button className={tool === "select" && !placementPresetId && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("select")} title="Выбор (V)">Выбор <kbd>V</kbd></button>
+        <button className={tool === "wall" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("wall")} title="Стена (W)">Стена <kbd>W</kbd></button>
+        <button className={tool === "door" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("door")} title="Дверь (D)">Дверь <kbd>D</kbd></button>
+        <button className={tool === "window" && !measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={() => chooseTool("window")} title="Окно (O)">Окно <kbd>O</kbd></button>
+        <button className={measurementActive ? "tool-button is-active" : "tool-button"} type="button" onClick={activateMeasurement} aria-pressed={measurementActive} title="Измерить произвольное расстояние между двумя точками">Измерить</button>
+        <button className={props.furnitureCatalogOpen || placementPresetId ? "tool-button furniture-tool is-active" : "tool-button furniture-tool"} type="button" onClick={() => { measurementToolStore.getState().setActive(false); props.onToggleFurnitureCatalog(); }} title="Показать или скрыть мебель и технику (F)" aria-pressed={props.furnitureCatalogOpen}>Мебель <kbd>F</kbd></button>
         <button className={props.referencePanelOpen ? "tool-button reference-tool is-active" : "tool-button reference-tool"} type="button" onClick={props.onToggleReferencePanel} aria-pressed={props.referencePanelOpen} title="Загрузить или настроить исходный план">Подложка{props.hasReferencePlan ? <span className="reference-present-dot" aria-label="подложка загружена" /> : null}</button>
         <button className={props.recognitionPanelOpen ? "tool-button recognition-tool is-active" : "tool-button recognition-tool"} type="button" onClick={props.onToggleRecognitionPanel} aria-pressed={props.recognitionPanelOpen} title="Локально распознать стены и проверить план с AI" disabled={!props.hasReferencePlan}>Распознать <span aria-hidden="true">✦</span></button>
       </div>
