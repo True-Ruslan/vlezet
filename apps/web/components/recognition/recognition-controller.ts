@@ -1,5 +1,6 @@
 import {
   isRecognitionSessionStale,
+  LOCAL_RECOGNITION_ENGINE_VERSION,
   validateRecognitionDraft,
   type NormalizedPoint,
   type RecognitionDecision,
@@ -63,7 +64,10 @@ export class RecognitionController {
     this.cancelRunning();
     const session = await this.#repository.getForProject(projectId);
     if (!session) { this.#setState({ kind: "idle", session: null }); return; }
-    if (isRecognitionSessionStale(session, reference)) { this.#setState({ kind: "stale", session }); return; }
+    if (isRecognitionSessionStale(session, reference) || session.engineVersion !== LOCAL_RECOGNITION_ENGINE_VERSION) {
+      this.#setState({ kind: "stale", session });
+      return;
+    }
     this.#setState({ kind: "review", session });
   }
 
@@ -79,7 +83,7 @@ export class RecognitionController {
         onProgress: (progress) => this.#setState({ kind: "running-local", session: previous, progress }),
       });
       if (abortController.signal.aborted) return;
-      const session = sessionFromDraft(validateRecognitionDraft(draft), previous);
+      const session = { ...sessionFromDraft(validateRecognitionDraft(draft), previous), cloudMetadata: null };
       await this.#repository.put(session);
       this.#setState({ kind: "review", session });
     } catch (cause) {
