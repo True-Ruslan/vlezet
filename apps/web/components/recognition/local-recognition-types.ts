@@ -4,12 +4,17 @@ export type LocalRecognitionPhase = "prepare" | "edges" | "lines" | "walls" | "o
 
 export type LocalRecognitionInput = Readonly<{
   imageData: ImageData;
-  sourceWidthPx: number;
-  sourceHeightPx: number;
+  sourceWidthPx?: number;
+  sourceHeightPx?: number;
   projectId: string;
   referenceAssetId: string;
   referenceRevision: string;
   now: string;
+}>;
+
+export type MaterializedLocalRecognitionInput = Omit<LocalRecognitionInput, "sourceWidthPx" | "sourceHeightPx"> & Readonly<{
+  sourceWidthPx: number;
+  sourceHeightPx: number;
 }>;
 
 export type LocalRecognitionProgress = Readonly<{
@@ -20,7 +25,7 @@ export type LocalRecognitionProgress = Readonly<{
 export type RecognitionWorkerRequest = Readonly<{
   type: "recognize";
   requestId: string;
-  input: LocalRecognitionInput;
+  input: MaterializedLocalRecognitionInput;
 }>;
 
 export type RecognitionWorkerMessage =
