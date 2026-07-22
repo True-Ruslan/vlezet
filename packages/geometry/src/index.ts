@@ -56,3 +56,5 @@ export { deriveAtomicWallEdges, topologyVertexMap, wallRunLength } from "./topol
 export type { AtomicWallEdge, TopologyDocumentLike, TopologyVertexLike, TopologyWallLike } from "./topology";
 export { screenToWorld, worldToScreen, zoomViewportAt } from "./viewport";
 export type { ViewportTransform, ZoomLimits } from "./viewport";
+export { deriveSingleAdjacentRoomSide } from "./wall-room-side";
+export type { WallRoomSide } from "./wall-room-side";
