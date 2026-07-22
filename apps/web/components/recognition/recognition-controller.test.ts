@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { MemoryRecognitionSessionRepository, type RecognitionDraft, type RecognitionSessionRecord } from "@vlezet/recognition";
+import {
+  LOCAL_RECOGNITION_ENGINE_VERSION,
+  MemoryRecognitionSessionRepository,
+  type RecognitionDraft,
+  type RecognitionSessionRecord,
+} from "@vlezet/recognition";
 import { RecognitionController } from "./recognition-controller";
 
 const NOW = "2026-07-22T00:00:00.000Z";
@@ -8,18 +13,18 @@ function fakeImageData(width = 1, height = 1): ImageData {
   return { width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: "srgb" } as ImageData;
 }
 
-function draft(): RecognitionDraft {
+function draft(engineVersion = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionDraft {
   return {
-    id: "draft", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion: "1",
+    id: "draft", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion,
     status: "local-complete",
     walls: [{ id: "w1", start: { x: 0.1, y: 0.1 }, end: { x: 0.9, y: 0.1 }, estimatedThicknessPx: 20, confidence: "high", evidence: { localScore: 0.9, cloudScore: null, reasons: ["parallel-edges"] }, origin: "local", conflict: null }],
     openings: [], roomLabels: [], diagnostics: [], decisions: { w1: "pending" }, source: { local: true, cloud: false }, createdAt: NOW, updatedAt: NOW,
   };
 }
 
-function session(): RecognitionSessionRecord {
-  const value = draft();
-  return { id: "session", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion: "1", draft: value, cloudMetadata: null, createdAt: NOW, updatedAt: NOW };
+function session(engineVersion = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionSessionRecord {
+  const value = draft(engineVersion);
+  return { id: "session", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion, draft: value, cloudMetadata: null, createdAt: NOW, updatedAt: NOW };
 }
 
 describe("recognition controller", () => {
@@ -38,13 +43,23 @@ describe("recognition controller", () => {
     expect((await repository.getForProject("project"))?.draft.decisions.w1).toBe("accepted");
   });
 
-  it("restores a matching session and explicitly marks revision mismatches stale", async () => {
+  it("restores a matching current-engine session and explicitly marks revision mismatches stale", async () => {
     const repository = new MemoryRecognitionSessionRepository();
     await repository.put(session());
     const controller = new RecognitionController({ repository, runLocal: vi.fn(), onState: vi.fn() });
     await controller.restore("project", { assetId: "asset", referenceRevision: "revision" });
     expect(controller.state.kind).toBe("review");
     await controller.restore("project", { assetId: "asset", referenceRevision: "new-revision" });
+    expect(controller.state.kind).toBe("stale");
+  });
+
+  it("marks sessions from an older local-recognition engine stale", async () => {
+    const repository = new MemoryRecognitionSessionRepository();
+    await repository.put(session("1"));
+    const controller = new RecognitionController({ repository, runLocal: vi.fn(), onState: vi.fn() });
+
+    await controller.restore("project", { assetId: "asset", referenceRevision: "revision" });
+
     expect(controller.state.kind).toBe("stale");
   });
 
