@@ -157,13 +157,13 @@ ea672213f3554d7acf7c604be290718ae37da02f — RED (new disposal test)
 a0da8785c8793833c8ff0f66b65a19684f0457a0 — GREEN (cleanup fix)
 ```
 
-Final exact code HEAD GitHub Actions run:
+Final code-bearing HEAD GitHub Actions run:
 
 ```text
 29936603959 — PASS
 ```
 
-На финальном code HEAD прошли:
+На финальном code-bearing HEAD прошли:
 
 ```text
 pnpm install --frozen-lockfile
@@ -174,6 +174,8 @@ pnpm build
 ```
 
 Все шаги PASS.
+
+Финальный documentation-only PR head также обязан пройти тот же strict CI перед merge; фактический run фиксируется в PR/merge history.
 
 ## 10. Acceptance result
 
