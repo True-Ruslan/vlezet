@@ -68,7 +68,7 @@
 - отдельный режим точной обводки;
 - `Показать подложку` и reference-aware `Весь план`;
 - безопасная замена или удаление исходника без потери геометрии;
-- локальное хранение бинарного asset в IndexedDB;
+- локальное хранение binary asset в IndexedDB;
 - независимое копирование подложки при дублировании проекта;
 - переносимый `.vlezet.json` версии 2 с нормализованным растром;
 - импорт старых резервных копий версии 1;
@@ -81,20 +81,20 @@
 - предложения стен вместо необратимой автогенерации;
 - консервативные гипотезы дверей, окон и неизвестных проёмов;
 - `high / medium / low` confidence и объяснимые конфликты;
-- отдельный persistent recognition draft, который переживает перезагрузку страницы;
+- persistent recognition draft, переживающий перезагрузку;
 - review mode: выбрать, поправить endpoints, принять или отклонить предложение;
 - bulk-action `Принять уверенные`;
 - существующие ручные стены не заменяются и не дублируются молча;
 - deterministic validation перед применением;
 - весь принятый batch применяется одной semantic operation и отменяется одним Undo;
 - опциональная AI-проверка через OpenRouter BYOK;
-- список моделей фильтруется по vision + structured-output capability;
+- модели фильтруются по vision + structured-output capability;
 - tolerant per-candidate parsing и cloud semantic sanity filtering;
 - cloud-only и конфликтные candidates остаются редактируемыми предложениями;
 - OpenRouter API key существует только в runtime-памяти формы и не сохраняется;
 - незавершённые recognition sessions не входят в `.vlezet.json` и не копируются при duplicate/import.
 
-M4.5 находится в Draft PR #6 и ещё проходит ручной acceptance на реальном плане; подробный актуальный статус зафиксирован в `docs/PROJECT_STATE.md`.
+M4.5 находится в Draft PR #6. Assisted recognition пока имеет **известное ограничение качества** на реальных планах: candidates могут быть неточными и шумными, поэтому функция считается assisted/experimental и никогда не должна применять геометрию без review.
 
 Все проекты и исходные планы хранятся **локально в браузере на текущем устройстве**. Локальное распознавание также выполняется в браузере. Изображение отправляется внешнему AI-провайдеру только после явного запуска `Проверить с AI`; облачной синхронизации проектов пока нет.
 
@@ -112,20 +112,14 @@ M4.5 находится в Draft PR #6 и ещё проходит ручной a
 - Каталог — только шаблон вставки; размещённый предмет хранит полный snapshot.
 - Жёсткие коллизии отделены от рекомендаций по удобству.
 - Undo/redo, snapping, миграции, autosave и детерминированные вычисления считаются базовыми возможностями.
+- Простота интерфейса не должна скрывать неоднозначные геометрические semantics.
 
 ## Локальный запуск
 
 Требования: Node.js `>=22.13` и pnpm `11.15.1`.
 
-Установить pnpm напрямую, если `corepack` отсутствует:
-
 ```bash
 npm install -g pnpm@11.15.1
-```
-
-Запуск:
-
-```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
@@ -159,7 +153,7 @@ pnpm lint
 pnpm build
 ```
 
-CI устанавливает зависимости через frozen lockfile и сохраняет краткоживущие diagnostic artifacts при падении проверок.
+CI устанавливает зависимости через frozen lockfile и сохраняет diagnostic artifacts при падении проверок.
 
 ## Roadmap
 
@@ -168,9 +162,10 @@ CI устанавливает зависимости через frozen lockfile 
 - **M2 — Furnishing and Fit:** завершён — предметы, трансформации, измерения, коллизии и clearance hints.
 - **M3 — Local-First Projects:** завершён — проекты, autosave, restore, backup, PNG и UX-полировка.
 - **M4 — Reference Plan Import:** завершён — JPG/PNG/PDF, калибровка, подложка и ручная точная обводка.
-- **M4.5 — Assisted Recognition:** RC в Draft PR #6 — local CV, editable review draft, OpenRouter BYOK, reconciliation и deterministic apply; требуется финальный real-plan acceptance.
-- **M5 — Spatial 3D:** детерминированная 3D-проекция той же модели.
-- **M6 — Intelligent Planning:** редактируемые AI-варианты планировки с геометрической проверкой.
+- **M4.5 — Assisted Recognition:** RC в Draft PR #6; стабилизируем/мержим как assisted feature с известным ограничением точности.
+- **M4.6 — Precision Geometry UX:** следующий P0 — внутренний/осевой/наружный размер, якоря изменения, направление толщины, размерные линии и рулетка.
+- **M5 — Spatial 3D:** после M4.6 — детерминированная 3D-проекция той же модели.
+- **M6 — Intelligent Planning:** затем — редактируемые AI-варианты планировки с геометрической проверкой.
 
 Полная приоритизированная версия: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -181,6 +176,7 @@ CI устанавливает зависимости через frozen lockfile 
 - [Current project state](docs/PROJECT_STATE.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Changelog](docs/CHANGELOG.md)
+- [Accepted geometry/dimensions UX feedback](docs/product/2026-07-22-geometry-dimensions-ux-feedback.md)
 
 ### Product / milestone documents
 
