@@ -42,7 +42,7 @@ export async function listCompatibleOpenRouterModels(
 ): Promise<readonly OpenRouterModelOption[]> {
   const key = apiKey.trim();
   if (!key) throw new OpenRouterRecognitionError("invalid-key", "Введите OpenRouter API key.");
-  const response = await fetcher(`${OPENROUTER_BASE_URL}/models?input_modalities=image&supported_parameters=structured_outputs`, {
+  const response = await fetcher(`${OPENROUTER_BASE_URL}/models?input_modalities=image&supported_parameters=structured_outputs&sort=pricing-low-to-high`, {
     method: "GET",
     headers: authHeaders(key),
     signal,
