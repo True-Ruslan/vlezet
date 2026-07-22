@@ -451,8 +451,6 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
             return <Line key={room.id} points={screenPolygon(room.polygon, viewport)} closed fill={selected ? "#dbeafe" : "#f4f7fb"} stroke={selected ? "#93c5fd" : undefined} strokeWidth={selected ? 1.5 : 0} opacity={tracingMode ? (selected ? 0.42 : 0.2) : (selected ? 0.9 : 0.72)} onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }} />;
           })}
           {derivedRooms.rooms.map((room) => { const label = worldToScreen(room.labelPoint, viewport); return <Text key={`label-${room.id}`} x={label.x - 80} y={label.y - 18} width={160} align="center" text={`${room.name}\n${room.areaM2.toFixed(2)} м²`} fontSize={12} lineHeight={1.35} fill="#4b5563" listening={false} />; })}
-        </Layer>
-        <Layer>
           {resolvedWalls.flatMap(({ wall }) => deriveVisibleWallIntervals(document, wall.id).map((interval, index) => {
             const a = worldToScreen(pointAtWallOffset(document, wall.id, interval.startOffset), viewport);
             const b = worldToScreen(pointAtWallOffset(document, wall.id, interval.endOffset), viewport);
@@ -463,8 +461,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
           {document.openings.flatMap((opening) => renderOpeningSymbol(opening))}
           {visibleOpeningPreview ? renderOpeningSymbol(visibleOpeningPreview.opening, true) : null}
           {tool === "wall" && !recognitionReviewActive ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
+          {recognitionDraft && referencePlan ? <RecognitionLayer draft={recognitionDraft} referencePlan={referencePlan} viewport={viewport} selectedCandidateId={selectedRecognitionCandidateId} onSelect={onSelectRecognitionCandidate} onEditWall={onEditRecognitionWall} /> : null}
         </Layer>
-        {recognitionDraft && referencePlan ? <Layer><RecognitionLayer draft={recognitionDraft} referencePlan={referencePlan} viewport={viewport} selectedCandidateId={selectedRecognitionCandidateId} onSelect={onSelectRecognitionCandidate} onEditWall={onEditRecognitionWall} /></Layer> : null}
         <Layer>
           {clearancePolygon ? <Line points={screenPolygon(clearancePolygon, viewport)} closed fill="#f59e0b" opacity={0.08} stroke="#d97706" strokeWidth={1.2} dash={[6, 5]} listening={false} /> : null}
           {displayedObjects.map((object) => (
