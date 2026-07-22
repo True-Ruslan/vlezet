@@ -18,6 +18,7 @@ export type EditorCommandLabel =
   | "object/update"
   | "object/duplicate"
   | "object/delete"
+  | "planning/apply-candidate"
   | "recognition/apply";
 
 export type EditorCommand = Readonly<{
