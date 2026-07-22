@@ -1,5 +1,6 @@
 import type { VlezetDocument } from "@vlezet/domain";
 import { evaluateObjectFits } from "@vlezet/geometry";
+import { evaluatePlanningConstraints, planningConstraintSetKey } from "./constraints";
 import type { PlanningCandidate } from "./contracts";
 
 export type PlanningCandidateEvaluation = Readonly<{
@@ -7,6 +8,7 @@ export type PlanningCandidateEvaluation = Readonly<{
   valid: boolean;
   tightObjectCount: number;
   recommendationCount: number;
+  preferencePenalty: number;
   rotatedObjectCount: number;
   totalMovementMm: number;
   reasons: readonly string[];
@@ -23,7 +25,7 @@ export function stableCandidateKey(candidate: PlanningCandidate): string {
     stableNumber(placement.position.x),
     stableNumber(placement.position.y),
     stableNumber(placement.rotationDeg),
-  ].join(":"))].join("|");
+  ].join(":")), `constraints:${planningConstraintSetKey(candidate.constraints ?? [])}`].join("|");
 }
 
 function candidateDocument(document: VlezetDocument, candidate: PlanningCandidate): VlezetDocument | null {
@@ -53,23 +55,30 @@ export function evaluatePlanningCandidate(
   document: VlezetDocument,
   candidate: PlanningCandidate,
 ): PlanningCandidateEvaluation {
-  const stableKey = stableCandidateKey(candidate);
+  let stableKey: string;
+  try {
+    stableKey = stableCandidateKey(candidate);
+  } catch {
+    stableKey = `${candidate.roomId}|invalid-constraints`;
+  }
   const evaluationDocument = candidateDocument(document, candidate);
   if (!evaluationDocument) {
     return {
       candidateId: candidate.id, valid: false, tightObjectCount: 0, recommendationCount: 0,
+      preferencePenalty: Number.POSITIVE_INFINITY,
       rotatedObjectCount: 0, totalMovementMm: Number.POSITIVE_INFINITY,
       reasons: ["Вариант содержит некорректные данные размещения."], stableKey,
     };
   }
 
   const fit = evaluateObjectFits(evaluationDocument);
+  const constraintEvaluation = evaluatePlanningConstraints(document, candidate);
   const placementIds = new Set(candidate.placements.map((placement) => placement.objectId));
   let tightObjectCount = 0;
   let recommendationCount = 0;
   let rotatedObjectCount = 0;
   let totalMovementMm = 0;
-  let valid = fit.planValid;
+  let valid = fit.planValid && constraintEvaluation.hardValid;
   const diagnosticMessages: string[] = [];
 
   for (const placement of candidate.placements) {
@@ -89,11 +98,13 @@ export function evaluatePlanningCandidate(
   if (valid) {
     reasons.push("Все выбранные предметы помещаются без столкновений.");
     reasons.push("Открывание дверей не перекрыто.");
+    reasons.push(...constraintEvaluation.evidence);
     reasons.push(...diagnosticMessages);
     if (placementIds.size > 0 && totalMovementMm === 0 && rotatedObjectCount === 0) {
       reasons.push("Текущая расстановка сохранена для выбранных предметов.");
     }
   } else {
+    reasons.push(...constraintEvaluation.evidence);
     reasons.push(...diagnosticMessages);
     if (reasons.length === 0) reasons.push("Вариант не проходит обязательные геометрические ограничения.");
   }
@@ -103,6 +114,7 @@ export function evaluatePlanningCandidate(
     valid,
     tightObjectCount,
     recommendationCount,
+    preferencePenalty: constraintEvaluation.preferencePenalty,
     rotatedObjectCount,
     totalMovementMm,
     reasons,
@@ -116,6 +128,7 @@ export function comparePlanningCandidateEvaluations(
 ): number {
   return first.tightObjectCount - second.tightObjectCount ||
     first.recommendationCount - second.recommendationCount ||
+    first.preferencePenalty - second.preferencePenalty ||
     first.rotatedObjectCount - second.rotatedObjectCount ||
     first.totalMovementMm - second.totalMovementMm ||
     first.stableKey.localeCompare(second.stableKey);
