@@ -15,6 +15,7 @@ import {
 const NOW = "2026-07-21T19:00:00.000Z";
 const referencePlan = {
   assetId: "asset-source",
+  referenceRevision: "revision-source",
   source: { kind: "image" as const, originalMimeType: "image/png" as const },
   widthPx: 800,
   heightPx: 600,
@@ -61,6 +62,7 @@ describe("Vlezet project file", () => {
     const parsed = await parsePortableProjectFile(text, { id: "imported", assetId: "asset-imported", now: "2026-07-21T21:00:00.000Z" });
     expect(parsed.project.id).toBe("imported");
     expect(parsed.project.referencePlan?.assetId).toBe("asset-imported");
+    expect(parsed.project.referencePlan?.referenceRevision).toBe("revision-source");
     expect(parsed.asset?.projectId).toBe("imported");
     expect([...new Uint8Array(await parsed.asset!.blob.arrayBuffer())]).toEqual([1, 2, 3, 4]);
   });
