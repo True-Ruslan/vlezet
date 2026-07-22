@@ -22,7 +22,7 @@ const EditorCanvas = dynamic(() => import("./editor-canvas").then((module) => mo
 
 const SpatialViewer = dynamic(() => import("../spatial/spatial-viewer").then((module) => module.SpatialViewer), {
   ssr: false,
-  loading: () => <div className="spatial-viewer-loading">Строим пространственный вид…</div>,
+  loading: () => <div className="canvas-loading">Строим пространственный вид…</div>,
 });
 
 export type ApartmentEditorProps = Readonly<{
@@ -77,6 +77,7 @@ function reviewDraft(state: RecognitionControllerState) {
 
 export function ApartmentEditor(props: ApartmentEditorProps) {
   const [fitRequest, setFitRequest] = useState(0);
+  const [fitReferenceRequest, setFitReferenceRequest] = useState(0);
   const [fit3dRequest, setFit3dRequest] = useState(0);
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const recognitionDraft = reviewDraft(props.recognitionState);
@@ -129,7 +130,6 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     props.furnitureCatalogOpen ? "" : "catalog-closed",
     props.referencePanelOpen ? "reference-open" : "",
     props.recognitionPanelOpen ? "recognition-open" : "",
-    viewMode === "3d" ? "spatial-open" : "",
   ].filter(Boolean).join(" ");
 
   return (
@@ -154,7 +154,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       />
       <section className={workspaceClass}>
         {viewMode === "2d" && props.furnitureCatalogOpen ? <FurnitureCatalog /> : null}
-        <div className={viewMode === "2d" ? "editor-2d-layer" : "editor-2d-layer is-hidden"}>
+        <div style={{ display: viewMode === "2d" ? "contents" : "none" }}>
           <EditorCanvas
             key={props.projectId}
             initialViewport={props.initialViewport}
