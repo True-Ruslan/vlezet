@@ -1,0 +1,26 @@
+name: M4.5 Final Hardening
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply guarded final hardening
+        run: node .github/scripts/m45-final-hardening.mjs
+      - name: Commit hardening and self-delete workflow
+        shell: bash
+        run: |
+          git rm .github/scripts/m45-final-hardening.mjs .github/workflows/m45-final-hardening.yml
+          git add apps/web/components/recognition/recognition.worker.ts apps/web/components/editor/editor-canvas.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: harden recognition review and source scaling"
+          git push
