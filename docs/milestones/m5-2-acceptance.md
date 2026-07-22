@@ -106,19 +106,29 @@
 
 ## 8. Automated gate
 
-Перед merge exact PR head обязан пройти:
+Exact accepted head before this evidence pin:
 
 ```text
-pnpm install --frozen-lockfile
-pnpm test
-pnpm typecheck
-pnpm lint
-pnpm build
+d2faf5b9ed97bc12cc24e4c876664b8d2d8b16bb
 ```
 
-Все шаги должны иметь `success`.
+GitHub Actions run:
 
-TDD evidence на текущем development path:
+```text
+29940281255 — PASS
+```
+
+Verified steps:
+
+```text
+pnpm install --frozen-lockfile  PASS
+pnpm test                       PASS
+pnpm typecheck                  PASS
+pnpm lint                       PASS
+pnpm build                      PASS
+```
+
+TDD evidence на development path:
 
 - initial object projection tests: RED before `SpatialObject` implementation;
 - renderer object mesh test: RED before Three.js box mapping;
@@ -142,6 +152,8 @@ accepted date: 2026-07-22
 user evidence: paired real-project 2D and 3D screenshots; toolbar shows 3 placed objects; all 3 are visible in matching room locations in 3D; no visible M5.1 shell regression
 pre-acceptance RC head: 94805c73116f97648ef22a701cfd1bb607d4bd87
 pre-acceptance CI run: 29938901932 — PASS
+accepted evidence head: d2faf5b9ed97bc12cc24e4c876664b8d2d8b16bb
+accepted evidence CI run: 29940281255 — PASS
 ```
 
-Merge requires one final exact-head CI run after this evidence-only documentation commit. No additional implementation changes are permitted before merge unless that run exposes a real regression.
+This file update only pins already-observed acceptance evidence. No implementation code changed.
