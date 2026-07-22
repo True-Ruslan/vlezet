@@ -5,9 +5,10 @@ import {
   MAX_WALL_THICKNESS_MM,
   MIN_WALL_THICKNESS_MM,
   topologicalWallLength,
+  type ClearRoomDimensionAnchor,
   type WallLengthAnchor,
 } from "@vlezet/editor-core";
-import { deriveRooms, type DerivedRoom } from "@vlezet/geometry";
+import { deriveRectangularRoomDimensions, deriveRooms, type DerivedRoom } from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { ObjectInspector } from "./object-inspector";
@@ -55,10 +56,33 @@ export function SelectedWallInspector({ document, wall }: Readonly<{ document: V
   </aside>;
 }
 
-function SelectedRoomInspector({ room }: Readonly<{ room: DerivedRoom }>) {
-  const [name,setName]=useState(room.name); const [error,setError]=useState<string|null>(null);
+export function SelectedRoomInspector({ room }: Readonly<{ room: DerivedRoom }>) {
+  const dimensions = deriveRectangularRoomDimensions(room);
+  const [name,setName]=useState(room.name);
+  const [widthInput,setWidthInput]=useState(()=>dimensions?String(Math.round(dimensions.widthMm)):"");
+  const [heightInput,setHeightInput]=useState(()=>dimensions?String(Math.round(dimensions.heightMm)):"");
+  const [widthAnchor,setWidthAnchor]=useState<ClearRoomDimensionAnchor>("min");
+  const [heightAnchor,setHeightAnchor]=useState<ClearRoomDimensionAnchor>("min");
+  const [error,setError]=useState<string|null>(null);
   const applyName=()=>{try{editorStore.getState().setSelectedRoomName(name);setError(null);}catch(cause){setError(cause instanceof Error?cause.message:"Не удалось переименовать комнату.");}};
-  return <aside className="inspector-panel"><div className="inspector-heading"><span>Комната</span><code>{room.id.slice(-10)}</code></div><label className="field-label" htmlFor="room-name">Название</label><div className="room-name-field"><input id="room-name" value={name} maxLength={80} onChange={(e)=>setName(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyName();}}/></div><button className="primary-action" type="button" onClick={applyName}>Сохранить название</button>{error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Полезная площадь</dt><dd>{room.areaM2.toFixed(2)} м²</dd></div></dl><p className="inspector-hint">Площадь считается автоматически по внутренним поверхностям стен и обновляется при изменении планировки.</p></aside>;
+  const applyDimension=(axis:"width"|"height", raw:string, anchor:ClearRoomDimensionAnchor)=>{
+    const value=Number(raw.replace(",","."));
+    if(!Number.isFinite(value)||value<=0){setError("Введите положительный чистый размер в миллиметрах.");return;}
+    try{editorStore.getState().setSelectedRoomClearDimension(axis,value,anchor);setError(null);}catch(cause){setError(cause instanceof Error?cause.message:"Не удалось изменить чистый размер комнаты.");}
+  };
+  return <aside className="inspector-panel">
+    <div className="inspector-heading"><span>Комната</span><code>{room.id.slice(-10)}</code></div>
+    <label className="field-label" htmlFor="room-name">Название</label><div className="room-name-field"><input id="room-name" value={name} maxLength={80} onChange={(e)=>setName(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyName();}}/></div><button className="primary-action" type="button" onClick={applyName}>Сохранить название</button>
+    {dimensions?<div className="room-clear-dimensions">
+      <strong>Чистые внутренние размеры</strong>
+      <label className="field-label" htmlFor="room-clear-width">Ширина</label><div className="length-field-row"><input id="room-clear-width" inputMode="decimal" value={widthInput} onChange={(e)=>setWidthInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyDimension("width",widthInput,widthAnchor);}}/><span>мм</span></div>
+      <label className="field-label" htmlFor="room-clear-width-anchor">Что остаётся на месте</label><select id="room-clear-width-anchor" className="inspector-select" value={widthAnchor} onChange={(e)=>setWidthAnchor(e.target.value as ClearRoomDimensionAnchor)}><option value="min">Левая сторона</option><option value="center">Центр</option><option value="max">Правая сторона</option></select><button className="secondary-action" type="button" onClick={()=>applyDimension("width",widthInput,widthAnchor)}>Применить ширину</button>
+      <label className="field-label" htmlFor="room-clear-height">Длина</label><div className="length-field-row"><input id="room-clear-height" inputMode="decimal" value={heightInput} onChange={(e)=>setHeightInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyDimension("height",heightInput,heightAnchor);}}/><span>мм</span></div>
+      <label className="field-label" htmlFor="room-clear-height-anchor">Что остаётся на месте</label><select id="room-clear-height-anchor" className="inspector-select" value={heightAnchor} onChange={(e)=>setHeightAnchor(e.target.value as ClearRoomDimensionAnchor)}><option value="min">Верхняя сторона</option><option value="center">Центр</option><option value="max">Нижняя сторона</option></select><button className="secondary-action" type="button" onClick={()=>applyDimension("height",heightInput,heightAnchor)}>Применить длину</button>
+      <p className="inspector-hint">Это расстояния между внутренними поверхностями стен. Для прямоугольной комнаты площадь считается из той же чистой геометрии.</p>
+    </div>:<p className="inspector-hint">Чистые размеры можно редактировать, когда комната является простой прямоугольной геометрией. Для сложных контуров Vlezet не угадывает неоднозначные размеры.</p>}
+    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Полезная площадь</dt><dd>{room.areaM2.toFixed(2)} м²</dd></div></dl><p className="inspector-hint">Площадь считается автоматически по внутренним поверхностям стен и обновляется при изменении планировки.</p>
+  </aside>;
 }
 
 function SelectedOpeningInspector({ opening }: Readonly<{ opening: Opening }>) {
