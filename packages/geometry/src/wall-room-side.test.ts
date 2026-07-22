@@ -3,6 +3,7 @@ import { deriveSingleAdjacentRoomSide } from "./wall-room-side";
 
 function rectangle() {
   return {
+    schemaVersion: 3 as const,
     vertices: [
       { id: "a", position: { x: 0, y: 0 } },
       { id: "b", position: { x: 4000, y: 0 } },
@@ -36,6 +37,7 @@ describe("wall room side", () => {
 
   it("returns null for a partition with rooms on both sides", () => {
     const document = {
+      schemaVersion: 3 as const,
       vertices: [
         { id: "a", position: { x: 0, y: 0 } },
         { id: "jt", position: { x: 3000, y: 0 } },
