@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SpatialScene } from "@vlezet/spatial";
 import * as THREE from "three";
-import { buildSpatialSceneGroup } from "./spatial-scene-renderer";
+import { buildSpatialSceneGroup, disposeObject3DResources } from "./spatial-scene-renderer";
 
 const scene: SpatialScene = {
   wallSegments: [{
@@ -71,5 +71,22 @@ describe("buildSpatialSceneGroup", () => {
     expect(floor.userData.roomId).toBe("room");
 
     resources.dispose();
+  });
+
+  it("disposes geometry and materials owned by renderer helper objects", () => {
+    const helper = new THREE.GridHelper(1000, 10);
+    let geometryDisposed = false;
+    let materialDisposeCount = 0;
+    const materials = Array.isArray(helper.material) ? helper.material : [helper.material];
+
+    helper.geometry.addEventListener("dispose", () => { geometryDisposed = true; });
+    for (const material of materials) {
+      material.addEventListener("dispose", () => { materialDisposeCount += 1; });
+    }
+
+    disposeObject3DResources(helper);
+
+    expect(geometryDisposed).toBe(true);
+    expect(materialDisposeCount).toBe(materials.length);
   });
 });
