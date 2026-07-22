@@ -22,6 +22,11 @@ function bounds(points: readonly Point2[]): Readonly<{ minX: number; maxX: numbe
   };
 }
 
+function formatAreaM2FromSquareMillimeters(areaMm2: number): string {
+  const hundredthsOfSquareMeter = Math.round(areaMm2 / 10_000);
+  return (hundredthsOfSquareMeter / 100).toFixed(2);
+}
+
 export function deriveRectangularRoomDimensionAnnotations(room: DerivedRoom): readonly LinearDimensionAnnotation[] {
   const dimensions = deriveRectangularRoomDimensions(room);
   if (!dimensions) return [];
@@ -76,7 +81,7 @@ export function formatDimensionValue(annotation: LinearDimensionAnnotation): str
 
 export function formatRoomCanvasLabel(room: DerivedRoom): string {
   const dimensions = deriveRectangularRoomDimensions(room);
-  const base = `${room.name}\n${room.areaM2.toFixed(2)} м²`;
+  const base = `${room.name}\n${formatAreaM2FromSquareMillimeters(room.areaMm2)} м²`;
   if (!dimensions) return base;
   return `${base}\n${Math.round(dimensions.widthMm)} × ${Math.round(dimensions.heightMm)} мм внутри`;
 }
