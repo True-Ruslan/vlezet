@@ -43,7 +43,6 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
     let resizeObserver: ResizeObserver | null = null;
 
     try {
-      setFailure(null);
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0xf4f6f9);
 
