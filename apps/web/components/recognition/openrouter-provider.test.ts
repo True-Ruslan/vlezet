@@ -26,7 +26,7 @@ describe("OpenRouter direct recognition provider", () => {
     expect(fetcher).toHaveBeenCalledWith("https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ method: "POST", signal }));
   });
 
-  it("filters discovered models to image + structured output capabilities", async () => {
+  it("filters discovered models to image + structured output capabilities and requests low-cost ordering", async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ data: [
       { id: "good", name: "Good", context_length: 100000, architecture: { input_modalities: ["text", "image"] }, supported_parameters: ["structured_outputs", "response_format"] },
       { id: "text-only", name: "Text", architecture: { input_modalities: ["text"] }, supported_parameters: ["structured_outputs"] },
@@ -34,6 +34,7 @@ describe("OpenRouter direct recognition provider", () => {
     ] }), { status: 200 })) as unknown as typeof fetch;
     const models = await listCompatibleOpenRouterModels("key", signal, fetcher);
     expect(models).toEqual([{ id: "good", name: "Good", contextLength: 100000 }]);
+    expect(String(fetcher.mock.calls[0]?.[0])).toContain("sort=pricing-low-to-high");
   });
 
   it("maps payment failures to a product-safe error", async () => {
