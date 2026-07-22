@@ -439,6 +439,7 @@ export function ProjectApp() {
         projectId: project.id,
         referenceAssetId: project.referencePlan.assetId,
         referenceRevision: project.referencePlan.referenceRevision,
+        sourceMillimetersPerPixel: project.referencePlan.transform.millimetersPerPixel,
         now: new Date().toISOString(),
       });
     } catch (cause) {
