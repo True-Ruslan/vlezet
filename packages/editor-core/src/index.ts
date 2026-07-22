@@ -32,4 +32,5 @@ export type {
   DocumentEdit,
   WallEndpointIntent,
   WallLengthAnchor,
+  WallThicknessAlignment,
 } from "./topology-editing";
