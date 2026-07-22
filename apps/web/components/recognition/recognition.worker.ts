@@ -16,12 +16,12 @@ function post(message: RecognitionWorkerMessage): void {
 
 async function loadOpenCv() {
   const imported = await import("@techstark/opencv-js");
-  const module = await imported.default;
-  if (module.Mat) return module;
+  const cvModule = await imported.default;
+  if (cvModule.Mat) return cvModule;
   await new Promise<void>((resolve) => {
-    module.onRuntimeInitialized = () => resolve();
+    cvModule.onRuntimeInitialized = () => resolve();
   });
-  return module;
+  return cvModule;
 }
 
 async function recognize(request: RecognitionWorkerRequest): Promise<RecognitionDraft> {
