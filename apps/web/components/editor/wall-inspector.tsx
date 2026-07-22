@@ -17,6 +17,8 @@ import {
 } from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
+import { PlanningPanel } from "../planning/planning-panel";
+import { planningUiStore } from "../planning/planning-ui-store";
 import { formatAreaM2FromSquareMillimeters } from "./dimension-annotations";
 import { ObjectInspector } from "./object-inspector";
 import { editorStore } from "./use-editor-store";
@@ -102,6 +104,8 @@ export function SelectedRoomInspector({ room }: Readonly<{ room: DerivedRoom }>)
       <label className="field-label" htmlFor="room-clear-height">Длина</label><div className="length-field-row"><input id="room-clear-height" inputMode="decimal" value={heightInput} onChange={(e)=>setHeightInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyDimension("height",heightInput,heightAnchor);}}/><span>мм</span></div>
       <label className="field-label" htmlFor="room-clear-height-anchor">Что остаётся на месте</label><select id="room-clear-height-anchor" className="inspector-select" value={heightAnchor} onChange={(e)=>setHeightAnchor(e.target.value as ClearRoomDimensionAnchor)}><option value="min">Верхняя сторона</option><option value="center">Центр</option><option value="max">Нижняя сторона</option></select><button className="secondary-action" type="button" onClick={()=>applyDimension("height",heightInput,heightAnchor)}>Применить длину</button>
       <p className="inspector-hint">Это расстояния между внутренними поверхностями стен. Для прямоугольной комнаты площадь считается из той же чистой геометрии.</p>
+      <button className="secondary-action" type="button" onClick={()=>planningUiStore.getState().openForRoom(room.id)}>Варианты расстановки</button>
+      <p className="inspector-hint">Планировщик предложит до трёх проверенных вариантов для 1–3 существующих предметов. Предпросмотр не меняет проект.</p>
     </div>:<p className="inspector-hint">Чистые размеры можно редактировать, когда комната является простой прямоугольной геометрией. Для сложных контуров Vlezet не угадывает неоднозначные размеры.</p>}
     {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Полезная площадь</dt><dd>{formatAreaM2FromSquareMillimeters(room.areaMm2)} м²</dd></div></dl><p className="inspector-hint">Площадь считается автоматически по внутренним поверхностям стен и обновляется при изменении планировки.</p>
   </aside>;
@@ -134,11 +138,13 @@ export function WallInspector(){
   const selectedRoomId=useStore(editorStore,(s)=>s.selectedRoomId);
   const selectedOpeningId=useStore(editorStore,(s)=>s.selectedOpeningId);
   const selectedObjectId=useStore(editorStore,(s)=>s.selectedObjectId);
+  const planningRoomId=useStore(planningUiStore,(s)=>s.roomId);
   const document=useStore(editorStore,(s)=>s.history.document);
   const wall=useMemo(()=>document.walls.find((x)=>x.id===selectedWallId)??null,[selectedWallId,document.walls]);
   const room=useMemo(()=>deriveRooms(document).rooms.find((x)=>x.id===selectedRoomId)??null,[document,selectedRoomId]);
   const opening=useMemo(()=>document.openings.find((x)=>x.id===selectedOpeningId)??null,[document.openings,selectedOpeningId]);
   const object=useMemo(()=>document.placedObjects.find((x)=>x.id===selectedObjectId)??null,[document.placedObjects,selectedObjectId]);
+  if(planningRoomId)return <PlanningPanel roomId={planningRoomId}/>;
   if(object)return <ObjectInspector key={`${object.id}:${object.position.x}:${object.position.y}:${object.width}:${object.depth}:${object.rotationDeg}`} document={document} object={object}/>;
   if(opening)return <SelectedOpeningInspector key={`${opening.id}:${opening.offset}:${opening.width}:${opening.doorSwing?.hinge}:${opening.doorSwing?.side}`} opening={opening}/>;
   if(room)return <SelectedRoomInspector key={`${room.id}:${room.name}:${room.areaMm2}`} room={room}/>;
