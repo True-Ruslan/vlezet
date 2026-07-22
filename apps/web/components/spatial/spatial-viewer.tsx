@@ -8,6 +8,7 @@ import { useStore } from "zustand";
 import { editorStore } from "../editor/use-editor-store";
 import { deriveCameraPlacement, type SpatialCameraPreset } from "./camera";
 import { buildSpatialSceneGroup } from "./spatial-scene-renderer";
+import styles from "./spatial-viewer.module.css";
 
 export type SpatialViewerProps = Readonly<{
   fitRequest: number;
@@ -63,8 +64,7 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
       resources = buildSpatialSceneGroup(projection.scene);
       scene.add(resources.group);
 
-      const ambient = new THREE.HemisphereLight(0xffffff, 0xb8c0cc, 1.65);
-      scene.add(ambient);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xb8c0cc, 1.65));
       const sun = new THREE.DirectionalLight(0xffffff, 2.1);
       sun.position.set(7000, 11_000, 5000);
       scene.add(sun);
@@ -103,7 +103,6 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
 
       runtimeRef.current = { fit };
       fit("perspective");
-
       resizeObserver = new ResizeObserver(resize);
       resizeObserver.observe(container);
       renderer.setAnimationLoop(() => {
@@ -136,23 +135,17 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
   };
 
   return (
-    <section className="spatial-viewer-shell" aria-label="Трёхмерный вид квартиры">
-      <div ref={containerRef} className="spatial-viewer-canvas" />
-      <div className="spatial-viewer-controls" aria-label="Камера 3D">
-        <button type="button" className={preset === "perspective" ? "is-active" : ""} onClick={() => choosePreset("perspective")}>Перспектива</button>
-        <button type="button" className={preset === "isometric" ? "is-active" : ""} onClick={() => choosePreset("isometric")}>Изометрия</button>
-        <button type="button" className={preset === "top" ? "is-active" : ""} onClick={() => choosePreset("top")}>Сверху</button>
+    <section className={styles.shell} aria-label="Трёхмерный вид квартиры">
+      <div ref={containerRef} className={styles.canvas} />
+      <div className={styles.controls} aria-label="Камера 3D">
+        <button type="button" className={preset === "perspective" ? styles.active : undefined} onClick={() => choosePreset("perspective")}>Перспектива</button>
+        <button type="button" className={preset === "isometric" ? styles.active : undefined} onClick={() => choosePreset("isometric")}>Изометрия</button>
+        <button type="button" className={preset === "top" ? styles.active : undefined} onClick={() => choosePreset("top")}>Сверху</button>
       </div>
-      <div className="spatial-viewer-help">ЛКМ — вращение · ПКМ — панорама · колесо — масштаб</div>
-      {projection.diagnostics.length > 0 ? (
-        <div className="spatial-viewer-warning" role="status">
-          Часть 3D-геометрии пропущена: {projection.diagnostics[0]?.message}
-        </div>
-      ) : null}
-      {failure ? <div className="spatial-viewer-error" role="alert">{failure}</div> : null}
-      {projection.scene.wallSegments.length === 0 && projection.scene.floors.length === 0 ? (
-        <div className="spatial-viewer-empty">Сначала создайте стены в 2D — здесь появится их пространственная проекция.</div>
-      ) : null}
+      <div className={styles.help}>ЛКМ — вращение · ПКМ — панорама · колесо — масштаб</div>
+      {projection.diagnostics.length > 0 ? <div className={styles.warning} role="status">Часть 3D-геометрии пропущена: {projection.diagnostics[0]?.message}</div> : null}
+      {failure ? <div className={styles.error} role="alert">{failure}</div> : null}
+      {projection.scene.wallSegments.length === 0 && projection.scene.floors.length === 0 ? <div className={styles.empty}>Сначала создайте стены в 2D — здесь появится их пространственная проекция.</div> : null}
     </section>
   );
 }
