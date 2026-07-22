@@ -78,6 +78,7 @@ export function normalizePlanningConstraints(
       case "pair-distance": {
         const ids = constraint.objectIds;
         if (!Array.isArray(ids) || ids.length !== 2 || typeof ids[0] !== "string" || typeof ids[1] !== "string" ||
+          ids[0].length === 0 || ids[1].length === 0 ||
           (constraint.preference !== "near" && constraint.preference !== "far")) {
           throw new Error("Invalid pair-distance constraint.");
         }
@@ -97,6 +98,46 @@ export function planningConstraintIdentityKey(constraint: PlanningConstraint): s
 
 export function planningConstraintSetKey(constraints: readonly PlanningConstraint[] = []): string {
   return normalizePlanningConstraints(constraints).map(stableConstraintValue).join("|");
+}
+
+export function validatePlanningConstraintSet(
+  constraints: readonly PlanningConstraint[] | undefined,
+  selectedObjectIds: ReadonlySet<string>,
+): readonly PlanningConstraint[] {
+  const source = constraints ?? [];
+  if (source.length > MAX_PLANNING_CONSTRAINTS) {
+    throw new Error(`At most ${MAX_PLANNING_CONSTRAINTS} planning constraints are supported.`);
+  }
+
+  const normalized = normalizePlanningConstraints(source);
+  const seen = new Set<string>();
+  const locked = new Set<string>();
+
+  for (const constraint of normalized) {
+    const identity = stableConstraintIdentity(constraint);
+    if (seen.has(identity)) throw new Error(`Duplicate or conflicting planning constraint: ${identity}`);
+    seen.add(identity);
+
+    if (constraint.kind === "pair-distance") {
+      const [first, second] = constraint.objectIds;
+      if (first === second) throw new Error("Pair-distance constraint requires two distinct objects.");
+      if (!selectedObjectIds.has(first) || !selectedObjectIds.has(second)) {
+        throw new Error("Pair-distance constraint references an object outside the planning selection.");
+      }
+      continue;
+    }
+
+    if (!selectedObjectIds.has(constraint.objectId)) {
+      throw new Error("Planning constraint references an object outside the planning selection.");
+    }
+    if (constraint.kind === "lock-object") locked.add(constraint.objectId);
+  }
+
+  if (selectedObjectIds.size > 0 && locked.size === selectedObjectIds.size) {
+    throw new Error("At least one selected object must remain movable.");
+  }
+
+  return normalized;
 }
 
 function sameRotation(first: number, second: number): boolean {
@@ -140,11 +181,16 @@ export function evaluatePlanningConstraints(
   document: VlezetDocument,
   candidate: PlanningCandidate,
 ): PlanningConstraintEvaluation {
+  const placementIds = new Set(candidate.placements.map((placement) => placement.objectId));
   let constraints: readonly PlanningConstraint[];
   try {
-    constraints = normalizePlanningConstraints(candidate.constraints ?? []);
+    constraints = validatePlanningConstraintSet(candidate.constraints, placementIds);
   } catch {
-    return { hardValid: false, preferencePenalty: Number.POSITIVE_INFINITY, evidence: ["Вариант содержит неподдерживаемые ограничения."] };
+    return {
+      hardValid: false,
+      preferencePenalty: Number.POSITIVE_INFINITY,
+      evidence: ["Вариант содержит конфликтующие, устаревшие или неподдерживаемые ограничения."],
+    };
   }
   if (constraints.length === 0) return { hardValid: true, preferencePenalty: 0, evidence: [] };
 
@@ -156,7 +202,6 @@ export function evaluatePlanningConstraints(
     return { hardValid: false, preferencePenalty: Number.POSITIVE_INFINITY, evidence: ["Не удалось определить масштаб комнаты для ограничений."] };
   }
 
-  const placementIds = new Set(candidate.placements.map((placement) => placement.objectId));
   const evidence: string[] = [];
   let preferencePenalty = 0;
   let hardValid = true;
@@ -165,7 +210,7 @@ export function evaluatePlanningConstraints(
     if (constraint.kind === "lock-object") {
       const source = document.placedObjects.find((object) => object.id === constraint.objectId);
       const placement = candidate.placements.find((item) => item.objectId === constraint.objectId);
-      if (!source || !placementIds.has(constraint.objectId) || !placement ||
+      if (!source || !placement ||
         source.position.x !== placement.position.x || source.position.y !== placement.position.y ||
         !sameRotation(source.rotationDeg, placement.rotationDeg)) {
         hardValid = false;
@@ -177,11 +222,6 @@ export function evaluatePlanningConstraints(
     }
 
     if (constraint.kind === "prefer-room-boundary") {
-      if (!placementIds.has(constraint.objectId)) {
-        hardValid = false;
-        evidence.push("Предпочтение относится к предмету вне текущего варианта.");
-        continue;
-      }
       const object = objects.get(constraint.objectId);
       if (!object) {
         hardValid = false;
@@ -213,11 +253,6 @@ export function evaluatePlanningConstraints(
     }
 
     const [firstId, secondId] = constraint.objectIds;
-    if (!placementIds.has(firstId) || !placementIds.has(secondId)) {
-      hardValid = false;
-      evidence.push("Парное предпочтение относится к предмету вне текущего варианта.");
-      continue;
-    }
     const first = objects.get(firstId);
     const second = objects.get(secondId);
     if (!first || !second) {
