@@ -159,13 +159,13 @@ Draft PR:
 #6 feat: M4.5 assisted recognition
 ```
 
-Current RC head at this snapshot:
+Last **code-bearing** RC head before the context-documentation commits:
 
 ```text
 a531d25b933166ac418b178b8abd3926091fc81e
 ```
 
-Latest strict CI run at this snapshot:
+Strict CI that verified that implementation head:
 
 ```text
 GitHub Actions run 29906135283
@@ -175,6 +175,8 @@ pnpm typecheck               PASS
 pnpm lint                     PASS
 pnpm build                    PASS
 ```
+
+Documentation-only commits may move the live PR head beyond that SHA. **Always check PR #6 live head and latest CI before merge or further development.**
 
 **Important:** M4.5 is **not merged yet**. PR remains Draft until browser acceptance on a real developer/realtor plan is satisfactory.
 
@@ -318,7 +320,7 @@ Fix:
 
 ### Proven automatically
 
-On current RC head:
+On the latest verified implementation head:
 
 - frozen dependency install;
 - full unit suite;
