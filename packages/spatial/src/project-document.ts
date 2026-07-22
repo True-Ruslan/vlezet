@@ -8,6 +8,7 @@ import {
 import type {
   Point3,
   SpatialFloor,
+  SpatialObject,
   SpatialOpeningMarker,
   SpatialProjectionDiagnostic,
   SpatialProjectionResult,
@@ -15,6 +16,7 @@ import type {
 } from "./types";
 
 export const DEFAULT_WALL_HEIGHT_MM = 2700;
+export const DEFAULT_OBJECT_HEIGHT_MM = 700;
 
 function cleanZero(value: number): number {
   return Object.is(value, -0) ? 0 : value;
@@ -28,14 +30,36 @@ function rotationYFromDirection(dx: number, dz: number): number {
   return cleanZero(-Math.atan2(dz, dx));
 }
 
+function rotationYFromDegrees(rotationDeg: number): number {
+  return cleanZero(-(rotationDeg * Math.PI) / 180);
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown spatial projection error";
+}
+
+function assertProjectableObject(object: VlezetDocument["placedObjects"][number]): void {
+  const values = [
+    object.position.x,
+    object.position.y,
+    object.width,
+    object.depth,
+    object.rotationDeg,
+    ...(object.height === undefined ? [] : [object.height]),
+  ];
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new Error(`Placed object ${object.id} contains non-finite geometry`);
+  }
+  if (object.width <= 0 || object.depth <= 0 || (object.height !== undefined && object.height <= 0)) {
+    throw new Error(`Placed object ${object.id} contains invalid dimensions`);
+  }
 }
 
 export function projectDocumentToSpatialScene(document: VlezetDocument): SpatialProjectionResult {
   const wallSegments: SpatialWallSegment[] = [];
   const openingMarkers: SpatialOpeningMarker[] = [];
   const floors: SpatialFloor[] = [];
+  const objects: SpatialObject[] = [];
   const diagnostics: SpatialProjectionDiagnostic[] = [];
 
   for (const wall of document.walls) {
@@ -137,8 +161,40 @@ export function projectDocumentToSpatialScene(document: VlezetDocument): Spatial
     });
   }
 
+  for (const object of document.placedObjects) {
+    try {
+      assertProjectableObject(object);
+      const heightWasDefaulted = object.height === undefined;
+      const heightMm = object.height ?? DEFAULT_OBJECT_HEIGHT_MM;
+      objects.push({
+        id: `object:${object.id}`,
+        objectId: object.id,
+        name: object.name,
+        category: object.category,
+        center: {
+          x: cleanZero(object.position.x),
+          y: heightMm / 2,
+          z: cleanZero(object.position.y),
+        },
+        widthMm: object.width,
+        depthMm: object.depth,
+        heightMm,
+        rotationYRad: rotationYFromDegrees(object.rotationDeg),
+        heightWasDefaulted,
+      });
+    } catch (error) {
+      diagnostics.push({
+        code: "invalid-object",
+        severity: "error",
+        entityKind: "placed-object",
+        entityId: object.id,
+        message: errorMessage(error),
+      });
+    }
+  }
+
   return {
-    scene: { wallSegments, openingMarkers, floors },
+    scene: { wallSegments, openingMarkers, floors, objects },
     diagnostics,
   };
 }
