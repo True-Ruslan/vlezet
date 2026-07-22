@@ -4,6 +4,7 @@ import {
   buildOpeningHypotheses,
   buildWallCandidates,
   LOCAL_RECOGNITION_ENGINE_VERSION,
+  rescaleRecognitionPixelEvidence,
 } from "@vlezet/recognition";
 import type { DetectedLineSegment, RecognitionDraft } from "@vlezet/recognition";
 import type { RecognitionWorkerMessage, RecognitionWorkerRequest } from "./local-recognition-types";
@@ -67,19 +68,14 @@ async function recognize(request: RecognitionWorkerRequest): Promise<Recognition
       wallCandidates: analysisWalls,
       segments,
     });
-
-    const sourcePixelScale = (
-      input.sourceWidthPx / input.imageData.width +
-      input.sourceHeightPx / input.imageData.height
-    ) / 2;
-    const walls = analysisWalls.map((wall) => ({
-      ...wall,
-      estimatedThicknessPx: wall.estimatedThicknessPx == null ? null : wall.estimatedThicknessPx * sourcePixelScale,
-    }));
-    const openings = analysisOpenings.map((opening) => ({
-      ...opening,
-      widthPx: opening.widthPx == null ? null : opening.widthPx * sourcePixelScale,
-    }));
+    const { walls, openings } = rescaleRecognitionPixelEvidence({
+      walls: analysisWalls,
+      openings: analysisOpenings,
+      analysisWidthPx: input.imageData.width,
+      analysisHeightPx: input.imageData.height,
+      sourceWidthPx: input.sourceWidthPx,
+      sourceHeightPx: input.sourceHeightPx,
+    });
 
     const decisions = Object.fromEntries([...walls, ...openings].map((candidate) => [candidate.id, "pending" as const]));
     const draft: RecognitionDraft = {
