@@ -6,6 +6,30 @@ export type SpatialRenderResources = Readonly<{
   dispose: () => void;
 }>;
 
+type ResourceOwningObject3D = THREE.Object3D & Readonly<{
+  geometry?: THREE.BufferGeometry;
+  material?: THREE.Material | THREE.Material[];
+}>;
+
+export function disposeObject3DResources(root: THREE.Object3D): void {
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+
+  root.traverse((object) => {
+    const resourceOwner = object as ResourceOwningObject3D;
+    if (resourceOwner.geometry) geometries.add(resourceOwner.geometry);
+    if (resourceOwner.material) {
+      const ownedMaterials = Array.isArray(resourceOwner.material) ? resourceOwner.material : [resourceOwner.material];
+      for (const material of ownedMaterials) materials.add(material);
+    }
+  });
+
+  root.removeFromParent();
+  for (const geometry of geometries) geometry.dispose();
+  for (const material of materials) material.dispose();
+  root.clear();
+}
+
 function wallMesh(segment: SpatialScene["wallSegments"][number], material: THREE.Material): THREE.Mesh {
   const geometry = new THREE.BoxGeometry(segment.lengthMm, segment.heightMm, segment.thicknessMm);
   const mesh = new THREE.Mesh(geometry, material);
