@@ -1,6 +1,6 @@
 import type { RecognitionConfidence, RecognitionWallCandidate } from "./model";
 
-export const LOCAL_RECOGNITION_ENGINE_VERSION = "2" as const;
+export const LOCAL_RECOGNITION_ENGINE_VERSION = "3" as const;
 
 export type DetectedLineSegment = Readonly<{
   x1: number;
@@ -79,7 +79,6 @@ type CanonicalSegment = Readonly<{
   length: number;
   angleDeg: number;
 }>;
-
 type Centerline = Readonly<{
   start: Vector;
   end: Vector;
@@ -120,113 +119,108 @@ function dot(point: Vector, axis: Vector): number {
   return point.x * axis.x + point.y * axis.y;
 }
 
-function midpoint(segment: CanonicalSegment): Vector {
-  return { x: (segment.start.x + segment.end.x) / 2, y: (segment.start.y + segment.end.y) / 2 };
+function add(a: Vector, b: Vector): Vector {
+  return { x: a.x + b.x, y: a.y + b.y };
 }
 
-function projectionRange(segment: CanonicalSegment, axis: Vector): readonly [number, number] {
-  const first = dot(segment.start, axis);
-  const second = dot(segment.end, axis);
-  return first <= second ? [first, second] : [second, first];
+function scale(point: Vector, amount: number): Vector {
+  return { x: point.x * amount, y: point.y * amount };
 }
 
-function overlapLength(first: readonly [number, number], second: readonly [number, number]): number {
-  return Math.max(0, Math.min(first[1], second[1]) - Math.max(first[0], second[0]));
+function pointOnAxis(origin: Vector, direction: Vector, normal: Vector, along: number, across: number): Vector {
+  return add(origin, add(scale(direction, along), scale(normal, across)));
 }
 
-function pointFromAxes(along: number, across: number, direction: Vector, normal: Vector): Vector {
-  return {
-    x: along * direction.x + across * normal.x,
-    y: along * direction.y + across * normal.y,
-  };
+function overlap(first: CanonicalSegment, second: CanonicalSegment): Readonly<{ start: number; end: number; length: number }> | null {
+  const axis = first.direction;
+  const firstStart = dot(first.start, axis);
+  const firstEnd = dot(first.end, axis);
+  const secondStart = dot(second.start, axis);
+  const secondEnd = dot(second.end, axis);
+  const start = Math.max(Math.min(firstStart, firstEnd), Math.min(secondStart, secondEnd));
+  const end = Math.min(Math.max(firstStart, firstEnd), Math.max(secondStart, secondEnd));
+  return end > start ? { start, end, length: end - start } : null;
 }
 
-function pairEdges(
-  first: CanonicalSegment,
-  second: CanonicalSegment,
-  options: LocalRecognitionOptions,
-): Centerline | null {
+function pairCenterline(first: CanonicalSegment, second: CanonicalSegment, options: LocalRecognitionOptions): Centerline | null {
   if (angleDifference(first.angleDeg, second.angleDeg) > options.maximumAngleDeltaDeg) return null;
-  const direction = first.direction;
-  const normal = first.normal;
-  const firstRange = projectionRange(first, direction);
-  const secondRange = projectionRange(second, direction);
-  const overlap = overlapLength(firstRange, secondRange);
+  const overlapRange = overlap(first, second);
+  if (!overlapRange) return null;
   const shorter = Math.min(first.length, second.length);
-  if (shorter === 0 || overlap / shorter < options.minimumParallelOverlapRatio) return null;
+  if (overlapRange.length / shorter < options.minimumParallelOverlapRatio) return null;
 
-  const firstAcross = dot(midpoint(first), normal);
-  const secondAcross = dot(midpoint(second), normal);
-  const thicknessPx = Math.abs(secondAcross - firstAcross);
+  const normal = first.normal;
+  const firstOffset = dot(first.start, normal);
+  const secondOffset = dot(second.start, normal);
+  const thicknessPx = Math.abs(firstOffset - secondOffset);
   if (thicknessPx < options.minimumWallThicknessPx || thicknessPx > options.maximumWallThicknessPx) return null;
 
-  const alongStart = Math.min(firstRange[0], secondRange[0]);
-  const alongEnd = Math.max(firstRange[1], secondRange[1]);
-  const across = (firstAcross + secondAcross) / 2;
+  const centerOffset = (firstOffset + secondOffset) / 2;
   return {
-    start: pointFromAxes(alongStart, across, direction, normal),
-    end: pointFromAxes(alongEnd, across, direction, normal),
+    start: pointOnAxis({ x: 0, y: 0 }, first.direction, normal, overlapRange.start, centerOffset),
+    end: pointOnAxis({ x: 0, y: 0 }, first.direction, normal, overlapRange.end, centerOffset),
     thicknessPx,
-    evidenceCount: 2,
+    evidenceCount: 1,
   };
 }
 
-function centerlineCanonical(line: Centerline): CanonicalSegment {
-  return canonicalSegment({ x1: line.start.x, y1: line.start.y, x2: line.end.x, y2: line.end.y })!;
-}
-
-function mergeTwo(first: Centerline, second: Centerline, options: LocalRecognitionOptions): Centerline | null {
-  const a = centerlineCanonical(first);
-  const b = centerlineCanonical(second);
-  if (angleDifference(a.angleDeg, b.angleDeg) > options.maximumAngleDeltaDeg) return null;
-  const direction = a.direction;
-  const normal = a.normal;
-  const acrossA = dot(midpoint(a), normal);
-  const acrossB = dot(midpoint(b), normal);
-  if (Math.abs(acrossA - acrossB) > options.collinearOffsetTolerancePx) return null;
-  const rangeA = projectionRange(a, direction);
-  const rangeB = projectionRange(b, direction);
-  const gap = Math.max(0, Math.max(rangeA[0], rangeB[0]) - Math.min(rangeA[1], rangeB[1]));
-  if (gap > options.collinearMergeGapPx) return null;
-  const start = Math.min(rangeA[0], rangeB[0]);
-  const end = Math.max(rangeA[1], rangeB[1]);
-  const totalEvidence = first.evidenceCount + second.evidenceCount;
-  const across = (acrossA * first.evidenceCount + acrossB * second.evidenceCount) / totalEvidence;
-  return {
-    start: pointFromAxes(start, across, direction, normal),
-    end: pointFromAxes(end, across, direction, normal),
-    thicknessPx: (first.thicknessPx * first.evidenceCount + second.thicknessPx * second.evidenceCount) / totalEvidence,
-    evidenceCount: totalEvidence,
-  };
-}
-
-function mergeCenterlines(lines: readonly Centerline[], options: LocalRecognitionOptions): Centerline[] {
-  const result: Centerline[] = [];
-  for (const line of lines) {
-    let current = line;
-    let merged = true;
-    while (merged) {
-      merged = false;
-      for (let index = 0; index < result.length; index += 1) {
-        const combined = mergeTwo(result[index]!, current, options);
-        if (!combined) continue;
-        result.splice(index, 1);
-        current = combined;
-        merged = true;
-        break;
-      }
+function collinear(centerlines: readonly Centerline[], options: LocalRecognitionOptions): Centerline[] {
+  const merged: Centerline[] = [];
+  for (const candidate of centerlines) {
+    let mergedIndex = -1;
+    for (let index = 0; index < merged.length; index += 1) {
+      const existing = merged[index]!;
+      const existingDirection = { x: existing.end.x - existing.start.x, y: existing.end.y - existing.start.y };
+      const existingLength = lengthBetween(existing.start, existing.end);
+      const candidateDirection = { x: candidate.end.x - candidate.start.x, y: candidate.end.y - candidate.start.y };
+      const candidateLength = lengthBetween(candidate.start, candidate.end);
+      const first: CanonicalSegment = {
+        start: existing.start,
+        end: existing.end,
+        direction: { x: existingDirection.x / existingLength, y: existingDirection.y / existingLength },
+        normal: { x: -existingDirection.y / existingLength, y: existingDirection.x / existingLength },
+        length: existingLength,
+        angleDeg: ((Math.atan2(existingDirection.y, existingDirection.x) * 180 / Math.PI) + 180) % 180,
+      };
+      const second: CanonicalSegment = {
+        start: candidate.start,
+        end: candidate.end,
+        direction: { x: candidateDirection.x / candidateLength, y: candidateDirection.y / candidateLength },
+        normal: { x: -candidateDirection.y / candidateLength, y: candidateDirection.x / candidateLength },
+        length: candidateLength,
+        angleDeg: ((Math.atan2(candidateDirection.y, candidateDirection.x) * 180 / Math.PI) + 180) % 180,
+      };
+      if (angleDifference(first.angleDeg, second.angleDeg) > options.maximumAngleDeltaDeg) continue;
+      const normalOffset = Math.abs(dot(first.start, first.normal) - dot(second.start, first.normal));
+      if (normalOffset > options.collinearOffsetTolerancePx) continue;
+      const axis = first.direction;
+      const existingMin = Math.min(dot(first.start, axis), dot(first.end, axis));
+      const existingMax = Math.max(dot(first.start, axis), dot(first.end, axis));
+      const candidateMin = Math.min(dot(second.start, axis), dot(second.end, axis));
+      const candidateMax = Math.max(dot(second.start, axis), dot(second.end, axis));
+      const gap = Math.max(0, Math.max(existingMin, candidateMin) - Math.min(existingMax, candidateMax));
+      if (gap > options.collinearMergeGapPx) continue;
+      mergedIndex = index;
+      const start = Math.min(existingMin, candidateMin);
+      const end = Math.max(existingMax, candidateMax);
+      const across = (dot(first.start, first.normal) + dot(second.start, first.normal)) / 2;
+      merged[index] = {
+        start: pointOnAxis({ x: 0, y: 0 }, axis, first.normal, start, across),
+        end: pointOnAxis({ x: 0, y: 0 }, axis, first.normal, end, across),
+        thicknessPx: (existing.thicknessPx * existing.evidenceCount + candidate.thicknessPx * candidate.evidenceCount) / (existing.evidenceCount + candidate.evidenceCount),
+        evidenceCount: existing.evidenceCount + candidate.evidenceCount,
+      };
+      break;
     }
-    result.push(current);
+    if (mergedIndex < 0) merged.push(candidate);
   }
-  return result;
+  return merged;
 }
 
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value));
-}
-
-function confidenceFor(line: Centerline): RecognitionConfidence {
-  return line.evidenceCount >= 4 ? "high" : "medium";
+function confidenceForEvidence(evidenceCount: number): RecognitionConfidence {
+  if (evidenceCount >= 3) return "high";
+  if (evidenceCount === 2) return "medium";
+  return "low";
 }
 
 export function buildWallCandidates(input: BuildWallCandidatesInput): RecognitionWallCandidate[] {
@@ -235,30 +229,26 @@ export function buildWallCandidates(input: BuildWallCandidatesInput): Recognitio
   const options = { ...DEFAULT_LOCAL_RECOGNITION_OPTIONS, ...input.options };
   const segments = input.segments
     .map(canonicalSegment)
-    .filter((segment): segment is CanonicalSegment => segment !== null && segment.length >= options.minimumSegmentLengthPx);
-
-  const paired: Centerline[] = [];
-  for (let first = 0; first < segments.length; first += 1) {
-    for (let second = first + 1; second < segments.length; second += 1) {
-      const candidate = pairEdges(segments[first]!, segments[second]!, options);
-      if (candidate) paired.push(candidate);
+    .filter((segment): segment is CanonicalSegment => Boolean(segment) && segment.length >= options.minimumSegmentLengthPx);
+  const centerlines: Centerline[] = [];
+  for (let firstIndex = 0; firstIndex < segments.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < segments.length; secondIndex += 1) {
+      const candidate = pairCenterline(segments[firstIndex]!, segments[secondIndex]!, options);
+      if (candidate) centerlines.push(candidate);
     }
   }
-
-  return mergeCenterlines(paired, options)
-    .sort((a, b) => a.start.y - b.start.y || a.start.x - b.start.x || a.end.x - b.end.x)
-    .map((line, index) => ({
-      id: `local-wall-${index + 1}`,
-      start: { x: clamp01(line.start.x / widthPx), y: clamp01(line.start.y / heightPx) },
-      end: { x: clamp01(line.end.x / widthPx), y: clamp01(line.end.y / heightPx) },
-      estimatedThicknessPx: line.thicknessPx,
-      confidence: confidenceFor(line),
-      evidence: {
-        localScore: line.evidenceCount >= 4 ? 0.92 : 0.78,
-        cloudScore: null,
-        reasons: line.evidenceCount >= 4 ? ["parallel-edges", "collinear-support"] : ["parallel-edges"],
-      },
-      origin: "local" as const,
-      conflict: null,
-    }));
+  return collinear(centerlines, options).map((wall, index) => ({
+    id: `local-wall-${index + 1}`,
+    start: { x: clamp(wall.start.x / widthPx, 0, 1), y: clamp(wall.start.y / heightPx, 0, 1) },
+    end: { x: clamp(wall.end.x / widthPx, 0, 1), y: clamp(wall.end.y / heightPx, 0, 1) },
+    estimatedThicknessPx: wall.thicknessPx,
+    confidence: confidenceForEvidence(wall.evidenceCount),
+    evidence: {
+      localScore: Math.min(1, 0.55 + wall.evidenceCount * 0.12),
+      cloudScore: null,
+      reasons: ["paired-parallel-edges", `evidence:${wall.evidenceCount}`],
+    },
+    origin: "local",
+    conflict: null,
+  }));
 }
