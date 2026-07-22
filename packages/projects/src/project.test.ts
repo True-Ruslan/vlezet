@@ -18,6 +18,7 @@ const NOW = "2026-07-21T19:00:00.000Z";
 
 const referencePlan = {
   assetId: "asset-1",
+  referenceRevision: "revision-1",
   source: { kind: "image" as const, originalMimeType: "image/png" as const },
   widthPx: 2000,
   heightPx: 1400,
