@@ -10,10 +10,11 @@ import {
   type ViewportTransform,
 } from "@vlezet/geometry";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Group, Line, Rect, Text } from "react-konva";
 import { useStore } from "zustand";
 import { measurementToolStore } from "./measurement-tool-store";
+import { shouldHandleTapePointer } from "./tape-measurement-pointer";
 import { advanceTapeMeasurement, previewTapeMeasurement, type TapeMeasurementState } from "./tape-measurement-state";
 import { editorStore } from "./use-editor-store";
 
@@ -43,6 +44,7 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
   const editorTool = useStore(editorStore, (state) => state.tool);
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const [measurement, setMeasurement] = useState<TapeMeasurementState>(null);
+  const spacePressedRef = useRef(false);
 
   const resolvedWalls = useMemo(() => {
     const vertexMap = new Map(document.vertices.map((vertex) => [vertex.id, vertex.position]));
@@ -67,12 +69,21 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
   useEffect(() => {
     if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Space") spacePressedRef.current = true;
       if (event.key !== "Escape") return;
       event.preventDefault();
       setMeasurement(null);
     };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") spacePressedRef.current = false;
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      spacePressedRef.current = false;
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   }, [active]);
 
   const snapPoint = (screenPoint: Point2): Point2 => {
@@ -104,7 +115,14 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
   const yMidpoint = cornerScreen && endScreen ? { x: endScreen.x, y: (cornerScreen.y + endScreen.y) / 2 } : null;
 
   const handlePointer = (event: KonvaEventObject<MouseEvent>, commit: boolean) => {
-    if (commit && event.evt.button !== 0) return;
+    if (!shouldHandleTapePointer({
+      commit,
+      button: event.evt.button,
+      buttons: event.evt.buttons,
+      spacePressed: spacePressedRef.current,
+      hasMeasurement: measurement !== null,
+      measurementComplete: measurement?.complete ?? false,
+    })) return;
     const pointer = pointerPosition(event);
     if (!pointer) return;
     event.cancelBubble = true;
@@ -130,10 +148,7 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
       fill="#ffffff"
       opacity={0.001}
       onMouseDown={(event) => handlePointer(event, true)}
-      onMouseMove={(event) => {
-        if (!measurement || measurement.complete) return;
-        handlePointer(event, false);
-      }}
+      onMouseMove={(event) => handlePointer(event, false)}
       onMouseEnter={(event) => { const stage = event.target.getStage(); if (stage) stage.container().style.cursor = "crosshair"; }}
       onMouseLeave={(event) => { const stage = event.target.getStage(); if (stage) stage.container().style.cursor = ""; }}
     />
