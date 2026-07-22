@@ -1,7 +1,12 @@
 "use client";
 
 import type { Opening, VlezetDocument, Wall } from "@vlezet/domain";
-import { MAX_WALL_THICKNESS_MM, MIN_WALL_THICKNESS_MM, topologicalWallLength } from "@vlezet/editor-core";
+import {
+  MAX_WALL_THICKNESS_MM,
+  MIN_WALL_THICKNESS_MM,
+  topologicalWallLength,
+  type WallLengthAnchor,
+} from "@vlezet/editor-core";
 import { deriveRooms, type DerivedRoom } from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
@@ -26,12 +31,13 @@ function connectionCount(document: VlezetDocument, wall: Wall): number {
 function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDocument; wall: Wall }>) {
   const currentLength = topologicalWallLength(document, wall.id);
   const [lengthInput, setLengthInput] = useState(() => String(Math.round(currentLength)));
+  const [lengthAnchor, setLengthAnchor] = useState<WallLengthAnchor>("start");
   const [thicknessInput, setThicknessInput] = useState(() => String(Math.round(wall.thickness)));
   const [error, setError] = useState<string | null>(null);
   const applyLength = () => {
     const value = Number(lengthInput.replace(",", "."));
     if (!Number.isFinite(value) || value <= 0) { setError("Введите положительную длину в миллиметрах."); return; }
-    try { editorStore.getState().setSelectedWallLength(value); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить длину."); }
+    try { editorStore.getState().setSelectedWallLength(value, lengthAnchor); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить длину."); }
   };
   const applyThickness = () => {
     const value = Number(thicknessInput.replace(",", "."));
@@ -40,9 +46,12 @@ function SelectedWallInspector({ document, wall }: Readonly<{ document: VlezetDo
   };
   return <aside className="inspector-panel">
     <div className="inspector-heading"><span>Стена</span><code>{wall.id.slice(0,8)}</code></div>
-    <label className="field-label" htmlFor="wall-length">Точная длина</label><div className="length-field-row"><input id="wall-length" inputMode="decimal" value={lengthInput} onChange={(e)=>setLengthInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyLength();}}/><span>мм</span></div><button className="primary-action" type="button" onClick={applyLength}>Применить длину</button>
+    <label className="field-label" htmlFor="wall-length">Длина по оси стены</label><div className="length-field-row"><input id="wall-length" inputMode="decimal" value={lengthInput} onChange={(e)=>setLengthInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyLength();}}/><span>мм</span></div>
+    <label className="field-label" htmlFor="wall-length-anchor">Что остаётся на месте</label><select id="wall-length-anchor" className="inspector-select" value={lengthAnchor} onChange={(e)=>setLengthAnchor(e.target.value as WallLengthAnchor)}><option value="start">Начало</option><option value="center">Центр</option><option value="end">Конец</option></select>
+    <p className="inspector-hint">Длина по оси — расстояние между узлами стены. Это не всегда равно чистому внутреннему размеру комнаты.</p>
+    <button className="primary-action" type="button" onClick={applyLength}>Применить длину</button>
     <label className="field-label" htmlFor="wall-thickness">Толщина стены</label><div className="length-field-row"><input id="wall-thickness" inputMode="decimal" min={MIN_WALL_THICKNESS_MM} max={MAX_WALL_THICKNESS_MM} value={thicknessInput} onChange={(e)=>setThicknessInput(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")applyThickness();}}/><span>мм</span></div><button className="secondary-action" type="button" onClick={applyThickness}>Применить толщину</button>
-    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>Длина</dt><dd>{(currentLength/1000).toFixed(3)} м</dd></div><div><dt>Толщина</dt><dd>{wall.thickness} мм</dd></div><div><dt>Соединений</dt><dd>{connectionCount(document,wall)}</dd></div></dl><p className="inspector-hint">Стены соединены настоящими узлами. Изменение общей вершины не разрывает соседние стены.</p>
+    {error?<p className="field-error">{error}</p>:null}<dl className="wall-facts"><div><dt>По оси</dt><dd>{(currentLength/1000).toFixed(3)} м</dd></div><div><dt>Толщина</dt><dd>{wall.thickness} мм</dd></div><div><dt>Соединений</dt><dd>{connectionCount(document,wall)}</dd></div></dl><p className="inspector-hint">Стены соединены настоящими узлами. Изменение общей вершины не разрывает соседние стены.</p>
   </aside>;
 }
 
