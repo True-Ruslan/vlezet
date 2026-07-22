@@ -4,6 +4,8 @@ export type LocalRecognitionPhase = "prepare" | "edges" | "lines" | "walls" | "o
 
 export type LocalRecognitionInput = Readonly<{
   imageData: ImageData;
+  sourceWidthPx: number;
+  sourceHeightPx: number;
   projectId: string;
   referenceAssetId: string;
   referenceRevision: string;
