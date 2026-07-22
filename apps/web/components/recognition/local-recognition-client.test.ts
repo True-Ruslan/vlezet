@@ -29,9 +29,13 @@ class FakeWorker implements RecognitionWorkerLike {
   });
 }
 
+function fakeImageData(width: number, height: number): ImageData {
+  return { width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: "srgb" } as ImageData;
+}
+
 function input() {
   return {
-    imageData: new ImageData(2, 2),
+    imageData: fakeImageData(2, 2),
     projectId: "project-1",
     referenceAssetId: "asset-1",
     referenceRevision: "revision-1",
