@@ -10,6 +10,7 @@ describe("SpatialInspector", () => {
           kind: "room",
           id: "room",
           name: "Спальня",
+          areaMm2: 11_715_000,
           areaM2: 11.715,
           clearWidthMm: 3550,
           clearLengthMm: 3300,
