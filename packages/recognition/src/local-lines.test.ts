@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildWallCandidates, DEFAULT_LOCAL_RECOGNITION_OPTIONS } from "./local-lines";
+import {
+  buildWallCandidates,
+  createAdaptiveLocalRecognitionOptions,
+  DEFAULT_LOCAL_RECOGNITION_OPTIONS,
+} from "./local-lines";
 
 describe("local wall post-processing", () => {
   it("pairs parallel wall edges into one centerline candidate", () => {
@@ -32,6 +36,35 @@ describe("local wall post-processing", () => {
     expect(candidates).toHaveLength(1);
     expect(candidates[0]?.start.x).toBeCloseTo(0.1, 3);
     expect(candidates[0]?.end.x).toBeCloseTo(0.9, 3);
+  });
+
+  it("derives relaxed thresholds from calibrated physical scale for thick fragmented walls", () => {
+    const strict = buildWallCandidates({
+      widthPx: 1200,
+      heightPx: 900,
+      segments: [
+        { x1: 100, y1: 200, x2: 500, y2: 200 },
+        { x1: 320, y1: 310, x2: 780, y2: 310 },
+      ],
+    });
+    expect(strict).toHaveLength(0);
+
+    const adaptive = buildWallCandidates({
+      widthPx: 1200,
+      heightPx: 900,
+      segments: [
+        { x1: 100, y1: 200, x2: 500, y2: 200 },
+        { x1: 320, y1: 310, x2: 780, y2: 310 },
+      ],
+      options: createAdaptiveLocalRecognitionOptions({
+        analysisMillimetersPerPixel: 2.5,
+        widthPx: 1200,
+        heightPx: 900,
+      }),
+    });
+
+    expect(adaptive).toHaveLength(1);
+    expect(adaptive[0]?.estimatedThicknessPx).toBeCloseTo(110, 5);
   });
 
   it("keeps recognition thresholds explicit and versionable", () => {
