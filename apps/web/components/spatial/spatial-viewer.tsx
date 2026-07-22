@@ -7,7 +7,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useStore } from "zustand";
 import { editorStore } from "../editor/use-editor-store";
 import { deriveCameraPlacement, type SpatialCameraPreset } from "./camera";
-import { buildSpatialSceneGroup } from "./spatial-scene-renderer";
+import { buildSpatialSceneGroup, disposeObject3DResources } from "./spatial-scene-renderer";
 import styles from "./spatial-viewer.module.css";
 
 export type SpatialViewerProps = Readonly<{
@@ -43,6 +43,7 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
     let renderer: THREE.WebGLRenderer | null = null;
     let controls: OrbitControls | null = null;
     let resources: ReturnType<typeof buildSpatialSceneGroup> | null = null;
+    let grid: THREE.GridHelper | null = null;
     let resizeObserver: ResizeObserver | null = null;
 
     try {
@@ -76,7 +77,7 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
       const size = cameraBox.getSize(new THREE.Vector3());
       const center = cameraBox.getCenter(new THREE.Vector3());
       const gridSize = Math.max(10_000, Math.ceil(Math.max(size.x, size.z) * 1.5 / 1000) * 1000);
-      const grid = new THREE.GridHelper(gridSize, Math.max(10, Math.round(gridSize / 500)), 0xcbd2dc, 0xe1e5ea);
+      grid = new THREE.GridHelper(gridSize, Math.max(10, Math.round(gridSize / 500)), 0xcbd2dc, 0xe1e5ea);
       grid.position.set(center.x, -2, center.z);
       scene.add(grid);
 
@@ -125,6 +126,7 @@ export function SpatialViewer({ fitRequest }: SpatialViewerProps) {
       renderer?.setAnimationLoop(null);
       controls?.dispose();
       resources?.dispose();
+      if (grid) disposeObject3DResources(grid);
       renderer?.dispose();
       renderer?.domElement.remove();
     };
