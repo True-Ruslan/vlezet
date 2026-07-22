@@ -1,8 +1,12 @@
 import type { SpatialScene } from "@vlezet/spatial";
 import * as THREE from "three";
+import type { SpatialInspectionTarget } from "./spatial-inspection";
+
+export type SpatialEmphasisMode = "hover" | "selected";
 
 export type SpatialRenderResources = Readonly<{
   group: THREE.Group;
+  emphasize: (target: SpatialInspectionTarget | null, mode: SpatialEmphasisMode) => void;
   dispose: () => void;
 }>;
 
@@ -91,6 +95,21 @@ function objectMesh(
   return mesh;
 }
 
+function matchesTarget(object: THREE.Object3D, target: SpatialInspectionTarget): boolean {
+  if (target.kind === "room") return object.userData.kind === "floor" && object.userData.roomId === target.id;
+  if (target.kind === "wall") return object.userData.kind === "wall" && object.userData.wallId === target.id;
+  return object.userData.kind === "placed-object" && object.userData.objectId === target.id;
+}
+
+function cloneEmphasizedMaterial(material: THREE.Material, mode: SpatialEmphasisMode): THREE.Material {
+  const clone = material.clone();
+  if (clone instanceof THREE.MeshStandardMaterial) {
+    clone.emissive.setHex(mode === "selected" ? 0x2563eb : 0x64748b);
+    clone.emissiveIntensity = mode === "selected" ? 0.7 : 0.35;
+  }
+  return clone;
+}
+
 export function buildSpatialSceneGroup(scene: SpatialScene): SpatialRenderResources {
   const group = new THREE.Group();
   group.name = "vlezet-spatial-scene";
@@ -149,9 +168,38 @@ export function buildSpatialSceneGroup(scene: SpatialScene): SpatialRenderResour
     group.add(mesh);
   }
 
+  const originalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const temporaryMaterials = new Set<THREE.Material>();
+
+  const clearEmphasis = () => {
+    for (const [mesh, material] of originalMaterials) mesh.material = material;
+    originalMaterials.clear();
+    for (const material of temporaryMaterials) material.dispose();
+    temporaryMaterials.clear();
+  };
+
+  const emphasize = (target: SpatialInspectionTarget | null, mode: SpatialEmphasisMode) => {
+    clearEmphasis();
+    if (!target) return;
+
+    group.traverse((object) => {
+      if (!(object instanceof THREE.Mesh) || !matchesTarget(object, target)) return;
+      const original = object.material;
+      const emphasized = Array.isArray(original)
+        ? original.map((material) => cloneEmphasizedMaterial(material, mode))
+        : cloneEmphasizedMaterial(original, mode);
+      originalMaterials.set(object, original);
+      object.material = emphasized;
+      const emphasizedMaterials = Array.isArray(emphasized) ? emphasized : [emphasized];
+      for (const material of emphasizedMaterials) temporaryMaterials.add(material);
+    });
+  };
+
   return {
     group,
+    emphasize,
     dispose: () => {
+      clearEmphasis();
       group.removeFromParent();
       for (const geometry of geometries) geometry.dispose();
       for (const material of materials) material.dispose();

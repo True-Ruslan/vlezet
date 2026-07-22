@@ -14,6 +14,16 @@ const scene: SpatialScene = {
     thicknessMm: 100,
     heightMm: 2700,
     rotationYRad: 0,
+  }, {
+    id: "wall:1",
+    wallId: "wall",
+    startOffsetMm: 3550,
+    endOffsetMm: 4050,
+    center: { x: 3800, y: 1350, z: 0 },
+    lengthMm: 500,
+    thicknessMm: 100,
+    heightMm: 2700,
+    rotationYRad: 0,
   }],
   openingMarkers: [{
     id: "opening:door",
@@ -104,6 +114,37 @@ describe("buildSpatialSceneGroup", () => {
       category: "seating",
       heightWasDefaulted: false,
     }));
+
+    resources.dispose();
+  });
+
+  it("temporarily emphasizes every mesh for one semantic target and restores shared base materials", () => {
+    const resources = buildSpatialSceneGroup(scene);
+    const walls = resources.group.children.filter((child) => child.userData.kind === "wall") as THREE.Mesh[];
+    const object = resources.group.children.find((child) => child.userData.kind === "placed-object") as THREE.Mesh;
+    const originalWallMaterials = walls.map((wall) => wall.material);
+    const originalObjectMaterial = object.material;
+
+    resources.emphasize({ kind: "wall", id: "wall" }, "selected");
+
+    expect(walls).toHaveLength(2);
+    expect(walls[0]!.material).not.toBe(originalWallMaterials[0]);
+    expect(walls[1]!.material).not.toBe(originalWallMaterials[1]);
+    expect(object.material).toBe(originalObjectMaterial);
+
+    let temporaryMaterialDisposals = 0;
+    for (const wall of walls) {
+      const materials = Array.isArray(wall.material) ? wall.material : [wall.material];
+      for (const material of materials) {
+        material.addEventListener("dispose", () => { temporaryMaterialDisposals += 1; });
+      }
+    }
+
+    resources.emphasize(null, "hover");
+
+    expect(walls[0]!.material).toBe(originalWallMaterials[0]);
+    expect(walls[1]!.material).toBe(originalWallMaterials[1]);
+    expect(temporaryMaterialDisposals).toBe(2);
 
     resources.dispose();
   });
