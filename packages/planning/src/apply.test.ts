@@ -47,6 +47,17 @@ describe("applyPlanningCandidateToDocument", () => {
     expect(JSON.stringify(document)).toBe(sourceJson);
   });
 
+  it("normalizes candidate rotation before it becomes persistent document state", () => {
+    const document = documentFixture();
+    const candidate = candidateFor(document);
+    const applied = applyPlanningCandidateToDocument(document, {
+      ...candidate,
+      placements: candidate.placements.map((placement) => ({ ...placement, rotationDeg: 450 })),
+    });
+
+    expect(applied.placedObjects[0]?.rotationDeg).toBe(90);
+  });
+
   it("fails atomically when the candidate became invalid against the current document", () => {
     const original = documentFixture();
     const candidate = candidateFor(original);
