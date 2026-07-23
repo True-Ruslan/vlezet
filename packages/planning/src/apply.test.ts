@@ -84,6 +84,34 @@ describe("applyPlanningCandidateToDocument", () => {
     expect(JSON.stringify(staleCurrent)).toBe(before);
   });
 
+  it("recomputes exact pair spacing from current object geometry and rejects stale Apply atomically", () => {
+    const original = documentFixture();
+    const candidate: PlanningCandidate = {
+      id: "candidate:exact-gap",
+      roomId: deriveRooms(original).rooms[0]!.id,
+      placements: original.placedObjects.map((object) => ({
+        objectId: object.id,
+        position: { ...object.position },
+        rotationDeg: object.rotationDeg,
+      })),
+      constraints: [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 600 }],
+    };
+
+    expect(() => applyPlanningCandidateToDocument(original, candidate)).not.toThrow();
+
+    const staleCurrent: VlezetDocument = {
+      ...original,
+      placedObjects: original.placedObjects.map((object) => object.id === "table"
+        ? { ...object, width: object.width + 300 }
+        : object),
+    };
+    const before = JSON.stringify(staleCurrent);
+
+    expect(() => applyPlanningCandidateToDocument(staleCurrent, candidate))
+      .toThrowError(expect.objectContaining<Partial<PlanningError>>({ code: "candidate-invalid" }));
+    expect(JSON.stringify(staleCurrent)).toBe(before);
+  });
+
   it("fails atomically when the candidate became invalid against the current document", () => {
     const original = documentFixture();
     const candidate = candidateFor(original);
