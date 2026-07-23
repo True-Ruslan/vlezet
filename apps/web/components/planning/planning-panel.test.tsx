@@ -18,7 +18,6 @@ const ranked: RankedPlanningCandidate = {
       { objectId: "table", position: { x: 2800, y: 2000 }, rotationDeg: 0 },
     ],
     constraints: [
-      { kind: "prefer-room-boundary", objectId: "sofa", target: "wall" },
       { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 },
     ],
   },
@@ -27,13 +26,12 @@ const ranked: RankedPlanningCandidate = {
     valid: true,
     tightObjectCount: 0,
     recommendationCount: 0,
-    preferencePenalty: 0.05,
+    preferencePenalty: 0,
     rotatedObjectCount: 1,
     totalMovementMm: 1200,
     reasons: [
       "Все выбранные предметы помещаются без столкновений.",
       "Открывание дверей не перекрыто.",
-      "Диван: до ближайшей стены 25 мм.",
       "Диван ↔ Стол: требуется минимум 800 мм, фактически 842 мм.",
     ],
     stableKey: "room-1|sofa|table",
@@ -82,19 +80,19 @@ describe("planning selection", () => {
 });
 
 describe("PlanningPanelView", () => {
-  it("renders exact spacing controls, edge semantics, measured evidence and preview/apply controls", () => {
+  it("renders exact spacing controls, honest hard-constraint summary, measured evidence and preview/apply controls", () => {
     const html = renderToStaticMarkup(
       <PlanningPanelView
         roomName="Комната 1"
         objects={[
-          { id: "sofa", name: "Диван", selected: true, locked: false, boundaryPreference: "wall" },
-          { id: "table", name: "Стол", selected: true, locked: true, boundaryPreference: "none" },
+          { id: "sofa", name: "Диван", selected: true, locked: false, boundaryPreference: "none" },
+          { id: "table", name: "Стол", selected: true, locked: false, boundaryPreference: "none" },
         ]}
         pairs={[{
           key: planningPairKey("sofa", "table"),
           firstName: "Диван",
           secondName: "Стол",
-          preference: "near",
+          preference: "none",
           minimumGapInput: "800",
           minimumGapError: null,
         }]}
@@ -119,6 +117,8 @@ describe("PlanningPanelView", () => {
     expect(html).toContain("Ближе друг к другу");
     expect(html).toContain("Минимальный проход между предметами");
     expect(html).toContain("по ближайшим краям мебели");
+    expect(html).toContain("Обязательные ограничения соблюдены");
+    expect(html).not.toContain("Без обязательных коллизий и ограничений");
     expect(html).toContain("требуется минимум 800 мм");
     expect(html).toContain("фактически 842 мм");
     expect(html).toContain("Предпросмотр");
