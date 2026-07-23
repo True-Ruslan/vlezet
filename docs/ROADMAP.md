@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-07-22  
+**Last updated:** 2026-07-23  
 **Rule:** roadmap order is intentional. Deterministic product truth and user trust come before visual spectacle or speculative AI layers.
 
 For current truth, read `docs/PROJECT_STATE.md` first.
@@ -14,14 +14,16 @@ DONE        M2 Furnishing + Fit
 DONE        M3 Local-First Projects
 DONE        M4 Reference Plan Import
 DONE/MVP    M4.5 Assisted Recognition — merged; quality refinement backlog remains
-DONE        M4.6 Precision Geometry UX — accepted in browser and merged
+DONE        M4.6 Precision Geometry UX — accepted and merged
 DONE        M5.1 Deterministic Spatial 3D Shell + Viewer — accepted and merged
 DONE        M5.2 Furniture in 3D — accepted and merged
 DONE        M5.4 Spatial Inspection — accepted and merged
 DONE        M6.1 Deterministic Layout Alternatives — accepted and merged
+DONE        M6.2 Constraint-Aware Planning — accepted and merged
 POLISH      M5.3 camera/navigation/performance refinements only where evidence requires them
-NOW         M6.2 Constraint-Aware Planning
-LATER       public-product infrastructure / optional expansion
+NOW         M6.3 Exact Spatial Constraints
+LATER       reviewed natural-language intent → structured constraints
+LATER       broader planning / public-product infrastructure / optional expansion
 ```
 
 ## Completed trust foundation
@@ -46,20 +48,9 @@ Merge: `a718bf605d8b3bde8dc87953c340b7b0e9565fdb`.
 
 Accepted after strict CI and real browser verification.
 
-Delivered:
+Delivered explicit wall-length semantics, clear internal rectangular room dimensions, usable-area consistency, deterministic area rounding, wall-thickness alignment semantics, dimension annotations and tape measurement.
 
-- explicit `Длина по оси стены` semantics;
-- start/center/end wall-length anchors;
-- clear internal width/length editing for deterministic rectangular rooms;
-- deterministic usable area display from the same inner geometry;
-- canonical `11.715 м² → 11.72 м²` rounding;
-- wall thickness direction/fixed-face semantics;
-- clear room dimension lines vs technical centreline dimensions;
-- `Размеры` visibility toggle;
-- ephemeral `Измерить`/`M` tape tool;
-- no duplicate persisted dimension authority.
-
-Verified real-browser regression:
+Verified regression:
 
 ```text
 clear room: 3550 × 3300 mm
@@ -71,8 +62,6 @@ area:       11.72 m²
 ### M5 architecture principle
 
 > 3D is a projection of the same trusted `VlezetDocument`, not a separate editor or geometry source.
-
-Architecture:
 
 ```text
 VlezetDocument
@@ -90,14 +79,7 @@ PR #8 → squash merge `4acca82b04c87b3737eb87a03f9ee2ff360b5073`.
 
 **Status:** DONE / ACCEPTED.
 
-Delivered framework-independent spatial projection, deterministic wall prisms/thickness, opening-aware wall segmentation, usable room floors, schematic semantic opening markers, fail-closed diagnostics, plain Three.js viewer, orbit/pan/zoom, camera presets, fit camera, reliable 2D↔3D switching, WebGL isolation and explicit GPU-resource cleanup.
-
-Acceptance:
-
-- strict CI PASS;
-- real browser acceptance PASS on a user apartment project;
-- user confirmed: `Все есть`;
-- lifecycle review found and fixed a GridHelper resource leak before merge.
+Delivered deterministic shell projection, wall thickness/opening segmentation, floors, semantic opening placeholders, fail-closed diagnostics, orbit/pan/zoom, camera presets, fit camera, reliable 2D↔3D switching and explicit GPU-resource cleanup.
 
 ### M5.2 — Furniture in 3D
 
@@ -105,48 +87,7 @@ PR #9 → squash merge `7f7e8dfd9c875145bfa3d307638cd8cd27051a3a`.
 
 **Status:** DONE / ACCEPTED.
 
-Architecture contract:
-
-```text
-PlacedObject
-position x/y
-width/depth/height?
-rotationDeg
-      ↓
-@vlezet/spatial
-      ↓
-SpatialObject
-center X/Y/Z
-width/depth/height
-rotationYRad
-heightWasDefaulted
-      ↓
-Three.js generic primitive
-```
-
-Delivered:
-
-- same persistent placed objects as 2D;
-- no separate 3D object state;
-- deterministic position/rotation mapping;
-- exact width/depth millimetres;
-- stored height when present;
-- projection-only `DEFAULT_OBJECT_HEIGHT_MM = 700` when height is absent;
-- generic primitive boxes first;
-- semantic object metadata preserved;
-- existing fit/collision/clearance engine remains authoritative;
-- invalid object geometry fails closed;
-- renderer lifecycle disposes object resources;
-- 3D remains read-only.
-
-Acceptance:
-
-- exact-head strict CI PASS: `1b955e01a3092e11427258b563871800cf82206a`, run `29940437536`;
-- paired real-project 2D/3D screenshots PASS;
-- all 3 placed objects appeared in matching room locations;
-- no visible M5.1 shell regression.
-
-Canonical checklist: `docs/milestones/m5-2-acceptance.md`.
+Delivered projection of existing placed objects into `SpatialScene.objects` and generic Three.js primitives while preserving the ordinary document as the only furniture authority.
 
 ### M5.4 — Spatial Inspection
 
@@ -154,62 +95,38 @@ PR #10 → squash merge `0bffe36d74d2ff0865d700b51b17ee08e7001094`.
 
 **Status:** DONE / ACCEPTED.
 
-Architecture contract:
-
-```text
-Three.js ray hit
-      ↓ semantic id / entity kind
-inspection state (ephemeral)
-      ↓
-read trusted VlezetDocument / SpatialScene / deterministic geometry+fit
-      ↓
-read-only inspection UI
-```
-
-Delivered:
-
-- hover/select rooms, walls and placed objects using stable semantic IDs;
-- nearest inspectable hit resolution that skips schematic opening placeholders;
-- read-only inspector for authoritative dimensions/area/fit information;
-- canonical M4.6 area rounding reused in 3D;
-- semantic visual emphasis without geometry mutation;
-- all split segments of one logical wall highlight together;
-- deterministic fit statuses/reasons reused from M2;
-- temporary highlight material lifecycle and disposal;
-- stale/unknown IDs fail closed;
-- no document/history/autosave mutation from inspection.
+Delivered semantic 3D hover/select and read-only authoritative inspection for rooms, walls and furniture.
 
 Acceptance:
 
-- final exact PR head `e9980f63d574d1a9cb6614980788270a50cde47e`;
-- GitHub Actions `29948749864` — PASS;
-- real-browser acceptance PASS on the representative apartment;
-- product owner confirmed: `Все работает круто как ты и описал.`
+```text
+head: e9980f63d574d1a9cb6614980788270a50cde47e
+CI:   29948749864 — PASS
+```
 
-Canonical checklist: `docs/milestones/m5-4-acceptance.md`.
+Browser confirmation: `Все работает круто как ты и описал.`
 
-## M5.3 — Camera/navigation/performance polish
+### M5.3 — Camera/navigation/performance polish
 
-The architectural foundation originally planned for M5.3 was intentionally delivered inside M5.1 because shell acceptance required real navigation:
+The architectural foundation originally planned for M5.3 was delivered inside M5.1 because shell acceptance required real navigation.
 
-- orbit;
-- pan;
-- zoom;
-- top/isometric/perspective presets;
-- fit camera;
-- reliable 2D↔3D switching.
+M5.3 is therefore **not a blocking standalone milestone**.
 
-Therefore M5.3 is **not a blocking standalone milestone**.
+Remaining work is evidence-driven only:
 
-Remaining work is evidence-driven polish only:
-
-- camera persistence only if users need it;
-- improved framing on unusual plans;
+- camera persistence if users need it;
+- unusual-plan framing;
 - accessibility/input refinements;
-- explicit performance budgets from representative projects;
-- batching/LOD only after measurement proves a need.
+- measured performance budgets;
+- batching/LOD only when representative projects prove a need.
 
-## Completed M6.1 — Deterministic Layout Alternatives
+## Completed M6 intelligent-planning foundation
+
+### M6 architecture principle
+
+> Planning may propose structured alternatives and interpret explicit user intent, but `VlezetDocument` plus deterministic geometry/fit validation remain authoritative. Preview is ephemeral and Apply is explicit.
+
+### M6.1 — Deterministic Layout Alternatives
 
 PR #11 → squash merge `f2bbf1c4989ef4582ee86aba19c75a71679034be`.
 
@@ -237,186 +154,202 @@ Delivered:
 
 - validated framework-independent planning contracts;
 - one supported axis-aligned rectangular room;
-- 1–3 selected existing objects, with non-selected objects fixed as ordinary obstacles;
-- deterministic footprint-aware anchors and stable orientation generation;
+- 1–3 selected existing objects;
+- non-selected furniture remains fixed ordinary obstacles;
+- deterministic footprint-aware anchors/orientations;
 - search budget `MAX_PLANNING_EVALUATIONS = 6000`;
 - maximum three ranked/displayed alternatives;
 - M2-authoritative containment/collision/door-swing/clearance validation;
-- deterministic ranking and human-readable reasons;
+- deterministic ranking and explanations;
 - non-mutating ghost preview;
 - revalidated explicit Apply;
 - canonical rotation persistence;
-- one Apply = one Undo/Redo for all selected transforms;
-- no LLM/API dependency and no second layout authority.
+- one Apply = one Undo/Redo for all selected transforms.
 
 Acceptance:
 
-- final exact PR head `acaa352545245ff079f55fb8ce85ba2a23f2312d`;
-- GitHub Actions `29953127208` — PASS;
-- representative real-browser acceptance PASS;
-- product owner confirmed: `Все работает строго по сценарию.`
+```text
+head: acaa352545245ff079f55fb8ce85ba2a23f2312d
+CI:   29953127208 — PASS
+```
 
-Canonical checklist: `docs/milestones/m6-1-acceptance.md`.
+Browser confirmation: `Все работает строго по сценарию.`
 
-## NOW — M6.2 Constraint-Aware Planning
+### M6.2 — Constraint-Aware Planning
+
+PR #13 → squash merge `db68d697540ddb9901fbddad0763d769e7d16851`.
+
+**Status:** DONE / ACCEPTED.
+
+Product result:
+
+M6.2 made M6.1 intent-aware with a deliberately small, explicit and testable structured vocabulary.
+
+Accepted constraints:
+
+- hard `lock-object` → `Не двигать`;
+- soft `prefer-room-boundary` → `Ближе к стене` / `Ближе к углу`;
+- soft `pair-distance` → `Ближе друг к другу` / `Дальше друг от друга`.
+
+Accepted architecture:
+
+```text
+VlezetDocument + selected room/objects + PlanningConstraint[]
+        ↓
+shared fail-closed constraint validation
+        ↓
+bounded deterministic M6.1 generation
+        ↓
+M2 hard fit/collision/door/clearance authority
+        ↓
+hard constraint rejection
+        ↓
+deterministic soft preference penalties
+        ↓
+ranked measured explanations
+        ↓
+ephemeral preview
+        ↓ explicit current-document-revalidated Apply
+one semantic Undo/Redo operation
+```
+
+Important contracts:
+
+- request generation and candidate/Apply share `validatePlanningConstraintSet()`;
+- duplicate/conflicting/malformed constraints fail closed;
+- all-selected-objects locked is invalid;
+- pair relationship is an unordered pair with explicit centre-to-centre millimetre semantics;
+- hard constraints cannot be rescued by soft scoring;
+- soft preferences rank only after M2 fit/recommendation quality;
+- candidate identity includes normalized user intent;
+- changing constraint state clears stale result/preview;
+- constraints are ephemeral and never become a second persisted layout state;
+- no LLM/API dependency for correctness.
+
+Acceptance:
+
+```text
+head:  a32b5f633ee5c36dafb5578d3c0c3f7eaa46d649
+CI:    29962203961 — PASS
+merge: db68d697540ddb9901fbddad0763d769e7d16851
+```
+
+Representative real-browser acceptance PASS.
+
+Product owner confirmed:
+
+> «Это работает настолько все гениально и четко как ты сказал, что я в восторге.»
+
+Canonical checklist: `docs/milestones/m6-2-acceptance.md`.
+
+## NOW — M6.3 Exact Spatial Constraints
 
 ### Product goal
 
-M6.1 proved that Vlezet can deterministically propose and safely apply valid alternatives. M6.2 should make those alternatives **intent-aware** without sacrificing trust.
+M6.2 proved that explicit user intent can safely influence planning. The next step should add **precise millimetre-based hard requirements** rather than jumping directly to natural-language or autonomous whole-apartment design.
 
-The user should be able to express a small, explicit set of goals/constraints and understand how each one affected ranking.
+The user should be able to say not only “ближе”, but eventually “между этими предметами должно быть не меньше 800 мм” and understand exactly how that requirement was measured.
 
-### Recommended narrow scope
+### Recommended deliberately narrow scope
 
-Start with structured constraints whose semantics are unambiguous and testable. Candidate examples:
+Start with one primary contract:
 
-- fixed/locked objects that planning may never move;
-- preferred wall/corner proximity;
-- explicit pairwise `near` / `far` preferences;
-- user-entered minimum spacing where a precise measurement definition is available.
+#### Minimum furniture-to-furniture spacing
 
-Hard constraints must reject a candidate. Soft preferences may only affect deterministic ranking and must produce explainable evidence.
+A structured hard constraint such as:
+
+```text
+pair-min-gap(objectA, objectB, minimumMm)
+```
+
+Semantics must be defined before UI implementation:
+
+- value is in canonical millimetres;
+- measurement is minimum **edge-to-edge distance between oriented furniture footprints**, not centre distance;
+- overlapping/touching footprints produce zero/blocked semantics as defined by trusted geometry;
+- requirement references two distinct selected objects;
+- hard constraint rejects candidate when measured gap is below `minimumMm`;
+- explanations show both required and actual values.
+
+Only after that contract is proven should M6.3 consider a second exact rule such as minimum furniture-to-room-boundary gap.
 
 ### Architecture
 
 ```text
-VlezetDocument + PlanningConstraint[] + PlanningGoal[]
+VlezetDocument + exact structured mm constraints
         ↓
-@vlezet/planning
-        ↓ bounded deterministic candidates
-M2 authoritative hard fit validation
+shared fail-closed contract validation
         ↓
-constraint validation + deterministic soft scoring
+@vlezet/planning bounded deterministic candidates
         ↓
-ranked explanations
+M2 authoritative fit/collision/door/clearance validation
+        ↓
+trusted 2D exact spacing measurement
+        ↓
+numeric hard-constraint rejection
+        ↓
+existing deterministic soft ranking + measured reasons
         ↓
 ephemeral preview / explicit atomic Apply
 ```
 
-### Acceptance
+### Acceptance requirements
 
-- supported constraints have explicit units/semantics and deterministic validation;
-- same document + same constraints produce the same ordered alternatives;
-- hard constraints cannot be bypassed by scoring;
-- soft scores are explainable and stable;
-- M2 fit/collision/door/clearance remains authoritative;
-- unsupported/ambiguous constraints fail closed;
+- exact measurement semantics documented before implementation;
+- unit is millimetres and no pixel/mesh measurement is used;
+- same document + same exact constraints → same ordered alternatives;
+- invalid/non-finite/negative/ambiguous numeric values fail closed;
+- stale referenced objects fail closed;
+- hard numeric constraint cannot be bypassed by scoring;
+- result evidence shows `required` and `actual` measurements;
+- existing M2 authority remains unchanged;
+- existing M6.2 constraints compose deterministically with the numeric hard constraint;
 - preview remains non-mutating;
-- Apply remains one semantic Undo/Redo operation;
-- strict exact-head CI and representative browser acceptance.
+- Apply revalidates against current document;
+- one Apply remains one Undo/Redo operation;
+- strict exact-head CI and representative browser acceptance required before merge.
 
 ### Explicit non-goals
 
-Do not make M6.2:
+Do not make M6.3:
 
-- whole-apartment autonomous design;
+- a generic rule/expression language;
 - free-form LLM layout generation;
+- whole-apartment autonomous design;
 - opaque AI scoring;
 - photorealistic/interior-style generation;
 - direct 3D editing;
-- a second persisted planning/layout document.
+- a second persisted planning document.
 
-Optional natural-language → structured-constraint interpretation may be explored only after the deterministic constraint vocabulary is stable and must never bypass validation.
+## After M6.3
 
-## High-value follow-ups — evidence-driven backlog
-
-### Recognition quality
-
-- representative fixture corpus;
-- measurable quality metrics;
-- preprocessing/merging improvements;
-- model quality ranking/recommendations.
-
-### Opening precision
-
-- exact offset from selected/reference corner;
-- richer door hinge/swing semantics;
-- optional authoritative sill/window/door height metadata when product semantics are defined.
-
-### Constraints and target area
-
-Potential future UX:
+Once the deterministic constraint vocabulary contains both qualitative and exact numeric rules and has passed browser acceptance, a reasonable next experiment is:
 
 ```text
-Actual:     11.38 m²
-Target:     11.70 m²
-Difference: -0.32 м²
+natural-language user intent
+        ↓
+optional interpreter
+        ↓
+reviewable structured PlanningConstraint[] draft
+        ↓ explicit user confirmation/editing
+existing deterministic M6 planner
 ```
 
-Do not introduce a full parametric solver until simple dimension semantics remain stable under real usage.
+The interpreter may suggest structured constraints but must never bypass validation or directly generate authoritative geometry.
 
-### Wall classes/presets
+## Recommended workflow
 
-Potential later metadata:
+```text
+M6.3 focused design spec
+→ define exact edge-to-edge spacing math
+→ TDD geometry measurement primitive
+→ TDD structured hard-constraint validation
+→ integrate into bounded planning/evaluation
+→ measured explanations + compact numeric UI
+→ stale/change/Apply revalidation tests
+→ representative browser acceptance
+→ exact-head strict CI
+→ squash merge
+```
 
-- partition/exterior presets;
-- common thickness presets;
-- richer visual classes.
-
-Never infer structural/removability status without authoritative source data.
-
-## Cross-cutting roadmap
-
-### Browser journeys
-
-Priority journeys:
-
-- create project → draw shell → save/reload;
-- import/calibrate/trace;
-- clear-dimension edit → area update → Undo/Redo;
-- thickness alignment;
-- dimension lines/tape;
-- backup/import;
-- recognition safety/apply/undo;
-- 2D↔3D geometry consistency;
-- furniture 2D↔3D consistency;
-- 3D semantic inspection consistency;
-- planning candidate preview → compare → explicit apply → Undo.
-
-### Observability/privacy
-
-- no API keys/base64 in logs;
-- optional subsystems isolated;
-- useful product-readable diagnostics;
-- local-first core editing remains usable offline.
-
-### Performance
-
-- keep Konva Layer count bounded;
-- avoid duplicating large raster state;
-- deterministic geometry should remain responsive on realistic apartment plans;
-- measure 3D scene/render cost before adding batching/LOD complexity;
-- dispose all Three.js-owned GPU resources on teardown.
-
-### Migration discipline
-
-- schema changes only when persistent semantics actually require them;
-- migrations deterministic;
-- derived/UI/spatial/planning-preview state is not persisted merely for convenience.
-
-## Deferred / optional future
-
-- accounts/auth;
-- cloud sync/sharing/collaboration;
-- managed AI/backend billing;
-- mobile-first editor;
-- multi-floor;
-- curved walls;
-- perspective-photo reconstruction;
-- authoritative OCR;
-- DWG/DXF/BIM;
-- renovation estimates;
-- photorealism/VR.
-
-## Decision rules
-
-1. Finish the current acceptance gate before starting the next major slice.
-2. Prefer real-user evidence over impressive demos.
-3. Deterministic correctness beats AI/3D spectacle.
-4. Fix root causes, not screenshots/symptoms.
-5. Optional subsystems stay isolated.
-6. Local-first editing remains a core product property.
-7. Add complexity only when the previous simpler model has been validated.
-8. No second geometry authority in 3D.
-9. Planning candidates are proposals until explicitly applied.
-10. AI assistance never bypasses deterministic geometry/fit validation.
+High-value precision/recognition/M5 polish remains evidence-driven backlog and should not interrupt M6 unless it becomes a real user blocker.
