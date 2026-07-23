@@ -2,12 +2,14 @@ import type { PlacedObject, VlezetDocument } from "@vlezet/domain";
 import {
   deriveRooms,
   distanceBetween,
+  minimumDistanceBetweenOrientedRectangles,
   objectRectangle,
   orientedRectangleCorners,
 } from "@vlezet/geometry";
 import type { PlanningCandidate } from "./contracts";
 
 export const MAX_PLANNING_CONSTRAINTS = 9;
+const EXACT_SPATIAL_EPSILON_MM = 1e-6;
 
 export type LockObjectPlanningConstraint = Readonly<{
   kind: "lock-object";
@@ -26,15 +28,31 @@ export type PairDistancePlanningConstraint = Readonly<{
   preference: "near" | "far";
 }>;
 
+export type PairMinimumGapPlanningConstraint = Readonly<{
+  kind: "pair-min-gap";
+  objectIds: readonly [string, string];
+  minimumMm: number;
+}>;
+
 export type PlanningConstraint =
   | LockObjectPlanningConstraint
   | PreferRoomBoundaryPlanningConstraint
-  | PairDistancePlanningConstraint;
+  | PairDistancePlanningConstraint
+  | PairMinimumGapPlanningConstraint;
+
+export type PairMinimumGapConstraintEvidence = Readonly<{
+  kind: "pair-min-gap";
+  objectIds: readonly [string, string];
+  requiredMm: number;
+  actualMm: number;
+  satisfied: boolean;
+}>;
 
 export type PlanningConstraintEvaluation = Readonly<{
   hardValid: boolean;
   preferencePenalty: number;
   evidence: readonly string[];
+  exactEvidence: readonly PairMinimumGapConstraintEvidence[];
 }>;
 
 function stableConstraintIdentity(constraint: PlanningConstraint): string {
@@ -45,6 +63,8 @@ function stableConstraintIdentity(constraint: PlanningConstraint): string {
       return `boundary:${constraint.objectId}`;
     case "pair-distance":
       return `pair:${constraint.objectIds[0]}:${constraint.objectIds[1]}`;
+    case "pair-min-gap":
+      return `pair-min-gap:${constraint.objectIds[0]}:${constraint.objectIds[1]}`;
   }
 }
 
@@ -56,7 +76,13 @@ function stableConstraintValue(constraint: PlanningConstraint): string {
       return `${stableConstraintIdentity(constraint)}:${constraint.target}`;
     case "pair-distance":
       return `${stableConstraintIdentity(constraint)}:${constraint.preference}`;
+    case "pair-min-gap":
+      return `${stableConstraintIdentity(constraint)}:${constraint.minimumMm}`;
   }
+}
+
+function normalizedPair(ids: readonly [string, string]): readonly [string, string] {
+  return ids[0].localeCompare(ids[1]) <= 0 ? [ids[0], ids[1]] : [ids[1], ids[0]];
 }
 
 export function normalizePlanningConstraints(
@@ -68,10 +94,13 @@ export function normalizePlanningConstraints(
     }
     switch (constraint.kind) {
       case "lock-object":
-        if (typeof constraint.objectId !== "string" || constraint.objectId.length === 0) throw new Error("Invalid lock-object constraint.");
+        if (typeof constraint.objectId !== "string" || constraint.objectId.length === 0) {
+          throw new Error("Invalid lock-object constraint.");
+        }
         return { kind: "lock-object", objectId: constraint.objectId };
       case "prefer-room-boundary":
-        if (typeof constraint.objectId !== "string" || constraint.objectId.length === 0 || (constraint.target !== "wall" && constraint.target !== "corner")) {
+        if (typeof constraint.objectId !== "string" || constraint.objectId.length === 0 ||
+          (constraint.target !== "wall" && constraint.target !== "corner")) {
           throw new Error("Invalid prefer-room-boundary constraint.");
         }
         return { kind: "prefer-room-boundary", objectId: constraint.objectId, target: constraint.target };
@@ -82,8 +111,18 @@ export function normalizePlanningConstraints(
           (constraint.preference !== "near" && constraint.preference !== "far")) {
           throw new Error("Invalid pair-distance constraint.");
         }
-        const ordered = ids[0].localeCompare(ids[1]) <= 0 ? [ids[0], ids[1]] : [ids[1], ids[0]];
-        return { kind: "pair-distance", objectIds: [ordered[0]!, ordered[1]!], preference: constraint.preference };
+        const ordered = normalizedPair([ids[0], ids[1]]);
+        return { kind: "pair-distance", objectIds: ordered, preference: constraint.preference };
+      }
+      case "pair-min-gap": {
+        const ids = constraint.objectIds;
+        if (!Array.isArray(ids) || ids.length !== 2 || typeof ids[0] !== "string" || typeof ids[1] !== "string" ||
+          ids[0].length === 0 || ids[1].length === 0 ||
+          !Number.isFinite(constraint.minimumMm) || constraint.minimumMm < 0) {
+          throw new Error("Invalid pair-min-gap constraint.");
+        }
+        const ordered = normalizedPair([ids[0], ids[1]]);
+        return { kind: "pair-min-gap", objectIds: ordered, minimumMm: constraint.minimumMm };
       }
       default:
         throw new Error("Unsupported planning constraint.");
@@ -118,11 +157,11 @@ export function validatePlanningConstraintSet(
     if (seen.has(identity)) throw new Error(`Duplicate or conflicting planning constraint: ${identity}`);
     seen.add(identity);
 
-    if (constraint.kind === "pair-distance") {
+    if (constraint.kind === "pair-distance" || constraint.kind === "pair-min-gap") {
       const [first, second] = constraint.objectIds;
-      if (first === second) throw new Error("Pair-distance constraint requires two distinct objects.");
+      if (first === second) throw new Error("Pair constraint requires two distinct objects.");
       if (!selectedObjectIds.has(first) || !selectedObjectIds.has(second)) {
-        throw new Error("Pair-distance constraint references an object outside the planning selection.");
+        throw new Error("Pair constraint references an object outside the planning selection.");
       }
       continue;
     }
@@ -177,6 +216,10 @@ function clampUnit(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+function formatMm(value: number): string {
+  return Number(value.toFixed(2)).toString();
+}
+
 export function evaluatePlanningConstraints(
   document: VlezetDocument,
   candidate: PlanningCandidate,
@@ -190,19 +233,35 @@ export function evaluatePlanningConstraints(
       hardValid: false,
       preferencePenalty: Number.POSITIVE_INFINITY,
       evidence: ["Вариант содержит конфликтующие, устаревшие или неподдерживаемые ограничения."],
+      exactEvidence: [],
     };
   }
-  if (constraints.length === 0) return { hardValid: true, preferencePenalty: 0, evidence: [] };
+  if (constraints.length === 0) {
+    return { hardValid: true, preferencePenalty: 0, evidence: [], exactEvidence: [] };
+  }
 
   const room = deriveRooms(document).rooms.find((item) => item.id === candidate.roomId);
   const objects = appliedObjects(document, candidate);
-  if (!room || !objects) return { hardValid: false, preferencePenalty: Number.POSITIVE_INFINITY, evidence: ["Не удалось проверить ограничения варианта."] };
+  if (!room || !objects) {
+    return {
+      hardValid: false,
+      preferencePenalty: Number.POSITIVE_INFINITY,
+      evidence: ["Не удалось проверить ограничения варианта."],
+      exactEvidence: [],
+    };
+  }
   const bounds = roomBounds(room);
   if (!Number.isFinite(bounds.diagonal) || bounds.diagonal <= 0) {
-    return { hardValid: false, preferencePenalty: Number.POSITIVE_INFINITY, evidence: ["Не удалось определить масштаб комнаты для ограничений."] };
+    return {
+      hardValid: false,
+      preferencePenalty: Number.POSITIVE_INFINITY,
+      evidence: ["Не удалось определить масштаб комнаты для ограничений."],
+      exactEvidence: [],
+    };
   }
 
   const evidence: string[] = [];
+  const exactEvidence: PairMinimumGapConstraintEvidence[] = [];
   let preferencePenalty = 0;
   let hardValid = true;
 
@@ -245,7 +304,8 @@ export function evaluatePlanningConstraints(
           { x: bounds.maxX, y: bounds.maxY },
           { x: bounds.minX, y: bounds.maxY },
         ];
-        const distance = Math.min(...corners.flatMap((corner) => roomCorners.map((roomCorner) => distanceBetween(corner, roomCorner))));
+        const distance = Math.min(...corners.flatMap((corner) =>
+          roomCorners.map((roomCorner) => distanceBetween(corner, roomCorner))));
         preferencePenalty += clampUnit(distance / bounds.diagonal);
         evidence.push(`${object.name}: до ближайшего угла ${Math.round(distance)} мм.`);
       }
@@ -257,9 +317,29 @@ export function evaluatePlanningConstraints(
     const second = objects.get(secondId);
     if (!first || !second) {
       hardValid = false;
-      evidence.push("Не найдены предметы для проверки парного предпочтения.");
+      evidence.push(constraint.kind === "pair-min-gap"
+        ? "Не найдены предметы для проверки точного минимального расстояния."
+        : "Не найдены предметы для проверки парного предпочтения.");
       continue;
     }
+
+    if (constraint.kind === "pair-min-gap") {
+      const actualMm = minimumDistanceBetweenOrientedRectangles(objectRectangle(first), objectRectangle(second));
+      const satisfied = actualMm + EXACT_SPATIAL_EPSILON_MM >= constraint.minimumMm;
+      hardValid = hardValid && satisfied;
+      exactEvidence.push({
+        kind: "pair-min-gap",
+        objectIds: constraint.objectIds,
+        requiredMm: constraint.minimumMm,
+        actualMm,
+        satisfied,
+      });
+      evidence.push(
+        `${first.name} ↔ ${second.name}: требуется минимум ${formatMm(constraint.minimumMm)} мм, фактически ${formatMm(actualMm)} мм.`,
+      );
+      continue;
+    }
+
     const distance = distanceBetween(first.position, second.position);
     const normalized = clampUnit(distance / bounds.diagonal);
     preferencePenalty += constraint.preference === "near" ? normalized : 1 - normalized;
@@ -267,5 +347,5 @@ export function evaluatePlanningConstraints(
     evidence.push(`${first.name} ↔ ${second.name}: ${Math.round(distance)} мм между центрами; предпочтение «${label}».`);
   }
 
-  return { hardValid, preferencePenalty, evidence };
+  return { hardValid, preferencePenalty, evidence, exactEvidence };
 }

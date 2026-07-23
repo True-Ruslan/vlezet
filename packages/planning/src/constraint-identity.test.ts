@@ -35,4 +35,22 @@ describe("constraint-aware candidate identity", () => {
     expect(stableCandidateKey(reordered)).toBe(stableCandidateKey(first));
     expect(stableCandidateKey(changedIntent)).not.toBe(stableCandidateKey(first));
   });
+
+  it("normalizes unordered exact pairs but changes identity when minimumMm changes", () => {
+    const first: PlanningCandidate = {
+      ...base,
+      constraints: [{ kind: "pair-min-gap", objectIds: ["table", "sofa"], minimumMm: 800 }],
+    };
+    const reorderedPair: PlanningCandidate = {
+      ...base,
+      constraints: [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 }],
+    };
+    const changedMinimum: PlanningCandidate = {
+      ...base,
+      constraints: [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 801 }],
+    };
+
+    expect(stableCandidateKey(reorderedPair)).toBe(stableCandidateKey(first));
+    expect(stableCandidateKey(changedMinimum)).not.toBe(stableCandidateKey(first));
+  });
 });
