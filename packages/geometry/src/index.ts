@@ -12,6 +12,7 @@ export type {
 export { chooseGridStep } from "./grid";
 export { measureObjectClearances } from "./measurements";
 export type { DirectionalClearances } from "./measurements";
+export { minimumDistanceBetweenOrientedRectangles } from "./oriented-rectangle-distance";
 export {
   expandedOrientedRectangle, localToWorld, orientedRectangleAxes, orientedRectangleCorners,
   orientedRectangleEdges, orientedRectanglesIntersect, pointInOrientedRectangle, worldToLocal,
