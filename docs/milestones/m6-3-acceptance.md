@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-23  
 **PR:** #15 `feat: M6.3 exact spatial constraints`  
-**Status:** implementation complete; automated gates PASS on code RC; final exact-head CI and representative real-browser acceptance required before merge.
+**Status:** implementation complete; automated gates PASS on final code RC; final documentation-head CI and representative real-browser acceptance required before merge.
 
 ## Product contract
 
@@ -199,6 +199,8 @@ Rules:
 - exact gap and qualitative near/far may be used together;
 - helper copy explicitly distinguishes centre-based soft ranking from nearest-edge hard minimum;
 - changing exact input clears stale result and ghost preview before regeneration;
+- result summary explicitly acknowledges when hard constraints are satisfied instead of claiming there are no mandatory constraints;
+- every deterministic result reason is rendered, so later exact `required / actual` evidence cannot be hidden by an arbitrary reason-count cutoff;
 - result explanations show required and actual edge-to-edge millimetres;
 - no exact planning input is persisted to project storage.
 
@@ -215,15 +217,17 @@ Observed RED→GREEN work:
 7. exact UI parser/builder/view tests → isolated RED: missing parser, missing exact constraint, missing controls/copy;
 8. raw-input parser + exact pair UI + stale clearing → GREEN full strict gate;
 9. planner-level deterministic/impossible-minimum regressions → GREEN;
-10. rotated corner-to-edge touch self-review regression → GREEN with no production fix required, confirming the primitive already returned exact zero.
+10. rotated corner-to-edge touch self-review regression → GREEN with no production fix required, confirming the primitive already returned exact zero;
+11. final diff-review found exact-only hard candidates could still display the legacy summary `Без обязательных коллизий и ограничений` → dedicated RED → summary now explicitly says mandatory constraints are satisfied;
+12. final diff-review found `.slice(0, 8)` could hide later exact `required / actual` evidence when several pair rules coexist → dedicated RED → arbitrary reason truncation removed so every bounded deterministic evidence line is rendered.
 
 ## Automated verification
 
-Latest implementation code head before this documentation commit:
+Final implementation code head before this documentation commit:
 
 ```text
-6e4901105df67c815e6be9255b38fa0a6dc0170e
-GitHub Actions 30000670721 — PASS
+d6bf8ca11ccdf4b166059a871d98be0c2bdebd33
+GitHub Actions 30001573564 — PASS
 ```
 
 Passed on that exact code head:
@@ -234,7 +238,7 @@ Passed on that exact code head:
 - [x] ESLint
 - [x] production Next build
 
-Final exact PR head CI must also PASS after this acceptance-document commit before browser acceptance/merge.
+The final exact PR head after this documentation update must also PASS the same strict CI before browser acceptance/merge.
 
 ## Architecture self-review
 
@@ -251,6 +255,7 @@ Changed-file review confirms:
 - [x] no random candidate ordering/sampling introduced;
 - [x] preview remains the existing ephemeral planning UI state;
 - [x] Apply remains the existing single semantic history operation;
+- [x] result summaries and evidence remain deterministic and do not hide exact hard-rule proof;
 - [x] no network/LLM dependency for correctness.
 
 ## Real-browser acceptance — required before merge
@@ -268,6 +273,7 @@ Use the representative apartment and a rectangular room with at least two movabl
 - [ ] Select two movable objects.
 - [ ] Enter a feasible exact minimum, preferably `800` mm, for that pair.
 - [ ] Generate alternatives.
+- [ ] Confirm result summary says mandatory constraints are satisfied rather than saying there are no mandatory constraints.
 - [ ] Confirm result explanation explicitly says `требуется минимум 800 мм` and shows `фактически ... мм`.
 - [ ] Preview alternatives and confirm furniture visibly respects the minimum nearest-edge space.
 - [ ] Confirm no offered alternative visibly violates the requested hard minimum.
