@@ -293,7 +293,7 @@ export function PlanningPanelView({
                 </div>
                 <p className="inspector-help">{candidateSummary(candidate)}</p>
                 <ul className="planning-reasons">
-                  {candidate.evaluation.reasons.slice(0, 8).map((reason) => <li key={reason}>{reason}</li>)}
+                  {candidate.evaluation.reasons.map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
                 <div className="planning-result-actions">
                   <button type="button" className="secondary-action" onClick={() => onPreview(candidate)}>
