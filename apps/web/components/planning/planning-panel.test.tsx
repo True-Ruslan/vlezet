@@ -125,6 +125,62 @@ describe("PlanningPanelView", () => {
     expect(html).toContain("Применить");
   });
 
+  it("does not hide later exact-spacing evidence behind a reason-count cutoff", () => {
+    const lastExactReason = "Кресло ↔ Стол: требуется минимум 600 мм, фактически 625 мм.";
+    const manyReasons: RankedPlanningCandidate = {
+      ...ranked,
+      candidate: {
+        ...ranked.candidate,
+        placements: [
+          ...ranked.candidate.placements,
+          { objectId: "chair", position: { x: 3900, y: 2400 }, rotationDeg: 0 },
+        ],
+        constraints: [
+          { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 },
+          { kind: "pair-min-gap", objectIds: ["chair", "sofa"], minimumMm: 700 },
+          { kind: "pair-min-gap", objectIds: ["chair", "table"], minimumMm: 600 },
+        ],
+      },
+      evaluation: {
+        ...ranked.evaluation,
+        reasons: [
+          "Все выбранные предметы помещаются без столкновений.",
+          "Открывание дверей не перекрыто.",
+          "Диван: до ближайшей стены 20 мм.",
+          "Стол: до ближайшей стены 30 мм.",
+          "Кресло: до ближайшего угла 40 мм.",
+          "Диван ↔ Стол: 1800 мм между центрами; предпочтение «дальше».",
+          "Диван ↔ Стол: требуется минимум 800 мм, фактически 842 мм.",
+          "Кресло ↔ Диван: требуется минимум 700 мм, фактически 710 мм.",
+          lastExactReason,
+        ],
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <PlanningPanelView
+        roomName="Комната 1"
+        objects={[]}
+        pairs={[]}
+        canGenerate
+        result={{ roomId: "room-1", evaluatedCandidateCount: 12, validCandidateCount: 1, candidates: [manyReasons] }}
+        previewCandidateId={null}
+        errorMessage={null}
+        onToggleObject={() => {}}
+        onToggleLock={() => {}}
+        onBoundaryPreferenceChange={() => {}}
+        onPairPreferenceChange={() => {}}
+        onPairMinimumGapChange={() => {}}
+        onGenerate={() => {}}
+        onPreview={() => {}}
+        onApply={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(html).toContain(lastExactReason);
+  });
+
   it("renders local exact-input validation and disables generation", () => {
     const html = renderToStaticMarkup(
       <PlanningPanelView
