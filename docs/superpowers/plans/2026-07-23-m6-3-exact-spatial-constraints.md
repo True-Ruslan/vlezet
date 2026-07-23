@@ -27,23 +27,24 @@
 
 ### New files
 
-- `packages/geometry/src/oriented-rectangle-distance.ts` — reusable exact distance primitive for two oriented rectangles; no planning semantics.
-- `packages/geometry/src/oriented-rectangle-distance.test.ts` — geometry RED→GREEN coverage for axis-aligned, rotated, touching, overlap, symmetry and floating-point boundaries.
-- `packages/planning/src/exact-spacing.test.ts` — exact hard-constraint normalization/evaluation/composition contracts.
+- `packages/geometry/src/oriented-rectangle-distance.ts` — exact distance between two oriented rectangles; no planning semantics.
+- `packages/geometry/src/oriented-rectangle-distance.test.ts` — geometry RED→GREEN coverage.
+- `packages/planning/src/exact-spacing.test.ts` — exact hard-constraint evaluation/composition contracts.
 - `docs/milestones/m6-3-acceptance.md` — automated and browser acceptance gate/evidence.
 
 ### Modified files
 
-- `packages/geometry/src/index.ts` — export exact distance primitive/type-level public API only.
-- `packages/planning/src/constraints.ts` — add `pair-min-gap`, normalization/identity/validation, exact measurement and structured evidence.
-- `packages/planning/src/constraints.test.ts` — extend shared constraint-set validation coverage.
-- `packages/planning/src/constraint-identity.test.ts` — prove input-order invariance and `minimumMm`-sensitive intent identity.
-- `packages/planning/src/constraint-revalidation.test.ts` — prove direct-candidate/Apply boundary rejects malformed/stale exact constraints.
-- `packages/planning/src/planner.test.ts` — prove hard exact constraints cannot be rescued by ranking and compose with M6.2.
-- `packages/planning/src/apply.test.ts` — prove stale exact gap causes atomic Apply rejection.
-- `packages/planning/src/index.ts` — export new constraint/evidence contracts as needed.
-- `apps/web/components/planning/planning-panel.tsx` — raw exact-gap state, validation, constraint construction, pair UI and stale preview clearing.
-- `apps/web/components/planning/planning-panel.test.tsx` — empty-vs-zero, invalid input, constraint construction and measured copy contracts.
+- `packages/geometry/src/index.ts`
+- `packages/planning/src/constraints.ts`
+- `packages/planning/src/constraints.test.ts`
+- `packages/planning/src/constraint-identity.test.ts`
+- `packages/planning/src/constraint-revalidation.test.ts`
+- `packages/planning/src/planner.test.ts`
+- `packages/planning/src/apply.test.ts`
+- `apps/web/components/planning/planning-panel.tsx`
+- `apps/web/components/planning/planning-panel.test.tsx`
+
+`packages/planning/src/index.ts` already uses `export * from "./constraints"`; no export wiring change is required there.
 
 ---
 
@@ -55,12 +56,10 @@
 - Modify: `packages/geometry/src/index.ts`
 
 **Interfaces:**
-- Consumes: existing `OrientedRectangle`, `orientedRectangleEdges()` and `orientedRectanglesIntersect()` from `packages/geometry/src/oriented-rectangle.ts`.
-- Produces: `minimumDistanceBetweenOrientedRectangles(first: OrientedRectangle, second: OrientedRectangle): number` in canonical millimetres.
+- Consumes: `OrientedRectangle`, `orientedRectangleEdges()`, `orientedRectanglesIntersect()`.
+- Produces: `minimumDistanceBetweenOrientedRectangles(first, second): number` in canonical millimetres.
 
-- [ ] **Step 1: Write failing geometry tests**
-
-Create tests equivalent to:
+- [ ] **Step 1: Write the failing geometry tests**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -81,7 +80,7 @@ describe("minimumDistanceBetweenOrientedRectangles", () => {
     expect(minimumDistanceBetweenOrientedRectangles(rect(0, 0, 1000, 1000), rect(500, 0, 1000, 1000))).toBe(0);
   });
 
-  it("measures rotated rectangles instead of axis-aligned bounds", () => {
+  it("measures rotated rectangles exactly", () => {
     const offset = 1500 / Math.sqrt(2);
     const first = rect(0, 0, 1000, 600, 45);
     const second = rect(offset, offset, 1000, 600, 45);
@@ -97,19 +96,15 @@ describe("minimumDistanceBetweenOrientedRectangles", () => {
 });
 ```
 
-- [ ] **Step 2: Run geometry tests and verify RED**
-
-Run:
+- [ ] **Step 2: Run RED**
 
 ```bash
 pnpm --filter @vlezet/geometry test
 ```
 
-Expected: FAIL because `./oriented-rectangle-distance` / `minimumDistanceBetweenOrientedRectangles` does not exist.
+Expected: FAIL because the module/function does not exist.
 
-- [ ] **Step 3: Implement the minimal exact primitive**
-
-Use the existing rectangle helpers and isolate segment math inside the new file:
+- [ ] **Step 3: Implement the minimal primitive**
 
 ```ts
 import type { Point2 } from "./point";
@@ -120,7 +115,6 @@ import {
 } from "./oriented-rectangle";
 
 const DISTANCE_EPSILON = 1e-6;
-
 type Segment = Readonly<{ start: Point2; end: Point2 }>;
 
 function pointToSegmentDistance(point: Point2, segment: Segment): number {
@@ -128,8 +122,13 @@ function pointToSegmentDistance(point: Point2, segment: Segment): number {
   const dy = segment.end.y - segment.start.y;
   const lengthSquared = dx * dx + dy * dy;
   if (lengthSquared === 0) return Math.hypot(point.x - segment.start.x, point.y - segment.start.y);
-  const t = Math.max(0, Math.min(1, ((point.x - segment.start.x) * dx + (point.y - segment.start.y) * dy) / lengthSquared));
-  return Math.hypot(point.x - (segment.start.x + t * dx), point.y - (segment.start.y + t * dy));
+  const t = Math.max(0, Math.min(1,
+    ((point.x - segment.start.x) * dx + (point.y - segment.start.y) * dy) / lengthSquared,
+  ));
+  return Math.hypot(
+    point.x - (segment.start.x + t * dx),
+    point.y - (segment.start.y + t * dy),
+  );
 }
 
 function segmentDistance(first: Segment, second: Segment): number {
@@ -156,17 +155,15 @@ export function minimumDistanceBetweenOrientedRectangles(
 }
 ```
 
-The implementation must rely on existing rectangle validation/corner generation and must not use AABBs.
+This is exact for disjoint convex rectangles because the minimum separation occurs between a vertex and an opposing edge; overlapping rectangles are caught by the existing SAT helper first. Touching is normalized to zero by the epsilon boundary.
 
-- [ ] **Step 4: Export the primitive**
+- [ ] **Step 4: Export and run GREEN**
 
 Add to `packages/geometry/src/index.ts`:
 
 ```ts
 export { minimumDistanceBetweenOrientedRectangles } from "./oriented-rectangle-distance";
 ```
-
-- [ ] **Step 5: Run geometry GREEN plus typecheck**
 
 Run:
 
@@ -177,7 +174,7 @@ pnpm --filter @vlezet/geometry typecheck
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the geometry primitive**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add packages/geometry/src/oriented-rectangle-distance.ts packages/geometry/src/oriented-rectangle-distance.test.ts packages/geometry/src/index.ts
@@ -186,29 +183,26 @@ git commit -m "feat: add exact oriented rectangle distance"
 
 ---
 
-### Task 2: `pair-min-gap` structured contract, normalization and identity
+### Task 2: `pair-min-gap` contract, validation and stable identity
 
 **Files:**
 - Modify: `packages/planning/src/constraints.ts`
 - Modify: `packages/planning/src/constraints.test.ts`
 - Modify: `packages/planning/src/constraint-identity.test.ts`
-- Modify: `packages/planning/src/index.ts`
 
 **Interfaces:**
-- Consumes: existing `PlanningConstraint[]`, `validatePlanningConstraintSet()`, `planningConstraintSetKey()`.
-- Produces:
 
 ```ts
-type PairMinimumGapPlanningConstraint = Readonly<{
+export type PairMinimumGapPlanningConstraint = Readonly<{
   kind: "pair-min-gap";
   objectIds: readonly [string, string];
   minimumMm: number;
 }>;
 ```
 
-- [ ] **Step 1: Write RED tests for normalization and validation**
+`PlanningConstraint` gains this union member.
 
-Add cases equivalent to:
+- [ ] **Step 1: Write RED normalization/validation tests**
 
 ```ts
 expect(normalizePlanningConstraints([
@@ -217,11 +211,11 @@ expect(normalizePlanningConstraints([
   { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 },
 ]);
 
-expect(() => validatePlanningConstraintSet([
-  { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: -1 },
-], new Set(["sofa", "table"]))).toThrow();
+expect(validatePlanningConstraintSet([
+  { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 0 },
+], new Set(["sofa", "table"]))).toHaveLength(1);
 
-for (const invalid of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+for (const invalid of [-1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
   expect(() => validatePlanningConstraintSet([
     { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: invalid },
   ], new Set(["sofa", "table"]))).toThrow();
@@ -233,49 +227,60 @@ expect(validatePlanningConstraintSet([
 ], new Set(["sofa", "table"]))).toHaveLength(2);
 ```
 
-Also prove duplicate/conflicting `pair-min-gap` on the same unordered pair fails, self-pair fails, outside-selection IDs fail and `minimumMm: 0` succeeds.
+Also assert self-pair, outside-selection reference and duplicate exact rule on the same unordered pair throw.
 
-- [ ] **Step 2: Run planning tests and verify RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 pnpm --filter @vlezet/planning test
 ```
 
-Expected: compile/test failure because `pair-min-gap` is not part of `PlanningConstraint`.
+Expected: compile/test FAIL because the new union member does not exist.
 
-- [ ] **Step 3: Extend the union and stable identities**
+- [ ] **Step 3: Add normalization and distinct identity namespace**
 
-In `constraints.ts`, add the new type and union member. Use a distinct identity namespace so exact and soft pair rules can coexist:
+Add branches equivalent to:
+
+```ts
+case "pair-min-gap": {
+  const ids = constraint.objectIds;
+  if (!Array.isArray(ids) || ids.length !== 2 || typeof ids[0] !== "string" || typeof ids[1] !== "string" ||
+      ids[0].length === 0 || ids[1].length === 0 || !Number.isFinite(constraint.minimumMm) || constraint.minimumMm < 0) {
+    throw new Error("Invalid pair-min-gap constraint.");
+  }
+  const ordered = ids[0].localeCompare(ids[1]) <= 0 ? [ids[0], ids[1]] : [ids[1], ids[0]];
+  return { kind: "pair-min-gap", objectIds: [ordered[0]!, ordered[1]!], minimumMm: constraint.minimumMm };
+}
+```
+
+Identity/value branches:
 
 ```ts
 case "pair-min-gap":
   return `pair-min-gap:${constraint.objectIds[0]}:${constraint.objectIds[1]}`;
-```
 
-Stable value must include the numeric intent:
-
-```ts
 case "pair-min-gap":
   return `${stableConstraintIdentity(constraint)}:${constraint.minimumMm}`;
 ```
 
-Normalize unordered IDs lexically, exactly as `pair-distance` does.
+Keep `MAX_PLANNING_CONSTRAINTS = 9`. Because the new identity prefix differs from `pair-distance`, both rules may coexist for the same pair.
 
-- [ ] **Step 4: Validate exact numeric semantics fail-closed**
+- [ ] **Step 4: Validate selected IDs and self-pairs**
 
-Add validation equivalent to:
+In `validatePlanningConstraintSet()`, route both pair kinds through pair validation, while keeping identities distinct:
 
 ```ts
-if (!Number.isFinite(constraint.minimumMm) || constraint.minimumMm < 0) {
-  throw new Error("Pair-min-gap minimumMm must be a finite non-negative number.");
+if (constraint.kind === "pair-distance" || constraint.kind === "pair-min-gap") {
+  const [first, second] = constraint.objectIds;
+  if (first === second) throw new Error("Pair constraint requires two distinct objects.");
+  if (!selectedObjectIds.has(first) || !selectedObjectIds.has(second)) {
+    throw new Error("Pair constraint references an object outside the planning selection.");
+  }
+  continue;
 }
 ```
 
-Keep `MAX_PLANNING_CONSTRAINTS = 9` unchanged. Use the existing `seen` identity mechanism; because `pair-distance:*` and `pair-min-gap:*` identities differ, qualitative near/far and exact minimum gap can coexist on the same unordered pair.
-
-- [ ] **Step 5: Prove candidate identity determinism**
-
-In `constraint-identity.test.ts`, add:
+- [ ] **Step 5: Prove stable identity semantics**
 
 ```ts
 expect(planningConstraintSetKey([
@@ -291,25 +296,20 @@ expect(planningConstraintSetKey([
 ]));
 ```
 
-- [ ] **Step 6: Run planning GREEN and typecheck**
+- [ ] **Step 6: Run GREEN and commit**
 
 ```bash
 pnpm --filter @vlezet/planning test
 pnpm --filter @vlezet/planning typecheck
-```
-
-Expected: PASS for contract/identity tests; evaluation behavior is added in Task 3.
-
-- [ ] **Step 7: Commit contract work**
-
-```bash
-git add packages/planning/src/constraints.ts packages/planning/src/constraints.test.ts packages/planning/src/constraint-identity.test.ts packages/planning/src/index.ts
+git add packages/planning/src/constraints.ts packages/planning/src/constraints.test.ts packages/planning/src/constraint-identity.test.ts
 git commit -m "feat: add exact pair minimum gap contract"
 ```
 
+Expected: PASS.
+
 ---
 
-### Task 3: Hard exact-gap evaluation and measured evidence
+### Task 3: Hard exact-gap evaluation and structured measured evidence
 
 **Files:**
 - Create: `packages/planning/src/exact-spacing.test.ts`
@@ -317,11 +317,9 @@ git commit -m "feat: add exact pair minimum gap contract"
 - Modify: `packages/planning/src/planner.test.ts`
 
 **Interfaces:**
-- Consumes: `minimumDistanceBetweenOrientedRectangles()` and existing `objectRectangle()` from `@vlezet/geometry`.
-- Produces structured evidence before copy formatting:
 
 ```ts
-type PairMinimumGapConstraintEvidence = Readonly<{
+export type PairMinimumGapConstraintEvidence = Readonly<{
   kind: "pair-min-gap";
   objectIds: readonly [string, string];
   requiredMm: number;
@@ -336,58 +334,112 @@ type PairMinimumGapConstraintEvidence = Readonly<{
 exactEvidence: readonly PairMinimumGapConstraintEvidence[];
 ```
 
-Existing `evidence: readonly string[]` remains for deterministic user-facing reasons.
+Existing `evidence: readonly string[]` remains deterministic display copy.
 
-- [ ] **Step 1: Write RED evaluation tests**
+- [ ] **Step 1: Create explicit test fixtures and RED tests**
 
-Use deterministic fixtures whose furniture rectangles have known edge gaps. Cover:
+In `exact-spacing.test.ts`, use a full document fixture:
 
 ```ts
-expect(evaluatePlanningConstraints(docWithGap(799), candidateWithMinimum(800)).hardValid).toBe(false);
-expect(evaluatePlanningConstraints(docWithGap(800), candidateWithMinimum(800)).hardValid).toBe(true);
-expect(evaluatePlanningConstraints(docWithGap(842), candidateWithMinimum(800)).exactEvidence).toContainEqual({
-  kind: "pair-min-gap",
-  objectIds: ["sofa", "table"],
-  requiredMm: 800,
-  actualMm: 842,
-  satisfied: true,
+import type { VlezetDocument } from "@vlezet/domain";
+import { describe, expect, it } from "vitest";
+import { evaluatePlanningConstraints } from "./constraints";
+import type { PlanningCandidate } from "./contracts";
+
+function documentWithEdgeGap(gapMm: number): VlezetDocument {
+  return {
+    schemaVersion: 3,
+    vertices: [
+      { id: "v1", position: { x: 0, y: 0 } },
+      { id: "v2", position: { x: 6000, y: 0 } },
+      { id: "v3", position: { x: 6000, y: 4000 } },
+      { id: "v4", position: { x: 0, y: 4000 } },
+    ],
+    walls: [
+      { id: "w1", startVertexId: "v1", endVertexId: "v2", junctionVertexIds: [], thickness: 100 },
+      { id: "w2", startVertexId: "v2", endVertexId: "v3", junctionVertexIds: [], thickness: 100 },
+      { id: "w3", startVertexId: "v3", endVertexId: "v4", junctionVertexIds: [], thickness: 100 },
+      { id: "w4", startVertexId: "v4", endVertexId: "v1", junctionVertexIds: [], thickness: 100 },
+    ],
+    openings: [],
+    roomAnnotations: [],
+    placedObjects: [
+      { id: "sofa", presetId: null, name: "Диван", category: "seating", position: { x: 1500, y: 2000 }, width: 1000, depth: 700, height: 800, rotationDeg: 0, clearance: { front: 0, right: 0, back: 0, left: 0 } },
+      { id: "table", presetId: null, name: "Стол", category: "table", position: { x: 2500 + gapMm, y: 2000 }, width: 1000, depth: 700, height: 750, rotationDeg: 0, clearance: { front: 0, right: 0, back: 0, left: 0 } },
+    ],
+  };
+}
+
+function candidate(document: VlezetDocument, minimumMm: number): PlanningCandidate {
+  return {
+    id: `candidate:${minimumMm}`,
+    roomId: "room:placeholder",
+    placements: document.placedObjects.map((object) => ({ objectId: object.id, position: object.position, rotationDeg: object.rotationDeg })),
+    constraints: [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm }],
+  };
+}
+```
+
+Before assertions, replace `roomId` with the actual derived room ID inside the test using `deriveRooms(document).rooms[0]!.id` so no hard-coded derived ID is relied upon.
+
+Assertions:
+
+```ts
+const below = documentWithEdgeGap(799);
+const exact = documentWithEdgeGap(800);
+const above = documentWithEdgeGap(842);
+
+expect(evaluatePlanningConstraints(below, { ...candidate(below, 800), roomId: deriveRooms(below).rooms[0]!.id }).hardValid).toBe(false);
+expect(evaluatePlanningConstraints(exact, { ...candidate(exact, 800), roomId: deriveRooms(exact).rooms[0]!.id }).hardValid).toBe(true);
+expect(evaluatePlanningConstraints(above, { ...candidate(above, 800), roomId: deriveRooms(above).rooms[0]!.id }).exactEvidence).toContainEqual({
+  kind: "pair-min-gap", objectIds: ["sofa", "table"], requiredMm: 800, actualMm: 842, satisfied: true,
 });
 ```
 
-Add a composition test containing both:
+Add a candidate containing both `pair-distance: near` and `pair-min-gap: 800`; assert gap `799` remains hard-invalid regardless of preference penalty.
 
-```ts
-{ kind: "pair-distance", objectIds: ["sofa", "table"], preference: "near" }
-{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 }
-```
-
-and prove a candidate below 800 is hard-invalid regardless of its soft preference penalty.
-
-- [ ] **Step 2: Run planning tests and verify RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 pnpm --filter @vlezet/planning test
 ```
 
-Expected: FAIL because exact measurement/evidence is not evaluated.
+Expected: FAIL because exact measurement/evidence is not implemented.
 
-- [ ] **Step 3: Add exact measurement branch**
+- [ ] **Step 3: Add exact measurement/evidence branch**
 
-Import:
+Extend the existing geometry import exactly with:
 
 ```ts
 import {
+  deriveRooms,
+  distanceBetween,
   minimumDistanceBetweenOrientedRectangles,
   objectRectangle,
-  ...
+  orientedRectangleCorners,
 } from "@vlezet/geometry";
 ```
 
-Before the existing generic `pair-distance` branch, handle `pair-min-gap`:
+Add:
 
 ```ts
 const EXACT_SPATIAL_EPSILON_MM = 1e-6;
 
+function formatMm(value: number): string {
+  return Number(value.toFixed(2)).toString();
+}
+```
+
+Initialize:
+
+```ts
+const evidence: string[] = [];
+const exactEvidence: PairMinimumGapConstraintEvidence[] = [];
+```
+
+Before the existing `pair-distance` handling:
+
+```ts
 if (constraint.kind === "pair-min-gap") {
   const [firstId, secondId] = constraint.objectIds;
   const first = objects.get(firstId);
@@ -399,77 +451,60 @@ if (constraint.kind === "pair-min-gap") {
   }
   const actualMm = minimumDistanceBetweenOrientedRectangles(objectRectangle(first), objectRectangle(second));
   const satisfied = actualMm + EXACT_SPATIAL_EPSILON_MM >= constraint.minimumMm;
-  hardValid &&= satisfied;
-  exactEvidence.push({
-    kind: "pair-min-gap",
-    objectIds: constraint.objectIds,
-    requiredMm: constraint.minimumMm,
-    actualMm,
-    satisfied,
-  });
+  hardValid = hardValid && satisfied;
+  exactEvidence.push({ kind: "pair-min-gap", objectIds: constraint.objectIds, requiredMm: constraint.minimumMm, actualMm, satisfied });
   evidence.push(`${first.name} ↔ ${second.name}: требуется минимум ${formatMm(constraint.minimumMm)} мм, фактически ${formatMm(actualMm)} мм.`);
   continue;
 }
 ```
 
-Use a deterministic formatter that does not parse values back from strings:
+Every early return from `evaluatePlanningConstraints()` must return `exactEvidence: []`; the final return must include `exactEvidence`.
+
+- [ ] **Step 4: Prove M2 remains first hard authority and ordering remains deterministic**
+
+In `planner.test.ts`, add two regressions:
 
 ```ts
-function formatMm(value: number): string {
-  return Number(value.toFixed(2)).toString();
-}
+const first = planLayoutAlternatives(document, requestWithExactConstraint);
+const second = planLayoutAlternatives(document, requestWithExactConstraint);
+expect(second.candidates.map((item) => item.candidate.id)).toEqual(first.candidates.map((item) => item.candidate.id));
 ```
 
-Every early return from `evaluatePlanningConstraints()` must include `exactEvidence: []`.
+and a fixture where exact gap is sufficient but M2 reports collision/door/containment invalidity; assert that candidate is never returned as valid.
 
-- [ ] **Step 4: Preserve M2-first candidate validity**
+Do not change `comparePlanningCandidateEvaluations()` ordering.
 
-Do not alter the existing `evaluatePlanningCandidate()` ranking order. It already computes:
-
-```ts
-let valid = fit.planValid && constraintEvaluation.hardValid;
-```
-
-and then rejects blocked/room-mismatch selected objects before ranking. Add planner tests proving an exact-gap-valid candidate still loses if M2 reports collision/door/containment invalidity.
-
-- [ ] **Step 5: Run GREEN and deterministic repeatability tests**
+- [ ] **Step 5: Run GREEN and commit**
 
 ```bash
 pnpm --filter @vlezet/planning test
 pnpm --filter @vlezet/planning typecheck
-```
-
-Expected: PASS; same document + same exact constraints returns identical ordered candidate IDs across repeated `planLayoutAlternatives()` calls.
-
-- [ ] **Step 6: Commit evaluation work**
-
-```bash
 git add packages/planning/src/exact-spacing.test.ts packages/planning/src/constraints.ts packages/planning/src/planner.test.ts
 git commit -m "feat: enforce exact pair spacing in planning"
 ```
 
+Expected: PASS.
+
 ---
 
-### Task 4: Apply-time stale revalidation remains atomic
+### Task 4: Apply-time exact revalidation remains atomic
 
 **Files:**
 - Modify: `packages/planning/src/apply.test.ts`
 - Modify: `packages/planning/src/constraint-revalidation.test.ts`
-- Production file expected unchanged unless a failing test proves a real boundary gap: `packages/planning/src/apply.ts`
+- `packages/planning/src/apply.ts` should remain unchanged because it already delegates to `evaluatePlanningCandidate()`.
 
-**Interfaces:**
-- Consumes: existing `applyPlanningCandidateToDocument()` → `evaluatePlanningCandidate()` revalidation chain.
-- Produces: explicit regression proof that exact constraints are recomputed against current trusted document state before mutation.
+**Interfaces:** Existing `applyPlanningCandidateToDocument()` must recompute the exact rule through the ordinary evaluation path.
 
-- [ ] **Step 1: Write RED/characterization tests for stale exact spacing**
+- [ ] **Step 1: Add stale exact-gap Apply regression**
 
-Add a generated/valid candidate carrying:
+Build a valid candidate carrying:
 
 ```ts
 constraints: [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 }]
 ```
 
-Then mutate the current document before Apply so the fixed/non-candidate context causes actual edge gap to become `< 800`. Assert:
+Then alter current document geometry so the candidate's recomputed actual gap becomes `< 800` and assert:
 
 ```ts
 const before = JSON.stringify(staleCurrent);
@@ -478,34 +513,23 @@ expect(() => applyPlanningCandidateToDocument(staleCurrent, candidate))
 expect(JSON.stringify(staleCurrent)).toBe(before);
 ```
 
-Also test direct candidate malformed exact constraints (`NaN`, self-pair, outside-selection reference) fail closed through the same revalidation path.
+Add direct-candidate regressions for `NaN`, self-pair and outside-selection reference; they must all fail closed.
 
-- [ ] **Step 2: Run planning tests**
+- [ ] **Step 2: Run planning and web history tests**
 
 ```bash
 pnpm --filter @vlezet/planning test
-```
-
-Expected: ideally PASS immediately because existing Apply delegates to `evaluatePlanningCandidate()`. If it fails, the failure identifies a real revalidation gap; fix only that gap, never duplicate exact-spacing logic in `apply.ts`.
-
-- [ ] **Step 3: Verify one-command history semantics remain unchanged**
-
-Run the existing web/editor store test suite after any planning changes:
-
-```bash
 pnpm --filter web test
 ```
 
-Expected: existing `planning/apply-candidate` one-step Undo/Redo tests PASS.
+Expected: PASS after Task 3 because Apply already calls `evaluatePlanningCandidate()`. If a regression fails, fix the shared evaluator/validator only; do not add duplicate gap math to `apply.ts`.
 
-- [ ] **Step 4: Commit revalidation regressions**
+- [ ] **Step 3: Commit tests**
 
 ```bash
-git add packages/planning/src/apply.test.ts packages/planning/src/constraint-revalidation.test.ts packages/planning/src/apply.ts
+git add packages/planning/src/apply.test.ts packages/planning/src/constraint-revalidation.test.ts
 git commit -m "test: cover exact spacing apply revalidation"
 ```
-
-Do not modify `apply.ts` if tests prove the current evaluation delegation is already sufficient.
 
 ---
 
@@ -515,36 +539,9 @@ Do not modify `apply.ts` if tests prove the current evaluation delegation is alr
 - Modify: `apps/web/components/planning/planning-panel.tsx`
 - Modify: `apps/web/components/planning/planning-panel.test.tsx`
 
-**Interfaces:**
-- Consumes: existing `planningPairKey()`, `buildPlanningConstraints()`, `PlanningPairChoice`, M6.2 near/far controls.
-- Produces raw UI state `pairMinimumGapInputs: Record<string, string>` and `pair-min-gap` structured constraints.
+**Interfaces:** Add raw state `pairMinimumGapInputs: Record<string, string>`; empty string means no rule, `"0"` means a real zero rule.
 
-- [ ] **Step 1: Write RED UI/helper tests**
-
-Extend `buildPlanningConstraints()` tests with a fifth argument:
-
-```ts
-const constraints = buildPlanningConstraints(
-  ["sofa", "table"],
-  [],
-  {},
-  { [planningPairKey("sofa", "table")]: "near" },
-  { [planningPairKey("sofa", "table")]: "800" },
-);
-
-expect(constraints).toContainEqual({
-  kind: "pair-min-gap",
-  objectIds: ["sofa", "table"],
-  minimumMm: 800,
-});
-expect(constraints).toContainEqual({
-  kind: "pair-distance",
-  objectIds: ["sofa", "table"],
-  preference: "near",
-});
-```
-
-Add exact parsing tests:
+- [ ] **Step 1: Write RED parser/builder/render tests**
 
 ```ts
 expect(parsePairMinimumGapInput("")).toBeNull();
@@ -553,28 +550,33 @@ expect(parsePairMinimumGapInput("800")).toBe(800);
 expect(parsePairMinimumGapInput("800,5")).toBe(800.5);
 expect(() => parsePairMinimumGapInput("-1")).toThrow();
 expect(() => parsePairMinimumGapInput("abc")).toThrow();
+
+const key = planningPairKey("sofa", "table");
+const constraints = buildPlanningConstraints(
+  ["sofa", "table"], [], {}, { [key]: "near" }, { [key]: "800" },
+);
+expect(constraints).toContainEqual({ kind: "pair-distance", objectIds: ["sofa", "table"], preference: "near" });
+expect(constraints).toContainEqual({ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 });
 ```
 
-Render tests must assert copy includes:
+Render tests must assert:
 
 ```text
 Минимальный проход между предметами
 по ближайшим краям мебели
-Требуется минимум
-фактически
+требуется минимум 800 мм
+фактически 842 мм
 ```
 
-- [ ] **Step 2: Run web tests and verify RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 pnpm --filter web test
 ```
 
-Expected: FAIL because exact gap state/input/helper does not exist.
+Expected: FAIL because exact input/parser does not exist.
 
-- [ ] **Step 3: Add parser and extend constraint builder**
-
-Implement:
+- [ ] **Step 3: Add one canonical raw-input parser**
 
 ```ts
 export function parsePairMinimumGapInput(raw: string): number | null {
@@ -588,28 +590,51 @@ export function parsePairMinimumGapInput(raw: string): number | null {
 }
 ```
 
-Extend `buildPlanningConstraints(..., pairMinimumGapInputs)` so each selected unordered pair may emit both `pair-distance` and `pair-min-gap`. Empty input emits no exact constraint; string `"0"` emits a real zero constraint.
+- [ ] **Step 4: Extend `buildPlanningConstraints()` with exact pair inputs**
 
-- [ ] **Step 4: Extend pair view model and component state**
+Add fifth parameter:
 
-Add to `PlanningPairChoice`:
+```ts
+pairMinimumGapInputs: Readonly<Record<string, string | undefined>>,
+```
+
+Inside the existing selected-pair loop, after optional `pair-distance` creation:
+
+```ts
+const minimumMm = parsePairMinimumGapInput(pairMinimumGapInputs[key] ?? "");
+if (minimumMm !== null) {
+  const ids = pairIdsFromKey(key);
+  if (ids && selected.has(ids[0]) && selected.has(ids[1])) {
+    constraints.push({ kind: "pair-min-gap", objectIds: ids, minimumMm });
+  }
+}
+```
+
+- [ ] **Step 5: Extend pair view model/state and clear stale results**
+
+Add:
 
 ```ts
 minimumGapInput: string;
 minimumGapError: string | null;
 ```
 
-Add state:
+to `PlanningPairChoice`, and state:
 
 ```ts
 const [pairMinimumGapInputs, setPairMinimumGapInputs] = useState<Record<string, string>>({});
 ```
 
-When selection changes, clean both `pairPreferences` and `pairMinimumGapInputs` to pairs whose two IDs remain selected. Any exact input change must call `clearGeneratedState()` immediately.
+On object deselection, filter exact inputs with the same `pairIdsFromKey()` predicate already used for pair preferences. On exact input change:
 
-- [ ] **Step 5: Add compact exact-gap controls to each pair**
+```ts
+setPairMinimumGapInputs((current) => ({ ...current, [pairKey]: raw }));
+clearGeneratedState();
+```
 
-Keep M6.2 near/far select and add a separate numeric/text input that preserves raw user text:
+Derive each `minimumGapError` by calling `parsePairMinimumGapInput()` in `try/catch`. `canGenerate` must require that all selected-pair errors are null.
+
+- [ ] **Step 6: Add compact pair input and exact helper copy**
 
 ```tsx
 <label className="planning-field">
@@ -627,45 +652,34 @@ Keep M6.2 near/far select and add a separate numeric/text input that preserves r
 </label>
 ```
 
-Helper copy must distinguish semantics:
+Helper copy:
 
 ```text
 «Ближе/дальше» ранжируется по центрам предметов. Минимальный проход — жёсткое требование по ближайшим краям мебели с учётом поворота.
 ```
 
-- [ ] **Step 6: Block generation on invalid raw numeric input**
+`generate()` must call the same `buildPlanningConstraints()` with `pairMinimumGapInputs`; no second parser/validation path.
 
-Derive pair errors via `parsePairMinimumGapInput()`. `canGenerate` must additionally require no pair input errors. `generate()` must build the exact constraints from the same parser so UI gating and request construction cannot disagree.
-
-- [ ] **Step 7: Run web GREEN and typecheck**
+- [ ] **Step 7: Run GREEN and commit**
 
 ```bash
 pnpm --filter web test
 pnpm --filter web typecheck
-```
-
-Expected: PASS.
-
-- [ ] **Step 8: Commit UI work**
-
-```bash
 git add apps/web/components/planning/planning-panel.tsx apps/web/components/planning/planning-panel.test.tsx
 git commit -m "feat: add exact pair spacing controls"
 ```
 
+Expected: PASS.
+
 ---
 
-### Task 6: Full regression gate, acceptance record and Draft PR
+### Task 6: Full regression gate, Draft PR and browser acceptance
 
 **Files:**
 - Create: `docs/milestones/m6-3-acceptance.md`
-- No canonical `PROJECT_STATE.md` / `ROADMAP.md` / `CHANGELOG.md` DONE update until browser acceptance and merge.
+- Do not mark `PROJECT_STATE.md`, `ROADMAP.md` or `CHANGELOG.md` DONE before accepted browser verification and merge.
 
-**Interfaces:**
-- Consumes all previous tasks.
-- Produces an implementation-complete Draft PR that remains unmerged until real-browser acceptance.
-
-- [ ] **Step 1: Run the complete local-equivalent verification suite**
+- [ ] **Step 1: Run full strict verification**
 
 ```bash
 pnpm install --frozen-lockfile
@@ -677,53 +691,63 @@ pnpm build
 
 Expected: all PASS.
 
-- [ ] **Step 2: Self-review architecture boundaries**
+- [ ] **Step 2: Architecture self-review**
 
-Verify changed files show:
+Confirm changed files satisfy exactly:
 
 ```text
-no VlezetDocument schema/migration changes
+no VlezetDocument schema/migration change
 no IndexedDB/autosave planning persistence
 no Three.js/Canvas measurement authority
-no duplicate M2 collision engine
+no duplicate M2 fit/collision/door engine
 pair-min-gap hard-valid before soft ranking
 exact geometry primitive framework-independent
-candidate identity includes normalized minimumMm
-preview path still non-mutating
-Apply still one semantic history operation
+candidate identity contains normalized minimumMm
+preview remains non-mutating
+Apply remains one semantic history operation
 ```
 
-- [ ] **Step 3: Write acceptance checklist**
+- [ ] **Step 3: Create acceptance checklist**
 
-`docs/milestones/m6-3-acceptance.md` must record automated contracts and require this real-browser scenario:
+`docs/milestones/m6-3-acceptance.md` must require:
 
 ```text
-1. Baseline M6.1/M6.2 generation still works with empty exact inputs.
+1. Baseline M6.1/M6.2 generation works with empty exact inputs.
 2. Select two movable objects; enter feasible minimum, e.g. 800 mm.
-3. Generate: result explanation shows required and actual edge-to-edge mm.
-4. Preview visibly respects the required nearest-edge gap.
-5. Combine "Ближе друг к другу" + 800 mm; best valid options approach but never violate the hard minimum.
-6. Change 800 → another value; stale result/preview clears immediately.
+3. Generate: explanation shows required and actual edge-to-edge mm.
+4. Preview visibly respects the nearest-edge minimum.
+5. Combine "Ближе друг к другу" + 800 mm; alternatives approach but never violate the hard minimum when candidate space permits.
+6. Change exact value; stale result/preview clears immediately.
 7. Enter impossible/high value; no violating alternative is offered.
 8. Enter invalid/negative text; generation is blocked with explicit validation.
 9. Apply valid candidate; 3D projects ordinary document positions normally.
 10. One Undo restores all transforms; one Redo reapplies them.
 11. Reload: only applied ordinary transforms persist, not exact constraints.
-12. Manual furniture editing, M2 fit and M5 spatial/inspection still work.
+12. Manual editing, M2 fit and M5 spatial/inspection still work.
 ```
 
-- [ ] **Step 4: Open/update Draft PR and require exact-head CI**
+- [ ] **Step 4: Open Draft PR and record exact-head CI**
 
-PR body must include exact design/plan/checklist paths, the final head SHA and GitHub Actions run ID after completion. Keep it Draft until browser acceptance.
+PR body must record:
 
-- [ ] **Step 5: Do not merge before browser acceptance**
+```text
+Design: docs/superpowers/specs/2026-07-23-m6-3-exact-spatial-constraints-design.md
+Plan: docs/superpowers/plans/2026-07-23-m6-3-exact-spatial-constraints.md
+Acceptance: docs/milestones/m6-3-acceptance.md
+Final exact head: <actual SHA after implementation>
+GitHub Actions: <actual run ID> — PASS
+```
 
-Only after explicit product-owner confirmation:
+Replace the two angle-bracket fields with real values before declaring the RC ready for browser acceptance; they are execution-time evidence fields, not unresolved design requirements.
+
+- [ ] **Step 5: Merge gate**
+
+Do not merge until explicit product-owner browser acceptance. After acceptance:
 
 ```text
 mark PR Ready
-→ verify exact head has strict CI PASS
+→ verify exact PR head + strict CI PASS
 → squash merge
-→ update docs/milestones/m6-3-acceptance.md with accepted head/run/merge
+→ update M6.3 acceptance with accepted head/run/merge
 → update PROJECT_STATE.md / ROADMAP.md / CHANGELOG.md in a separate canonical docs PR
 ```
