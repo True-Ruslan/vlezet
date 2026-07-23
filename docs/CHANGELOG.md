@@ -4,6 +4,119 @@
 
 This is not only a package-release changelog. It records milestone decisions, product feedback, RC failures and architecture changes that materially changed the roadmap.
 
+## 2026-07-23 — M6.2 Constraint-Aware Planning accepted and merged
+
+PR #13 squash merge:
+
+```text
+db68d697540ddb9901fbddad0763d769e7d16851
+```
+
+### Why
+
+M6.1 proved that Vlezet could deterministically generate, preview and atomically apply valid furniture alternatives, but the planner did not yet know what the user actually cared about beyond geometry/fit validity.
+
+M6.2 added explicit user intent without weakening product trust.
+
+Product rule:
+
+> User intent must be represented as structured, reviewable constraints. Hard constraints reject; soft preferences only affect deterministic ranking. M2 geometry/fit remains authoritative and Apply remains explicit.
+
+### Delivered
+
+Structured constraint vocabulary:
+
+- hard `lock-object` → UI `Не двигать`;
+- soft `prefer-room-boundary` → `Ближе к стене` / `Ближе к углу`;
+- soft `pair-distance` → `Ближе друг к другу` / `Дальше друг от друга`;
+- explicit centre-to-centre pair semantics in millimetres.
+
+Validation and authority:
+
+- maximum 9 constraints;
+- malformed/unknown constraints fail closed;
+- referenced objects must belong to the selected planning set;
+- self-pairs are invalid;
+- conflicting/duplicate boundary and pair preferences are invalid;
+- duplicate locks are invalid;
+- all selected objects locked is invalid;
+- constraints normalize into stable deterministic order;
+- shared `validatePlanningConstraintSet()` protects both request-generation and candidate/Apply boundaries;
+- stale locked-object state invalidates the candidate atomically.
+
+Deterministic scoring:
+
+- M2 fit/collision/door/clearance remains hard authority;
+- hard planning constraints reject before scoring;
+- wall/corner/near/far metrics normalize by room diagonal;
+- soft preference penalty ranks after M2 `tight`/recommendation quality and before rotation/movement tie-breaks;
+- result reasons expose measured evidence in millimetres;
+- candidate stable identity includes normalized user intent.
+
+UX:
+
+- existing M6.1 panel extended instead of creating a second planning mode;
+- per-object `Не двигать` and boundary preference controls;
+- per-pair near/far controls;
+- changing any constraint clears stale result/preview;
+- ghost preview remains non-mutating;
+- Apply remains explicit, current-document-revalidated and one semantic Undo/Redo operation.
+
+### TDD / RC findings fixed
+
+1. missing structured constraint contracts → stable normalization and fail-closed validation;
+2. canonical normalization-order mismatch → tests aligned to deliberate deterministic order;
+3. M6.1 view fixtures exposed `preferencePenalty` contract evolution;
+4. wording-only UI mismatch clarified explicit centre-to-centre semantics;
+5. self-review found request/generator validation stronger than direct candidate Apply validation;
+6. dedicated RED proved conflicting boundary preferences, self-pairs and all-locked direct candidates could bypass request validation;
+7. shared `validatePlanningConstraintSet()` introduced for both request and candidate/Apply boundaries;
+8. stale locked-object Apply regression added;
+9. stable identity regression verifies constraint-order invariance and intent-sensitive identity.
+
+### Verification
+
+Final exact PR head before merge:
+
+```text
+a32b5f633ee5c36dafb5578d3c0c3f7eaa46d649
+GitHub Actions 29962203961 — PASS
+```
+
+Passed frozen install, full unit suite, TypeScript typecheck, ESLint and production Next build.
+
+### Manual browser acceptance
+
+**PASS — 2026-07-23.**
+
+The representative apartment passed the planned scenarios:
+
+- baseline M6.1 behavior without constraints;
+- hard object locking;
+- wall/corner preferences and measured explanations;
+- pair near/far preferences with centre-to-centre evidence;
+- stale preview clearing when intent changes;
+- non-mutating ghost preview;
+- explicit Apply;
+- one-step multi-object Undo/Redo;
+- 2D→3D consistency;
+- reload persistence only for applied ordinary transforms;
+- no observed M2/M5/M6.1 regression.
+
+Product owner explicitly confirmed:
+
+> «Это работает настолько все гениально и четко как ты сказал, что я в восторге.»
+
+Canonical evidence: `docs/milestones/m6-2-acceptance.md`.
+
+### Roadmap consequence
+
+M6.2 is complete and merged.
+
+The next narrow slice is **M6.3 Exact Spatial Constraints**: add precise millimetre-based hard rules, beginning with a rigorously defined minimum edge-to-edge spacing between selected furniture objects, before attempting natural-language intent interpretation or broader autonomous planning.
+
+---
+
 ## 2026-07-22 — M6.1 Deterministic Layout Alternatives accepted and merged
 
 PR #11 squash merge:
