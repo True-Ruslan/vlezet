@@ -89,6 +89,7 @@ function ranking(overrides: Partial<PlanningCandidateEvaluation>): PlanningCandi
     valid: true,
     tightObjectCount: 0,
     recommendationCount: 0,
+    preferencePenalty: 0,
     rotatedObjectCount: 0,
     totalMovementMm: 0,
     reasons: [],
@@ -179,9 +180,10 @@ describe("evaluatePlanningCandidate", () => {
 });
 
 describe("deterministic ranking", () => {
-  it("orders by tight count, recommendations, rotations, movement, then stable key", () => {
+  it("orders by tight count, recommendations, preferences, rotations, movement, then stable key", () => {
     expect(comparePlanningCandidateEvaluations(ranking({}), ranking({ tightObjectCount: 1 }))).toBeLessThan(0);
     expect(comparePlanningCandidateEvaluations(ranking({}), ranking({ recommendationCount: 1 }))).toBeLessThan(0);
+    expect(comparePlanningCandidateEvaluations(ranking({ preferencePenalty: 0.1 }), ranking({ preferencePenalty: 0.2 }))).toBeLessThan(0);
     expect(comparePlanningCandidateEvaluations(ranking({}), ranking({ rotatedObjectCount: 1 }))).toBeLessThan(0);
     expect(comparePlanningCandidateEvaluations(ranking({ totalMovementMm: 100 }), ranking({ totalMovementMm: 200 }))).toBeLessThan(0);
     expect(comparePlanningCandidateEvaluations(ranking({ stableKey: "a" }), ranking({ stableKey: "b" }))).toBeLessThan(0);
