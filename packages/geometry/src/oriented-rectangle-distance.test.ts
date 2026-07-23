@@ -34,6 +34,16 @@ describe("minimumDistanceBetweenOrientedRectangles", () => {
     ).toBe(0);
   });
 
+  it("returns zero when a rotated furniture corner touches the middle of another edge", () => {
+    const halfDiagonal = 1000 / Math.sqrt(2);
+    expect(
+      minimumDistanceBetweenOrientedRectangles(
+        rect(0, 0, 2000, 1000),
+        rect(0, 500 + halfDiagonal, 1000, 1000, 45),
+      ),
+    ).toBe(0);
+  });
+
   it("returns zero for overlapping rectangles", () => {
     expect(
       minimumDistanceBetweenOrientedRectangles(
