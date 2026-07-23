@@ -3,6 +3,7 @@ import { deriveRooms } from "@vlezet/geometry";
 import { describe, expect, it } from "vitest";
 import { evaluatePlanningConstraints, type PlanningConstraint } from "./constraints";
 import type { PlanningCandidate } from "./contracts";
+import { planLayoutAlternatives } from "./planner";
 
 function documentWithEdgeGap(gapMm: number): VlezetDocument {
   return {
@@ -90,5 +91,44 @@ describe("pair-min-gap exact hard constraint", () => {
       actualMm: 799,
       satisfied: false,
     }));
+  });
+
+  it("returns only exact-gap-satisfying alternatives in deterministic order", () => {
+    const document = documentWithEdgeGap(900);
+    const request = {
+      roomId: deriveRooms(document).rooms[0]!.id,
+      objectIds: ["sofa", "table"],
+      constraints: [
+        { kind: "pair-distance", objectIds: ["sofa", "table"], preference: "near" },
+        { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 },
+      ],
+    } as const;
+
+    const first = planLayoutAlternatives(document, request);
+    const second = planLayoutAlternatives(document, request);
+
+    expect(first.candidates.length).toBeGreaterThan(0);
+    expect(second.candidates.map((item) => item.candidate.id))
+      .toEqual(first.candidates.map((item) => item.candidate.id));
+    for (const item of first.candidates) {
+      const evaluation = evaluatePlanningConstraints(document, item.candidate);
+      expect(evaluation.hardValid).toBe(true);
+      expect(evaluation.exactEvidence).toContainEqual(expect.objectContaining({
+        kind: "pair-min-gap",
+        requiredMm: 800,
+        satisfied: true,
+      }));
+    }
+  });
+
+  it("offers no violating alternatives when the exact minimum is impossible", () => {
+    const document = documentWithEdgeGap(900);
+    const result = planLayoutAlternatives(document, {
+      roomId: deriveRooms(document).rooms[0]!.id,
+      objectIds: ["sofa", "table"],
+      constraints: [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 10000 }],
+    });
+
+    expect(result.candidates).toHaveLength(0);
   });
 });
