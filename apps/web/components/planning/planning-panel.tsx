@@ -136,6 +136,15 @@ function candidateSummary(candidate: RankedPlanningCandidate): string {
   if (candidate.evaluation.tightObjectCount > 0) {
     return `${candidate.evaluation.tightObjectCount} предмет(а) требуют внимания к зонам использования`;
   }
+  const hasHardConstraint = candidate.candidate.constraints?.some(
+    (constraint) => constraint.kind === "lock-object" || constraint.kind === "pair-min-gap",
+  ) ?? false;
+  if (hasHardConstraint && candidate.evaluation.preferencePenalty > 0) {
+    return "Обязательные ограничения соблюдены; вариант ранжирован с учётом ваших предпочтений";
+  }
+  if (hasHardConstraint) {
+    return "Обязательные ограничения соблюдены; геометрия безопасна";
+  }
   if (candidate.evaluation.preferencePenalty > 0) {
     return "Геометрия безопасна; вариант ранжирован с учётом ваших предпочтений";
   }
