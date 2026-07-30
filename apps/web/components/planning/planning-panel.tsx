@@ -12,7 +12,10 @@ import {
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { editorStore } from "../editor/use-editor-store";
+import { planningPairIds, planningPairKey } from "./planning-pair-key";
 import { planningUiStore } from "./planning-ui-store";
+
+export { planningPairKey } from "./planning-pair-key";
 
 export type PlanningBoundaryPreference = "none" | "wall" | "corner";
 export type PlanningPairPreference = "none" | "near" | "far";
@@ -43,6 +46,7 @@ export type PlanningPanelViewProps = Readonly<{
   canGenerate: boolean;
   result: PlanningResult | null;
   previewCandidateId: string | null;
+  activeExactPairKey: string | null;
   errorMessage: string | null;
   onToggleObject: (objectId: string) => void;
   onToggleLock: (objectId: string) => void;
@@ -51,6 +55,7 @@ export type PlanningPanelViewProps = Readonly<{
   onPairMinimumGapChange: (pairKey: string, rawValue: string) => void;
   onGenerate: () => void;
   onPreview: (candidate: RankedPlanningCandidate) => void;
+  onShowExactPair: (candidate: RankedPlanningCandidate, pairKey: string) => void;
   onApply: (candidate: RankedPlanningCandidate) => void;
   onClose: () => void;
 }>;
@@ -59,17 +64,6 @@ export function togglePlanningSelection(current: readonly string[], objectId: st
   if (current.includes(objectId)) return current.filter((id) => id !== objectId);
   if (current.length >= MAX_SELECTED_PLANNING_OBJECTS) return [...current];
   return [...current, objectId];
-}
-
-export function planningPairKey(firstObjectId: string, secondObjectId: string): string {
-  return firstObjectId.localeCompare(secondObjectId) <= 0
-    ? `${firstObjectId}|${secondObjectId}`
-    : `${secondObjectId}|${firstObjectId}`;
-}
-
-function pairIdsFromKey(key: string): readonly [string, string] | null {
-  const parts = key.split("|");
-  return parts.length === 2 && parts[0] && parts[1] ? [parts[0], parts[1]] : null;
 }
 
 export function parsePairMinimumGapInput(raw: string): number | null {
@@ -115,7 +109,7 @@ export function buildPlanningConstraints(
       const first = selectedObjectIds[firstIndex]!;
       const second = selectedObjectIds[secondIndex]!;
       const key = planningPairKey(first, second);
-      const ids = pairIdsFromKey(key);
+      const ids = planningPairIds(key);
       if (!ids || !selected.has(ids[0]) || !selected.has(ids[1])) continue;
 
       const preference = pairPreferences[key] ?? "none";
@@ -142,13 +136,15 @@ function candidateSummary(candidate: RankedPlanningCandidate): string {
   if (hasHardConstraint && candidate.evaluation.preferencePenalty > 0) {
     return "Обязательные ограничения соблюдены; вариант ранжирован с учётом ваших предпочтений";
   }
-  if (hasHardConstraint) {
-    return "Обязательные ограничения соблюдены; геометрия безопасна";
-  }
+  if (hasHardConstraint) return "Обязательные ограничения соблюдены; геометрия безопасна";
   if (candidate.evaluation.preferencePenalty > 0) {
     return "Геометрия безопасна; вариант ранжирован с учётом ваших предпочтений";
   }
   return "Без обязательных коллизий и ограничений";
+}
+
+function formatMm(value: number): string {
+  return Number(value.toFixed(2)).toString();
 }
 
 export function PlanningPanelView({
@@ -158,6 +154,7 @@ export function PlanningPanelView({
   canGenerate,
   result,
   previewCandidateId,
+  activeExactPairKey,
   errorMessage,
   onToggleObject,
   onToggleLock,
@@ -166,11 +163,13 @@ export function PlanningPanelView({
   onPairMinimumGapChange,
   onGenerate,
   onPreview,
+  onShowExactPair,
   onApply,
   onClose,
 }: PlanningPanelViewProps) {
   const hasSelectedObjects = objects.some((object) => object.selected);
   const hasMovableSelectedObject = objects.some((object) => object.selected && !object.locked);
+  const objectNames = new Map(objects.map((object) => [object.id, object.name]));
 
   return (
     <aside className="inspector-panel planning-panel" aria-label="Варианты расстановки">
@@ -192,11 +191,7 @@ export function PlanningPanelView({
             {objects.map((object) => (
               <div key={object.id} className={`planning-object-choice${object.selected ? " is-selected" : ""}`}>
                 <label className="planning-object-select-row">
-                  <input
-                    type="checkbox"
-                    checked={object.selected}
-                    onChange={() => onToggleObject(object.id)}
-                  />
+                  <input type="checkbox" checked={object.selected} onChange={() => onToggleObject(object.id)} />
                   <span>{object.name}</span>
                 </label>
                 {object.selected ? (
@@ -228,7 +223,7 @@ export function PlanningPanelView({
       {pairs.length > 0 ? (
         <div className="inspector-section">
           <strong>Отношения между предметами</strong>
-          <p className="inspector-help">«Ближе/дальше» ранжируется по центрам предметов. Минимальный проход — жёсткое требование по ближайшим краям мебели с учётом поворота.</p>
+          <p className="inspector-help">«Ближе/дальше» ранжируется по центрам предметов. Точный зазор — отдельное жёсткое требование по внешним контурам.</p>
           <div className="planning-pair-list">
             {pairs.map((pair) => (
               <div key={pair.key} className="planning-pair-row">
@@ -246,7 +241,7 @@ export function PlanningPanelView({
                   </select>
                 </label>
                 <label className="planning-field">
-                  <span>Минимальный проход между предметами</span>
+                  <span>↔ Минимальный зазор по контурам</span>
                   <div className="length-field-row">
                     <input
                       inputMode="decimal"
@@ -259,7 +254,7 @@ export function PlanningPanelView({
                   </div>
                   {pair.minimumGapError ? <span className="field-error">{pair.minimumGapError}</span> : null}
                 </label>
-                <p className="inspector-help">Точный минимум измеряется по ближайшим краям мебели, а не между центрами.</p>
+                <p className="inspector-help">Кратчайшее расстояние между внешними контурами предметов с учётом поворота. Это не размер предмета и не расстояние между центрами.</p>
               </div>
             ))}
           </div>
@@ -292,6 +287,35 @@ export function PlanningPanelView({
                   {index === 0 ? <span className="planning-best-badge">Лучший</span> : null}
                 </div>
                 <p className="inspector-help">{candidateSummary(candidate)}</p>
+                {candidate.evaluation.exactEvidence.length > 0 ? (
+                  <div className="planning-exact-list">
+                    {candidate.evaluation.exactEvidence.map((evidence) => {
+                      const pairKey = planningPairKey(evidence.objectIds[0], evidence.objectIds[1]);
+                      const active = previewing && activeExactPairKey === pairKey;
+                      return (
+                        <section key={pairKey} className={`planning-exact-card${active ? " is-active" : ""}`}>
+                          <div className="planning-exact-heading">
+                            <span>↔ Точное расстояние</span>
+                            <strong>{objectNames.get(evidence.objectIds[0]) ?? evidence.objectIds[0]} — {objectNames.get(evidence.objectIds[1]) ?? evidence.objectIds[1]}</strong>
+                          </div>
+                          <dl className="planning-exact-metrics">
+                            <div className="planning-exact-metric"><dt>Фактически</dt><dd>{formatMm(evidence.actualMm)} мм</dd></div>
+                            <div className="planning-exact-metric"><dt>Требуется</dt><dd>≥ {formatMm(evidence.requiredMm)} мм</dd></div>
+                          </dl>
+                          <p className="planning-exact-note">По ближайшим точкам повёрнутых контуров</p>
+                          <button
+                            type="button"
+                            className="secondary-action"
+                            disabled={active}
+                            onClick={() => onShowExactPair(candidate, pairKey)}
+                          >
+                            {active ? "Показывается на плане" : "Показать на плане"}
+                          </button>
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 <ul className="planning-reasons">
                   {candidate.evaluation.reasons.map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
@@ -330,7 +354,7 @@ function cleanRecord<T>(record: Readonly<Record<string, T>>, allowedIds: Readonl
 
 function cleanPairRecord<T>(record: Readonly<Record<string, T>>, allowedIds: ReadonlySet<string>): Record<string, T> {
   return Object.fromEntries(Object.entries(record).filter(([key]) => {
-    const ids = pairIdsFromKey(key);
+    const ids = planningPairIds(key);
     return ids ? allowedIds.has(ids[0]) && allowedIds.has(ids[1]) : false;
   }));
 }
@@ -338,6 +362,7 @@ function cleanPairRecord<T>(record: Readonly<Record<string, T>>, allowedIds: Rea
 export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
   const document = useStore(editorStore, (state) => state.history.document);
   const previewCandidate = useStore(planningUiStore, (state) => state.previewCandidate);
+  const activeExactPairKey = useStore(planningUiStore, (state) => state.activeExactPairKey);
   const [selectedObjectIds, setSelectedObjectIds] = useState<readonly string[]>([]);
   const [lockedObjectIds, setLockedObjectIds] = useState<readonly string[]>([]);
   const [boundaryPreferences, setBoundaryPreferences] = useState<Record<string, PlanningBoundaryPreference>>({});
@@ -440,6 +465,11 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
     planningUiStore.getState().setPreviewCandidate(candidate.candidate);
   };
 
+  const showExactPair = (candidate: RankedPlanningCandidate, pairKey: string) => {
+    planningUiStore.getState().setPreviewCandidate(candidate.candidate);
+    planningUiStore.getState().setActiveExactPairKey(pairKey);
+  };
+
   const apply = (candidate: RankedPlanningCandidate) => {
     try {
       editorStore.getState().applyPlanningCandidate(candidate.candidate);
@@ -461,6 +491,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
         canGenerate={false}
         result={null}
         previewCandidateId={null}
+        activeExactPairKey={null}
         errorMessage="Комната изменилась или была удалена. Закройте панель и выберите комнату заново."
         onToggleObject={() => {}}
         onToggleLock={() => {}}
@@ -469,6 +500,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
         onPairMinimumGapChange={() => {}}
         onGenerate={() => {}}
         onPreview={() => {}}
+        onShowExactPair={() => {}}
         onApply={() => {}}
         onClose={() => planningUiStore.getState().close()}
       />
@@ -496,6 +528,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
       canGenerate={canGenerate}
       result={result}
       previewCandidateId={previewCandidate?.id ?? null}
+      activeExactPairKey={activeExactPairKey}
       errorMessage={errorMessage}
       onToggleObject={toggleObject}
       onToggleLock={toggleLock}
@@ -504,6 +537,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
       onPairMinimumGapChange={setPairMinimumGap}
       onGenerate={generate}
       onPreview={preview}
+      onShowExactPair={showExactPair}
       onApply={apply}
       onClose={() => planningUiStore.getState().close()}
     />
