@@ -93,7 +93,6 @@ function ranking(overrides: Partial<PlanningCandidateEvaluation>): PlanningCandi
     rotatedObjectCount: 0,
     totalMovementMm: 0,
     reasons: [],
-    exactEvidence: [],
     stableKey: "a",
     ...overrides,
     exactEvidence: overrides.exactEvidence ?? [],
