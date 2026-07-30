@@ -1,8 +1,10 @@
 # M7.0 Product and UX Audit — Acceptance
 
-**Status:** ACCEPTED — source audit, target UX foundation and automated browser evidence complete  
+**Status:** ACCEPTED / MERGED  
 **Date:** 2026-07-30  
-**PR:** #19 `docs: M7.0 product and UX audit`
+**PR:** #19 `docs: M7.0 product and UX audit`  
+**Feature head:** `2ae83fb4a09fd9313f2befe5d9c35fd0ecab1394`  
+**Squash merge:** `0d5b9c1555ef85a0e271a52832cc3fd3cca4963e`
 
 ## 1. Purpose
 
@@ -74,19 +76,31 @@ TOTAL 39
 
 ## 6. Browser evidence
 
-### Chromium representative flow
+### First complete Chromium representative flow
 
-**Run:** `30570626203` — PASS  
-**Head:** `e3602296cf4382b88443e67616a69978b3f3bab0`
+```text
+run:      30570626203 — PASS
+head:     e3602296cf4382b88443e67616a69978b3f3bab0
+artifact: 8770651801
+```
 
-The first complete pass exercised dashboard, room creation, room inspector, sofa placement, object inspector, responsive states, planning, reference panel, 3D transition and project deletion.
+### Intermediate Chromium + WebKit pass
 
-### Final Chromium + WebKit pass
+```text
+run:      30571095361 — PASS
+head:     7278a278f1a33d99d383a54139a20be987417c85
+artifact: 8770860354
+digest:   sha256:1d4991a03f6e8b4d6388119dc296fe4f9cd311cbf2c3dbc6099b730630a3ec61
+```
 
-**Run:** `30571095361` — PASS  
-**Head:** `7278a278f1a33d99d383a54139a20be987417c85`  
-**Artifact:** `8770860354`  
-**Digest:** `sha256:1d4991a03f6e8b4d6388119dc296fe4f9cd311cbf2c3dbc6099b730630a3ec61`
+### Final exact-head Chromium + WebKit pass
+
+```text
+run:      30572124032 — PASS
+head:     2ae83fb4a09fd9313f2befe5d9c35fd0ecab1394
+artifact: 8771245306
+digest:   sha256:c8b9f4440b692162edd501e3cad355664ca2078d54fb638af3b3816b7e2c063f
+```
 
 - [x] Chromium full representative workflow;
 - [x] 1920×1080;
@@ -164,7 +178,26 @@ M7.1 must establish command hierarchy, readable local-save status and a reachabl
 - [x] no product UI implementation in M7.0;
 - [x] browser harness remains non-product test tooling.
 
-## 11. Product-owner gate
+## 11. Automated verification
+
+```text
+feature head: 2ae83fb4a09fd9313f2befe5d9c35fd0ecab1394
+standard CI: 30572124031 — PASS
+browser CI:  30572124032 — PASS
+merge:       0d5b9c1555ef85a0e271a52832cc3fd3cca4963e
+```
+
+- [x] frozen dependency installation;
+- [x] M7 documentation contract: 12 files, J01–J11, 39 findings and P1/P2 coverage;
+- [x] full unit suite;
+- [x] TypeScript;
+- [x] ESLint;
+- [x] production build;
+- [x] Chromium representative flow;
+- [x] WebKit core smoke;
+- [x] changed-file scope inspected.
+
+## 12. Product-owner and merge gate
 
 The product owner explicitly approved the M7 programme, all recommendations, autonomous execution and continuation to the next step in this project conversation.
 
@@ -172,17 +205,7 @@ The product owner explicitly approved the M7 programme, all recommendations, aut
 - [x] finding priorities accepted;
 - [x] M7.1 selection accepted;
 - [x] browser evidence corrections incorporated;
-- [x] PR may move from Draft after final exact-head verification.
-
-## 12. Final merge gate
-
-- [x] all required documentation exists;
-- [x] combined finding count is 39;
-- [x] browser review is recorded honestly;
-- [x] scope contains no product implementation;
-- [x] product-owner acceptance is recorded;
-- [ ] final documentation contract passes on exact head;
-- [ ] final standard CI passes on exact head;
-- [ ] final browser audit passes on exact head;
-- [ ] PR #19 is marked Ready for Review;
-- [ ] squash merge SHA/date are added to canonical project state and changelog.
+- [x] PR #19 marked Ready for Review;
+- [x] PR #19 squash-merged;
+- [x] squash merge SHA/date recorded;
+- [x] M7.0 closed as accepted and merged.
