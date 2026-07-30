@@ -31,9 +31,11 @@ describe("M7.1 apartment editor shell integration", () => {
     expect(source).toContain("contextTriggerVisible={compactLayout && viewMode === \"2d\"}");
     expect(source).toContain("contextOpen={compactSurface === \"context\"}");
     expect(source).toContain("contextLabel={editorContextLabel(contextKind)}");
-    expect(source).toContain("setCompactSurface");
-    expect(source).not.toContain("compactSurface:");
+    expect(source).toContain("setCompactSurfaceChoice");
+    expect(source).toContain("setDismissedContextKey");
     expect(source).not.toContain("onViewportChange({ compactSurface");
+    expect(source).not.toContain("updateUi({ compactSurface");
+    expect(source).not.toContain("referencePlan: { compactSurface");
   });
 
   it("uses one-column spatial composition and derives hidden 2D sheets in 3D", () => {
