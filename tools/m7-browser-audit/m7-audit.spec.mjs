@@ -170,7 +170,7 @@ test.describe.serial("M7.1 editor shell browser acceptance", () => {
     await page.locator("#editor-context-surface").getByRole("button", { name: "Закрыть панель" }).click();
     await expect(page.locator("#editor-context-surface")).toBeHidden();
 
-    await page.getByRole("button", { name: "Действия" }).click();
+    await page.locator(".editor-project-action").click();
     await expect(page.getByRole("button", { name: /Показать весь план/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Vlezet JSON/ })).toBeVisible();
   });
