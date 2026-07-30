@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 
 const globalsCss = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 const viewportCss = readFileSync(new URL("./editor-viewport.css", import.meta.url), "utf8");
-const css = `${globalsCss}\n${viewportCss}`;
+const shellCss = readFileSync(new URL("./editor-shell.css", import.meta.url), "utf8");
+const css = `${globalsCss}\n${viewportCss}\n${shellCss}`;
 const planningCss = readFileSync(new URL("./planning-exact-gap.css", import.meta.url), "utf8");
 
 function compact(value: string): string {
@@ -73,6 +74,11 @@ describe("M7.1 editor viewport layout contract", () => {
     expect(commandLabels).toContain("display:none");
     expect(commandButtons).toContain("width:40px");
     expect(commandButtons).not.toContain("display:none");
+  });
+
+  it("overrides the legacy compact rule that hid project identity", () => {
+    const projectTitle = compact(ruleBodies(".editor-project-bar .project-title-stack"));
+    expect(projectTitle).toContain("display:grid");
   });
 });
 
