@@ -25,7 +25,7 @@ describe("M7.2 ApartmentEditor workflow navigation", () => {
 
   it("keeps compact presentation close independent from workflow exit", () => {
     const start = source.indexOf("const closeCompactSurface");
-    const end = source.indexOf("const toggleFurnitureSurface", start);
+    const end = source.indexOf("const beginBoundedWorkflow", start);
     const closeBody = source.slice(start, end);
     expect(closeBody).toContain("setCompactSurfaceChoice(null)");
     expect(closeBody).not.toContain("onToggleReferencePanel");
