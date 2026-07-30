@@ -4,6 +4,7 @@ const requiredFiles = [
   "docs/product/PRODUCT_VISION.md",
   "docs/product/USER_JOURNEYS.md",
   "docs/product/UX_AUDIT.md",
+  "docs/product/UX_BROWSER_EVIDENCE.md",
   "docs/product/INFORMATION_ARCHITECTURE.md",
   "docs/product/INTERACTION_MODEL.md",
   "docs/product/UX_ROADMAP.md",
@@ -12,6 +13,11 @@ const requiredFiles = [
   "docs/design/CONTENT_AND_TERMINOLOGY.md",
   "docs/design/ACCESSIBILITY.md",
   "docs/milestones/m7-0-acceptance.md",
+];
+
+const findingFiles = [
+  "docs/product/UX_AUDIT.md",
+  "docs/product/UX_BROWSER_EVIDENCE.md",
 ];
 
 const errors = [];
@@ -38,47 +44,52 @@ for (let index = 1; index <= 11; index += 1) {
   }
 }
 
-const audit = contents.get("docs/product/UX_AUDIT.md") ?? "";
 const roadmap = contents.get("docs/product/UX_ROADMAP.md") ?? "";
 const headingPattern = /^## (UX-[A-Z0-9-]+-\d{3})\s*$/gm;
-const headings = [...audit.matchAll(headingPattern)];
 const seen = new Set();
+let findingCount = 0;
 
-for (let index = 0; index < headings.length; index += 1) {
-  const match = headings[index];
-  const id = match[1];
-  if (seen.has(id)) errors.push(`Duplicate finding id: ${id}`);
-  seen.add(id);
+for (const file of findingFiles) {
+  const audit = contents.get(file) ?? "";
+  const headings = [...audit.matchAll(headingPattern)];
+  findingCount += headings.length;
 
-  const start = (match.index ?? 0) + match[0].length;
-  const end = headings[index + 1]?.index ?? audit.length;
-  const block = audit.slice(start, end);
-  const requiredFields = [
-    "**Severity:**",
-    "**Affected journey:**",
-    "**Evidence:**",
-    "**Root cause:**",
-    "**Recommended response:**",
-    "**Acceptance criterion:**",
-    "**Recommended slice:**",
-  ];
+  for (let index = 0; index < headings.length; index += 1) {
+    const match = headings[index];
+    const id = match[1];
+    if (seen.has(id)) errors.push(`Duplicate finding id: ${id}`);
+    seen.add(id);
 
-  for (const field of requiredFields) {
-    if (!block.includes(field)) errors.push(`${id} is missing ${field}`);
-  }
+    const start = (match.index ?? 0) + match[0].length;
+    const end = headings[index + 1]?.index ?? audit.length;
+    const block = audit.slice(start, end);
+    const requiredFields = [
+      "**Severity:**",
+      "**Affected journey:**",
+      "**Evidence:**",
+      "**Root cause:**",
+      "**Recommended response:**",
+      "**Acceptance criterion:**",
+      "**Recommended slice:**",
+    ];
 
-  const severity = block.match(/\*\*Severity:\*\*\s*(P[0-4])/i)?.[1]?.toUpperCase();
-  if (!severity) errors.push(`${id} has no valid severity`);
-  if (severity && ["P0", "P1", "P2"].includes(severity) && !roadmap.includes(id)) {
-    errors.push(`${id} (${severity}) is not referenced by UX_ROADMAP.md`);
+    for (const field of requiredFields) {
+      if (!block.includes(field)) errors.push(`${id} in ${file} is missing ${field}`);
+    }
+
+    const severity = block.match(/\*\*Severity:\*\*\s*(P[0-4])/i)?.[1]?.toUpperCase();
+    if (!severity) errors.push(`${id} has no valid severity`);
+    if (severity && ["P0", "P1", "P2"].includes(severity) && !roadmap.includes(id)) {
+      errors.push(`${id} (${severity}) is not referenced by UX_ROADMAP.md`);
+    }
   }
 }
 
-if (headings.length === 0) errors.push("UX_AUDIT.md contains no structured findings");
+if (findingCount === 0) errors.push("M7.0 finding documents contain no structured findings");
 
 if (errors.length > 0) {
   console.error(errors.map((error) => `- ${error}`).join("\n"));
   process.exit(1);
 }
 
-console.log(`M7.0 documentation contract passed: ${requiredFiles.length} files, ${headings.length} findings.`);
+console.log(`M7.0 documentation contract passed: ${requiredFiles.length} files, ${findingCount} findings.`);
