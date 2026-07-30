@@ -34,7 +34,7 @@ describe("M7.1 editor viewport layout contract", () => {
     const toolBar = compact(ruleBodies(".editor-tool-bar"));
     const saveStatus = compact(ruleBodies(".editor-project-bar .save-status"));
 
-    expect(compactCss).toContain(".editor-project-bar,.editor-tool-bar,.editor-workspace,.editor-side-surface,.editor-side-surface-content{min-width:0;min-height:0}");
+    expect(compactCss).toContain(".editor-project-bar,.editor-tool-bar,.editor-workspace,.editor-side-surface,.editor-side-surface-content{min-width:0;min-height:0;");
     expect(projectBar).toContain("height:52px");
     expect(toolBar).toContain("height:48px");
     expect(saveStatus).toContain("font-size:12px");
