@@ -1,0 +1,151 @@
+.context-panel-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 100%;
+  background: var(--panel);
+}
+
+.context-panel-header {
+  display: grid;
+  gap: 12px;
+  padding: 18px 18px 15px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.context-panel-navigation {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 7px;
+  min-height: 34px;
+  max-width: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.context-panel-navigation:hover {
+  border-color: #c6ccd4;
+  background: #f8fafc;
+}
+
+.context-panel-navigation:focus-visible {
+  outline: 3px solid rgba(23, 105, 255, .2);
+  outline-offset: 2px;
+}
+
+.context-panel-identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.context-panel-eyebrow {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.context-panel-title {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+}
+
+.context-panel-subtitle,
+.context-panel-phase {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.context-panel-phase {
+  justify-self: start;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 650;
+}
+
+.context-panel-body {
+  min-width: 0;
+  min-height: 0;
+  padding: 0 18px 18px;
+  overflow: auto;
+}
+
+.context-panel-section {
+  display: grid;
+  gap: 12px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.context-panel-section-heading,
+.context-panel-danger-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.context-panel-section-heading h3,
+.context-panel-danger-heading h3 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.context-panel-section-heading p,
+.context-panel-danger-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.context-panel-section-content {
+  min-width: 0;
+}
+
+.context-panel-action-area {
+  display: grid;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+.context-panel-danger-zone {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fffafa;
+}
+
+.context-panel-danger-description {
+  color: #7f1d1d !important;
+}
+
+.context-panel-danger-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.context-panel-danger-actions .danger-action {
+  margin-top: 0;
+}
