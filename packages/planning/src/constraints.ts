@@ -216,10 +216,6 @@ function clampUnit(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-function formatMm(value: number): string {
-  return Number(value.toFixed(2)).toString();
-}
-
 export function evaluatePlanningConstraints(
   document: VlezetDocument,
   candidate: PlanningCandidate,
@@ -334,9 +330,6 @@ export function evaluatePlanningConstraints(
         actualMm,
         satisfied,
       });
-      evidence.push(
-        `${first.name} ↔ ${second.name}: требуется минимум ${formatMm(constraint.minimumMm)} мм, фактически ${formatMm(actualMm)} мм.`,
-      );
       continue;
     }
 
