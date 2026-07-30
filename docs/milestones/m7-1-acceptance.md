@@ -1,11 +1,11 @@
 # M7.1 Editor Shell and Responsive Context — Acceptance
 
-**Status:** ACCEPTED / FINAL RECORD VERIFICATION IN PROGRESS  
+**Status:** ACCEPTED / MERGED  
 **Date:** 2026-07-31  
 **PR:** #21 `feat: M7.1 editor shell and responsive context`  
 **Implementation head:** `6c21653b30e627a9bf160baf6f3f8d0a4d058f16`  
-**Acceptance-candidate head:** `5c5fc2978913386581b502b2a04b79ebbf1225c6`  
-**Squash merge:** pending
+**Final verified head:** `8c68bd288cd3dda1133f09a469cd7afe6dab83d9`  
+**Squash merge:** `6b6f8751b520722a54bb94a6947dae1135e07859`
 
 ## 1. Purpose
 
@@ -95,20 +95,20 @@ artifact: 8773105974
 digest:   sha256:f608ddd3e4638b38b04e7ac8d814b962cd82b34437de0a184ac884710b698d62
 ```
 
-### Acceptance-candidate exact-head standard CI
+### Final record-only exact-head standard CI
 
 ```text
-head: 5c5fc2978913386581b502b2a04b79ebbf1225c6
-run:  30586381324 — PASS
+head: 8c68bd288cd3dda1133f09a469cd7afe6dab83d9
+run:  30586557182 — PASS
 ```
 
-### Acceptance-candidate exact-head Chromium + WebKit acceptance
+### Final record-only exact-head Chromium + WebKit acceptance
 
 ```text
-head:     5c5fc2978913386581b502b2a04b79ebbf1225c6
-run:      30586381328 — PASS
-artifact: 8776671471
-digest:   sha256:676b64955de17b889e834d29ec4aa2617fba57dddfb59f9fb39568618d6a319e
+head:     8c68bd288cd3dda1133f09a469cd7afe6dab83d9
+run:      30586557394 — PASS
+artifact: 8776737145
+digest:   sha256:e94a4d3737b8c4a9d562d848f51319b968a12be7952341cbc26cb2a526828855
 ```
 
 Verified:
@@ -138,7 +138,7 @@ This is recorded as:
 - [x] visual hierarchy accepted;
 - [x] clarity improvement accepted;
 - [x] no blocking regression reported;
-- [x] authorization to complete the previously agreed merge workflow remains in effect.
+- [x] authorization to complete the previously agreed merge workflow remained in effect.
 
 The exact local browser/version is not asserted beyond the owner's report.
 
@@ -153,7 +153,8 @@ The exact local browser/version is not asserted beyond the owner's report.
 - [x] no new AI/planning capability;
 - [x] responsive state remains ephemeral presentation state;
 - [x] changed-file scope inspected;
-- [x] PR #21 is Ready for Review and mergeable.
+- [x] PR #21 was Ready for Review and mergeable;
+- [x] squash merge used expected-head SHA protection.
 
 ## 9. Remaining follow-up, not M7.1 blockers
 
@@ -164,13 +165,11 @@ The exact local browser/version is not asserted beyond the owner's report.
 
 ## 10. Final merge gate
 
-Before squash merge:
-
-- [x] implementation and acceptance-candidate CI PASS;
-- [x] implementation and acceptance-candidate Chromium/WebKit PASS;
+- [x] implementation exact-head CI PASS;
+- [x] implementation exact-head Chromium/WebKit PASS;
 - [x] product-owner manual acceptance recorded;
-- [x] PR #21 is Ready for Review and mergeable;
-- [ ] final record-only exact-head standard CI PASS;
-- [ ] final record-only exact-head browser audit PASS;
-- [ ] squash-merge with head-SHA protection;
-- [ ] record final head, merge SHA and post-merge canonical documentation.
+- [x] final record-only exact-head CI PASS;
+- [x] final record-only exact-head browser audit PASS;
+- [x] PR #21 mergeable at expected head;
+- [x] squash-merged as `6b6f8751b520722a54bb94a6947dae1135e07859`;
+- [x] M7.2 selected as the next dependency-aware slice.
