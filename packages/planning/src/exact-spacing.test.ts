@@ -3,6 +3,7 @@ import { deriveRooms } from "@vlezet/geometry";
 import { describe, expect, it } from "vitest";
 import { evaluatePlanningConstraints, type PlanningConstraint } from "./constraints";
 import type { PlanningCandidate } from "./contracts";
+import { evaluatePlanningCandidate } from "./evaluation";
 import { planLayoutAlternatives } from "./planner";
 
 function documentWithEdgeGap(gapMm: number): VlezetDocument {
@@ -72,8 +73,24 @@ describe("pair-min-gap exact hard constraint", () => {
       actualMm: 842,
       satisfied: true,
     });
-    expect(aboveEvaluation.evidence.join(" ")).toContain("требуется минимум 800 мм");
-    expect(aboveEvaluation.evidence.join(" ")).toContain("фактически 842 мм");
+  });
+
+  it("promotes structured exact evidence without duplicating exact copy in generic reasons", () => {
+    const document = documentWithEdgeGap(842);
+    const exactCandidate = candidate(document, [
+      { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 },
+    ]);
+    const evaluation = evaluatePlanningCandidate(document, exactCandidate);
+
+    expect(evaluation.exactEvidence).toEqual([{
+      kind: "pair-min-gap",
+      objectIds: ["sofa", "table"],
+      requiredMm: 800,
+      actualMm: 842,
+      satisfied: true,
+    }]);
+    expect(evaluation.reasons.join(" ")).not.toContain("требуется минимум 800 мм");
+    expect(evaluation.valid).toBe(true);
   });
 
   it("lets soft near intent coexist but never rescue a hard minimum violation", () => {
