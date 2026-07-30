@@ -11,6 +11,15 @@ import type { RecognitionControllerState } from "../recognition/recognition-cont
 import { ReferencePanel, type ReferenceInstallDraft } from "../reference/reference-panel";
 import { spatialViewModeStore } from "../spatial/view-mode-store";
 import {
+  preserveWorkflowReturnTarget,
+  type WorkflowReturnTarget,
+} from "./context-panel-contract";
+import {
+  captureEditorWorkflowReturnTarget,
+  selectionForWorkflowReturnTarget,
+  type EditorOrdinarySelection,
+} from "./context-workflow-return";
+import {
   deriveEditorContextKind,
   editorContextLabel,
   nextCompactEditorSurface,
@@ -95,8 +104,10 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const [fit3dRequest, setFit3dRequest] = useState(0);
   const [compactSurfaceChoice, setCompactSurfaceChoice] = useState<CompactSurfaceChoice | null>(null);
   const [dismissedContextKey, setDismissedContextKey] = useState<string | null>(null);
+  const [workflowReturnTarget, setWorkflowReturnTarget] = useState<WorkflowReturnTarget | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
+  const document = useStore(editorStore, (state) => state.history.document);
   const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
   const selectedOpening = useStore(editorStore, (state) => state.history.document.openings.find((opening) => opening.id === state.selectedOpeningId) ?? null);
   const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
@@ -121,6 +132,17 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     selectedRoomId,
     selectedWallId,
   ].join(":");
+
+  const currentSelection: EditorOrdinarySelection = {
+    selectedWallId,
+    selectedRoomId,
+    selectedOpeningId: selectedOpening?.id ?? null,
+    selectedObjectId,
+  };
+  const planningReturnTarget = planningRoomId
+    ? captureEditorWorkflowReturnTarget({ ...currentSelection, selectedRoomId: planningRoomId }, document)
+    : null;
+  const activeWorkflowReturnTarget = workflowReturnTarget ?? planningReturnTarget;
 
   const compactSurface: CompactEditorSurface = viewMode === "3d" ? null : (() => {
     if (compactSurfaceChoice?.surface === "context") return "context";
@@ -151,6 +173,33 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     setCompactSurfaceChoice(null);
   }, [compactSurface, contextKey]);
 
+  const beginBoundedWorkflow = useCallback(() => {
+    const captured = captureEditorWorkflowReturnTarget(currentSelection, document);
+    setWorkflowReturnTarget((current) => preserveWorkflowReturnTarget(current, captured));
+  }, [currentSelection, document]);
+
+  const returnFromWorkflow = useCallback(() => {
+    const target = activeWorkflowReturnTarget;
+    if (planningRoomId) planningUiStore.getState().close();
+    if (props.recognitionPanelOpen) props.onToggleRecognitionPanel();
+    if (props.referencePanelOpen) props.onToggleReferencePanel();
+
+    const selection = target ? selectionForWorkflowReturnTarget(target, document) : {
+      selectedWallId: null,
+      selectedRoomId: null,
+      selectedOpeningId: null,
+      selectedObjectId: null,
+    };
+    const store = editorStore.getState();
+    store.selectWall(null);
+    if (selection.selectedWallId) store.selectWall(selection.selectedWallId);
+    else if (selection.selectedRoomId) store.selectRoom(selection.selectedRoomId);
+    else if (selection.selectedOpeningId) store.selectOpening(selection.selectedOpeningId);
+    else if (selection.selectedObjectId) store.selectObject(selection.selectedObjectId);
+    setWorkflowReturnTarget(null);
+    if (compactLayout) openContextSurface();
+  }, [activeWorkflowReturnTarget, compactLayout, document, openContextSurface, planningRoomId, props]);
+
   const toggleFurnitureSurface = useCallback(() => {
     if (!compactLayout) {
       props.onToggleFurnitureCatalog();
@@ -165,14 +214,24 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   }, [closeCompactSurface, compactLayout, compactSurface, openCatalogueSurface, props.furnitureCatalogOpen, props.onToggleFurnitureCatalog]);
 
   const toggleReferenceSurface = useCallback(() => {
+    if (props.referencePanelOpen) {
+      returnFromWorkflow();
+      return;
+    }
+    beginBoundedWorkflow();
     props.onToggleReferencePanel();
     if (compactLayout) openContextSurface();
-  }, [compactLayout, openContextSurface, props.onToggleReferencePanel]);
+  }, [beginBoundedWorkflow, compactLayout, openContextSurface, props.onToggleReferencePanel, props.referencePanelOpen, returnFromWorkflow]);
 
   const toggleRecognitionSurface = useCallback(() => {
+    if (props.recognitionPanelOpen) {
+      returnFromWorkflow();
+      return;
+    }
+    beginBoundedWorkflow();
     props.onToggleRecognitionPanel();
     if (compactLayout) openContextSurface();
-  }, [compactLayout, openContextSurface, props.onToggleRecognitionPanel]);
+  }, [beginBoundedWorkflow, compactLayout, openContextSurface, props.onToggleRecognitionPanel, props.recognitionPanelOpen, returnFromWorkflow]);
 
   useEffect(() => {
     spatialViewModeStore.getState().setMode("2d");
@@ -242,7 +301,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       onRunCloud={props.onRunCloudRecognition}
       onApply={props.onApplyRecognition}
       onDiscard={props.onDiscardRecognition}
-      onClose={props.onToggleRecognitionPanel}
+      onClose={returnFromWorkflow}
     />
   ) : props.referencePanelOpen ? (
     <ReferencePanel
@@ -254,7 +313,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       onRemove={props.onRemoveReference}
       onStartTracing={props.onStartTracing}
       onFitReference={() => setFitReferenceRequest((value) => value + 1)}
-      onClose={props.onToggleReferencePanel}
+      onClose={returnFromWorkflow}
     />
   ) : <WallInspector />;
 
