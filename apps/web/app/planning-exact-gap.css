@@ -40,3 +40,14 @@
 .planning-intent-unsupported { display:grid; gap:6px; padding:8px; border:1px dashed #f59e0b; border-radius:8px; background:#fffbeb; min-width:0; }
 .planning-intent-unsupported .planning-inline-check { align-items:flex-start; }
 .planning-intent-unsupported span { min-width:0; overflow-wrap:anywhere; }
+
+.planning-panel .planning-object-choice { display:grid; grid-template-columns:minmax(0,1fr); align-items:stretch; gap:8px; min-width:0; cursor:default; }
+.planning-object-select-row { display:flex; align-items:center; gap:8px; min-width:0; }
+.planning-object-select-row span { min-width:0; overflow-wrap:anywhere; }
+.planning-constraint-controls { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:end; gap:10px; min-width:0; padding-top:7px; border-top:1px solid #f1f5f9; }
+.planning-inline-check { display:flex; align-items:center; gap:6px; min-width:0; }
+.planning-field { display:grid; gap:5px; min-width:0; }
+.planning-field > span { display:block; min-width:0; color:#475569; font-size:10px; font-weight:650; line-height:1.35; overflow-wrap:anywhere; }
+.planning-pair-list { display:grid; gap:8px; min-width:0; }
+.planning-pair-row { display:grid; gap:7px; min-width:0; padding:10px; border:1px solid #e2e8f0; border-radius:9px; background:#fff; }
+.planning-pair-row > strong { display:block; line-height:1.35; overflow-wrap:anywhere; }
