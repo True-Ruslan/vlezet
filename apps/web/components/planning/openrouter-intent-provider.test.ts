@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  OpenRouterPlanningIntentError,
   interpretPlanningIntentWithOpenRouter,
   listCompatibleOpenRouterTextModels,
 } from "./openrouter-intent-provider";
@@ -124,7 +123,7 @@ describe("OpenRouter planning intent provider", () => {
       roomObjects: [{ id: "sofa", name: "Диван" }],
       signal,
       fetcher,
-    })).rejects.toMatchObject<Partial<OpenRouterPlanningIntentError>>({ code });
+    })).rejects.toMatchObject({ code });
   });
 
   it("rejects an empty request before a network call", async () => {
