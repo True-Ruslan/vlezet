@@ -1,39 +1,35 @@
 # Vlezet — Product, UI and UX Audit
 
 **Phase:** M7.0 Product and UX Audit  
-**Status:** source-backed audit draft; representative browser verification remains an acceptance gate  
+**Status:** source-backed RC; representative browser verification remains an acceptance gate  
 **Scope:** current product through accepted M6.4
 
 ## 1. Methodology
 
-The audit combines:
-
-- source review of current routes, components, state ownership and CSS;
-- accepted browser evidence from M4.6, M6.1–M6.4;
-- product-owner screenshots and reports, including the inspector overflow and natural-language review workflow;
-- heuristic evaluation for status visibility, ordinary language, error prevention, consistency, recognition over recall, accessibility and spatial-editor mode clarity;
-- architecture review to preserve document, geometry, persistence, Preview and Apply authority.
+The audit combines source review, accepted M4.6–M6.4 browser evidence, supplied screenshots, heuristic evaluation and architecture-boundary review.
 
 Evidence confidence:
 
-- **high** — directly visible in source and/or supplied browser evidence;
-- **medium** — strongly implied by source and common target environments, requiring representative browser confirmation;
-- **low** — plausible risk recorded for test coverage, not yet a redesign commitment.
+- **high** — directly visible in source or supplied browser evidence;
+- **medium** — strongly implied by source/common environments and requires browser confirmation;
+- **low** — plausible risk retained only for test coverage.
 
-No P0 finding was identified in the reviewed evidence. The product architecture has strong data-safety and fail-closed foundations. The dominant risks are comprehension, reachability, density and visual consistency.
+No P0 finding was identified. Vlezet already has strong data-safety, local-first and fail-closed foundations. The dominant risks are comprehension, reachability, density, accessibility and cross-feature consistency.
 
-## 2. Current strengths to preserve
+## 2. Strengths to preserve
 
-- Local-first editing and autosave do not depend on network services.
-- The authoritative apartment document is separate from Canvas, 3D and generated drafts.
-- Clear room dimensions and area share one geometry source.
+- Local editing and autosave do not depend on network services.
+- `VlezetDocument` remains separate from Canvas, 3D and generated drafts.
+- Clear dimensions and area share one geometry source.
 - Fit status is structured and explainable.
 - Recognition and language interpretation create reviewable drafts.
 - Planning Preview is non-mutating and Apply is explicit/revalidated.
-- Network/provider failures preserve manual workflows.
-- 3D failure explicitly preserves the 2D path.
-- Undo/Redo is semantic and accepted across high-impact operations.
-- Current visual direction is restrained and already recognisable as one product.
+- Provider failure preserves manual workflows.
+- 3D failure preserves the 2D path.
+- Undo/Redo is semantic across high-impact operations.
+- The current restrained visual direction is recognisably one product.
+
+## 3. Structured findings
 
 ## UX-SHELL-001
 
@@ -43,27 +39,27 @@ No P0 finding was identified in the reviewed evidence. The product architecture 
 **Affected surface:** `CMP-TOOLBAR`  
 **Frequency:** high  
 **Confidence:** high  
-**Evidence:** `EV-M7-SOURCE-TOOLBAR`, `EV-M7-SOURCE-CSS`; the toolbar contains project identity, nine editing/workflow tools, 2D/3D, selection hints, document counts, fit, export and history. Responsive rules hide information and utilities rather than establishing a stable hierarchy.  
-**Root cause:** product capabilities were added milestone by milestone to one horizontal command surface.  
-**Recommended response:** split global product actions, exclusive tools and contextual/utility actions into explicit layers while preserving shortcuts.  
+**Evidence:** `EV-M7-SOURCE-TOOLBAR`, `EV-M7-SOURCE-CSS`; project identity, nine tools/workflows, 2D/3D, status, fit, export and history share one row.  
+**Root cause:** capabilities were added milestone by milestone to one command surface.  
+**Recommended response:** separate global product actions, exclusive tools, display toggles and utilities while preserving shortcuts.  
 **Architecture impact:** low  
-**Acceptance criterion:** at all required desktop widths/zoom, the active tool and project/save/history actions remain visible; lower-priority utilities collapse into an understandable menu rather than disappearing without replacement.  
-**Recommended slice:** M7.1 Editor Shell and Command Hierarchy
+**Acceptance criterion:** active tool plus project/save/history remain reachable at all required widths/zoom; lower-priority utilities use an understandable overflow.  
+**Recommended slice:** M7.1 Editor Shell and Responsive Context
 
 ## UX-SHELL-002
 
 **Title:** The right inspector becomes unreachable below 980 px  
 **Severity:** P1  
 **Affected journey:** J01, J02, J03, J04, J06, J07, J09, J10  
-**Affected surface:** `CMP-CONTEXT-INSPECTOR`, `CMP-REFERENCE-PANEL`, `CMP-RECOGNITION-PANEL`  
+**Affected surface:** context, reference and recognition panels  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** `EV-M7-SOURCE-CSS`; current media rules set these panels to `display:none` below 980 px with no drawer/sheet replacement. Browser zoom can cross the same effective-width threshold on an otherwise desktop display.  
-**Root cause:** responsive handling protects Canvas by removing side surfaces rather than preserving task completion through another presentation.  
-**Recommended response:** introduce one viewport-safe contextual surface that becomes a resizable panel or accessible overlay/drawer; communicate minimum editing width where necessary.  
+**Evidence:** `EV-M7-SOURCE-CSS`; panels use `display:none` below 980 px, including when browser zoom reduces effective width.  
+**Root cause:** responsive handling protects Canvas by deleting task completion surfaces.  
+**Recommended response:** use a resizable panel or accessible context drawer/sheet and explicit minimum-editor guidance only when necessary.  
 **Architecture impact:** medium  
-**Acceptance criterion:** selected-object/room/opening controls and active reference/recognition/planning workflows remain reachable at 1280×800 and required zoom levels; narrower widths fail gracefully with an explicit supported-action path.  
-**Recommended slice:** M7.1 Editor Shell and Command Hierarchy
+**Acceptance criterion:** selected-entity and active-workflow controls remain reachable at 1280×800 and required zoom; narrower layouts fail gracefully.  
+**Recommended slice:** M7.1 Editor Shell and Responsive Context
 
 ## UX-SHELL-003
 
@@ -73,176 +69,176 @@ No P0 finding was identified in the reviewed evidence. The product architecture 
 **Affected surface:** right-side panels  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** `EV-M7-SOURCE-SHELL`; reference and recognition replace the ordinary inspector, while planning is nested inside the room inspector and replaces it until closed.  
-**Root cause:** each workflow owns the same physical slot but panel hierarchy, back behaviour and context preservation were designed independently.  
-**Recommended response:** define a single context-panel navigation model with clear title, context identity, close/back semantics and preserved selection.  
+**Evidence:** reference/recognition replace the inspector; planning replaces room context until closed.  
+**Root cause:** each workflow independently owns the same physical slot.  
+**Recommended response:** define shared workflow header, phase, back/close and return-context semantics.  
 **Architecture impact:** medium  
-**Acceptance criterion:** entering/exiting reference, recognition and planning follows one predictable navigation pattern and returns to the prior semantic context without unexplained state loss.  
+**Acceptance criterion:** entering/exiting each workflow follows one predictable pattern and restores valid prior context.  
 **Recommended slice:** M7.2 Context Inspector Foundation
 
 ## UX-SHELL-004
 
-**Title:** Active modes use several disconnected status locations  
+**Title:** Active modes use disconnected status locations  
 **Severity:** P3  
 **Affected journey:** J05, J06, J07, J09  
-**Affected surface:** toolbar, Canvas, fixed banners, inspector  
+**Affected surface:** toolbar, Canvas, banners, inspector  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** active tool styling is in the toolbar; tracing/recognition use bottom-centre banners; planning uses the inspector and Canvas overlays; errors may appear inline or globally.  
-**Root cause:** mode/status feedback was introduced per feature.  
-**Recommended response:** define a mode/status hierarchy and a shared Canvas status pattern.  
+**Evidence:** tools, tracing, recognition and planning expose active state in different locations/patterns.  
+**Root cause:** mode feedback was introduced per feature.  
+**Recommended response:** define one mode/status hierarchy and shared Canvas workflow notice.  
 **Architecture impact:** low  
-**Acceptance criterion:** the user can identify active tool/workflow and exit action from one consistent location plus relevant Canvas feedback.  
-**Recommended slice:** M7.4 Canvas and Mode Feedback
+**Acceptance criterion:** current tool/workflow and exit action are identifiable through a consistent pattern.  
+**Recommended slice:** M7.4 Canvas Selection and Mode Feedback
 
 ## UX-SHELL-005
 
-**Title:** Internal milestone labels appear in end-user planning UI  
+**Title:** Internal milestone labels appear in production planning UI  
 **Severity:** P3  
 **Affected journey:** J09, J10  
-**Affected surface:** `CMP-PLANNING-PANEL`, `CMP-PLANNING-INTENT`  
+**Affected surface:** planning panel and intent section  
 **Frequency:** high within planning  
 **Confidence:** high  
-**Evidence:** visible copy includes `M6.4 · Проверяемые пожелания` and an `M6.4` badge.  
-**Root cause:** development-stage identity leaked into production copy.  
-**Recommended response:** replace milestone labels with user-facing workflow names; retain version history only in documentation.  
+**Evidence:** visible `M6.4` kicker/badge.  
+**Root cause:** development-stage identity leaked into user copy.  
+**Recommended response:** replace milestone labels with user-facing workflow names.  
 **Architecture impact:** none  
-**Acceptance criterion:** no internal roadmap/milestone identifiers are visible in ordinary product workflows.  
-**Recommended slice:** M7.3 Design System and Content Foundation
+**Acceptance criterion:** ordinary UI contains no internal roadmap identifiers.  
+**Recommended slice:** M7.3 Design System and Content Components
 
 ## UX-ONBOARD-001
 
-**Title:** The first-room workflow relies on users discovering topology semantics  
+**Title:** First-room success relies on discovering topology semantics  
 **Severity:** P2  
 **Affected journey:** J01  
 **Affected surface:** dashboard, toolbar, Canvas, empty inspector  
 **Frequency:** high for new users  
 **Confidence:** medium  
-**Evidence:** the blank editor exposes tools and generic Canvas help, while a room appears only after a valid closed wall topology. The empty inspector says what can be selected but does not guide the first complete task.  
-**Root cause:** the interface starts as a capable editor rather than a goal-oriented first-run experience.  
-**Recommended response:** add a dismissible first-project checklist and contextual next action without creating a blocking wizard.  
+**Evidence:** a room appears only after a valid closed wall topology; current empty guidance does not lead through that complete task.  
+**Root cause:** the product starts as a capable editor rather than a goal-oriented first run.  
+**Recommended response:** add a dismissible first-project checklist and contextual next action, not a blocking wizard.  
 **Architecture impact:** low  
-**Acceptance criterion:** a first-time user can create a rectangular room and recognise successful closure without prior explanation from documentation.  
-**Recommended slice:** M7.5 Onboarding and Recovery
+**Acceptance criterion:** a first-time user creates a rectangle and recognises successful closure without external instruction.  
+**Recommended slice:** M7.5 Onboarding, Status and Recovery
 
 ## UX-CANVAS-001
 
-**Title:** Canvas help is compact, passive and not context-sensitive enough  
+**Title:** Canvas help is passive and insufficiently context-sensitive  
 **Severity:** P2  
 **Affected journey:** J01, J03, J04, J05  
 **Affected surface:** `CMP-CANVAS`  
 **Frequency:** high  
 **Confidence:** medium  
-**Evidence:** bottom-left help is 11 px, pointer-events disabled and partially hidden at narrower widths; tool-specific completion/cancel instructions are distributed across title attributes, banners and panel copy.  
-**Root cause:** help is a static overlay rather than a semantic active-tool guide.  
-**Recommended response:** show concise active-tool instruction, next click meaning and Escape/cancel in a consistent Canvas status area.  
+**Evidence:** compact static help is partially hidden at narrower widths; next-action/cancel guidance is split among tooltips and feature banners.  
+**Root cause:** help is a static overlay rather than an active-tool guide.  
+**Recommended response:** expose current state, next click and Escape/cancel in a shared Canvas status area.  
 **Architecture impact:** low  
-**Acceptance criterion:** every exclusive tool exposes current state, expected next action and exit path without requiring hover tooltips.  
-**Recommended slice:** M7.4 Canvas and Mode Feedback
+**Acceptance criterion:** each exclusive tool explains the next action and exit without hover-only instructions.  
+**Recommended slice:** M7.4 Canvas Selection and Mode Feedback
 
 ## UX-CANVAS-002
 
-**Title:** Semantic selection priority is not explained when entities overlap  
+**Title:** Selection priority is unclear when semantic entities overlap  
 **Severity:** P2  
 **Affected journey:** J02, J03, J04  
 **Affected surface:** Canvas and context inspector  
 **Frequency:** medium  
 **Confidence:** medium  
-**Evidence:** walls, room fills, openings, furniture, handles, reference and draft overlays can share screen space; the product provides selection outcomes but no visible cycling/selection breadcrumb model.  
-**Root cause:** selection behaviour is implemented by rendering/hit rules rather than surfaced as an interaction contract.  
-**Recommended response:** define semantic hit priority, selectable hover affordance and a way to reach obscured entities.  
+**Evidence:** rooms, walls, openings, furniture, handles, reference and draft overlays can overlap without a visible cycling/breadcrumb model.  
+**Root cause:** hit-testing rules are implemented but not surfaced as an interaction contract.  
+**Recommended response:** define hover affordance, semantic hit priority and a deterministic obscured-entity path.  
 **Architecture impact:** medium  
-**Acceptance criterion:** representative overlaps allow users to predict/select wall, room, opening and object without repeated random clicking.  
-**Recommended slice:** M7.4 Canvas and Mode Feedback
+**Acceptance criterion:** users can deliberately select wall, room, opening and object in representative overlap scenarios.  
+**Recommended slice:** M7.4 Canvas Selection and Mode Feedback
 
 ## UX-GEO-001
 
-**Title:** Door swing uses wall-direction terminology that encourages trial and error  
+**Title:** Door swing exposes directed-wall terminology  
 **Severity:** P1  
 **Affected journey:** J03  
-**Affected surface:** `CMP-INSPECTOR-OPENING`, Canvas  
+**Affected surface:** opening inspector and Canvas  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** controls say `Со стороны начала проёма`, `Влево от направления стены` and `Вправо от направления стены`; the directed wall is an internal geometric concept.  
-**Root cause:** domain representation is exposed directly instead of translating to visual room-relative choices.  
-**Recommended response:** use a visual four-way swing selector tied to the displayed door arc, with accessible text describing hinge side and opening direction in the room.  
+**Evidence:** controls use `начало проёма` and `влево/вправо от направления стены`.  
+**Root cause:** internal geometry representation is exposed directly.  
+**Recommended response:** provide a visual four-way hinge/swing selector tied to the displayed door arc and accessible ordinary-language description.  
 **Architecture impact:** low  
-**Acceptance criterion:** a non-technical user selects the intended hinge/swing on the first attempt in horizontal and vertical walls.  
+**Acceptance criterion:** intended swing is selected on the first attempt for horizontal and vertical walls.  
 **Recommended slice:** M7.6 Geometry and Opening Inspector
 
 ## UX-GEO-002
 
-**Title:** Precision editing repeats label–input–anchor–Apply blocks without clear grouping  
+**Title:** Precision editing repeats ungrouped input–anchor–Apply blocks  
 **Severity:** P2  
 **Affected journey:** J02  
 **Affected surface:** room and wall inspectors  
 **Frequency:** high  
 **Confidence:** high  
-**Evidence:** room width and length each repeat input, anchor select and Apply; wall length and thickness follow related but different patterns with multiple helper paragraphs.  
-**Root cause:** controls mirror individual commands rather than one coherent geometry form with grouped semantics.  
-**Recommended response:** introduce structured inspector sections, paired dimension rows, local commit/revert rules and contextual helper disclosure.  
+**Evidence:** room width/length and wall length/thickness repeat related but visually fragmented command blocks.  
+**Root cause:** controls mirror individual commands rather than one coherent geometry form.  
+**Recommended response:** introduce semantic sections, paired dimension rows and clear local commit/error placement.  
 **Architecture impact:** low  
-**Acceptance criterion:** clear dimensions, axis length and thickness are visually separated concepts; each change has one obvious commit and error location.  
+**Acceptance criterion:** clear size, wall axis and thickness are visibly separate concepts with one obvious commit per change.  
 **Recommended slice:** M7.6 Geometry and Opening Inspector
 
 ## UX-GEO-003
 
-**Title:** Room width/length labels depend on screen orientation rather than explicit axes  
+**Title:** Room width/length labels lack an explicit orientation cue  
 **Severity:** P2  
 **Affected journey:** J02  
-**Affected surface:** `CMP-INSPECTOR-ROOM`, dimension overlays  
+**Affected surface:** room inspector and dimensions  
 **Frequency:** medium  
 **Confidence:** medium  
-**Evidence:** rectangular dimensions are labelled `Ширина` and `Длина` with left/right and top/bottom anchors. The naming may become unstable for rotated/imported mental models even when geometry is axis-aligned.  
-**Root cause:** ordinary-language labels and Cartesian implementation axes are not connected by a visible diagram.  
-**Recommended response:** pair labels with a miniature orientation cue or explicit horizontal/vertical wording, preserving ordinary terms where unambiguous.  
+**Evidence:** `Ширина/Длина` and left/right/top/bottom anchors rely on screen orientation.  
+**Root cause:** ordinary labels are not connected to a visible physical span.  
+**Recommended response:** pair fields with a miniature orientation cue or explicit horizontal/vertical meaning.  
 **Architecture impact:** low  
-**Acceptance criterion:** users can identify which physical room span changes before applying either dimension.  
+**Acceptance criterion:** the changed physical room span is predictable before Apply.  
 **Recommended slice:** M7.6 Geometry and Opening Inspector
 
 ## UX-FURN-001
 
-**Title:** Object inspector presents advanced coordinates before common furniture edits  
+**Title:** Advanced object coordinates precede common furniture edits  
 **Severity:** P2  
 **Affected journey:** J04  
-**Affected surface:** `CMP-INSPECTOR-OBJECT`  
+**Affected surface:** object inspector  
 **Frequency:** high  
 **Confidence:** high  
-**Evidence:** name is followed by `Центр X`, `Центр Y`, dimensions, height, rotation and four clearance fields in one long form.  
-**Root cause:** all persistent object properties are given equal visual priority.  
-**Recommended response:** prioritise name, dimensions and rotation; place exact coordinates and directional clearance tuning in an advanced section.  
+**Evidence:** centre X/Y, dimensions, height, rotation and four clearances receive similar priority in one long form.  
+**Root cause:** all persistent properties are given equal visual weight.  
+**Recommended response:** prioritise name, dimensions and rotation; move coordinates and clearance tuning into advanced disclosure.  
 **Architecture impact:** low  
-**Acceptance criterion:** common resize/rotate actions are visible without scanning coordinate/clearance fields; advanced values remain reachable and precise.  
+**Acceptance criterion:** common resize/rotate actions are reachable without scanning advanced fields.  
 **Recommended slice:** M7.7 Furniture and Fit Workflow
 
 ## UX-FURN-002
 
-**Title:** Object-relative clearance directions are not visually mapped after rotation  
+**Title:** Object-local clearance directions are not visually mapped after rotation  
 **Severity:** P1  
 **Affected journey:** J04  
 **Affected surface:** object inspector and Canvas  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** fields `Спереди/Справа/Сзади/Слева` are edited as object-local margins, but the inspector has no orientation diagram connecting them to the rotated object.  
-**Root cause:** correct domain semantics are expressed only through text labels.  
-**Recommended response:** show a compact orientation diagram or directional chips synchronized with object rotation and Canvas selection.  
+**Evidence:** `Спереди/Справа/Сзади/Слева` have no orientation diagram tied to rotated furniture.  
+**Root cause:** correct local-axis semantics are expressed only through text.  
+**Recommended response:** show a compact orientation diagram/directional chips synchronized with rotation.  
 **Architecture impact:** low  
-**Acceptance criterion:** at 0°, 90°, 180° and 270°, users correctly identify the physical clearance side without trial edits.  
+**Acceptance criterion:** physical clearance sides are identified correctly at 0°, 90°, 180° and 270°.  
 **Recommended slice:** M7.7 Furniture and Fit Workflow
 
 ## UX-FURN-003
 
-**Title:** Furniture discovery is a long static list with no search or compact filtering  
+**Title:** Furniture discovery is a long static list  
 **Severity:** P2  
 **Affected journey:** J04  
-**Affected surface:** `CMP-FURNITURE-CATALOG`  
-**Frequency:** medium and increasing with catalogue growth  
+**Affected surface:** furniture catalogue  
+**Frequency:** medium and increasing  
 **Confidence:** high  
-**Evidence:** all presets are rendered by fixed category order in a 250 px scrollable panel; there is no search, recent items or collapse.  
-**Root cause:** catalogue size was initially small and category browsing was sufficient.  
-**Recommended response:** add search and category navigation after the shell/design-system foundation; preserve simple preset placement.  
+**Evidence:** fixed category order in a 250 px scroll panel; no search, recents or category navigation.  
+**Root cause:** catalogue size initially made scrolling sufficient.  
+**Recommended response:** add search and compact category navigation while preserving simple preset placement.  
 **Architecture impact:** low  
-**Acceptance criterion:** a known item can be found and selected without scanning unrelated categories; keyboard focus/order remains predictable.  
+**Acceptance criterion:** a known item is found without scanning unrelated categories and remains keyboard reachable.  
 **Recommended slice:** M7.7 Furniture and Fit Workflow
 
 ## UX-FURN-004
@@ -250,29 +246,29 @@ No P0 finding was identified in the reviewed evidence. The product architecture 
 **Title:** One generic Apply error represents many unrelated object fields  
 **Severity:** P2  
 **Affected journey:** J04  
-**Affected surface:** `CMP-INSPECTOR-OBJECT`  
+**Affected surface:** object inspector  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** all numeric fields are parsed on one Apply and one error paragraph reports the first failure; invalid fields are not individually marked.  
-**Root cause:** form validation is command-oriented rather than field-oriented.  
-**Recommended response:** validate/associate errors per field and preserve an atomic Apply for multi-property updates.  
+**Evidence:** all numeric fields parse on one Apply and one paragraph reports the first failure.  
+**Root cause:** validation is command-oriented rather than field-oriented.  
+**Recommended response:** associate errors with exact fields while preserving atomic Apply.  
 **Architecture impact:** low  
-**Acceptance criterion:** an invalid value identifies its exact field, keeps valid inputs intact and gives a corrective message.  
-**Recommended slice:** M7.3 Design System and Content Foundation
+**Acceptance criterion:** the invalid field is identified, entered values remain, and recovery copy is specific.  
+**Recommended slice:** M7.3 Design System and Content Components
 
 ## UX-REF-001
 
-**Title:** Reference workflow mixes explicit Save with immediate transform changes  
+**Title:** Reference workflow mixes explicit Save with immediate transform edits  
 **Severity:** P2  
 **Affected journey:** J06  
-**Affected surface:** `CMP-REFERENCE-PANEL`  
+**Affected surface:** reference panel  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** calibration requires `Сохранить и открыть план`; installed visibility, opacity, X/Y and rotation mutate on change without a dedicated Apply/revert model.  
-**Root cause:** import and post-install editing were designed as separate interaction styles inside one panel.  
-**Recommended response:** state commitment rules explicitly and group immediate reversible display controls separately from high-impact calibration/replacement actions.  
+**Evidence:** calibration uses explicit Save; opacity, X/Y and rotation update immediately.  
+**Root cause:** import and installed-reference editing use different commitment models in one panel.  
+**Recommended response:** group immediate reversible display controls separately from high-impact calibration/replacement actions.  
 **Architecture impact:** low  
-**Acceptance criterion:** users can predict which reference changes are immediate, undoable/persistent and which require confirmation.  
+**Acceptance criterion:** users can predict which changes are immediate/persistent and which require confirmation.  
 **Recommended slice:** M7.8 Reference and Recognition Workflow
 
 ## UX-REF-002
@@ -283,86 +279,86 @@ No P0 finding was identified in the reviewed evidence. The product architecture 
 **Affected surface:** calibration stage  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** pointer events assign/drag points; visual handles are `aria-hidden`; no keyboard coordinate input or semantic point controls are exposed.  
-**Root cause:** calibration was implemented as a visual pointer tool only.  
-**Recommended response:** provide keyboard-operable point controls or coordinate fields with clear focus/announcement, while retaining pointer precision.  
+**Evidence:** pointer events assign/drag points; visual handles are `aria-hidden`; no coordinate controls exist.  
+**Root cause:** calibration was implemented as a visual drag workflow only.  
+**Recommended response:** provide keyboard-operable point/coordinate controls while retaining pointer precision.  
 **Architecture impact:** medium  
-**Acceptance criterion:** calibration can be completed without drag-only interaction and focus remains visible at 200% zoom.  
+**Acceptance criterion:** calibration completes without drag-only interaction and focus remains visible at 200% zoom.  
 **Recommended slice:** M7.9 Accessibility and Responsive Hardening
 
 ## UX-REC-001
 
-**Title:** Recognition state vocabulary mixes Russian explanations with technical English values  
+**Title:** Recognition mixes Russian UI with technical English state values  
 **Severity:** P2  
 **Affected journey:** J07  
-**Affected surface:** `CMP-RECOGNITION-PANEL`  
+**Affected surface:** recognition panel  
 **Frequency:** high within recognition  
 **Confidence:** high  
-**Evidence:** candidate list exposes decision values such as `pending`; origin text includes `Local + AI`; confidence/conflict semantics use compact technical labels.  
-**Root cause:** internal enum/provider vocabulary is rendered with partial translation.  
-**Recommended response:** define canonical user-facing terms for source, confidence, conflict and decision state.  
+**Evidence:** visible decision/origin vocabulary includes `pending` and `Local + AI`.  
+**Root cause:** internal enum/provider vocabulary is partially translated.  
+**Recommended response:** define canonical Russian source, confidence, conflict and decision states.  
 **Architecture impact:** none  
-**Acceptance criterion:** no internal enum value is displayed; every state has consistent Russian wording and non-colour status.  
+**Acceptance criterion:** no raw enum value is displayed and every state has a non-colour label.  
 **Recommended slice:** M7.8 Reference and Recognition Workflow
 
 ## UX-REC-002
 
-**Title:** Recognition depends on very small text and colour-coded confidence  
+**Title:** Recognition relies on microtext and colour-coded confidence  
 **Severity:** P1  
 **Affected journey:** J07  
-**Affected surface:** recognition summary/candidate list  
+**Affected surface:** recognition summary and candidate list  
 **Frequency:** high within recognition  
 **Confidence:** high  
-**Evidence:** candidate secondary/status text uses 9 px; confidence dots change colour for high/medium/low/conflict; textual state exists but is not a consistent non-colour badge.  
-**Root cause:** dense candidate review was optimised for compactness before accessibility consolidation.  
-**Recommended response:** use readable status badges/icons with text, minimum typography tokens and explicit conflict messages.  
+**Evidence:** 9 px metadata plus coloured high/medium/low/conflict dots.  
+**Root cause:** candidate review density preceded accessibility consolidation.  
+**Recommended response:** use readable text/icon badges and shared typography tokens.  
 **Architecture impact:** low  
-**Acceptance criterion:** candidate confidence/decision/conflict remains understandable in grayscale, at 200% zoom and without reading 9 px text.  
+**Acceptance criterion:** status remains understandable in grayscale and at 200% zoom without 9 px text.  
 **Recommended slice:** M7.9 Accessibility and Responsive Hardening
 
 ## UX-REC-003
 
-**Title:** Recognition’s source–draft–trusted geometry distinction is text-heavy  
+**Title:** Source, recognition draft and trusted geometry are distinguished mainly by prose  
 **Severity:** P2  
 **Affected journey:** J07  
-**Affected surface:** recognition panel, Canvas banner/overlays  
+**Affected surface:** recognition panel and Canvas  
 **Frequency:** medium  
 **Confidence:** medium  
-**Evidence:** safety is explained through intro, banner, footer and helper text; candidates are coloured lines over the same work surface as trusted geometry.  
-**Root cause:** strong architecture boundaries are not represented by one consistent visual state model.  
-**Recommended response:** establish canonical Draft/Preview/Applied styling and a persistent legend during review.  
+**Evidence:** safety is repeated in intro/banner/footer while coloured draft lines share the trusted work surface.  
+**Root cause:** architecture boundaries lack one canonical visual state model.  
+**Recommended response:** establish shared Draft/Preview/Applied styling and a review legend.  
 **Architecture impact:** low  
-**Acceptance criterion:** users can identify source image, recognition draft and saved geometry without relying on long explanatory paragraphs.  
+**Acceptance criterion:** source image, draft and applied geometry are identifiable without long paragraphs.  
 **Recommended slice:** M7.8 Reference and Recognition Workflow
 
 ## UX-REC-004
 
-**Title:** Recognition has an isolated inline design system  
+**Title:** Recognition maintains an isolated inline design system  
 **Severity:** P3  
 **Affected journey:** J07  
 **Affected surface:** recognition component styles  
 **Frequency:** continuous maintenance risk  
 **Confidence:** high  
-**Evidence:** a substantial CSS template string defines cards, fields, modal, banner, typography and responsive behaviour inside the component.  
-**Root cause:** feature delivery preceded shared component/token foundations.  
-**Recommended response:** migrate to shared tokens/components after visual contracts are defined, without combining it with recognition algorithm work.  
+**Evidence:** a substantial component-local CSS string defines fields, cards, modal, banner, typography and responsive rules.  
+**Root cause:** feature delivery preceded shared primitives.  
+**Recommended response:** migrate to shared tokens/components after contracts are defined.  
 **Architecture impact:** low  
-**Acceptance criterion:** recognition uses the same field, notice, badge, card, dialog and focus patterns as the rest of the product.  
-**Recommended slice:** M7.3 Design System and Content Foundation
+**Acceptance criterion:** recognition uses product-wide field, notice, badge, card, dialog and focus patterns.  
+**Recommended slice:** M7.3 Design System and Content Components
 
 ## UX-3D-001
 
 **Title:** 3D context appears in a different interaction location than 2D context  
 **Severity:** P2  
 **Affected journey:** J08  
-**Affected surface:** `CMP-SPATIAL-VIEWER`, `SpatialInspector`, 2D context inspector  
+**Affected surface:** 3D viewer/inspector and 2D context panel  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** 2D details use the fixed right inspector; 3D details are an overlay inside the viewer. Selection state is separate and reset by mode changes.  
-**Root cause:** 3D was added as a self-contained read-only viewer.  
-**Recommended response:** align semantic selection language and inspector anatomy across modes, while keeping 3D read-only and renderer-isolated.  
+**Evidence:** 2D uses a fixed right inspector; 3D uses an internal overlay with separate selection state.  
+**Root cause:** 3D was delivered as a self-contained read-only viewer.  
+**Recommended response:** align semantic selection language and inspector anatomy while preserving renderer isolation/read-only authority.  
 **Architecture impact:** medium  
-**Acceptance criterion:** selecting the same entity in 2D and 3D produces recognisably consistent context and clear mode-specific limitations.  
+**Acceptance criterion:** the same entity produces recognisably consistent context in 2D and 3D.  
 **Recommended slice:** M7.10 2D/3D Context Consistency
 
 ## UX-3D-002
@@ -373,41 +369,41 @@ No P0 finding was identified in the reviewed evidence. The product architecture 
 **Affected surface:** spatial viewer  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** OrbitControls and raycasting handle orbit/pan/zoom/hover/click; no keyboard camera or semantic target navigation is exposed.  
+**Evidence:** OrbitControls/raycasting handle camera, hover and click; no keyboard semantic navigation exists.  
 **Root cause:** initial 3D scope prioritised deterministic projection and pointer inspection.  
-**Recommended response:** add keyboard camera presets/fit and an accessible semantic entity list or navigation path; do not introduce direct 3D editing.  
+**Recommended response:** add reachable camera commands and an accessible semantic entity path without direct 3D editing.  
 **Architecture impact:** medium  
-**Acceptance criterion:** essential 3D inspection can be reached without precise pointer-only interaction.  
+**Acceptance criterion:** essential 3D inspection is reachable without precise pointer-only interaction.  
 **Recommended slice:** M7.9 Accessibility and Responsive Hardening
 
 ## UX-PLAN-001
 
-**Title:** Provider configuration dominates the beginning of the planning workflow  
+**Title:** Provider configuration dominates planning entry  
 **Severity:** P2  
 **Affected journey:** J09, J10  
-**Affected surface:** `CMP-PLANNING-INTENT`, `CMP-PLANNING-PANEL`  
-**Frequency:** high whenever planning is opened  
+**Affected surface:** planning intent and planning panel  
+**Frequency:** high whenever planning opens  
 **Confidence:** high  
-**Evidence:** natural-language textarea, API-key field and model selection appear before manual object/constraint controls, although manual deterministic planning is the core network-independent workflow.  
-**Root cause:** M6.4 was appended as the first panel section to showcase language entry.  
-**Recommended response:** make task selection/manual planning primary and move language interpretation into an optional “Describe wishes” expansion with provider settings progressively disclosed.  
+**Evidence:** text, API-key and model controls appear before network-independent manual planning.  
+**Root cause:** M6.4 was appended as the first section.  
+**Recommended response:** keep manual planning primary and move language/provider settings into optional progressive disclosure.  
 **Architecture impact:** low  
-**Acceptance criterion:** users can reach deterministic manual planning without scanning provider configuration; language remains discoverable and reviewable.  
+**Acceptance criterion:** deterministic manual planning is reachable without scanning provider settings; language remains discoverable.  
 **Recommended slice:** M7.11 Planning Workflow Simplification
 
 ## UX-PLAN-002
 
-**Title:** Planning panel accumulates configuration, review, results and evidence in one long scroll  
+**Title:** Planning combines configuration, review, results and evidence in one long scroll  
 **Severity:** P2  
 **Affected journey:** J09, J10  
 **Affected surface:** planning inspector  
 **Frequency:** high within planning  
 **Confidence:** high  
-**Evidence:** intent review, 1–3 object controls, pair cards, exact gaps, Generate, errors and result cards share a 290–330 px scroll surface.  
-**Root cause:** each planning milestone added a section without a step/progressive-disclosure architecture.  
-**Recommended response:** organise planning into clear phases (intent, constraints, results) with sticky context/actions and preserved Canvas area.  
+**Evidence:** intent, objects, pairs, gaps, Generate and result cards share a 290–330 px scrolling surface.  
+**Root cause:** each planning milestone added a section without phase architecture.  
+**Recommended response:** organise intent, constraints and results into clear phases with sticky context/actions.  
 **Architecture impact:** medium  
-**Acceptance criterion:** the current phase, selected objects and primary action remain visible; configuring three objects does not require losing orientation in the panel.  
+**Acceptance criterion:** phase, selected objects and primary action remain visible for three-object scenarios.  
 **Recommended slice:** M7.11 Planning Workflow Simplification
 
 ## UX-PLAN-003
@@ -415,227 +411,227 @@ No P0 finding was identified in the reviewed evidence. The product architecture 
 **Title:** Hard constraints and soft preferences are distinguished mainly by prose  
 **Severity:** P1  
 **Affected journey:** J09, J10  
-**Affected surface:** planning object/pair controls and results  
+**Affected surface:** planning controls and results  
 **Frequency:** high within planning  
 **Confidence:** high  
-**Evidence:** `Не двигать` and exact contour gap are hard; wall/corner and near/far are soft. Controls share similar fields/cards and helper paragraphs explain the difference.  
-**Root cause:** semantic types are precise in code but not encoded in one visual language.  
-**Recommended response:** introduce explicit `Обязательно`/`Предпочтительно` grouping, icons/badges and result evidence that uses the same semantics.  
+**Evidence:** locks/exact gaps and wall/corner/near/far controls have similar treatment; helper text carries authority semantics.  
+**Root cause:** precise domain types lack a shared visual language.  
+**Recommended response:** use explicit `Обязательно` and `Желательно` grouping/badges consistently in controls and results.  
 **Architecture impact:** low  
-**Acceptance criterion:** users correctly predict whether an unmet request rejects a candidate or only changes ranking.  
+**Acceptance criterion:** users correctly predict rejection versus ranking influence.  
 **Recommended slice:** M7.11 Planning Workflow Simplification
 
 ## UX-PLAN-004
 
-**Title:** Comparing alternatives competes with Canvas and configuration context  
+**Title:** Alternative comparison competes with Canvas and configuration context  
 **Severity:** P2  
 **Affected journey:** J09  
-**Affected surface:** result cards, Canvas Preview  
+**Affected surface:** result cards and Canvas Preview  
 **Frequency:** medium  
 **Confidence:** medium  
-**Evidence:** alternatives are stacked below configuration in the narrow inspector; Preview evidence appears on Canvas, requiring repeated visual movement and scrolling.  
-**Root cause:** result comparison reuses the configuration panel rather than a comparison-focused layout.  
-**Recommended response:** preserve a compact constraint summary and support direct previous/next comparison with sticky Preview/Apply controls.  
+**Evidence:** alternatives are below configuration in the narrow panel while Preview/evidence is spatial.  
+**Root cause:** result comparison reuses the configuration layout.  
+**Recommended response:** preserve a compact constraint summary and direct previous/next comparison with sticky Preview/Apply controls.  
 **Architecture impact:** medium  
-**Acceptance criterion:** users compare up to three alternatives without scrolling back to remember selected constraints or losing the active Preview.  
+**Acceptance criterion:** up to three alternatives can be compared without losing constraints or active Preview orientation.  
 **Recommended slice:** M7.11 Planning Workflow Simplification
 
 ## UX-DATA-001
 
-**Title:** Save state is visually too subtle for a local-first product  
+**Title:** Local save state is too visually subtle  
 **Severity:** P1  
 **Affected journey:** J11  
 **Affected surface:** project identity/save status  
 **Frequency:** high  
 **Confidence:** high  
-**Evidence:** save state is 9 px below the project name; normal states are muted, while the product promise depends on local persistence and there is no explicit manual Save.  
-**Root cause:** save state was designed as compact toolbar metadata.  
-**Recommended response:** create a readable persistent save indicator with clear local wording, last-saved detail and prominent failed/retry state.  
+**Evidence:** save state is 9 px muted metadata despite local persistence being central to product trust.  
+**Root cause:** status was designed as compact toolbar metadata.  
+**Recommended response:** create readable persistent `Сохранено локально` / saving / failed-retry states.  
 **Architecture impact:** low  
-**Acceptance criterion:** at all required zoom levels, users can distinguish saving, saved locally and not saved without hovering.  
-**Recommended slice:** M7.1 Editor Shell and Command Hierarchy
+**Acceptance criterion:** save state is distinguishable without hover at all required zoom levels.  
+**Recommended slice:** M7.1 Editor Shell and Responsive Context
 
 ## UX-DATA-002
 
-**Title:** Export format choices require technical interpretation  
+**Title:** Export choices require technical interpretation  
 **Severity:** P2  
 **Affected journey:** J11  
-**Affected surface:** export menu, dashboard import  
+**Affected surface:** export menu and dashboard import  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** options are `PNG`, `PNG с подложкой`, `Vlezet JSON`; helper text calls JSON a backup but the file-extension/restore relationship is not represented as one lifecycle action.  
-**Root cause:** export actions are grouped by technical output format.  
-**Recommended response:** group as `Изображение` and `Резервная копия проекта`, with restore/import language mirrored on dashboard.  
+**Evidence:** `PNG`, `PNG с подложкой`, `Vlezet JSON` are organised by file format rather than user lifecycle.  
+**Root cause:** export actions mirror technical output types.  
+**Recommended response:** group as image and editable project backup, with mirrored restore language.  
 **Architecture impact:** none  
-**Acceptance criterion:** users select the editable backup and know how to restore it without understanding JSON.  
+**Acceptance criterion:** users choose/restores an editable backup without needing JSON knowledge.  
 **Recommended slice:** M7.12 Dashboard and Project Lifecycle
 
 ## UX-DATA-003
 
-**Title:** Important success feedback exists only as short-lived toasts  
+**Title:** Important success feedback may exist only as a short toast  
 **Severity:** P3  
 **Affected journey:** J07, J09, J11  
 **Affected surface:** global toast  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** toasts disappear after approximately 2.6 seconds and report copy/apply/export events; there is no notification history or persistent completion location.  
-**Root cause:** a single transient success mechanism serves actions of different importance.  
-**Recommended response:** keep minor toasts but place high-value completion evidence near the originating workflow and expose accessible live-region timing.  
+**Evidence:** toasts expire after approximately 2.6 seconds for copy/apply/export events.  
+**Root cause:** one transient success mechanism serves actions of different importance.  
+**Recommended response:** retain minor toasts but keep high-impact completion evidence in the originating context.  
 **Architecture impact:** low  
-**Acceptance criterion:** users can confirm high-impact completion after the toast disappears.  
-**Recommended slice:** M7.5 Onboarding and Recovery
+**Acceptance criterion:** high-impact completion remains confirmable after the toast expires.  
+**Recommended slice:** M7.5 Onboarding, Status and Recovery
 
 ## UX-DASH-001
 
-**Title:** Project previews do not represent the actual saved plan  
+**Title:** Project previews do not represent saved plans  
 **Severity:** P2  
 **Affected journey:** J11  
 **Affected surface:** dashboard project cards  
 **Frequency:** high with multiple projects  
 **Confidence:** high  
-**Evidence:** every project card uses the same decorative CSS floor-plan placeholder; differentiation relies on text name/facts/date.  
-**Root cause:** dashboard thumbnails were not part of the local-first project milestone.  
-**Recommended response:** generate a lightweight local thumbnail from authoritative geometry or use meaningful structured facts when thumbnail generation is unavailable.  
+**Evidence:** every project uses the same decorative CSS floor-plan placeholder.  
+**Root cause:** local thumbnails were outside M3 scope.  
+**Recommended response:** derive a lightweight local thumbnail or stronger structured preview from authoritative geometry.  
 **Architecture impact:** low  
-**Acceptance criterion:** users visually distinguish multiple projects without opening them; thumbnail remains derived and non-authoritative.  
+**Acceptance criterion:** multiple projects are visually distinguishable without opening; thumbnails remain derived/non-authoritative.  
 **Recommended slice:** M7.12 Dashboard and Project Lifecycle
 
 ## UX-DASH-002
 
-**Title:** Rename interaction has redundant and partially hidden paths  
+**Title:** Rename has redundant and partially hidden paths  
 **Severity:** P3  
 **Affected journey:** J11  
 **Affected surface:** project card  
 **Frequency:** low  
 **Confidence:** high  
-**Evidence:** title click opens, double-click starts rename, and an explicit `Переименовать` action also exists.  
-**Root cause:** convenience interaction was added alongside explicit controls.  
-**Recommended response:** retain one discoverable action and optional clearly hinted direct edit; avoid overloading title click/double-click.  
+**Evidence:** title click opens, double-click renames and an explicit rename action also exists.  
+**Root cause:** convenience interaction was added beside explicit controls.  
+**Recommended response:** retain one discoverable action and only a clearly hinted direct-edit shortcut.  
 **Architecture impact:** none  
-**Acceptance criterion:** rename is discoverable and keyboard-operable without conflicting with open.  
+**Acceptance criterion:** rename is keyboard-operable and does not conflict with opening.  
 **Recommended slice:** M7.12 Dashboard and Project Lifecycle
 
 ## UX-PATTERN-001
 
-**Title:** Confirmation and destructive-action patterns are inconsistent  
+**Title:** Destructive confirmation patterns are inconsistent  
 **Severity:** P2  
 **Affected journey:** J03, J04, J06, J11  
-**Affected surface:** dashboard dialog, inline reference confirmation, immediate object/opening deletion  
+**Affected surface:** project dialog, reference confirmation, object/opening deletion  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** project deletion uses a modal and is irreversible; reference removal uses inline confirmation; object/opening deletion is immediate but undoable. The UI does not consistently explain why confirmation differs.  
-**Root cause:** deletion patterns were designed per domain action rather than by reversibility/risk.  
-**Recommended response:** define a destructive-action matrix: immediate+Undo, confirm-inline, confirm-modal, with consistent copy and placement.  
+**Evidence:** project delete uses a modal, reference remove an inline confirmation, object/opening deletion is immediate/undoable.  
+**Root cause:** patterns were designed per entity instead of risk/reversibility.  
+**Recommended response:** define immediate+Undo, inline confirm and modal confirm rules with consistent consequence copy.  
 **Architecture impact:** low  
-**Acceptance criterion:** confirmation level matches reversibility and users can tell whether Undo is available.  
-**Recommended slice:** M7.3 Design System and Content Foundation
+**Acceptance criterion:** confirmation level matches reversibility and Undo availability is explicit.  
+**Recommended slice:** M7.2 Context Inspector Foundation
 
 ## UX-PATTERN-002
 
-**Title:** Essential interface text frequently uses 9–10 px typography  
+**Title:** Essential interface meaning frequently uses 9–10 px text  
 **Severity:** P1  
-**Affected journey:** J01–J11  
-**Affected surface:** toolbar, catalogue, dashboard facts, reference, recognition, planning  
+**Affected journey:** J01, J02, J03, J04, J05, J06, J07, J08, J09, J10, J11  
+**Affected surface:** toolbar, catalogue, dashboard, reference, recognition, planning  
 **Frequency:** high  
 **Confidence:** high  
-**Evidence:** save state, preset dimensions, helper text, status labels and candidate metadata use 9–10 px sizes in CSS.  
-**Root cause:** dense desktop layout solved space pressure through typography reduction.  
-**Recommended response:** define readable typography tokens and reduce density through hierarchy/progressive disclosure rather than essential microtext.  
+**Evidence:** save state, preset dimensions, helpers and candidate metadata use 9–10 px CSS.  
+**Root cause:** space pressure was solved through typography reduction.  
+**Recommended response:** define readable tokens and achieve density through hierarchy/progressive disclosure.  
 **Architecture impact:** low  
-**Acceptance criterion:** essential labels/status/helpers remain readable at 100% and do not become clipped/unreachable at 200% zoom; no essential semantic depends on 9–10 px text.  
-**Recommended slice:** M7.3 Design System and Content Foundation
+**Acceptance criterion:** no essential semantic depends on 9–10 px text; 200% zoom keeps labels/actions reachable.  
+**Recommended slice:** M7.3 Design System and Content Components
 
 ## UX-PATTERN-003
 
-**Title:** Shared controls have many one-off sizes, headers and close treatments  
+**Title:** Shared controls use many one-off sizes and treatments  
 **Severity:** P3  
-**Affected journey:** J01–J11  
-**Affected surface:** toolbar, inspectors, panels, dialogs, cards  
+**Affected journey:** J01, J02, J03, J04, J05, J06, J07, J08, J09, J10, J11  
+**Affected surface:** toolbar, inspectors, panels, dialogs and cards  
 **Frequency:** high maintenance cost  
 **Confidence:** high  
-**Evidence:** repeated radii/gaps/sizes vary across CSS; panel headers and close buttons use different classes; recognition defines private variants.  
-**Root cause:** no explicit token/component system governed milestone delivery.  
-**Recommended response:** introduce tokens and shared primitives before broad visual polish.  
+**Evidence:** many radii/gaps/header/close variants; recognition maintains private component CSS.  
+**Root cause:** no explicit token/component system governed feature delivery.  
+**Recommended response:** introduce shared tokens/primitives before broad visual polish.  
 **Architecture impact:** low  
-**Acceptance criterion:** current component families map to documented primitives with consistent states and intentional density variants.  
-**Recommended slice:** M7.3 Design System and Content Foundation
+**Acceptance criterion:** component families map to documented primitives with intentional density variants.  
+**Recommended slice:** M7.3 Design System and Content Components
 
 ## UX-ACCESS-001
 
-**Title:** Focus, keyboard and semantic coverage is not defined across Canvas workflows  
+**Title:** End-to-end keyboard/focus semantics are undefined for spatial workflows  
 **Severity:** P1  
 **Affected journey:** J01, J03, J05, J06, J07, J08, J09  
-**Affected surface:** Canvas, calibration, 3D, dialogs/panels  
+**Affected surface:** Canvas, calibration, 3D, dialogs and panels  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** many native controls are labelled, but pointer-driven drawing, point measurement, calibration and 3D lack a complete keyboard/focus contract; Canvas feedback is primarily visual.  
-**Root cause:** accessibility was implemented locally for HTML controls rather than as an end-to-end interaction model.  
-**Recommended response:** define keyboard reachability, focus order, Escape hierarchy, semantic announcements and alternative paths per workflow.  
+**Evidence:** many HTML controls are labelled, but drawing, point measurement, calibration and 3D lack one keyboard/focus/announcement contract.  
+**Root cause:** accessibility was implemented locally rather than end to end.  
+**Recommended response:** define reachability, focus order, Escape, announcements and practical numeric/semantic alternatives per workflow.  
 **Architecture impact:** medium  
-**Acceptance criterion:** accessibility matrix passes required keyboard/focus scenarios and important async state is announced.  
+**Acceptance criterion:** the documented keyboard/focus matrix passes and important async transitions are announced.  
 **Recommended slice:** M7.9 Accessibility and Responsive Hardening
 
 ## UX-ACCESS-002
 
-**Title:** Browser zoom can trigger functional disappearance rather than reflow  
+**Title:** Browser zoom can trigger functional disappearance instead of reflow  
 **Severity:** P1  
-**Affected journey:** J01–J11  
+**Affected journey:** J01, J02, J03, J04, J05, J06, J07, J08, J09, J10, J11  
 **Affected surface:** editor shell and side panels  
 **Frequency:** medium  
 **Confidence:** high  
-**Evidence:** responsive breakpoints hide status, utility actions, right inspector and catalogue; zoom reduces effective CSS viewport and can activate those rules.  
-**Root cause:** layout breakpoints are width-oriented and not tied to task reachability.  
-**Recommended response:** test zoom as a first-class matrix, reflow/collapse controls into reachable surfaces and show explicit minimum-editor guidance only as a last resort.  
+**Evidence:** width breakpoints hide status, utilities, inspector and catalogue; zoom reduces effective CSS viewport.  
+**Root cause:** breakpoints are width-oriented rather than task-reachability-oriented.  
+**Recommended response:** reflow/collapse into reachable surfaces and test zoom as a first-class matrix.  
 **Architecture impact:** medium  
-**Acceptance criterion:** at 100%, 125%, 150% and 200%, no primary action or selected-entity control disappears without an accessible replacement.  
-**Recommended slice:** M7.9 Accessibility and Responsive Hardening
+**Acceptance criterion:** at 100/125/150/200%, no primary action or selected-entity control disappears without replacement.  
+**Recommended slice:** M7.1 Editor Shell and Responsive Context
 
 ## UX-CONTENT-001
 
-**Title:** Canonical terms exist in code but are not governed across all surfaces  
+**Title:** Critical terminology is feature-local rather than canonically governed  
 **Severity:** P2  
 **Affected journey:** J02, J04, J05, J07, J09, J10, J11  
-**Affected surface:** toolbar, inspector, Canvas labels, workflow panels, export  
+**Affected surface:** toolbar, Canvas, inspectors, workflows and export  
 **Frequency:** high  
 **Confidence:** high  
-**Evidence:** the product must distinguish wall-axis length, clear size, object dimensions, centre distance, contour gap, recommendation, preference, hard rule, draft, Preview and applied change; wording is feature-local.  
+**Evidence:** axis length, clear size, dimensions, centre distance, contour gap, recommendation, preference, hard rule, Draft, Preview and Applied require stable distinctions.  
 **Root cause:** terminology was corrected milestone by milestone without one content source.  
-**Recommended response:** create and enforce one Russian glossary with preferred/prohibited alternatives and helper copy.  
+**Recommended response:** enforce one Russian glossary with preferred/prohibited alternatives and helper copy.  
 **Architecture impact:** none  
-**Acceptance criterion:** each semantic concept uses the same user-facing term across toolbar, inspector, Canvas and documentation unless a documented contextual variant exists.  
-**Recommended slice:** M7.3 Design System and Content Foundation
+**Acceptance criterion:** each concept uses the same term across toolbar, Canvas, inspector and docs unless a contextual variant is explicitly documented.  
+**Recommended slice:** M7.3 Design System and Content Components
 
-## 3. Finding summary
+## 4. Finding summary
 
 | Severity | Count | Interpretation |
 |---|---:|---|
 | P0 | 0 | no evidenced data-loss/core blocker |
-| P1 | 11 | comprehension, reachability or accessibility risk |
+| P1 | 10 | comprehension, reachability or accessibility risk |
 | P2 | 22 | repeated friction, hidden capability or structural debt |
-| P3 | 9 | consistency and polish after foundations |
+| P3 | 6 | consistency and polish after foundations |
 | P4 | 0 | optional polish intentionally not expanded during foundation audit |
+| **Total** | **38** | structured findings |
 
-The counts above reflect the structured findings in this document and must be recalculated during final validation if findings are merged or split.
-
-## 4. Highest-priority themes
+## 5. Highest-priority themes
 
 1. Preserve inspector/action reachability across viewport and zoom.
-2. Rebuild toolbar and context-panel hierarchy before visual polish.
+2. Rebuild toolbar/context hierarchy before cosmetic polish.
 3. Establish readable typography, shared components and canonical content.
 4. Make hard/soft/temporary/persistent semantics visible rather than prose-dependent.
-5. Provide end-to-end keyboard/focus alternatives for pointer-driven workflows.
+5. Provide practical keyboard/focus alternatives for pointer-driven workflows.
 6. Simplify advanced workflows through progressive disclosure without removing precision.
 
-## 5. Browser verification matrix for acceptance
+## 6. Browser acceptance matrix
 
-Source-backed findings must be validated against representative states at:
+The source-backed findings require representative review at:
 
 - 1920×1080 at 100% and 125%;
 - 1440×900 at 100% and 125%;
 - 1366×768 at 100%;
 - 1280×800 at 100%;
-- browser zoom 150% and 200%;
-- a narrower width to confirm graceful limitation;
-- Chromium/Yandex Browser and Safari core regression.
+- representative 150% and 200% zoom;
+- a narrower width for graceful limitation;
+- Yandex/Chromium full-product review;
+- Safari core dashboard/editor/form/dialog regression.
 
-The existing M6.3/M6.4 screenshots already confirm the value of this matrix: inspector overflow and narrow-panel spacing were real browser-only findings that automated functional tests did not reveal.
+Browser evidence may confirm, merge, reduce or reprioritise findings. It must not be represented as completed until recorded in `docs/milestones/m7-0-acceptance.md`.
