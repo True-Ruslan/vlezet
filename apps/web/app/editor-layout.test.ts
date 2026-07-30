@@ -28,25 +28,25 @@ describe("M7.1 editor viewport layout contract", () => {
   });
 
   it("keeps both command bars width-contained and the save status readable", () => {
+    const compactCss = compact(css);
     const projectBar = compact(ruleBodies(".editor-project-bar"));
     const toolBar = compact(ruleBodies(".editor-tool-bar"));
-    const saveStatus = compact(ruleBodies(".save-status"));
+    const saveStatus = compact(ruleBodies(".editor-project-bar .save-status"));
 
-    expect(projectBar).toContain("min-width:0");
+    expect(compactCss).toContain(".editor-project-bar,.editor-tool-bar,.editor-workspace,.editor-side-surface,.editor-side-surface-content{min-width:0;min-height:0}");
     expect(projectBar).toContain("height:52px");
-    expect(toolBar).toContain("min-width:0");
     expect(toolBar).toContain("height:48px");
     expect(saveStatus).toContain("font-size:12px");
   });
 
   it("uses minmax Canvas columns and a dedicated one-column spatial layout", () => {
+    const compactCss = compact(css);
     const workspace = compact(ruleBodies(".editor-workspace"));
     const catalogClosed = compact(ruleBodies(".editor-workspace.catalog-closed"));
-    const spatial = compact(ruleBodies(".editor-workspace.is-spatial"));
 
     expect(workspace).toContain("grid-template-columns:250pxminmax(0,1fr)340px");
     expect(catalogClosed).toContain("grid-template-columns:minmax(0,1fr)340px");
-    expect(spatial).toContain("grid-template-columns:minmax(0,1fr)");
+    expect(compactCss).toContain(".editor-workspace.is-spatial,.editor-workspace.is-spatial.catalog-closed{grid-template-columns:minmax(0,1fr)");
   });
 
   it("replaces hidden responsive panels with viewport-bounded non-modal sheets", () => {
@@ -67,10 +67,12 @@ describe("M7.1 editor viewport layout contract", () => {
   });
 
   it("collapses visual tool labels without removing command buttons", () => {
-    const compactCss = compact(css);
-    expect(compactCss).toContain(".editor-command-label{display:none}");
-    expect(compactCss).toContain(".editor-command-button{width:40px");
-    expect(compactCss).not.toContain(".editor-command-button{display:none}");
+    const commandLabels = compact(ruleBodies(".editor-command-label"));
+    const commandButtons = compact(ruleBodies(".editor-command-button"));
+
+    expect(commandLabels).toContain("display:none");
+    expect(commandButtons).toContain("width:40px");
+    expect(commandButtons).not.toContain("display:none");
   });
 });
 
