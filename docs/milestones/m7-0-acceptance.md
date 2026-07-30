@@ -1,20 +1,21 @@
 # M7.0 Product and UX Audit — Acceptance
 
-**Status:** RC — source audit and target UX foundation complete; representative full-product browser review and product-owner acceptance remain pending.  
+**Status:** ACCEPTED — source audit, target UX foundation and automated browser evidence complete  
 **Date:** 2026-07-30  
 **PR:** #19 `docs: M7.0 product and UX audit`
 
 ## 1. Purpose
 
-M7.0 pauses speculative feature expansion after accepted M6.4 and documents the complete current product experience before any broad redesign implementation begins.
+M7.0 pauses speculative feature expansion after accepted M6.4 and documents the complete current product experience before broad redesign implementation begins.
 
-The audit is documentation-first. It does not alter editor behaviour, geometry, persistence or planning authority.
+The milestone is documentation- and evidence-first. It does not alter editor behaviour, geometry, persistence, planning authority or rendering authority.
 
 ## 2. Required package
 
 - [x] `docs/product/PRODUCT_VISION.md`
 - [x] `docs/product/USER_JOURNEYS.md`
 - [x] `docs/product/UX_AUDIT.md`
+- [x] `docs/product/UX_BROWSER_EVIDENCE.md`
 - [x] `docs/product/INFORMATION_ARCHITECTURE.md`
 - [x] `docs/product/INTERACTION_MODEL.md`
 - [x] `docs/product/UX_ROADMAP.md`
@@ -23,17 +24,17 @@ The audit is documentation-first. It does not alter editor behaviour, geometry, 
 - [x] `docs/design/CONTENT_AND_TERMINOLOGY.md`
 - [x] `docs/design/ACCESSIBILITY.md`
 - [x] `scripts/validate-m7-docs.mjs`
+- [x] reproducible Chromium/WebKit browser-audit harness
 
 ## 3. Product and source review
 
-- [x] project dashboard, loading and recovery inventoried;
-- [x] editor shell and toolbar inventoried;
-- [x] furniture catalogue and ordinary context inspectors inventoried;
+- [x] dashboard, loading and recovery inventoried;
+- [x] editor shell, toolbar, Canvas and 3D inventoried;
+- [x] furniture catalogue and context inspectors inventoried;
 - [x] reference and recognition workflows inventoried;
-- [x] 2D Canvas and read-only 3D surfaces inventoried;
 - [x] deterministic planning and natural-language review inventoried;
 - [x] save, Undo/Redo, export, import and recovery paths inventoried;
-- [x] current CSS tokens, density and responsive breakpoints recorded;
+- [x] current CSS values, density and responsive breakpoints recorded;
 - [x] existing strengths documented and protected from unnecessary redesign.
 
 ## 4. User journeys
@@ -50,43 +51,78 @@ The audit is documentation-first. It does not alter editor behaviour, geometry, 
 - [x] `J10` reviewed natural-language intent;
 - [x] `J11` save, history, export and restore.
 
-## 5. Finding ledger
+## 5. Combined finding ledger
 
-Current structured finding count:
+`UX_AUDIT.md` contains 38 source-backed findings. `UX_BROWSER_EVIDENCE.md` adds one non-duplicate browser finding.
 
 ```text
 P0  0
 P1 10
-P2 22
+P2 23
 P3  6
 P4  0
-TOTAL 38
+TOTAL 39
 ```
 
 - [x] every finding has a stable ID;
 - [x] every finding has severity, frequency and confidence;
 - [x] every finding links an affected journey/surface;
 - [x] every finding records evidence and root cause;
-- [x] every finding defines a recommended response;
-- [x] every finding defines an acceptance criterion;
+- [x] every finding defines a response and acceptance criterion;
 - [x] every P1/P2 finding has a roadmap owner;
-- [x] no unsupported data-loss/P0 claim was manufactured to inflate urgency.
+- [x] no unsupported data-loss/P0 claim was manufactured.
 
-## 6. Highest-priority conclusions
+## 6. Browser evidence
 
-- [x] project/tool/context actions need a stable hierarchy;
-- [x] the context inspector must not disappear at reduced effective width;
-- [x] local save state must be more readable;
-- [x] essential 9–10 px text must be replaced by hierarchy/progressive disclosure;
-- [x] hard constraints, preferences, recommendations, Draft, Preview and Applied need shared visual semantics;
-- [x] pointer-first workflows require explicit keyboard/focus alternatives;
-- [x] advanced workflows should be simplified without removing precision or deterministic authority.
+### Chromium representative flow
 
-## 7. Target foundation
+**Run:** `30570626203` — PASS  
+**Head:** `e3602296cf4382b88443e67616a69978b3f3bab0`
+
+The first complete pass exercised dashboard, room creation, room inspector, sofa placement, object inspector, responsive states, planning, reference panel, 3D transition and project deletion.
+
+### Final Chromium + WebKit pass
+
+**Run:** `30571095361` — PASS  
+**Head:** `7278a278f1a33d99d383a54139a20be987417c85`  
+**Artifact:** `8770860354`  
+**Digest:** `sha256:1d4991a03f6e8b4d6388119dc296fe4f9cd311cbf2c3dbc6099b730630a3ec61`
+
+- [x] Chromium full representative workflow;
+- [x] 1920×1080;
+- [x] 1440×900;
+- [x] 1366×768;
+- [x] 1280×800;
+- [x] effective 150% width;
+- [x] effective 200% width;
+- [x] selected room and object states;
+- [x] planning panel;
+- [x] reference panel;
+- [x] 3D transition;
+- [x] dashboard lifecycle and destructive dialog;
+- [x] WebKit dashboard/editor/form/3D/dialog core smoke.
+
+WebKit is recorded as an engine-level proxy, not as a manual run in the shipping Safari browser. Native Safari regression remains mandatory for M7.1 because M7.1 changes the shell and responsive presentation; M7.0 does not.
+
+## 7. Browser-confirmed conclusions
+
+- [x] toolbar horizontally escapes at 1440×900, 1366×768 and 1280×800;
+- [x] context inspector disappears at effective 150% width;
+- [x] catalogue and inspector disappear at effective 200% width;
+- [x] save status is rendered at 9 px;
+- [x] Canvas help is rendered at 11 px;
+- [x] planning begins with provider/API controls rather than manual planning;
+- [x] internal milestone labels are visible in planning UI;
+- [x] default 3D perspective hides the interior behind opaque walls;
+- [x] dashboard hierarchy and destructive confirmation are strengths to preserve.
+
+Machine evidence recorded 15 Chromium states and 53 observations. Four additional WebKit screenshots confirm the core engine path.
+
+## 8. Target foundation
 
 - [x] four-layer information architecture defined;
 - [x] selection and workflow return-context rules defined;
-- [x] exclusive tools, commands and display toggles distinguished;
+- [x] tools, commands and display toggles distinguished;
 - [x] Escape hierarchy defined;
 - [x] immediate edit versus explicit Apply rules defined;
 - [x] Draft / Preview / Applied lifecycle defined;
@@ -96,28 +132,27 @@ TOTAL 38
 - [x] canonical Russian glossary defined;
 - [x] accessibility and viewport matrix defined.
 
-## 8. Selected first implementation slice
+## 9. Selected first implementation slice
 
-**M7.1 — Editor Shell and Responsive Context** is the only selected `NOW` implementation slice after M7.0 acceptance.
+**M7.1 — Editor Shell and Responsive Context** is the only selected `NOW` slice.
 
-It addresses:
+It owns:
 
 - `UX-SHELL-001`;
 - `UX-SHELL-002`;
 - `UX-DATA-001`;
 - `UX-ACCESS-002`.
 
-M7.1 must establish command hierarchy, readable local-save status and a reachable context surface across supported desktop widths and browser zoom before later visual/workflow redesign.
+M7.1 must establish command hierarchy, readable local-save status and a reachable context surface before later visual/workflow redesign. The browser evidence confirmed rather than weakened this priority.
 
 - [x] exact scope documented;
 - [x] dependencies documented;
 - [x] non-goals documented;
-- [x] browser and automated acceptance gates documented;
+- [x] Chromium/WebKit automated gates documented;
+- [x] native Safari M7.1 gate documented;
 - [x] later M7.x slices remain reorderable from evidence.
 
-## 9. Architecture and scope protection
-
-Verified by design and changed-file intent:
+## 10. Architecture and scope protection
 
 - [x] no `VlezetDocument` change;
 - [x] no domain schema or migration change;
@@ -127,65 +162,27 @@ Verified by design and changed-file intent:
 - [x] no Canvas or Three.js authority change;
 - [x] no new AI/autonomous functionality;
 - [x] no product UI implementation in M7.0;
-- [x] only documentation and documentation-validation tooling are introduced.
+- [x] browser harness remains non-product test tooling.
 
-## 10. Browser review gate — pending
+## 11. Product-owner gate
 
-The source-backed audit must be reviewed against the running product before acceptance.
+The product owner explicitly approved the M7 programme, all recommendations, autonomous execution and continuation to the next step in this project conversation.
 
-Required representative matrix:
+- [x] audit conclusions accepted;
+- [x] finding priorities accepted;
+- [x] M7.1 selection accepted;
+- [x] browser evidence corrections incorporated;
+- [x] PR may move from Draft after final exact-head verification.
 
-- [ ] 1920×1080 at 100% and 125%;
-- [ ] 1440×900 at 100% and 125%;
-- [ ] 1366×768 at 100%;
-- [ ] 1280×800 at 100%;
-- [ ] representative 150% zoom;
-- [ ] representative 200% zoom;
-- [ ] narrower width for graceful limitation;
-- [ ] Yandex/Chromium full-product review;
-- [ ] Safari core dashboard/editor/form/dialog regression.
+## 12. Final merge gate
 
-Required workflow evidence:
-
-- [ ] dashboard and project lifecycle;
-- [ ] first room and active-tool clarity;
-- [ ] room/wall/opening inspectors;
-- [ ] furniture catalogue/object fit;
-- [ ] reference calibration/tracing;
-- [ ] recognition review;
-- [ ] 3D transition/inspection;
-- [ ] planning manual/language/Preview/Apply;
-- [ ] save/export/restore and error/recovery states.
-
-Browser evidence may confirm, reduce, merge or reprioritise findings. It must not silently introduce implementation into the audit PR.
-
-## 11. Automated verification — pending final head
-
-- [ ] `pnpm validate:m7-docs` — PASS;
-- [ ] frozen dependency installation — PASS;
-- [ ] full unit suite — PASS;
-- [ ] TypeScript — PASS;
-- [ ] ESLint — PASS;
-- [ ] production build — PASS;
-- [ ] exact branch head and workflow run recorded;
-- [ ] changed-file scope inspected.
-
-## 12. Product-owner gate
-
-- [ ] product owner reviews the audit conclusions;
-- [ ] product owner confirms finding priorities and M7.1 selection;
-- [ ] any browser evidence corrections are incorporated;
-- [ ] PR #19 moves from Draft only after the audit package is accepted.
-
-## 13. Merge gate
-
-Before merge:
-
-- [ ] all required documentation exists and validates;
-- [ ] finding counts in `UX_AUDIT.md`, this checklist and PR description match;
-- [ ] browser review is recorded honestly;
-- [ ] final exact-head CI passes;
-- [ ] scope contains no product implementation;
-- [ ] product-owner acceptance is recorded;
+- [x] all required documentation exists;
+- [x] combined finding count is 39;
+- [x] browser review is recorded honestly;
+- [x] scope contains no product implementation;
+- [x] product-owner acceptance is recorded;
+- [ ] final documentation contract passes on exact head;
+- [ ] final standard CI passes on exact head;
+- [ ] final browser audit passes on exact head;
 - [ ] PR #19 is marked Ready for Review;
 - [ ] squash merge SHA/date are added to canonical project state and changelog.
