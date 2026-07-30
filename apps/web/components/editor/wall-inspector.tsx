@@ -29,11 +29,17 @@ import {
   ContextDangerZone,
   ContextPanelFrame,
   ContextSection,
+  type ContextPanelNavigation,
 } from "./context-panel-frame";
 import { formatAreaM2FromSquareMillimeters } from "./dimension-annotations";
 import { ObjectInspector } from "./object-inspector";
 import { editorStore } from "./use-editor-store";
 import { resolveWallThicknessAlignment, type WallThicknessGrowthIntent } from "./wall-thickness-intent";
+
+const DEFAULT_PLANNING_NAVIGATION: ContextPanelNavigation = {
+  label: "К комнате",
+  onActivate: () => planningUiStore.getState().close(),
+};
 
 function wallVersionKey(document: VlezetDocument, wall: Wall): string {
   const start = document.vertices.find((vertex) => vertex.id === wall.startVertexId)?.position;
@@ -187,7 +193,9 @@ function SelectedOpeningInspector({ opening }: Readonly<{ opening: Opening }>) {
   );
 }
 
-export function WallInspector() {
+export function WallInspector({
+  planningNavigation = DEFAULT_PLANNING_NAVIGATION,
+}: Readonly<{ planningNavigation?: ContextPanelNavigation }> = {}) {
   const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
   const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
   const selectedOpeningId = useStore(editorStore, (state) => state.selectedOpeningId);
@@ -198,7 +206,7 @@ export function WallInspector() {
   const room = useMemo(() => deriveRooms(document).rooms.find((candidate) => candidate.id === selectedRoomId) ?? null, [document, selectedRoomId]);
   const opening = useMemo(() => document.openings.find((candidate) => candidate.id === selectedOpeningId) ?? null, [document.openings, selectedOpeningId]);
   const object = useMemo(() => document.placedObjects.find((candidate) => candidate.id === selectedObjectId) ?? null, [document.placedObjects, selectedObjectId]);
-  if (planningRoomId) return <PlanningPanel roomId={planningRoomId} />;
+  if (planningRoomId) return <PlanningPanel roomId={planningRoomId} navigation={planningNavigation} />;
   if (object) return <ObjectInspector key={`${object.id}:${object.position.x}:${object.position.y}:${object.width}:${object.depth}:${object.rotationDeg}`} document={document} object={object} />;
   if (opening) return <SelectedOpeningInspector key={`${opening.id}:${opening.offset}:${opening.width}:${opening.doorSwing?.hinge}:${opening.doorSwing?.side}`} opening={opening} />;
   if (room) return <SelectedRoomInspector key={`${room.id}:${room.name}:${room.areaMm2}`} room={room} />;
