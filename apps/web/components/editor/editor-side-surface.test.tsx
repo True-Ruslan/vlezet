@@ -43,7 +43,7 @@ describe("M7.1 editor side surface", () => {
 
     expect(html).toContain("is-compact");
     expect(html).toContain("is-open");
-    expect(html).toContain('aria-modal="false"');
+    expect(html).toContain('data-modal="false"');
     expect(html).toContain("Свойства · Предмет");
     expect(html).toContain('aria-label="Закрыть панель"');
     expect(html).not.toContain("hidden");
