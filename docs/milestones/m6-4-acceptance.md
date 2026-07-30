@@ -1,9 +1,13 @@
 # M6.4 Reviewed Natural-Language Intent — Acceptance
 
-**Status:** browser acceptance PASS; implementation and responsive polish pass strict CI; PR #17 may proceed to final exact-head verification, Ready for Review and squash merge.  
-**Date:** 2026-07-30
+**Status:** DONE / ACCEPTED / MERGED  
+**Date:** 2026-07-30  
+**PR:** #17  
+**Final feature head:** `d8c35d88ad8e48dc53a156c08bfae60d0530e26f`  
+**Final strict CI:** `30553594794` — PASS  
+**Squash merge:** `02f8b041341c86f0796011b0d2fd42cac56a4e02`
 
-## 1. Product contract
+## 1. Accepted product contract
 
 M6.4 is an optional translation and review layer over the accepted M6.2–M6.3 deterministic planning system.
 
@@ -20,7 +24,7 @@ explicit Find alternatives
         ↓ existing Preview / Apply / Undo / Redo
 ```
 
-Accepted authority boundaries:
+Authority boundaries:
 
 - [x] interpreter output contains no coordinates, placements or direct document mutations;
 - [x] object references resolve only against furniture in the selected room;
@@ -33,12 +37,12 @@ Accepted authority boundaries:
 - [x] confirmed intent transfers into existing manual controls;
 - [x] interpretation never automatically runs the planner;
 - [x] Preview remains non-mutating;
-- [x] Apply remains explicit and uses the existing current-document revalidation/history path;
+- [x] Apply remains explicit and uses existing current-document revalidation/history;
 - [x] no `VlezetDocument`, migration, IndexedDB, backup or import changes;
-- [x] API key and raw provider state remain runtime-only;
+- [x] API key, raw response and review draft remain runtime-only;
 - [x] provider/network failure leaves manual planning available.
 
-## 2. Supported first-slice vocabulary
+## 2. Accepted vocabulary
 
 - [x] `lock-object` — keep an object fixed;
 - [x] `prefer-room-boundary/wall` — prefer near a wall;
@@ -85,7 +89,7 @@ GREEN a32a061798b4a169ab36d8d4ad50fb469bc1ca39
       run 30548539161 — PASS
 ```
 
-### Review UI and planning-panel integration
+### Review UI and planning integration
 
 ```text
 RED   a175cd6f7fa36ff5a96856db94b6ecc91140cf41
@@ -96,70 +100,22 @@ GREEN 1220876eca429cbbab2486dad7765b4b41b524b9
 
 ### Browser-found responsive polish
 
-The accepted browser screenshots exposed one non-functional narrow-panel issue: ordinary control labels visually touched adjacent controls after transfer.
+The acceptance screenshots exposed a narrow-inspector issue: ordinary labels touched adjacent controls after transfer.
 
 ```text
 RED   88bbaa64e5ca764b629f1532244fe8b6ebd7b410
-      run 30552858007 — FAIL: 2 new layout-contract tests
+      run 30552858007 — FAIL: 2 layout-contract tests
 CSS   e5a351c2ea4ea3e710ba5103c215c7b64217a8a2
-      run 30553051798 — FAIL: product rules present; one compact-test expectation retained whitespace
+      run 30553051798 — FAIL: product CSS present; test expectation retained compacted whitespace
 GREEN 4980d062d33848a82584881eddeadff70b74a0b1
       run 30553207256 — PASS
 ```
 
-The correction adds separate grid structure and gaps for:
+The correction separates selected-object controls, field labels and furniture-pair cards in the narrow inspector.
 
-- selected object name, lock and boundary preference;
-- field labels and their controls;
-- pair relationship cards;
-- long furniture names inside the narrow inspector.
+## 4. Browser acceptance — PASS
 
-## 4. Automated behavior coverage
-
-### Pure package
-
-- [x] Unicode NFKC, lowercase, punctuation/whitespace and `ё/е` normalization;
-- [x] exact object-name match;
-- [x] unique contiguous token-sequence match;
-- [x] ambiguous short name remains ambiguous;
-- [x] typo is not fuzzy-guessed;
-- [x] mm/cm/m conversion including decimal metres;
-- [x] zero accepted as a real exact rule;
-- [x] negative/non-finite/unsupported units rejected;
-- [x] malformed interpreter clauses rejected or surfaced;
-- [x] unsupported fragments preserved;
-- [x] resolved draft converts through existing validator;
-- [x] all-locked and >3-object drafts fail closed.
-
-### Provider
-
-- [x] text-only strict JSON-schema request;
-- [x] no image, coordinate, position, rotation, placement or geometry payload;
-- [x] request-only bearer key;
-- [x] native `globalThis.fetch` receiver preserved;
-- [x] structured text-model discovery;
-- [x] HTTP 401/403/402/429 categorized;
-- [x] empty request rejected before network;
-- [x] malformed clause becomes visible unsupported output.
-
-### Review and UI
-
-- [x] uniquely resolved references are shown explicitly;
-- [x] ambiguous names render explicit candidate choices;
-- [x] unsupported acknowledgement gates transfer;
-- [x] clause removal is immutable;
-- [x] transfer fills selected IDs, locks, boundary preferences, pair preferences and exact-gap inputs;
-- [x] language section renders before ordinary manual controls;
-- [x] provider error states that manual controls remain available;
-- [x] transfer/manual edits clear stale result, Preview and active exact-gap annotation;
-- [x] viewport-safe min-content styling is scoped to the existing inspector;
-- [x] transferred manual controls retain readable label/card spacing in the narrow inspector.
-
-## 5. Representative browser acceptance — PASS
-
-### Test setup
-
-One axis-aligned rectangular room contained:
+Test room:
 
 - `Диван`;
 - `Стул`;
@@ -174,70 +130,60 @@ Input:
 Стол поставить ближе к окну.
 ```
 
-### Directly evidenced in supplied screenshots and user report
+Directly evidenced in supplied screenshots and user report:
 
 - [x] `Диван — не двигать` resolved uniquely;
-- [x] `кресло` was not guessed as `Стул`; the unresolved reference required manual selection;
-- [x] `стол` remained explicitly ambiguous between `Рабочий стол` and `Обеденный стол`;
+- [x] `кресло` was not guessed as `Стул`; manual selection was required;
+- [x] `стол` remained ambiguous between both tables;
 - [x] exact minimum gap normalized and displayed as `800 мм`;
-- [x] `Стол поставить ближе к окну` appeared in the `Не поддержано` block;
-- [x] unsupported window intent was not silently converted to a wall preference;
-- [x] after explicit choices and acknowledgement, `Перенести в ограничения` populated ordinary controls;
-- [x] transferred selection contained `Диван`, `Стул` and the explicitly selected table;
+- [x] window-relative intent appeared in `Не поддержано`;
+- [x] unsupported intent was not silently converted to wall preference;
+- [x] explicit choices and acknowledgement enabled transfer;
+- [x] transfer selected the intended objects;
 - [x] `Диван` received `Не двигать`;
 - [x] `Стул` received `Ближе к углу`;
 - [x] the selected table↔chair pair received `800 мм` minimum contour gap;
-- [x] transfer did not generate alternatives automatically; `Найти варианты` remained a separate action;
-- [x] review and transferred controls remained inside the right inspector without horizontal escape.
+- [x] transfer did not auto-generate alternatives;
+- [x] the workflow remained inside the right inspector.
 
-User acceptance:
+Product-owner confirmation:
 
 > «Работает все четко и ровно так, как ты описал.»
 
-### Inherited authority, not falsely attributed to this screenshot run
+The supplied screenshots did not independently re-exercise every downstream M6.3 action. Preview, nearest-contour evidence, Apply, Undo/Redo and persistence authority remain accepted through unchanged implementation paths, M6.3 browser evidence, scope inspection and the full regression suite.
 
-The screenshots did not independently demonstrate every downstream action. The following remain accepted through M6.3 browser evidence, unchanged implementation paths, M6.4 scope inspection and the full regression suite:
+## 5. Final verification
 
-- non-mutating Preview;
-- nearest-contour evidence overlay;
-- explicit current-document-revalidated Apply;
-- one multi-object Apply = one Undo/Redo step;
-- applied ordinary transforms remain the only persistent result;
-- provider key, raw response and language draft are not persistent project state.
+Final exact PR head:
 
-## 6. Scope and persistence inspection
+```text
+d8c35d88ad8e48dc53a156c08bfae60d0530e26f
+GitHub Actions 30553594794 — PASS
+```
 
-PR #17 changes only:
+Passed:
 
-- `packages/planning/src/intent-draft*` and export;
-- planning web provider/schema/review/UI/tests;
-- existing planning panel and scoped CSS;
-- milestone spec/plan/acceptance documentation.
+- [x] frozen install;
+- [x] full unit suite;
+- [x] TypeScript typecheck;
+- [x] ESLint;
+- [x] production Next build.
 
-Verified absent:
+Changed-file inspection confirmed no scope expansion into:
 
-- [x] domain schema changes;
-- [x] migrations;
-- [x] IndexedDB schema/repositories;
-- [x] project file format;
-- [x] backup/import/export persistence changes;
-- [x] planner/evaluator/apply/history authority changes;
-- [x] recognition or spatial-3D changes.
+- [x] domain schema or migrations;
+- [x] IndexedDB or project format;
+- [x] backup/import/export persistence;
+- [x] planner/evaluator/M2-fit/Apply/history authority;
+- [x] recognition or spatial 3D.
 
-## 7. Final integration gate
+## 6. Integration result
 
-Before Ready for Review:
-
-- [x] representative browser acceptance passes;
-- [x] browser-found narrow-panel issue has regression coverage and a fix;
-- [x] implementation/polish head `4980d062d33848a82584881eddeadff70b74a0b1` passes strict CI run `30553207256`;
-- [x] changed-file inspection shows no persistence/schema scope expansion;
-- [ ] acceptance/state documentation head passes final exact-head CI.
-
-Before merge:
-
-- [ ] PR #17 marked Ready for Review;
-- [ ] final head verified again;
-- [ ] squash merge;
-- [ ] merge SHA/date recorded in canonical state and changelog;
-- [ ] next narrow milestone selected from actual user evidence rather than speculative scope.
+- [x] representative browser acceptance passed;
+- [x] browser finding fixed with regression coverage;
+- [x] final exact-head CI passed;
+- [x] PR #17 marked Ready for Review;
+- [x] squash merged to `main`;
+- [x] merge SHA recorded: `02f8b041341c86f0796011b0d2fd42cac56a4e02`;
+- [x] post-merge canonical state/changelog synchronization started in `docs/m6-4-accepted`;
+- [x] no speculative M6.5 feature selected automatically; the next slice requires a separate evidence-driven review.

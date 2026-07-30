@@ -1,7 +1,7 @@
 # Vlezet — Roadmap
 
 **Last updated:** 2026-07-30  
-**Rule:** deterministic product truth and user trust come before visual spectacle or speculative AI layers.
+**Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative AI layers.
 
 For current truth, read `docs/PROJECT_STATE.md` first.
 
@@ -22,8 +22,9 @@ DONE        M5.4 Spatial Inspection
 DONE        M6.1 Deterministic Layout Alternatives
 DONE        M6.2 Constraint-Aware Planning
 DONE        M6.3 Exact Spatial Constraints
-NOW         M6.4 Reviewed Natural-Language Intent
-LATER       broader planning and optional product infrastructure
+DONE        M6.4 Reviewed Natural-Language Intent
+NOW         evidence-driven next-slice prioritization
+LATER       only the focused slice selected by that review
 ```
 
 ## Completed trust foundation
@@ -33,6 +34,8 @@ LATER       broader planning and optional product infrastructure
 Merge: `b63bdd613db4e13c07d2a961981799bd360f256d`
 
 Recognition accelerates tracing but is not authoritative floor-plan reconstruction. Candidates are editable, explicit Apply is required, deterministic geometry validation remains authoritative and existing geometry is never silently replaced.
+
+Quality varies by drawing style and image quality. Future recognition work requires representative fixtures and measurable metrics rather than ad hoc threshold tuning.
 
 ### M4.6 — Precision Geometry UX
 
@@ -104,7 +107,7 @@ Only pursue when evidence requires:
 
 Principle:
 
-> Planning may propose structured alternatives and interpret explicit user intent, but `VlezetDocument` plus deterministic geometry/fit validation remain authoritative. Preview is ephemeral and Apply is explicit.
+> Planning may propose structured alternatives and interpret user intent, but `VlezetDocument` plus deterministic geometry/fit validation remain authoritative. Preview is ephemeral and Apply is explicit.
 
 ### M6.1 — Deterministic Layout Alternatives
 
@@ -164,9 +167,7 @@ merge: db68d697540ddb9901fbddad0763d769e7d16851
 
 PR #15 → `724058fe57d769e7c1329f3536d6869405e6ac42`
 
-Status: **DONE / ACCEPTED / MERGED**.
-
-Primary contract:
+Accepted primary contract:
 
 ```text
 pair-min-gap(objectA, objectB, minimumMm)
@@ -182,7 +183,7 @@ Accepted semantics:
 - `0` is a real rule; empty means absent;
 - normalized unordered pair identity;
 - malformed/self/duplicate/outside references fail closed;
-- exact constraint composes with M6.2 soft near/far intent;
+- exact constraint composes with M6.2 soft intent;
 - impossible minimum offers no violating alternatives.
 
 Accepted authority:
@@ -195,19 +196,15 @@ minimumDistanceBetweenOrientedRectangles()
 planning hard validation + UI evidence + 2D overlay
 ```
 
-The numeric result and visualization share one framework-independent geometry calculation.
-
 Accepted UX:
 
-- `↔ Минимальный зазор по контурам` input;
-- helper distinguishes contour gap from object dimensions and centre distance;
-- structured cards show `Фактически`, `Требуется` and contour semantics;
-- violet nearest-contour double-arrow during Preview;
-- `↔ Зазор N мм` pill;
-- endpoint/contact markers;
+- explicit minimum contour-gap input;
+- helper distinguishes contour gap from dimensions and centre distance;
+- structured actual/required evidence;
+- nearest-contour double-arrow during Preview;
+- endpoint/contact markers and viewport-clamped label;
 - one active exact pair with explicit switching;
-- viewport-clamped, non-interactive overlay;
-- no sixth Konva Layer;
+- no extra Konva layer;
 - viewport-safe right inspector.
 
 Acceptance evidence:
@@ -224,118 +221,148 @@ Product-owner confirmation:
 
 Canonical checklist: `docs/milestones/m6-3-acceptance.md`.
 
-## NOW — M6.4 Reviewed Natural-Language Intent
+### M6.4 — Reviewed Natural-Language Intent
 
-### Product goal
+PR #17 → `02f8b041341c86f0796011b0d2fd42cac56a4e02`
 
-Let a user describe supported planning intent in ordinary language, convert it into a transparent structured draft, and require explicit review before the existing deterministic planner runs.
+Status: **DONE / ACCEPTED / MERGED**.
 
-The feature is not autonomous design. It is an optional translation layer over already accepted M6.2–M6.3 contracts.
+Product goal achieved:
 
-### Narrow first scope
+> Let a user describe supported planning intent in ordinary language, inspect exactly what was understood, resolve ambiguity and explicitly transfer the reviewed result into the already accepted deterministic controls.
 
-Support only accepted concepts:
-
-- keep an object fixed;
-- prefer an object near a wall;
-- prefer an object near a corner;
-- place two objects nearer/farther;
-- require an exact minimum contour gap between two objects.
-
-Example:
-
-```text
-“Диван не двигать, стол поставить ближе к окну,
-между столом и креслом оставить минимум 800 мм.”
-```
-
-Possible reviewed draft:
-
-```ts
-[
-  { kind: "lock-object", objectId: "sofa" },
-  { kind: "prefer-room-boundary", objectId: "table", target: "wall" },
-  { kind: "pair-min-gap", objectIds: ["chair", "table"], minimumMm: 800 }
-]
-```
-
-### Required architecture
+Accepted architecture:
 
 ```text
 natural-language request
-        ↓ optional interpreter adapter
-structured intent draft + ambiguities + unsupported fragments
-        ↓ explicit user review/edit/confirmation
-existing validatePlanningConstraintSet()
-        ↓
-existing deterministic M6 planner/evaluator
-        ↓
-Preview / explicit Apply
+        ↓ optional text-only interpreter
+symbolic clauses + unsupported fragments
+        ↓ deterministic local object resolution
+reviewable draft + explicit choices
+        ↓ acknowledgement and transfer
+existing manual structured controls
+        ↓ explicit Find alternatives
+existing deterministic planner / Preview / Apply
 ```
 
-Requirements:
+Delivered:
 
-1. interpreter output is never authoritative;
-2. object references resolve only within the selected room/planning set;
-3. ambiguous names produce explicit choices, not guesses;
-4. unsupported intent is shown and rejected or omitted only with user acknowledgement;
-5. numeric units normalize explicitly to canonical millimetres;
-6. the draft is editable using ordinary structured controls;
-7. generation requires explicit confirmation;
-8. manual structured planning remains available when the interpreter/network is unavailable;
-9. existing hard validation and Apply revalidation remain unchanged;
-10. no raw model response becomes persistent project state.
+- symbolic intent clauses for existing M6.2–M6.3 concepts;
+- strict interpreter-payload normalization;
+- mm/cm/m conversion to canonical millimetres;
+- Unicode/case/punctuation/whitespace and `ё/е` normalization;
+- exact object-name match followed by unique contiguous token match;
+- no fuzzy object guessing;
+- explicit ambiguous and unresolved references;
+- visible unsupported fragments with acknowledgement gate;
+- text-only OpenRouter structured output with runtime-only BYOK;
+- review cards and clause removal;
+- explicit transfer into existing selection/lock/boundary/pair/gap controls;
+- no automatic planner execution after interpretation;
+- provider failure leaves manual planning available;
+- narrow-inspector control and pair-card spacing regression coverage.
 
-### Acceptance requirements
+Browser evidence:
 
-- same confirmed structured draft → same ordered alternatives;
-- interpreter cannot bypass hard validation;
-- ambiguous object references fail closed;
-- unsupported language is visible and controlled;
-- confirmed draft exactly matches controls shown to the user;
-- editing the draft clears stale results and Preview;
-- network/model failure never blocks manual planning or core editing;
-- Preview remains non-mutating;
-- Apply remains explicit and one-step undoable;
-- exact-head strict CI and representative browser acceptance before merge.
+- `Диван` resolved to `Не двигать`;
+- `кресло` did not silently become `Стул`;
+- `стол` remained ambiguous between two tables;
+- `800 мм` exact gap transferred correctly;
+- window-relative text stayed visibly unsupported;
+- transfer populated ordinary controls without generating alternatives.
 
-### Explicit non-goals
+Product-owner confirmation:
 
-Do not make M6.4:
+> «Работает все четко и ровно так, как ты описал.»
 
-- free-form coordinate or geometry generation;
-- autonomous whole-apartment design;
-- direct document mutation from text;
-- opaque model-only scoring;
-- open-ended generic rule language;
-- photorealistic interior generation;
-- direct 3D editing;
-- mandatory network dependency.
-
-## Later directions
-
-Only after M6.4 is accepted:
-
-- broader structured planning vocabulary;
-- more room types where semantics remain deterministic;
-- optional exact furniture-to-boundary rules;
-- whole-apartment coordination as an explicitly reviewed multi-room workflow;
-- accounts/cloud collaboration and managed AI as separate infrastructure initiatives;
-- decorative 3D assets/photorealism only after the precision workflow is mature.
-
-## Recommended workflow
+Final evidence:
 
 ```text
-M6.4 focused product/design spec
-→ define supported phrases, references and ambiguity policy
-→ TDD pure structured intent-draft contract
-→ optional interpreter adapter
-→ explicit review/edit/confirm UI
-→ existing deterministic planner integration
-→ stale/error/offline fallback tests
-→ representative browser acceptance
-→ exact-head strict CI
-→ squash merge
+head:  d8c35d88ad8e48dc53a156c08bfae60d0530e26f
+CI:    30553594794 — PASS
+merge: 02f8b041341c86f0796011b0d2fd42cac56a4e02
 ```
 
-Precision, recognition and M5 polish remain evidence-driven backlog and should not interrupt M6.4 unless they become actual user blockers.
+Canonical checklist: `docs/milestones/m6-4-acceptance.md`.
+
+## NOW — Evidence-driven next-slice prioritization
+
+M6.4 completes the current planned intelligent-planning foundation. No automatic M6.5 is committed.
+
+The next cycle begins by comparing concrete product problems, not by extending AI vocabulary by default.
+
+Evaluation criteria:
+
+1. frequency and severity of the user problem;
+2. measurable improvement to the core promise “understand what fits”;
+3. ability to preserve deterministic geometry authority;
+4. implementation and maintenance cost;
+5. regression risk to trusted editing;
+6. whether the work can form one narrow, browser-testable vertical slice.
+
+Candidate directions, not commitments:
+
+### A. Exact furniture-to-boundary rules
+
+Examples:
+
+- minimum distance from furniture contour to a room wall;
+- explicit wall/corner clearance evidence;
+- shared numeric and visual geometry authority.
+
+Value: extends exact planning semantics naturally.  
+Risk: wall identity and nearest-boundary semantics must remain clear for ordinary users.
+
+### B. More deterministic room shapes
+
+Extend planning beyond a single axis-aligned rectangular room only where containment, anchors and explanations remain deterministic.
+
+Value: broader real-project coverage.  
+Risk: candidate explosion and ambiguous placement semantics.
+
+### C. Recognition quality measurement
+
+Create representative fixtures, metrics and reproducible baselines for M4.5 before more threshold or model tuning.
+
+Value: converts subjective recognition complaints into actionable evidence.  
+Risk: fixture preparation effort without immediate visible feature breadth.
+
+### D. Evidence-driven spatial polish
+
+Camera persistence, unusual-plan framing or accessibility only where browser evidence shows a real blocker.
+
+Value: usability improvement for existing 3D.  
+Risk: lower core value if no representative problem is present.
+
+### E. Product infrastructure
+
+Accounts, cloud sync, collaboration and managed AI must remain separate initiatives with their own security, privacy, billing and migration design.
+
+Value: multi-device and collaborative workflows.  
+Risk: high operational scope; must not be bundled into planning features.
+
+## Explicit non-goals until separately approved
+
+- autonomous whole-apartment mutation;
+- free-form model-generated coordinates;
+- opaque model-only ranking;
+- mandatory network dependency for editing/planning;
+- direct 3D editing;
+- photorealistic generation presented as product truth;
+- generic rule engine without reviewed semantics;
+- broad infrastructure mixed into a geometry milestone.
+
+## Recommended workflow for the next slice
+
+```text
+review actual user evidence and known limits
+→ compare 2–3 narrow product options
+→ choose one explicit problem and acceptance scenario
+→ focused design/spec
+→ TDD implementation
+→ strict CI
+→ representative browser acceptance
+→ merge and canonical documentation
+```
+
+Precision, recognition and M5 polish remain evidence-driven backlog. The roadmap advances only after the next prioritization decision is made explicitly.
