@@ -1,0 +1,13 @@
+/* Loaded after legacy editor CSS so M7.1 reachability wins over old hide-only breakpoints. */
+
+@media (max-width: 760px) {
+  .editor-project-bar .project-title-stack {
+    display: grid;
+  }
+
+  .editor-project-bar .save-status {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
