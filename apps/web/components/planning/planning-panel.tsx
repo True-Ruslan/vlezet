@@ -9,9 +9,11 @@ import {
   type PlanningResult,
   type RankedPlanningCandidate,
 } from "@vlezet/planning";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { editorStore } from "../editor/use-editor-store";
+import { PlanningIntentSection } from "./planning-intent-section";
+import type { PlanningIntentControlState } from "./planning-intent-review";
 import { planningPairIds, planningPairKey } from "./planning-pair-key";
 import { planningUiStore } from "./planning-ui-store";
 
@@ -48,6 +50,7 @@ export type PlanningPanelViewProps = Readonly<{
   previewCandidateId: string | null;
   activeExactPairKey: string | null;
   errorMessage: string | null;
+  intentSection?: ReactNode;
   onToggleObject: (objectId: string) => void;
   onToggleLock: (objectId: string) => void;
   onBoundaryPreferenceChange: (objectId: string, preference: PlanningBoundaryPreference) => void;
@@ -156,6 +159,7 @@ export function PlanningPanelView({
   previewCandidateId,
   activeExactPairKey,
   errorMessage,
+  intentSection,
   onToggleObject,
   onToggleLock,
   onBoundaryPreferenceChange,
@@ -175,12 +179,14 @@ export function PlanningPanelView({
     <aside className="inspector-panel planning-panel" aria-label="Варианты расстановки">
       <div className="inspector-heading-row">
         <div>
-          <span className="inspector-kicker">M6.3 · Точные пространственные ограничения</span>
+          <span className="inspector-kicker">M6.4 · Проверяемые пожелания</span>
           <h3>Варианты расстановки</h3>
-          <p className="inspector-help">{roomName}. Выберите от 1 до 3 предметов и задайте только те ограничения, которые действительно важны.</p>
+          <p className="inspector-help">{roomName}. Опишите пожелания или задайте ограничения вручную для 1–3 предметов.</p>
         </div>
         <button type="button" className="secondary-action" onClick={onClose}>Закрыть</button>
       </div>
+
+      {intentSection}
 
       <div className="inspector-section">
         <strong>Что переставить</strong>
@@ -385,6 +391,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
     setResult(null);
     setErrorMessage(null);
     planningUiStore.getState().setPreviewCandidate(null);
+    planningUiStore.getState().setActiveExactPairKey(null);
   };
 
   const toggleObject = (objectId: string) => {
@@ -417,6 +424,15 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
 
   const setPairMinimumGap = (pairKey: string, rawValue: string) => {
     setPairMinimumGapInputs((current) => ({ ...current, [pairKey]: rawValue }));
+    clearGeneratedState();
+  };
+
+  const transferIntentControls = (state: PlanningIntentControlState) => {
+    setSelectedObjectIds([...state.selectedObjectIds]);
+    setLockedObjectIds([...state.lockedObjectIds]);
+    setBoundaryPreferences({ ...state.boundaryPreferences });
+    setPairPreferences({ ...state.pairPreferences });
+    setPairMinimumGapInputs({ ...state.pairMinimumGapInputs });
     clearGeneratedState();
   };
 
@@ -453,10 +469,12 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
       const next = planLayoutAlternatives(document, { roomId, objectIds: selectedObjectIds, constraints });
       setResult(next);
       planningUiStore.getState().setPreviewCandidate(null);
+      planningUiStore.getState().setActiveExactPairKey(null);
       setErrorMessage(next.candidates.length === 0 ? "Нет допустимых вариантов расстановки с текущими ограничениями." : null);
     } catch (error) {
       setResult(null);
       planningUiStore.getState().setPreviewCandidate(null);
+      planningUiStore.getState().setActiveExactPairKey(null);
       setErrorMessage(planningErrorMessage(error));
     }
   };
@@ -477,6 +495,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
       setErrorMessage(null);
     } catch (error) {
       planningUiStore.getState().setPreviewCandidate(null);
+      planningUiStore.getState().setActiveExactPairKey(null);
       setResult(null);
       setErrorMessage(planningErrorMessage(error));
     }
@@ -530,6 +549,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
       previewCandidateId={previewCandidate?.id ?? null}
       activeExactPairKey={activeExactPairKey}
       errorMessage={errorMessage}
+      intentSection={<PlanningIntentSection roomObjects={roomObjects} onTransfer={transferIntentControls} />}
       onToggleObject={toggleObject}
       onToggleLock={toggleLock}
       onBoundaryPreferenceChange={setBoundaryPreference}

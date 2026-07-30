@@ -1,9 +1,9 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-07-30  
-**Status:** M0–M6.3 are merged and accepted in `main`. M6.3 added exact millimetre hard constraints and authoritative nearest-contour visualization without changing the persistent document, M2 fit authority or atomic Apply. The next deliberately narrow slice is **M6.4 Reviewed Natural-Language Intent**. M5.3 remains evidence-driven camera/navigation/performance polish only.
+**Status:** M0–M6.3 are merged and accepted in `main`. **M6.4 Reviewed Natural-Language Intent has passed representative browser acceptance in PR #17.** The browser-found narrow-inspector spacing issue has regression coverage and is fixed. Remaining integration gates are final exact-head strict CI, Ready for Review and squash merge. M5.3 remains evidence-driven camera/navigation/performance polish only.
 
-> Read this file first in a new chat. It is the canonical short-form state of the product, architecture, accepted milestones, limits and next step.
+> Read this file first in a new chat. It is the canonical short-form state of the product, architecture, accepted milestones, active integration gate, known limits and next decision point.
 
 ## 1. Product
 
@@ -46,8 +46,10 @@ Priorities:
 18. M2 geometry/fit rules remain authoritative for containment, collisions, doors and clearances.
 19. Hard planning constraints reject before scoring; soft preferences only influence deterministic ranking.
 20. Request generation and candidate/Apply boundaries share fail-closed constraint validation.
-21. Exact numeric validation and its visualization must use the same geometry authority.
-22. Optional AI/LLM interpretation can never bypass structured validation or directly generate authoritative geometry.
+21. Exact numeric validation and its visualization use the same geometry authority.
+22. Optional AI/LLM interpretation cannot bypass structured validation, generate authoritative coordinates or mutate the document directly.
+23. Natural-language interpretation must produce a reviewable symbolic draft; ordinary structured controls remain the final user-visible intent before generation.
+24. Provider keys, raw responses and language drafts are runtime-only and never become project state.
 
 ## 3. Repository and stack
 
@@ -61,7 +63,7 @@ packages/editor-core     semantic editing/history/snapping
 packages/projects        local-first persistence abstraction
 packages/recognition     assisted-recognition model/CV/reconciliation
 packages/spatial         renderer-neutral deterministic 3D projection
-packages/planning        framework-independent deterministic planning
+packages/planning        deterministic planning + reviewed intent contracts
 ```
 
 Rendering:
@@ -69,7 +71,7 @@ Rendering:
 - 2D: Konva / react-konva;
 - 3D: plain Three.js over renderer-neutral `SpatialScene`.
 
-State: Zustand.  
+State: Zustand and local React state for ephemeral workflows.  
 Persistence: IndexedDB through repository adapters.  
 Workspace: pnpm + Turborepo.
 
@@ -140,7 +142,7 @@ Checklist: `docs/milestones/m6-3-acceptance.md`.
 - semantic read-only inspection of rooms, walls and objects;
 - no direct 3D editing or mesh-based product authority.
 
-### Intelligent planning
+### Intelligent planning through accepted M6.3
 
 - one deterministic axis-aligned rectangular room;
 - rearrangement of 1–3 existing selected objects;
@@ -159,7 +161,127 @@ Checklist: `docs/milestones/m6-3-acceptance.md`.
 - explicit current-document-revalidated Apply;
 - one multi-object Apply = one Undo/Redo step.
 
-## 6. Known limits and technical debt
+## 6. Browser-accepted RC — M6.4 Reviewed Natural-Language Intent
+
+Branch and PR:
+
+```text
+feat/m6-4-reviewed-natural-language-intent
+#17 feat: M6.4 reviewed natural-language intent
+```
+
+### Product position
+
+M6.4 is an optional translation/review layer over M6.2–M6.3. It is not autonomous design and does not introduce another planner, layout model or source of geometry truth.
+
+```text
+ordinary-language request
+        ↓ optional OpenRouter structured-output interpreter
+symbolic clauses + unsupported fragments
+        ↓ deterministic local object resolution
+reviewable draft + explicit ambiguity choices
+        ↓ explicit acknowledgement and transfer
+existing manual structured controls
+        ↓ explicit Find alternatives
+existing deterministic planner / Preview / Apply
+```
+
+### Implemented
+
+#### Pure planning contract
+
+- framework-independent symbolic intent clause types;
+- strict interpreter-payload normalization;
+- canonical mm/cm/m conversion to millimetres;
+- Unicode/case/punctuation/whitespace/`ё→е` reference normalization;
+- exact object-name match, then unique contiguous token-sequence match;
+- no fuzzy guessing;
+- stable ambiguous candidate lists;
+- resolved draft conversion through existing `validatePlanningConstraintSet()`;
+- fail-closed object limit, conflicts and all-locked handling.
+
+#### Optional OpenRouter adapter
+
+- text-only structured-output request;
+- compatible text-model discovery;
+- runtime-only BYOK;
+- safe native fetch receiver;
+- categorized provider errors;
+- malformed clauses surfaced as unsupported fragments rather than silently changing meaning;
+- no image, coordinate, position, rotation, placement or geometry payload;
+- no direct planner call or document mutation.
+
+#### Review and transfer UX
+
+- natural-language input above ordinary manual constraints;
+- review cards preserving source fragments;
+- explicit selects for ambiguous/unresolved references;
+- unsupported-fragment acknowledgement gate;
+- clause removal;
+- normalized exact-gap values shown in millimetres;
+- explicit `Перенести в ограничения` action;
+- exact transfer into existing selected/lock/boundary/pair/gap controls;
+- no automatic generation after transfer;
+- provider failure leaves manual planning available;
+- transfer/manual edits clear stale result, Preview and active exact-gap annotation;
+- inspector-scoped viewport-safe styling;
+- selected-object controls and pair cards retain readable spacing in the narrow inspector.
+
+### Authority preserved
+
+- no document schema or migration change;
+- no IndexedDB, project format, backup/import/export change;
+- no planner, evaluator, M2 fit or Apply/history authority change;
+- confirmed intent is validated by the existing constraint validator;
+- generation remains explicit;
+- Preview remains non-mutating;
+- Apply remains explicit and one-step undoable;
+- raw model/provider state is not persisted.
+
+### Browser acceptance evidence
+
+Test room contained `Диван`, `Стул`, `Рабочий стол` and `Обеденный стол`.
+
+The supplied browser screenshots and user report confirm:
+
+- `Диван` resolved and received `Не двигать`;
+- `кресло` was not fuzzy-guessed as `Стул` and required an explicit selection;
+- `стол` was explicitly ambiguous between two tables;
+- the pair minimum gap normalized to `800 мм`;
+- window-relative language remained in `Не поддержано`;
+- explicit choices and acknowledgement enabled transfer;
+- transfer populated ordinary selected/lock/corner/gap controls;
+- no alternatives were generated before separate `Найти варианты`;
+- the full workflow stayed inside the right inspector.
+
+User acceptance:
+
+> «Работает все четко и ровно так, как ты описал.»
+
+The unchanged downstream Preview/Apply/Undo/Redo authority remains covered by the accepted M6.3 browser evidence and the full regression suite; it is not falsely attributed to the supplied M6.4 screenshots.
+
+### TDD and CI evidence
+
+Four primary RED/GREEN slices and the browser-found responsive polish are recorded in:
+
+`docs/milestones/m6-4-acceptance.md`
+
+Latest verified polish head before this state update:
+
+```text
+4980d062d33848a82584881eddeadff70b74a0b1
+GitHub Actions 30553207256 — PASS
+```
+
+Passed:
+
+- frozen install;
+- full unit suite;
+- TypeScript typecheck;
+- ESLint;
+- production Next build.
+
+## 7. Known limits and technical debt
 
 ### Recognition
 
@@ -186,11 +308,12 @@ Intentional limits:
 - only 1–3 existing selected objects;
 - exact numeric rule currently covers furniture-to-furniture minimum contour gap only;
 - no furniture-to-wall exact rule yet;
+- M6.4 language vocabulary is deliberately limited to existing M6.2–M6.3 concepts;
 - no whole-apartment orchestration;
 - no autonomous geometry creation;
 - no opaque AI scoring;
 - no persistent planning session or second layout model;
-- no natural-language interpretation yet.
+- no mandatory network dependency.
 
 ### Spatial 3D
 
@@ -211,7 +334,7 @@ Intentional limits:
 - DWG/DXF/BIM;
 - photorealism/VR.
 
-## 7. Immediate roadmap
+## 8. Immediate roadmap
 
 ```text
 M0–M4.6                         ✅ merged and accepted
@@ -222,67 +345,33 @@ M6.1 layout alternatives        ✅ merged and accepted
 M6.2 constraint-aware planning  ✅ merged and accepted
 M6.3 exact spatial constraints  ✅ merged and accepted
         ↓
-M6.4 reviewed natural-language intent  ← NEXT
+M6.4 reviewed language intent   ✅ browser accepted in PR #17
+        ↓
+final exact-head CI → Ready for Review → squash merge
+        ↓
+select next slice from actual user evidence
 ```
 
 M5.3 is not a blocking standalone milestone. Its architectural foundation shipped in M5.1; remaining work is evidence-driven polish only.
 
-## 8. Next slice — M6.4 Reviewed Natural-Language Intent
+No later major milestone should begin before M6.4 merge. The next product slice after M6.4 must be selected from actual user evidence rather than speculative AI scope.
 
-Goal:
-
-> Let a user describe planning intent in ordinary language, convert it into a reviewable structured constraint draft, and require explicit confirmation before the existing deterministic planner runs.
-
-Proposed narrow architecture:
+## 9. Current workflow
 
 ```text
-natural-language request
-        ↓ optional interpreter
-reviewable PlanningConstraint[] draft
-        ↓ explicit user edit/confirmation
-existing fail-closed constraint validation
-        ↓
-existing deterministic M6 planner
-        ↓
-Preview / explicit Apply
+M6.4 design/spec                     ✅
+implementation plan                  ✅
+RED/GREEN pure intent contract       ✅
+RED/GREEN provider boundary          ✅
+RED/GREEN review/transfer model      ✅
+RED/GREEN UI integration             ✅
+representative browser acceptance    ✅
+responsive browser finding           ✅ fixed with regression coverage
+implementation/polish-head CI        ✅ 30553207256
+acceptance + canonical state          ✅
+final exact-head CI                   ⏳
+Ready for Review / squash merge       ⏳
+post-merge canonical SHA/changelog    ⏳
 ```
 
-Recommended first scope:
-
-1. support only concepts already accepted in M6.2–M6.3;
-2. map language to `lock-object`, wall/corner preference, pair near/far and exact pair minimum gap;
-3. resolve object references against the selected room and show ambiguities explicitly;
-4. show the generated structured draft before generation;
-5. require explicit user confirmation or editing;
-6. reject unsupported, ambiguous or malformed intent without guessing;
-7. keep the interpreter optional so manual structured planning always works;
-8. never let model output bypass validation, candidate evaluation or Apply revalidation;
-9. do not persist raw model state as a second planning document;
-10. require exact-head CI and representative browser acceptance.
-
-Explicit non-goals:
-
-- free-form coordinate generation;
-- autonomous whole-apartment design;
-- direct document mutation from language;
-- opaque ranking or model-only correctness;
-- photorealistic interior generation;
-- network dependency for core editing/planning;
-- direct 3D editing.
-
-## 9. Recommended workflow
-
-```text
-M6.4 focused design spec
-→ define supported language and ambiguity rules
-→ TDD pure structured intent draft contract
-→ optional interpreter adapter behind that contract
-→ explicit review/edit/confirm UX
-→ existing deterministic planner integration
-→ stale/error/non-network fallback tests
-→ representative browser acceptance
-→ exact-head strict CI
-→ squash merge
-```
-
-Precision, recognition and M5 polish remain evidence-driven backlog and should not interrupt M6.4 unless they become real user blockers.
+Precision, recognition and M5 polish remain evidence-driven backlog and should not interrupt the current M6.4 integration gate unless they become actual user blockers.
