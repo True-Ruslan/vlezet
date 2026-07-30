@@ -1,8 +1,8 @@
 # M6.3 Exact Spatial Constraints — Acceptance
 
-**Date:** 2026-07-23  
+**Date:** 2026-07-30  
 **PR:** #15 `feat: M6.3 exact spatial constraints`  
-**Status:** implementation complete; automated gates PASS on final code RC; final documentation-head CI and representative real-browser acceptance required before merge.
+**Status:** implementation complete; strict automated gates PASS; representative real-browser acceptance required before merge.
 
 ## Product contract
 
@@ -12,72 +12,76 @@ M6.3 adds the first exact numeric hard planning rule:
 pair-min-gap(objectA, objectB, minimumMm)
 ```
 
-Meaning:
+It means:
 
-> The minimum Euclidean edge-to-edge distance between the two oriented rectangular furniture footprints must be at least `minimumMm` canonical millimetres.
-
-Architecture:
+> The shortest Euclidean edge-to-edge distance between the two real oriented furniture footprints must be at least `minimumMm` canonical millimetres.
 
 ```text
-VlezetDocument + selected room/objects + PlanningConstraint[]
+VlezetDocument + room + selected furniture + constraints
         ↓
-shared fail-closed constraint validation
+bounded deterministic planning generation
         ↓
-@vlezet/planning bounded deterministic generation
+existing M2 fit/collision/door/clearance authority
         ↓
-existing M2 evaluateObjectFits() hard authority
+exact oriented-footprint gap authority
         ↓
-@vlezet/geometry exact oriented-footprint distance
+hard pair-min-gap rejection
         ↓
-pair-min-gap hard rejection
+existing M6.2 soft ranking
         ↓
-existing M6.2 deterministic soft ranking
+structured exact evidence
         ↓
-measured explanations
-        ↓
-ephemeral 2D ghost preview
+ephemeral 2D Preview + contextual witness overlay
         ↓ explicit Apply + current-document revalidation
 one semantic planning/apply-candidate Undo/Redo operation
 ```
 
 Non-negotiable boundaries:
 
-- `VlezetDocument` remains the only persistent apartment/layout authority;
-- millimetres remain canonical; no Canvas/DOM/Three.js measurement authority;
-- M2 containment/collision/door/clearance remains authoritative and unchanged;
+- `VlezetDocument` remains the only persistent layout authority;
+- millimetres remain canonical;
+- Canvas, DOM and Three.js are never measurement authorities;
+- M2 remains authoritative for containment, collisions, doors and clearances;
 - exact hard constraints cannot be rescued by soft scoring;
-- exact constraints/candidates/preview remain ephemeral;
-- Apply recomputes validity against the current document before mutation;
-- Apply changes ordinary selected-object transforms only and remains one semantic history step;
-- no wall-gap rule, generic expression language, LLM dependency, whole-apartment orchestration, direct 3D editing or second persisted planning model in M6.3.
+- planning constraints, candidates, Preview, active pair and overlay remain ephemeral;
+- Apply revalidates against the current document before mutation;
+- one Apply remains one Undo/Redo operation;
+- no wall-gap rule, generic expression engine, LLM dependency, whole-apartment orchestration, direct 3D editing or second persisted planning model is introduced.
 
-## Delivered exact geometry primitive
+## Exact geometry authority
 
-New framework-independent geometry API:
+Framework-independent APIs:
 
 ```ts
-minimumDistanceBetweenOrientedRectangles(first, second): number
+minimumGapWitnessBetweenOrientedRectangles(first, second)
+minimumDistanceBetweenOrientedRectangles(first, second)
+```
+
+Witness result:
+
+```ts
+{
+  distanceMm: number,
+  firstPoint: Point2 | null,
+  secondPoint: Point2 | null,
+  relation: "separated" | "touching" | "overlapping",
+}
 ```
 
 Semantics:
 
-- disjoint oriented rectangles → exact shortest Euclidean boundary distance in millimetres;
-- touching → `0`;
-- overlapping → `0`;
-- symmetric A/B result;
-- rotation is measured exactly through oriented footprints, not AABBs;
-- existing `GEOMETRY_EPSILON_MM` is used only for floating-point zero normalization.
+- separated footprints return the exact shortest contour points and distance;
+- touching returns `0` plus one deterministic coincident contact witness;
+- overlap returns `0` and nullable witnesses because no unique shortest segment exists;
+- reversing rectangle order preserves distance and swaps witness ownership;
+- rotation is measured through oriented footprints, not axis-aligned bounds;
+- deterministic ties use a stable lexicographic point order;
+- values within `GEOMETRY_EPSILON_MM` normalize to zero;
+- the numeric distance API delegates to the witness API, preventing validator/visualization drift.
 
-Verified cases include:
+Verified geometry includes axis-aligned gaps, rotated known distances, edge contact, rotated corner-to-edge contact, overlap, symmetry and deterministic parallel-edge ties.
 
-- exact `1000 mm` axis-aligned gap;
-- axis-aligned touch;
-- rotated corner-to-edge point contact;
-- overlap;
-- known rotated `500 mm` separation;
-- symmetry.
-
-## Delivered `pair-min-gap` contract
+## `pair-min-gap` contract
 
 ```ts
 {
@@ -87,32 +91,39 @@ Verified cases include:
 }
 ```
 
-Validation/normalization:
+Validation and identity:
 
-- pair is unordered and normalized into stable lexical ID order;
-- exactly two distinct selected object IDs required;
+- pair IDs are unordered and normalized lexically;
+- exactly two distinct selected object IDs are required;
 - `minimumMm` must be finite and `>= 0`;
-- `0` is valid and distinct from no constraint;
-- negative, `NaN`, `Infinity`, `-Infinity` fail closed;
-- outside-selection references fail closed;
-- duplicate/conflicting exact rules for one unordered pair fail closed;
-- `pair-distance` soft near/far and `pair-min-gap` hard minimum may coexist on the same pair;
-- normalized `minimumMm` participates in deterministic intent/candidate identity;
-- changing constraint input order does not change stable identity;
-- changing `minimumMm` changes stable intent identity.
+- `0` is a real constraint and differs from no constraint;
+- negative, `NaN`, `Infinity`, self-pair, missing/outside references and duplicates fail closed;
+- qualitative `pair-distance` and exact `pair-min-gap` may coexist on the same pair;
+- normalized `minimumMm` participates in deterministic candidate identity;
+- input constraint order does not affect deterministic identity.
 
-## Hard evaluation and measured evidence
-
-Comparison boundary:
+Hard comparison:
 
 ```text
 actualGap + 1e-6 mm >= requiredMm  → satisfied
-actualGap + 1e-6 mm <  requiredMm  → hard-invalid
+actualGap + 1e-6 mm <  requiredMm  → rejected
 ```
 
-The epsilon absorbs floating-point noise only; it is not a user-visible relaxation.
+The epsilon only absorbs floating-point noise.
 
-Structured evidence:
+Verified boundary behavior:
+
+```text
+799 < 800  → rejected
+800 = 800  → accepted
+842 > 800  → accepted
+```
+
+An impossible minimum produces zero offered alternatives, never a violating result.
+
+## Structured evidence
+
+Planning candidate evaluation exposes:
 
 ```ts
 {
@@ -124,35 +135,80 @@ Structured evidence:
 }
 ```
 
-Deterministic display copy includes both values, for example:
+Exact evidence is no longer duplicated in generic reason strings. This provides one typed source for hard validity, panel cards and canvas annotation.
+
+Result cards render:
 
 ```text
-Диван ↔ Стол: требуется минимум 800 мм, фактически 842 мм.
+↔ Точное расстояние
+Диван — Стол
+Фактически: 842 мм
+Требуется: ≥ 800 мм
+По ближайшим точкам повёрнутых контуров
+[Показывается на плане | Показать на плане]
 ```
 
-Verified boundary behavior:
+All bounded exact evidence cards are rendered; no arbitrary reason-count cutoff can hide a later exact pair.
+
+## Planning input UX
+
+For every selected pair:
 
 ```text
-799 < 800  → rejected
-800 = 800  → accepted
-842 > 800  → accepted + measured evidence
+Предпочтение
+[ Не важно | Ближе друг к другу | Дальше друг от друга ]
+
+↔ Минимальный зазор по контурам
+[ 800 ] мм
 ```
 
-A soft `Ближе друг к другу` preference can coexist with an exact minimum, but it can never rescue a candidate below the hard minimum.
+Explicit helper copy:
 
-## Planner integration
+```text
+Кратчайшее расстояние между внешними контурами предметов с учётом поворота.
+Это не размер предмета и не расстояние между центрами.
+```
 
-Verified:
+Rules:
 
-- same document + same exact constraints → same ordered candidate IDs;
-- every returned exact-constrained alternative has `satisfied=true`;
-- impossible `minimumMm` produces zero offered alternatives rather than violating the rule;
-- M2 validity remains independently required before a candidate can be offered;
-- bounded generation and maximum-three displayed alternatives are unchanged from M6.1.
+- empty input = no exact rule;
+- `0` = a real zero-minimum rule;
+- decimal comma is supported;
+- invalid/negative/non-finite input blocks generation locally;
+- changing any input clears stale result, Preview, active pair and overlay;
+- qualitative near/far remains centre-based soft ranking;
+- exact contour gap remains hard validity;
+- no planning input is persisted.
+
+## Contextual 2D exact-gap visualization
+
+During a planning Preview, one active exact pair is visualized using a semantic language distinct from normal dimensions:
+
+- violet/purple rather than dimension blue or clearance amber;
+- dashed double-ended arrow between the authoritative nearest contour points;
+- endpoint markers on both real rotated footprints;
+- compact pill `↔ Зазор N мм`;
+- fixed screen-space strokes, markers and text across zoom levels;
+- clamped pill inside the visible stage;
+- zero-length contact marker instead of a degenerate line;
+- danger semantic if current Preview geometry is stale and below the minimum;
+- `listening={false}` throughout;
+- no additional physical Konva Layer.
+
+Visibility:
+
+- Preview + exact constraint + active pair only;
+- one exact pair auto-selects when Preview starts;
+- with several pairs, deterministic first pair auto-selects and result cards can switch it;
+- only one overlay is visible at a time;
+- closing planning, clearing Preview or changing input clears the active pair;
+- no overlay in normal editing, qualitative-only planning or 3D.
+
+The canvas receives a pure `ExactGapAnnotation` derived from the preview document. It does not implement or approximate closest-distance geometry itself.
 
 ## Apply-time revalidation
 
-Existing Apply architecture remains intentionally unchanged:
+Existing architecture remains unchanged:
 
 ```text
 applyPlanningCandidateToDocument()
@@ -161,73 +217,57 @@ evaluatePlanningCandidate(currentDocument, candidate)
         ↓
 M2 + exact constraint revalidation
         ↓ valid only
-ordinary document transform update
+ordinary selected-object transform update
 ```
 
-Regression coverage proves:
+Verified:
 
-- a candidate valid against the original object dimensions can become invalid after current furniture dimensions change;
-- exact gap is recomputed using current dimensions plus candidate transforms;
-- stale exact candidate rejects with `candidate-invalid`;
-- source/current document is not partially mutated on failure;
-- malformed direct exact candidates (`NaN`, self-pair, missing/outside reference, duplicate exact identity) fail closed;
-- no duplicate spacing math was added to `apply.ts`;
-- one successful planning Apply remains one Undo/Redo operation through the existing semantic command.
+- object dimensions may change after generation and invalidate an old candidate;
+- exact gap is recomputed from current dimensions plus candidate transforms;
+- stale exact candidate fails atomically with no partial mutation;
+- malformed direct candidates fail closed;
+- no spacing math exists in `apply.ts`;
+- successful Apply remains one semantic history entry.
 
-## UX delivered
+## Reported inspector viewport regression
 
-The existing planning panel is extended rather than creating another planning mode.
+Browser acceptance identified that selecting furniture could push the right inspector outside the viewport because toolbar min-content widened the root Grid.
 
-For each selected pair:
+Fix retained in this PR:
 
-```text
-Диван ↔ Стол
-
-Предпочтение
-[ Не важно | Ближе друг к другу | Дальше друг от друга ]
-
-Минимальный проход между предметами
-[ 800 ] мм
+```css
+.editor-app { grid-template-columns: minmax(0, 1fr); }
 ```
 
-Rules:
+Optional toolbar status/shortcut copy is hidden before common desktop overflow. The stylesheet remains imported after base globals, and the regression has automated coverage.
 
-- empty input = no exact rule;
-- `0` = a real zero-minimum rule;
-- decimal comma is explicitly supported (`800,5 → 800.5`);
-- invalid/negative/non-finite text blocks generation with local validation;
-- exact gap and qualitative near/far may be used together;
-- helper copy explicitly distinguishes centre-based soft ranking from nearest-edge hard minimum;
-- changing exact input clears stale result and ghost preview before regeneration;
-- result summary explicitly acknowledges when hard constraints are satisfied instead of claiming there are no mandatory constraints;
-- every deterministic result reason is rendered, so later exact `required / actual` evidence cannot be hidden by an arbitrary reason-count cutoff;
-- result explanations show required and actual edge-to-edge millimetres;
-- no exact planning input is persisted to project storage.
+## TDD evidence
 
-## TDD / RC evidence
+Observed RED→GREEN cycles include:
 
-Observed RED→GREEN work:
+1. missing exact numeric geometry primitive;
+2. missing `pair-min-gap` contract and exact `799/800/842` boundary;
+3. stale Apply/direct-candidate revalidation;
+4. missing exact UI parser/controls/copy;
+5. misleading hard-constraint summary;
+6. reason cutoff hiding later exact evidence;
+7. inspector viewport overflow;
+8. missing authoritative closest-point witness API;
+9. missing structured evidence on candidate evaluation;
+10. missing active exact-pair ephemeral state;
+11. missing pure preview annotation view-model;
+12. missing structured exact result cards;
+13. missing non-interactive canvas overlay and layer-budget integration.
 
-1. exact geometry tests → RED `ERR_MODULE_NOT_FOUND` while existing geometry tests stayed green;
-2. exact oriented-rectangle distance primitive → GREEN full strict gate;
-3. `pair-min-gap` contract/identity tests → RED `Unsupported planning constraint` while existing planning tests stayed green;
-4. exact `799/800/842` evaluation/evidence tests added before production evaluation support;
-5. shared contract normalization + exact hard evaluator → GREEN full strict gate;
-6. stale Apply/direct-candidate revalidation regressions → GREEN without changing `apply.ts`;
-7. exact UI parser/builder/view tests → isolated RED: missing parser, missing exact constraint, missing controls/copy;
-8. raw-input parser + exact pair UI + stale clearing → GREEN full strict gate;
-9. planner-level deterministic/impossible-minimum regressions → GREEN;
-10. rotated corner-to-edge touch self-review regression → GREEN with no production fix required, confirming the primitive already returned exact zero;
-11. final diff-review found exact-only hard candidates could still display the legacy summary `Без обязательных коллизий и ограничений` → dedicated RED → summary now explicitly says mandatory constraints are satisfied;
-12. final diff-review found `.slice(0, 8)` could hide later exact `required / actual` evidence when several pair rules coexist → dedicated RED → arbitrary reason truncation removed so every bounded deterministic evidence line is rendered.
+Every production layer was introduced only after the corresponding failing contract.
 
 ## Automated verification
 
-Final implementation code head before this documentation commit:
+Latest exact code head before this acceptance-record update:
 
 ```text
-d6bf8ca11ccdf4b166059a871d98be0c2bdebd33
-GitHub Actions 30001573564 — PASS
+a2bae8b97c82cf3509ca3542139566a4993d18b3
+GitHub Actions 30542352257 — PASS
 ```
 
 Passed on that exact code head:
@@ -238,80 +278,77 @@ Passed on that exact code head:
 - [x] ESLint
 - [x] production Next build
 
-The final exact PR head after this documentation update must also PASS the same strict CI before browser acceptance/merge.
+The final documentation head must also pass the same strict gate before browser acceptance.
 
 ## Architecture self-review
 
-Changed-file review confirms:
-
 - [x] no `VlezetDocument` schema/migration changes;
-- [x] no IndexedDB/project-backup/autosave planning persistence;
-- [x] no Three.js/Canvas/DOM measurement authority;
-- [x] exact distance primitive lives in framework-independent `@vlezet/geometry`;
+- [x] no IndexedDB/autosave/project-backup planning persistence;
+- [x] no Three.js/Canvas/DOM geometry authority;
+- [x] exact geometry remains framework-independent;
+- [x] numeric distance delegates to witness calculation;
 - [x] no duplicate M2 collision/door/containment engine;
-- [x] `pair-min-gap` is hard validity, not an opaque score;
-- [x] M6.2 soft ranking order remains unchanged for hard-valid candidates;
-- [x] normalized `minimumMm` participates in stable candidate identity;
-- [x] no random candidate ordering/sampling introduced;
-- [x] preview remains the existing ephemeral planning UI state;
-- [x] Apply remains the existing single semantic history operation;
-- [x] result summaries and evidence remain deterministic and do not hide exact hard-rule proof;
+- [x] exact evidence is typed and not duplicated in generic reasons;
+- [x] active pair and annotation are UI-only;
+- [x] only one exact overlay is rendered;
+- [x] no sixth Konva Layer;
+- [x] Apply/history code paths remain unchanged;
+- [x] inspector viewport fix remains imported;
 - [x] no network/LLM dependency for correctness.
 
-## Real-browser acceptance — required before merge
+## Representative real-browser acceptance — required before merge
 
-Use the representative apartment and a rectangular room with at least two movable furniture objects.
+Use the same apartment, viewport and browser scale that exposed the inspector regression.
 
-### Baseline regression
+### Inspector and baseline
 
-- [ ] Open room → `Варианты расстановки`.
-- [ ] Select 2–3 objects and leave exact minimum inputs empty.
-- [ ] Confirm ordinary M6.1/M6.2 generation, constraints, preview and Apply still behave normally.
+- [ ] Select furniture and confirm the complete right inspector remains visible.
+- [ ] Leave exact inputs empty and confirm ordinary M6.1/M6.2 generation, Preview and Apply still work.
 
-### Exact minimum gap
+### Exact input and evidence
 
-- [ ] Select two movable objects.
-- [ ] Enter a feasible exact minimum, preferably `800` mm, for that pair.
+- [ ] Select two movable objects and enter a feasible minimum, preferably `800` mm.
+- [ ] Confirm the input is labelled `↔ Минимальный зазор по контурам`.
+- [ ] Confirm helper copy explicitly says this is not an object size or centre distance.
 - [ ] Generate alternatives.
-- [ ] Confirm result summary says mandatory constraints are satisfied rather than saying there are no mandatory constraints.
-- [ ] Confirm result explanation explicitly says `требуется минимум 800 мм` and shows `фактически ... мм`.
-- [ ] Preview alternatives and confirm furniture visibly respects the minimum nearest-edge space.
-- [ ] Confirm no offered alternative visibly violates the requested hard minimum.
+- [ ] Confirm result cards separately show `Фактически`, `Требуется` and contour semantics.
+- [ ] Confirm no generic bullet duplicates the exact `required / actual` sentence.
 
-### Combined exact + qualitative intent
+### Canvas witness
 
-- [ ] For the same pair choose `Ближе друг к другу` and keep exact `800 мм`.
-- [ ] Regenerate.
-- [ ] Confirm alternatives try to move the pair closer when candidate space permits but never cross below the exact minimum.
-- [ ] Confirm helper text makes it clear that `Ближе/дальше` uses centres while minimum passage uses nearest furniture edges.
+- [ ] Preview an exact-constrained candidate.
+- [ ] Confirm one violet dashed double-arrow connects the visually nearest points of the two furniture contours.
+- [ ] Confirm the pill says `↔ Зазор N мм`, not only `N мм`.
+- [ ] Confirm ordinary blue width/depth dimensions remain visually distinct.
+- [ ] Rotate one object in a generated alternative and confirm witness endpoints follow the real rotated contours.
+- [ ] Confirm a `0` contact uses a contact marker and `↔ Зазор 0 мм`.
 
-### Input/stale behavior
+### Multiple pairs and stale behavior
 
-- [ ] Change the exact value (for example `800 → 1000`) and confirm old result/ghost preview clears immediately.
-- [ ] Enter an impossible/high minimum and confirm no violating alternative is offered; a controlled no-result state is shown.
-- [ ] Enter negative/invalid text and confirm generation is disabled with explicit local validation.
-- [ ] Clear the input completely and confirm the exact rule is removed.
-- [ ] Enter `0` and confirm it is treated as a real valid zero-minimum value, not as empty.
+- [ ] Configure several exact pairs and use `Показать на плане`.
+- [ ] Confirm only one exact overlay is visible at a time.
+- [ ] Confirm the active card says `Показывается на плане`.
+- [ ] Change an exact input and confirm old result, Preview and overlay clear together.
+- [ ] Enter an impossible minimum and confirm no violating alternative is offered.
+- [ ] Enter invalid/negative input and confirm generation is disabled.
 
-### Apply / integration
+### Apply and persistence
 
-- [ ] Apply a valid exact-constrained alternative.
-- [ ] Confirm ordinary 2D furniture matches the chosen preview.
-- [ ] Switch to 3D and confirm M5.2 projects the applied ordinary document positions.
-- [ ] Use M5.4 inspection and confirm dimensions/fit remain correct.
-- [ ] Undo exactly once and confirm all candidate transforms restore together.
-- [ ] Redo exactly once and confirm all candidate transforms return together.
-- [ ] Reload project and confirm only explicitly applied ordinary transforms persist; exact planning inputs themselves are not persisted.
-- [ ] Confirm manual furniture editing still works afterward.
-- [ ] Confirm no M2 fit, M5 spatial/inspection, M6.1 or M6.2 regression.
+- [ ] Confirm Preview/overlay creates no Undo step or save operation.
+- [ ] Apply a valid alternative and confirm ordinary 2D furniture matches Preview.
+- [ ] Switch to 3D and confirm the applied ordinary document positions.
+- [ ] Undo once and confirm the full candidate restores together.
+- [ ] Redo once and confirm the full candidate returns.
+- [ ] Reload and confirm only explicitly applied transforms persist; exact planning state does not.
+- [ ] Confirm no M2, M5, M6.1 or M6.2 regression.
 
 ## Merge gate
 
 Do not mark M6.3 DONE or merge PR #15 until:
 
 1. final exact PR head strict CI is PASS;
-2. representative browser checklist above is accepted;
-3. any browser-discovered regression receives a fix and new exact-head PASS.
+2. representative browser checklist is explicitly accepted;
+3. any browser-discovered regression is fixed with a new exact-head PASS.
 
 After explicit browser acceptance:
 
@@ -319,6 +356,8 @@ After explicit browser acceptance:
 mark PR #15 Ready
 → verify exact head + strict CI PASS
 → squash merge
-→ update this acceptance record with accepted head/run/merge
-→ update PROJECT_STATE.md / ROADMAP.md / CHANGELOG.md in a separate canonical docs PR
+→ open a separate canonical docs PR
+→ update PROJECT_STATE.md / ROADMAP.md / CHANGELOG.md / acceptance with merge SHA
+→ verify docs PR exact-head CI
+→ squash merge docs PR
 ```
