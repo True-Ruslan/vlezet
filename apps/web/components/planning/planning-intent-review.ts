@@ -161,14 +161,15 @@ export function planningControlStateFromIntentReview(
   draft: PlanningIntentReviewDraft,
   roomObjects: readonly PlanningObjectReferenceTarget[],
 ): PlanningIntentControlState {
-  if (draft.unsupportedFragments.some((fragment) => !fragment.acknowledged)) {
-    throw new Error("Acknowledge every unsupported planning intent fragment before transfer.");
-  }
   const resolvedDraft: ResolvedPlanningIntentDraft = {
     clauses: draft.clauses.map(resolvedClause),
     unsupportedFragments: [],
     warnings: draft.warnings,
   };
+  if (draft.unsupportedFragments.some((fragment) => !fragment.acknowledged)) {
+    throw new Error("Acknowledge every unsupported planning intent fragment before transfer.");
+  }
+
   const roomIds = new Set(roomObjects.map((object) => object.id));
   for (const clause of resolvedDraft.clauses) {
     const ids = clause.kind === "pair-distance" || clause.kind === "pair-min-gap"
