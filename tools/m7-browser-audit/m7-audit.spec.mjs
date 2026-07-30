@@ -159,7 +159,7 @@ test.describe.serial("M7 representative browser audit", () => {
       bottomRight: { x: 610, y: 500 },
       bottomLeft: { x: 170, y: 500 },
       centre: { x: 390, y: 325 },
-      roomSelection: { x: 265, y: 300 },
+      roomSelection: { x: 215, y: 445 },
     };
     await clickCanvasPoint(page, canvas, points.topLeft);
     await clickCanvasPoint(page, canvas, points.topRight);
