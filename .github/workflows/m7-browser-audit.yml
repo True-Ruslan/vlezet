@@ -19,7 +19,7 @@ permissions:
 jobs:
   browser-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -43,9 +43,9 @@ jobs:
         working-directory: tools/m7-browser-audit
         run: npm install --no-package-lock --no-audit --no-fund
 
-      - name: Install Chromium
+      - name: Install Chromium and WebKit
         working-directory: tools/m7-browser-audit
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Start Vlezet
         shell: bash
@@ -62,11 +62,17 @@ jobs:
           cat /tmp/vlezet-dev.log
           exit 1
 
-      - name: Run M7 browser audit
+      - name: Run Chromium M7 browser audit
         working-directory: tools/m7-browser-audit
         env:
           M7_BASE_URL: http://127.0.0.1:3000
         run: npm run audit
+
+      - name: Run WebKit core smoke
+        working-directory: tools/m7-browser-audit
+        env:
+          M7_BASE_URL: http://127.0.0.1:3000
+        run: npm run audit:webkit
 
       - name: Upload browser evidence
         if: always()
@@ -76,6 +82,7 @@ jobs:
           path: |
             tools/m7-browser-audit/artifacts
             tools/m7-browser-audit/test-results
+            tools/m7-browser-audit/webkit-test-results
             /tmp/vlezet-dev.log
           if-no-files-found: warn
           retention-days: 14
