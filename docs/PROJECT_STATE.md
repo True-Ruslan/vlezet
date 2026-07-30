@@ -1,9 +1,8 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-07-30  
-**Status:** M0–M6.4 are merged and accepted in `main`. M6.4 Reviewed Natural-Language Intent passed representative browser acceptance, strict exact-head CI and was squash-merged through PR #17. The next product slice is intentionally not preselected; it must be chosen from actual usage evidence. M5.3 remains evidence-driven camera/navigation/performance polish rather than a blocking milestone.
-
-> Read this file first in a new chat. It is the canonical short-form state of the product, architecture, accepted milestones, known limits and next decision point.
+**Status:** M0–M6.4 are merged and accepted in `main`. M7.0 Product and UX Audit is accepted in PR #19 after source review, Chromium full-flow, WebKit core smoke and strict CI. The only selected next implementation slice is M7.1 Editor Shell and Responsive Context.  
+**Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, `docs/product/UX_BROWSER_EVIDENCE.md` and the relevant milestone checklist.
 
 ## 1. Product
 
@@ -13,43 +12,43 @@ Core promise:
 
 > Draw or import a real apartment, work with understandable real dimensions, place furniture and appliances, and understand what fits, collides and remains usable — without learning professional CAD.
 
-Product priorities:
+Priorities:
 
-- precision before decoration;
-- structured editable geometry rather than image-only plans;
-- millimetres as the canonical world unit;
-- local-first core editing;
-- understandable semantics for ordinary users;
-- AI/CV only as editable assistance;
-- 3D as a projection of the same trusted document;
-- planning as deterministic, explainable assistance with explicit Apply.
+1. precision and trust before decoration;
+2. structured editable geometry rather than image-only plans;
+3. millimetres as the canonical world unit;
+4. local-first core editing;
+5. understandable semantics for ordinary users;
+6. AI/CV only as reviewable assistance;
+7. 3D as a projection of the same document;
+8. planning as deterministic, explainable assistance with explicit Apply;
+9. reachability, hierarchy and accessibility before further feature expansion.
 
 ## 2. Non-negotiable architecture
 
 1. TypeScript is the primary language.
 2. Millimetres are the canonical world unit.
 3. Canvas/WebGL pixels are never persisted as apartment geometry.
-4. `domain`, `geometry`, `editor-core`, `projects`, `recognition`, `spatial` and `planning` remain framework-independent where applicable.
-5. Konva and Three.js are projections, never geometry authority.
-6. Rooms, areas, dimensions, floors and 3D meshes are derived from structured geometry.
-7. `VlezetDocument` is the only persistent apartment/layout source of truth.
+4. `VlezetDocument` is the only persistent apartment/layout source of truth.
+5. `domain`, `geometry`, `editor-core`, `projects`, `recognition`, `spatial` and `planning` remain framework-independent where applicable.
+6. Konva and Three.js are projections, never geometry authority.
+7. Rooms, areas, dimensions, floors and 3D meshes are derived from structured geometry.
 8. Project formats are schema-versioned and migrated deterministically.
 9. Undo/Redo is semantic-command oriented.
 10. Local editing must not depend on network latency.
 11. AI/CV may create only editable suggestions; deterministic validation remains authoritative.
 12. Existing user geometry is never silently replaced.
 13. Ambiguous semantics fail closed or require explicit user intent.
-14. 3D never introduces parallel editor state or mesh-based fit authority.
-15. 3D hover/select/inspection is ephemeral and read-only.
-16. Planning candidates, constraints, Preview, active evidence and overlays are ephemeral.
-17. Only explicit Apply may mutate ordinary document entities.
-18. M2 geometry/fit rules remain authoritative for containment, collisions, doors and clearances.
-19. Hard planning constraints reject before scoring; soft preferences only influence deterministic ranking.
-20. Request generation and candidate/Apply boundaries share fail-closed constraint validation.
-21. Exact numeric validation and its visualization use the same geometry authority.
-22. Optional AI/LLM interpretation cannot bypass structured validation, generate authoritative coordinates or mutate the document directly.
-23. Natural-language interpretation produces a reviewable symbolic draft; ordinary structured controls remain the final user-visible intent before generation.
-24. Provider keys, raw responses and language drafts are runtime-only and never become project state.
+14. 3D is read-only and never introduces parallel editor or fit state.
+15. Planning candidates, constraints, Preview, evidence and overlays are ephemeral.
+16. Only explicit Apply may mutate ordinary document entities.
+17. M2 geometry/fit rules remain authoritative for containment, collisions, doors and clearances.
+18. Hard planning constraints reject before scoring; soft preferences only influence deterministic ranking.
+19. Exact numeric validation and its visualization share one geometry authority.
+20. Optional LLM interpretation cannot generate authoritative coordinates, bypass validation or mutate the document.
+21. Natural-language interpretation produces a reviewable symbolic draft and transfers into ordinary controls.
+22. Provider keys, raw responses and language drafts are runtime-only.
+23. M7 redesign work may change composition and presentation, but not these product-authority boundaries.
 
 ## 3. Repository and stack
 
@@ -60,7 +59,7 @@ apps/web                 Next.js 16 + React + TypeScript
 packages/domain          persistent model and migrations
 packages/geometry        framework-independent geometry/math
 packages/editor-core     semantic editing/history/snapping
-packages/projects        local-first persistence abstraction
+packages/projects        local-first persistence
 packages/recognition     assisted-recognition model/CV/reconciliation
 packages/spatial         renderer-neutral deterministic 3D projection
 packages/planning        deterministic planning + reviewed intent contracts
@@ -74,316 +73,243 @@ Rendering:
 State: Zustand plus local React state for ephemeral workflows.  
 Persistence: IndexedDB through repository adapters.  
 Workspace: pnpm + Turborepo.  
-CI: public repository using standard GitHub-hosted Actions.
+CI: GitHub-hosted Actions in a public repository.
 
-## 4. Accepted milestones in `main`
+## 4. Accepted milestones
 
-| Milestone | Result | Merge |
+| Milestone | Result | Merge / status |
 |---|---|---|
-| M0 Foundation + Infinite Canvas | monorepo, mm canvas, pan/zoom/grid, wall drawing, snapping, semantic history | `099a202413459674d2b50c33d2c1fa125a0fef6f` |
-| M1 Apartment Shell | topological walls, junctions, thickness, rooms/areas, openings, diagnostics | `3944c7f9d668a645e1dc05805f476d2f3290eb94` |
-| M2 Furnishing + Fit | placed objects, dimensions/transforms, containment/collision/door/clearance authority | `aa34f24572f2e67714604634587a1c41e4067cd8` |
-| M3 Local-First Projects | dashboard, IndexedDB, autosave, backup/import, PNG export | `6c32249acc8e333e62fceee2ea4e76ca83890c77` |
-| M4 Reference Import | JPG/PNG/PDF, calibration, alignment, tracing, local assets, portable backup | `12e9696e11572ad5ec055f3dfad98ad7826184e2` |
-| M4.5 Assisted Recognition | editable assisted MVP; noisy accuracy remains backlog | `b63bdd613db4e13c07d2a961981799bd360f256d` |
-| M4.6 Precision Geometry UX | clear-size semantics, area consistency, dimensions and tape tool | `a718bf605d8b3bde8dc87953c340b7b0e9565fdb` |
-| M5.1 Spatial 3D Shell | deterministic shell/viewer, camera controls, safe mode switching | `4acca82b04c87b3737eb87a03f9ee2ff360b5073` |
-| M5.2 Furniture in 3D | ordinary placed objects projected into `SpatialScene.objects` | `7f7e8dfd9c875145bfa3d307638cd8cd27051a3a` |
-| M5.4 Spatial Inspection | semantic hover/select and read-only room/wall/object inspector | `0bffe36d74d2ff0865d700b51b17ee08e7001094` |
-| M6.1 Layout Alternatives | bounded deterministic alternatives, non-mutating Preview, atomic Apply | `f2bbf1c4989ef4582ee86aba19c75a71679034be` |
-| M6.2 Constraint-Aware Planning | lock, wall/corner and pair near/far structured intent | `db68d697540ddb9901fbddad0763d769e7d16851` |
-| M6.3 Exact Spatial Constraints | exact pair gap, structured evidence and nearest-contour overlay | `724058fe57d769e7c1329f3536d6869405e6ac42` |
-| M6.4 Reviewed Natural-Language Intent | optional language interpreter, explicit review, fail-closed resolution and transfer into existing controls | `02f8b041341c86f0796011b0d2fd42cac56a4e02` |
+| M0 Foundation + Infinite Canvas | monorepo, mm canvas, walls, snapping, semantic history | `099a202413459674d2b50c33d2c1fa125a0fef6f` |
+| M1 Apartment Shell | topology, thickness, rooms/areas, openings, diagnostics | `3944c7f9d668a645e1dc05805f476d2f3290eb94` |
+| M2 Furnishing + Fit | objects, transforms, containment/collision/door/clearance authority | `aa34f24572f2e67714604634587a1c41e4067cd8` |
+| M3 Local-First Projects | dashboard, IndexedDB, autosave, backup/import, PNG | `6c32249acc8e333e62fceee2ea4e76ca83890c77` |
+| M4 Reference Import | JPG/PNG/PDF, calibration, tracing, local assets | `12e9696e11572ad5ec055f3dfad98ad7826184e2` |
+| M4.5 Assisted Recognition | editable assisted MVP; accuracy remains evidence backlog | `b63bdd613db4e13c07d2a961981799bd360f256d` |
+| M4.6 Precision Geometry UX | clear dimensions, area consistency, annotations, tape | `a718bf605d8b3bde8dc87953c340b7b0e9565fdb` |
+| M5.1 Spatial 3D Shell | deterministic read-only 3D viewer and camera foundation | `4acca82b04c87b3737eb87a03f9ee2ff360b5073` |
+| M5.2 Furniture in 3D | document furniture projected into spatial scene | `7f7e8dfd9c875145bfa3d307638cd8cd27051a3a` |
+| M5.4 Spatial Inspection | semantic hover/select and read-only inspection | `0bffe36d74d2ff0865d700b51b17ee08e7001094` |
+| M6.1 Layout Alternatives | bounded alternatives, Preview, atomic Apply | `f2bbf1c4989ef4582ee86aba19c75a71679034be` |
+| M6.2 Constraint-Aware Planning | lock, boundary and pair preferences | `db68d697540ddb9901fbddad0763d769e7d16851` |
+| M6.3 Exact Spatial Constraints | exact pair gap, evidence and nearest-contour overlay | `724058fe57d769e7c1329f3536d6869405e6ac42` |
+| M6.4 Reviewed Natural-Language Intent | reviewable text interpretation and explicit transfer | `02f8b041341c86f0796011b0d2fd42cac56a4e02` |
+| M7.0 Product and UX Audit | complete UX foundation, 39 findings and browser harness | ACCEPTED in PR #19; integration pending |
 
-### M4.6 accepted regression
+Accepted geometry regression:
 
 ```text
 clear room: 3550 × 3300 mm
 area:       11.72 m²
 ```
 
-### M6.3 accepted evidence
-
-```text
-final head: f3f093df2cc6dba2aa0f6590b2c0250287f7c6b8
-CI:         30542599616 — PASS
-merge:      724058fe57d769e7c1329f3536d6869405e6ac42
-```
-
-Product-owner confirmation:
-
-> «Все работает супер идеально, ты гений величайший.»
-
-Checklist: `docs/milestones/m6-3-acceptance.md`.
-
-### M6.4 accepted evidence
-
-```text
-final head: d8c35d88ad8e48dc53a156c08bfae60d0530e26f
-CI:         30553594794 — PASS
-merge:      02f8b041341c86f0796011b0d2fd42cac56a4e02
-PR:         #17
-```
-
-Product-owner confirmation:
-
-> «Работает все четко и ровно так, как ты описал.»
-
-Checklist: `docs/milestones/m6-4-acceptance.md`.
-
-## 5. Current accepted product capability
+## 5. Current product capability
 
 ### Trusted apartment editing
 
-- real millimetre world coordinates;
-- structured walls, vertices, junctions and openings;
+- structured topological walls, vertices, junctions and openings;
 - deterministic rooms, usable area and clear dimensions;
-- furniture/appliances with exact dimensions, rotation and clearances;
+- furniture/appliances with exact dimensions, rotation and directional clearances;
 - explainable fit/collision/door/clearance diagnostics;
 - semantic Undo/Redo;
-- local-first projects, autosave, backup and export.
+- local projects, autosave, editable backup and PNG export.
 
 ### Reference and recognition
 
-- local image/PDF reference import and calibration;
+- local JPG/PNG/PDF reference import and calibration;
 - tracing against the reference;
-- assisted recognition with editable candidates and explicit Apply;
+- editable assisted-recognition candidates with explicit Apply;
 - recognition remains experimental and never silently replaces geometry.
 
 ### Spatial 3D
 
 - deterministic projection of shell and furniture;
 - safe 2D↔3D switching;
-- semantic read-only inspection of rooms, walls and objects;
-- no direct 3D editing or mesh-based product authority.
+- semantic read-only inspection;
+- no direct 3D editing or mesh authority.
 
 ### Intelligent planning through M6.4
 
-- one deterministic axis-aligned rectangular room;
-- rearrangement of 1–3 existing selected objects;
-- non-selected furniture remains fixed obstacles;
+- one axis-aligned rectangular room;
+- 1–3 selected existing objects;
+- fixed non-selected obstacles;
 - bounded deterministic candidate generation;
 - maximum three ranked alternatives;
 - M2-authoritative hard validation;
-- structured hard/soft intent:
-  - `lock-object`;
-  - `prefer-room-boundary` wall/corner;
-  - `pair-distance` near/far;
-  - `pair-min-gap` exact millimetres;
-- exact nearest-contour evidence for rotated furniture;
-- contextual non-interactive 2D witness overlay;
-- optional natural-language interpretation into symbolic clauses;
-- exact object-name match followed by unique contiguous token matching;
-- no fuzzy object guessing;
-- explicit resolution of ambiguous or unresolved references;
-- visible acknowledgement for unsupported fragments;
-- explicit mm/cm/m conversion into canonical millimetres;
-- explicit transfer into the existing manual controls;
-- no automatic candidate generation after interpretation;
-- non-mutating Preview;
-- explicit current-document-revalidated Apply;
+- hard `lock-object` and `pair-min-gap`;
+- soft wall/corner and pair near/far preferences;
+- exact nearest-contour evidence;
+- optional natural-language interpretation;
+- exact/unique object-name resolution without fuzzy guessing;
+- explicit ambiguity and unsupported-fragment review;
+- explicit transfer into ordinary controls;
+- no automatic generation after interpretation;
+- non-mutating Preview and explicit revalidated Apply;
 - one multi-object Apply = one Undo/Redo step.
 
-## 6. M6.4 accepted product and architecture details
+## 6. M7.0 accepted audit foundation
 
-### Product position
+M7.0 intentionally changed no product behaviour. It established the evidence and interaction foundation for an evolutionary redesign.
 
-M6.4 is an optional translation/review layer over M6.2–M6.3. It is not autonomous design and does not introduce another planner, layout model or source of geometry truth.
-
-```text
-ordinary-language request
-        ↓ optional OpenRouter structured-output interpreter
-symbolic clauses + unsupported fragments
-        ↓ deterministic local object resolution
-reviewable draft + explicit ambiguity choices
-        ↓ explicit acknowledgement and transfer
-existing manual structured controls
-        ↓ explicit Find alternatives
-existing deterministic planner / Preview / Apply
-```
-
-### Framework-independent contract
-
-- symbolic intent clause types in `@vlezet/planning`;
-- strict interpreter-payload normalization;
-- canonical mm/cm/m conversion to millimetres;
-- Unicode/case/punctuation/whitespace/`ё→е` reference normalization;
-- exact object-name match, then unique contiguous token-sequence match;
-- no fuzzy guessing;
-- stable ambiguous candidate lists;
-- resolved draft conversion through existing `validatePlanningConstraintSet()`;
-- fail-closed object limit, conflicts and all-locked handling.
-
-### Optional provider boundary
-
-- text-only OpenRouter structured-output request;
-- compatible text-model discovery;
-- runtime-only BYOK;
-- categorized provider errors;
-- malformed clauses surface as unsupported fragments rather than silently changing meaning;
-- no image, coordinate, position, rotation, placement or geometry payload;
-- no direct planner call or document mutation;
-- provider failure leaves ordinary manual planning available.
-
-### Review and transfer UX
-
-- natural-language input above ordinary manual constraints;
-- review cards preserving source fragments;
-- explicit selects for ambiguous/unresolved references;
-- unsupported-fragment acknowledgement gate;
-- clause removal;
-- normalized exact-gap values shown in millimetres;
-- explicit `Перенести в ограничения` action;
-- exact transfer into existing selected/lock/boundary/pair/gap controls;
-- no automatic generation after transfer;
-- transfer/manual edits clear stale result, Preview and active exact-gap annotation;
-- narrow-inspector selected-object controls and pair cards have explicit spacing and wrapping.
-
-### Browser acceptance
-
-Representative room contained `Диван`, `Стул`, `Рабочий стол` and `Обеденный стол`.
-
-The supplied screenshots and user report confirmed:
-
-- `Диван` resolved and received `Не двигать`;
-- `кресло` was not fuzzy-guessed as `Стул` and required explicit selection;
-- `стол` remained ambiguous between two tables;
-- the pair minimum gap normalized to `800 мм`;
-- window-relative language remained in `Не поддержано`;
-- explicit choices and acknowledgement enabled transfer;
-- transfer populated ordinary selected/lock/corner/gap controls;
-- no alternatives were generated before separate `Найти варианты`;
-- the workflow stayed inside the right inspector.
-
-The screenshots did not independently re-exercise every downstream M6.3 action. Preview, nearest-contour evidence, Apply, Undo/Redo and persistence authority remain accepted through unchanged paths, M6.3 browser evidence, scope inspection and the full regression suite.
-
-### Architecture preserved
-
-- no document schema or migration change;
-- no IndexedDB, project format, backup/import/export change;
-- no planner, evaluator, M2 fit or Apply/history authority change;
-- confirmed intent is validated by the existing constraint validator;
-- generation remains explicit;
-- Preview remains non-mutating;
-- Apply remains explicit and one-step undoable;
-- raw model/provider state is not persisted.
-
-### TDD and verification
-
-Primary RED/GREEN slices covered:
-
-1. pure intent contract;
-2. OpenRouter provider boundary;
-3. review and transfer model;
-4. review UI and planning-panel integration;
-5. browser-found narrow-inspector spacing regression.
-
-Final exact-head verification:
+Canonical documents:
 
 ```text
-d8c35d88ad8e48dc53a156c08bfae60d0530e26f
-GitHub Actions 30553594794 — PASS
+docs/product/PRODUCT_VISION.md
+docs/product/USER_JOURNEYS.md
+docs/product/UX_AUDIT.md
+docs/product/UX_BROWSER_EVIDENCE.md
+docs/product/INFORMATION_ARCHITECTURE.md
+docs/product/INTERACTION_MODEL.md
+docs/product/UX_ROADMAP.md
+docs/design/DESIGN_SYSTEM.md
+docs/design/COMPONENT_INVENTORY.md
+docs/design/CONTENT_AND_TERMINOLOGY.md
+docs/design/ACCESSIBILITY.md
+docs/milestones/m7-0-acceptance.md
 ```
 
-Passed frozen install, full unit suite, TypeScript, ESLint and production Next build.
+Combined finding count:
 
-## 7. Known limits and technical debt
+```text
+P0  0
+P1 10
+P2 23
+P3  6
+P4  0
+TOTAL 39
+```
+
+Highest-priority themes:
+
+1. global/project/tool/context actions need stable hierarchy;
+2. context inspector must remain reachable at reduced effective width;
+3. local-save status must be readable;
+4. essential meaning must not depend on 9–10 px text;
+5. hard rules, preferences, recommendations, Draft, Preview and Applied need shared visual semantics;
+6. pointer-first workflows need practical keyboard/focus alternatives;
+7. 3D entry must reveal the interior rather than an opaque exterior box.
+
+Target information architecture:
+
+```text
+global product layer
+        ↓
+tool/workflow layer
+        ↓
+context layer
+        ↓
+Canvas/spatial feedback layer
+```
+
+## 7. M7.0 browser evidence
+
+### Chromium full representative flow
+
+```text
+run:      30570626203 — PASS
+head:     e3602296cf4382b88443e67616a69978b3f3bab0
+artifact: 8770651801
+```
+
+### Final Chromium + WebKit pass
+
+```text
+run:      30571095361 — PASS
+head:     7278a278f1a33d99d383a54139a20be987417c85
+artifact: 8770860354
+digest:   sha256:1d4991a03f6e8b4d6388119dc296fe4f9cd311cbf2c3dbc6099b730630a3ec61
+```
+
+The automated flow covered dashboard, room creation, room/object inspectors, furniture, planning, reference panel, 3D and delete confirmation.
+
+Measured Chromium results:
+
+- toolbar overflow in 12 captured editor states;
+- document horizontal overflow in 12 states;
+- hidden context surface in 3 reduced-width states;
+- save status below 12 px in 13 states;
+- Canvas help below 12 px in 13 states.
+
+WebKit independently passed dashboard, room creation/editing, 3D transition and destructive dialog. This is an engine-level proxy, not a manual Safari claim. Native Safari is an explicit M7.1 gate.
+
+## 8. Known limitations
 
 ### Recognition
 
-- M4.5 remains an assisted MVP, not authoritative reconstruction;
-- quality varies by plan style and image quality;
-- future work needs representative fixtures and measurable metrics.
+- assisted MVP quality varies by drawing style and image quality;
+- future work needs representative fixtures and metrics;
+- no automatic authoritative reconstruction.
 
-### Precision geometry
+### Geometry
 
-Not yet generalized:
-
-- editable clear dimensions beyond simple deterministic rectangles;
-- arbitrary parametric or locked dimensions;
-- target-area solver;
-- permanent associative CAD dimensions;
-- advanced opening reference offsets;
-- structural/removability classification without authoritative building data.
+- clear dimension editing is intentionally limited to simple rectangular rooms;
+- no general parametric locks, target-area solver or associative CAD dimensions;
+- no structural wall classification.
 
 ### Planning
 
-Intentional limits:
+- one rectangular room and 1–3 selected existing objects;
+- no whole-apartment autonomous design;
+- no exact furniture-to-wall/window rule yet;
+- language interpretation supports only accepted M6.2–M6.3 vocabulary.
 
-- one supported deterministic rectangular room;
-- only 1–3 existing selected objects;
-- exact numeric rule currently covers furniture-to-furniture minimum contour gap only;
-- no exact furniture-to-wall rule;
-- language vocabulary is deliberately limited to existing M6.2–M6.3 concepts;
-- window/door/named-wall language remains unsupported rather than guessed;
-- no whole-apartment orchestration;
-- no autonomous geometry creation;
-- no opaque AI scoring;
-- no persistent planning session or second layout model;
-- no mandatory network dependency.
+### 3D
 
-### Spatial 3D
+- schematic primitives rather than photorealism;
+- no direct editing;
+- default perspective can hide interior contents behind opaque exterior walls (`UX-3D-003`);
+- camera/accessibility/performance polish remains evidence-driven.
 
-- schematic shell/furniture visuals;
-- generic primitives rather than decorative assets;
-- no direct 3D editing or photorealism;
-- camera persistence/accessibility/unusual-plan framing remain evidence-driven polish;
-- batching/LOD only when representative projects prove a need.
+### UI/UX
 
-### Deferred infrastructure
+- toolbar clips at common desktop widths;
+- inspector disappears under the current 980 px breakpoint;
+- browser zoom can remove task controls;
+- important metadata uses microtext;
+- advanced panels are dense and inconsistent;
+- keyboard/focus coverage is incomplete for spatial workflows.
 
-- accounts/auth;
-- cloud sync/sharing/collaboration;
-- managed AI/backend billing;
-- mobile-first editor;
-- multi-floor;
-- curved walls;
-- DWG/DXF/BIM;
-- photorealism/VR.
+## 9. NOW — M7.1 Editor Shell and Responsive Context
 
-## 8. Immediate roadmap
+M7.1 is the only committed next implementation slice.
 
-```text
-M0–M4.6                         ✅ merged and accepted
-M5.1 spatial shell/viewer       ✅ merged and accepted
-M5.2 furniture in 3D            ✅ merged and accepted
-M5.4 spatial inspection         ✅ merged and accepted
-M6.1 layout alternatives        ✅ merged and accepted
-M6.2 constraint-aware planning  ✅ merged and accepted
-M6.3 exact spatial constraints  ✅ merged and accepted
-M6.4 reviewed language intent   ✅ merged and accepted
-        ↓
-evidence-driven next-slice review
-        ↓
-focused design/spec for one selected product problem
-```
+It owns:
 
-M5.3 is not a blocking standalone milestone. Its architectural foundation shipped in M5.1; remaining work is evidence-driven polish only.
+- `UX-SHELL-001` — command responsibilities compete and clip;
+- `UX-SHELL-002` — contextual controls disappear;
+- `UX-DATA-001` — save state is too subtle;
+- `UX-ACCESS-002` — zoom causes functional disappearance.
 
-No speculative M6.5 has been committed. Candidate directions must be compared against actual user evidence, product value, architectural risk and implementation cost before one is selected.
+Required outcomes:
 
-Potential directions, not commitments:
+- separate global product actions from tools and context;
+- preserve project identity, readable local-save status, active tool and Undo/Redo;
+- collapse secondary utilities into a labelled overflow rather than hiding them;
+- replace inspector `display:none` with a reachable panel/drawer model;
+- preserve Canvas useful area and semantic selection/workflow state;
+- pass 1920×1080, 1440×900, 1366×768 and 1280×800;
+- pass effective 125%, 150% and 200% zoom scenarios;
+- pass Chromium full-flow, WebKit smoke and native Safari core regression;
+- preserve all M0–M6.4 authority and behaviour.
 
-- broader structured planning vocabulary;
-- exact furniture-to-boundary rules;
-- additional deterministic room shapes;
-- recognition quality fixtures and metrics;
-- evidence-driven 3D camera/accessibility polish;
-- collaboration/infrastructure as a separate initiative.
+Non-goals:
 
-## 9. Current workflow
+- redesign every inspector in one PR;
+- change geometry, persistence or editor stores;
+- mobile-first editing;
+- new AI/planning vocabulary;
+- Canvas or 3D rewrite.
 
-```text
-M6.4 design/spec                     ✅
-implementation plan                  ✅
-RED/GREEN implementation slices      ✅
-representative browser acceptance    ✅
-responsive browser finding           ✅ fixed with regression coverage
-final feature-head CI                ✅ 30553594794
-PR #17 Ready for Review              ✅
-PR #17 squash merge                  ✅ 02f8b041...
-post-merge canonical docs            🚧 docs/m6-4-accepted
-next-slice evidence review            ⏳ after docs synchronization
-```
+## 10. Required development workflow
 
-Precision, recognition and M5 polish remain evidence-driven backlog. The next product cycle begins with prioritization, not automatic scope expansion.
+1. brainstorm the focused slice;
+2. write and approve design spec;
+3. write implementation plan;
+4. use TDD for behavioural/layout contracts;
+5. keep PR Draft during implementation;
+6. run full unit/type/lint/build CI;
+7. run representative browser evidence;
+8. obtain product-owner browser acceptance;
+9. mark Ready and squash-merge;
+10. update canonical state, roadmap, changelog and acceptance evidence.
+
+Never claim browser acceptance from unit tests alone. Never combine unrelated feature work with UX redesign merely because the same surface is touched.
