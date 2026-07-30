@@ -283,14 +283,8 @@ export function PlanningIntentSection({
   const [draft, setDraft] = useState<PlanningIntentReviewDraft | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
-  const roomSignature = roomObjects.map((object) => `${object.id}:${object.name}`).join("|");
 
   useEffect(() => () => activeRequest.current?.abort(), []);
-  useEffect(() => {
-    activeRequest.current?.abort();
-    setDraft(null);
-    setErrorMessage(null);
-  }, [roomSignature]);
 
   const canTransfer = useMemo(() => {
     if (!draft) return false;
