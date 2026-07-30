@@ -1,0 +1,89 @@
+name: M7 Browser Audit
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "tools/m7-browser-audit/**"
+      - ".github/workflows/m7-browser-audit.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Install product dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install browser audit harness
+        working-directory: tools/m7-browser-audit
+        run: npm install --no-package-lock --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: tools/m7-browser-audit
+        run: npx playwright install --with-deps chromium
+
+      - name: Start Vlezet
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEXT_TELEMETRY_DISABLED=1 pnpm --dir apps/web exec next dev --hostname 127.0.0.1 > /tmp/vlezet-dev.log 2>&1 &
+          echo $! > /tmp/vlezet-dev.pid
+          for attempt in {1..90}; do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/vlezet-dev.log
+          exit 1
+
+      - name: Run M7 browser audit
+        working-directory: tools/m7-browser-audit
+        env:
+          M7_BASE_URL: http://127.0.0.1:3000
+        run: npm run audit
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m7-browser-audit-evidence
+          path: |
+            tools/m7-browser-audit/artifacts
+            tools/m7-browser-audit/test-results
+            /tmp/vlezet-dev.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop Vlezet
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/vlezet-dev.pid ]; then
+            kill "$(cat /tmp/vlezet-dev.pid)" || true
+          fi
