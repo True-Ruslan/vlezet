@@ -1,9 +1,9 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-07-30  
-**Status:** M0–M6.3 are merged and accepted in `main`. **M6.4 Reviewed Natural-Language Intent is implemented as an RC in Draft PR #17** with exact-head strict CI PASS. It remains unaccepted and unmerged until representative real-browser validation is completed. M5.3 remains evidence-driven camera/navigation/performance polish only.
+**Status:** M0–M6.3 are merged and accepted in `main`. **M6.4 Reviewed Natural-Language Intent has passed representative browser acceptance in PR #17.** The browser-found narrow-inspector spacing issue has regression coverage and is fixed. Remaining integration gates are final exact-head strict CI, Ready for Review and squash merge. M5.3 remains evidence-driven camera/navigation/performance polish only.
 
-> Read this file first in a new chat. It is the canonical short-form state of the product, architecture, accepted milestones, active RC, known limits and next gate.
+> Read this file first in a new chat. It is the canonical short-form state of the product, architecture, accepted milestones, active integration gate, known limits and next decision point.
 
 ## 1. Product
 
@@ -116,7 +116,7 @@ Browser acceptance:
 
 Checklist: `docs/milestones/m6-3-acceptance.md`.
 
-## 5. Current accepted product capability
+## 5. Current product capability
 
 ### Trusted apartment editing
 
@@ -142,7 +142,7 @@ Checklist: `docs/milestones/m6-3-acceptance.md`.
 - semantic read-only inspection of rooms, walls and objects;
 - no direct 3D editing or mesh-based product authority.
 
-### Intelligent planning through M6.3
+### Intelligent planning through accepted M6.3
 
 - one deterministic axis-aligned rectangular room;
 - rearrangement of 1–3 existing selected objects;
@@ -161,17 +161,12 @@ Checklist: `docs/milestones/m6-3-acceptance.md`.
 - explicit current-document-revalidated Apply;
 - one multi-object Apply = one Undo/Redo step.
 
-## 6. Active RC — M6.4 Reviewed Natural-Language Intent
+## 6. Browser-accepted RC — M6.4 Reviewed Natural-Language Intent
 
-Branch:
+Branch and PR:
 
 ```text
 feat/m6-4-reviewed-natural-language-intent
-```
-
-Draft PR:
-
-```text
 #17 feat: M6.4 reviewed natural-language intent
 ```
 
@@ -229,7 +224,8 @@ existing deterministic planner / Preview / Apply
 - no automatic generation after transfer;
 - provider failure leaves manual planning available;
 - transfer/manual edits clear stale result, Preview and active exact-gap annotation;
-- inspector-scoped viewport-safe styling.
+- inspector-scoped viewport-safe styling;
+- selected-object controls and pair cards retain readable spacing in the narrow inspector.
 
 ### Authority preserved
 
@@ -242,15 +238,39 @@ existing deterministic planner / Preview / Apply
 - Apply remains explicit and one-step undoable;
 - raw model/provider state is not persisted.
 
-### TDD and exact-head automated evidence
+### Browser acceptance evidence
 
-Four RED/GREEN vertical slices were executed through GitHub Actions. Canonical details are recorded in `docs/milestones/m6-4-acceptance.md`.
+Test room contained `Диван`, `Стул`, `Рабочий стол` and `Обеденный стол`.
 
-Latest exact implementation head before this state update:
+The supplied browser screenshots and user report confirm:
+
+- `Диван` resolved and received `Не двигать`;
+- `кресло` was not fuzzy-guessed as `Стул` and required an explicit selection;
+- `стол` was explicitly ambiguous between two tables;
+- the pair minimum gap normalized to `800 мм`;
+- window-relative language remained in `Не поддержано`;
+- explicit choices and acknowledgement enabled transfer;
+- transfer populated ordinary selected/lock/corner/gap controls;
+- no alternatives were generated before separate `Найти варианты`;
+- the full workflow stayed inside the right inspector.
+
+User acceptance:
+
+> «Работает все четко и ровно так, как ты описал.»
+
+The unchanged downstream Preview/Apply/Undo/Redo authority remains covered by the accepted M6.3 browser evidence and the full regression suite; it is not falsely attributed to the supplied M6.4 screenshots.
+
+### TDD and CI evidence
+
+Four primary RED/GREEN slices and the browser-found responsive polish are recorded in:
+
+`docs/milestones/m6-4-acceptance.md`
+
+Latest verified polish head before this state update:
 
 ```text
-507cb2710d9f3f8a15ec0411214221820fe61525
-GitHub Actions 30550205319 — PASS
+4980d062d33848a82584881eddeadff70b74a0b1
+GitHub Actions 30553207256 — PASS
 ```
 
 Passed:
@@ -260,24 +280,6 @@ Passed:
 - TypeScript typecheck;
 - ESLint;
 - production Next build.
-
-### Still required before Ready for Review / merge
-
-Representative real-browser acceptance must verify:
-
-1. natural-language request produces the expected reviewable draft;
-2. ambiguous `стол` requires an explicit choice between two tables;
-3. unsupported window/door intent is never silently converted;
-4. transfer exactly populates visible ordinary controls;
-5. transfer does not generate alternatives automatically;
-6. explicit generation, Preview and nearest-contour annotation still work;
-7. explicit Apply and one-step Undo/Redo still work;
-8. reload persists only applied ordinary transforms;
-9. invalid key/network failure leaves manual planning usable;
-10. closing the panel discards runtime key and language draft;
-11. exact final PR head remains green after any browser fixes.
-
-Checklist: `docs/milestones/m6-4-acceptance.md`.
 
 ## 7. Known limits and technical debt
 
@@ -343,16 +345,16 @@ M6.1 layout alternatives        ✅ merged and accepted
 M6.2 constraint-aware planning  ✅ merged and accepted
 M6.3 exact spatial constraints  ✅ merged and accepted
         ↓
-M6.4 reviewed language intent   🧪 RC in Draft PR #17
+M6.4 reviewed language intent   ✅ browser accepted in PR #17
         ↓
-representative browser acceptance
+final exact-head CI → Ready for Review → squash merge
         ↓
-exact-head CI → Ready for Review → squash merge
+select next slice from actual user evidence
 ```
 
 M5.3 is not a blocking standalone milestone. Its architectural foundation shipped in M5.1; remaining work is evidence-driven polish only.
 
-No later major milestone should begin before M6.4 browser acceptance and merge. The next product slice after M6.4 must be selected from actual user evidence rather than speculative AI scope.
+No later major milestone should begin before M6.4 merge. The next product slice after M6.4 must be selected from actual user evidence rather than speculative AI scope.
 
 ## 9. Current workflow
 
@@ -363,12 +365,13 @@ RED/GREEN pure intent contract       ✅
 RED/GREEN provider boundary          ✅
 RED/GREEN review/transfer model      ✅
 RED/GREEN UI integration             ✅
-exact implementation-head CI         ✅
-RC acceptance checklist              ✅
-canonical RC state                   ✅
-representative browser acceptance    ⏳
-final exact-head CI                   ⏳ after browser evidence/fixes
+representative browser acceptance    ✅
+responsive browser finding           ✅ fixed with regression coverage
+implementation/polish-head CI        ✅ 30553207256
+acceptance + canonical state          ✅
+final exact-head CI                   ⏳
 Ready for Review / squash merge       ⏳
+post-merge canonical SHA/changelog    ⏳
 ```
 
-Precision, recognition and M5 polish remain evidence-driven backlog and should not interrupt the current M6.4 acceptance gate unless they become actual user blockers.
+Precision, recognition and M5 polish remain evidence-driven backlog and should not interrupt the current M6.4 integration gate unless they become actual user blockers.
