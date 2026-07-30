@@ -158,8 +158,8 @@ describe("resolved planning intent conversion", () => {
       objectIds: ["chair", "sofa", "work-table"],
       constraints: [
         { kind: "prefer-room-boundary", objectId: "chair", target: "corner" },
-        { kind: "pair-min-gap", objectIds: ["chair", "work-table"], minimumMm: 800 },
         { kind: "lock-object", objectId: "sofa" },
+        { kind: "pair-min-gap", objectIds: ["chair", "work-table"], minimumMm: 800 },
       ],
     });
   });
