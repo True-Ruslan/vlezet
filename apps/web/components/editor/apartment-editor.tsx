@@ -3,7 +3,7 @@
 import type { ProjectViewport, ReferencePlan, SaveStatus } from "@vlezet/projects";
 import type { NormalizedPoint, RecognitionDecision, RecognitionOpeningCandidate } from "@vlezet/recognition";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionPanel } from "../recognition/recognition-panel";
@@ -17,6 +17,7 @@ import {
 import {
   captureEditorWorkflowReturnTarget,
   selectionForWorkflowReturnTarget,
+  workflowReturnActionLabel,
   type EditorOrdinarySelection,
 } from "./context-workflow-return";
 import {
@@ -98,6 +99,13 @@ function reviewDraft(state: RecognitionControllerState) {
   return null;
 }
 
+const EMPTY_SELECTION: EditorOrdinarySelection = {
+  selectedWallId: null,
+  selectedRoomId: null,
+  selectedOpeningId: null,
+  selectedObjectId: null,
+};
+
 export function ApartmentEditor(props: ApartmentEditorProps) {
   const [fitRequest, setFitRequest] = useState(0);
   const [fitReferenceRequest, setFitReferenceRequest] = useState(0);
@@ -133,15 +141,16 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     selectedWallId,
   ].join(":");
 
-  const currentSelection: EditorOrdinarySelection = {
+  const currentSelection = useMemo<EditorOrdinarySelection>(() => ({
     selectedWallId,
     selectedRoomId,
     selectedOpeningId: selectedOpening?.id ?? null,
     selectedObjectId,
-  };
-  const planningReturnTarget = planningRoomId
-    ? captureEditorWorkflowReturnTarget({ ...currentSelection, selectedRoomId: planningRoomId }, document)
-    : null;
+  }), [selectedObjectId, selectedOpening?.id, selectedRoomId, selectedWallId]);
+
+  const planningReturnTarget = useMemo(() => planningRoomId
+    ? captureEditorWorkflowReturnTarget({ ...EMPTY_SELECTION, selectedRoomId: planningRoomId }, document)
+    : null, [document, planningRoomId]);
   const activeWorkflowReturnTarget = workflowReturnTarget ?? planningReturnTarget;
 
   const compactSurface: CompactEditorSurface = viewMode === "3d" ? null : (() => {
@@ -184,12 +193,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     if (props.recognitionPanelOpen) props.onToggleRecognitionPanel();
     if (props.referencePanelOpen) props.onToggleReferencePanel();
 
-    const selection = target ? selectionForWorkflowReturnTarget(target, document) : {
-      selectedWallId: null,
-      selectedRoomId: null,
-      selectedOpeningId: null,
-      selectedObjectId: null,
-    };
+    const selection = target ? selectionForWorkflowReturnTarget(target, document) : EMPTY_SELECTION;
     const store = editorStore.getState();
     store.selectWall(null);
     if (selection.selectedWallId) store.selectWall(selection.selectedWallId);
@@ -199,6 +203,11 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     setWorkflowReturnTarget(null);
     if (compactLayout) openContextSurface();
   }, [activeWorkflowReturnTarget, compactLayout, document, openContextSurface, planningRoomId, props]);
+
+  const workflowNavigation = useMemo(() => ({
+    label: workflowReturnActionLabel(activeWorkflowReturnTarget ?? { kind: "empty", label: "Ничего не выбрано" }),
+    onActivate: returnFromWorkflow,
+  }), [activeWorkflowReturnTarget, returnFromWorkflow]);
 
   const toggleFurnitureSurface = useCallback(() => {
     if (!compactLayout) {
@@ -293,6 +302,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       selectedCandidateId={props.selectedRecognitionCandidateId}
       hasReferencePlan={props.referencePlan !== null}
       missingReferenceAsset={props.missingReferenceAsset}
+      navigation={workflowNavigation}
       onStartLocal={props.onStartRecognition}
       onSelect={props.onSelectRecognitionCandidate}
       onDecision={props.onRecognitionDecision}
@@ -301,21 +311,20 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       onRunCloud={props.onRunCloudRecognition}
       onApply={props.onApplyRecognition}
       onDiscard={props.onDiscardRecognition}
-      onClose={returnFromWorkflow}
     />
   ) : props.referencePanelOpen ? (
     <ReferencePanel
       referencePlan={props.referencePlan}
       assetBlob={props.referenceAssetBlob}
       missingAsset={props.missingReferenceAsset}
+      navigation={workflowNavigation}
       onInstall={props.onInstallReference}
       onUpdate={props.onUpdateReference}
       onRemove={props.onRemoveReference}
       onStartTracing={props.onStartTracing}
       onFitReference={() => setFitReferenceRequest((value) => value + 1)}
-      onClose={returnFromWorkflow}
     />
-  ) : <WallInspector />;
+  ) : <WallInspector planningNavigation={workflowNavigation} />;
 
   return (
     <main className="editor-app">
