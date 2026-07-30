@@ -1,10 +1,10 @@
 # M7.1 Editor Shell and Responsive Context — Acceptance
 
-**Status:** ACCEPTED BY PRODUCT OWNER / FINAL VERIFICATION IN PROGRESS  
+**Status:** ACCEPTED / FINAL RECORD VERIFICATION IN PROGRESS  
 **Date:** 2026-07-31  
 **PR:** #21 `feat: M7.1 editor shell and responsive context`  
 **Implementation head:** `6c21653b30e627a9bf160baf6f3f8d0a4d058f16`  
-**Final acceptance head:** pending exact-head verification  
+**Acceptance-candidate head:** `5c5fc2978913386581b502b2a04b79ebbf1225c6`  
 **Squash merge:** pending
 
 ## 1. Purpose
@@ -86,15 +86,6 @@ head: 6c21653b30e627a9bf160baf6f3f8d0a4d058f16
 run:  30576951202 — PASS
 ```
 
-Verified:
-
-- [x] frozen dependency installation;
-- [x] M7 documentation contract;
-- [x] full unit suite;
-- [x] TypeScript;
-- [x] ESLint;
-- [x] production Next.js build.
-
 ### Implementation exact-head Chromium + WebKit acceptance
 
 ```text
@@ -104,6 +95,30 @@ artifact: 8773105974
 digest:   sha256:f608ddd3e4638b38b04e7ac8d814b962cd82b34437de0a184ac884710b698d62
 ```
 
+### Acceptance-candidate exact-head standard CI
+
+```text
+head: 5c5fc2978913386581b502b2a04b79ebbf1225c6
+run:  30586381324 — PASS
+```
+
+### Acceptance-candidate exact-head Chromium + WebKit acceptance
+
+```text
+head:     5c5fc2978913386581b502b2a04b79ebbf1225c6
+run:      30586381328 — PASS
+artifact: 8776671471
+digest:   sha256:676b64955de17b889e834d29ec4aa2617fba57dddfb59f9fb39568618d6a319e
+```
+
+Verified:
+
+- [x] frozen dependency installation;
+- [x] M7 documentation contract;
+- [x] full unit suite;
+- [x] TypeScript;
+- [x] ESLint;
+- [x] production Next.js build;
 - [x] Chromium full representative flow;
 - [x] WebKit core smoke;
 - [x] blocking shell/overflow/reachability assertions;
@@ -137,7 +152,8 @@ The exact local browser/version is not asserted beyond the owner's report.
 - [x] no Three.js/spatial authority change;
 - [x] no new AI/planning capability;
 - [x] responsive state remains ephemeral presentation state;
-- [x] changed-file scope inspected.
+- [x] changed-file scope inspected;
+- [x] PR #21 is Ready for Review and mergeable.
 
 ## 9. Remaining follow-up, not M7.1 blockers
 
@@ -150,9 +166,11 @@ The exact local browser/version is not asserted beyond the owner's report.
 
 Before squash merge:
 
-- [ ] update this document with the final acceptance head;
-- [ ] exact-head standard CI PASS;
-- [ ] exact-head Chromium/WebKit browser audit PASS;
-- [ ] confirm PR #21 remains mergeable;
+- [x] implementation and acceptance-candidate CI PASS;
+- [x] implementation and acceptance-candidate Chromium/WebKit PASS;
+- [x] product-owner manual acceptance recorded;
+- [x] PR #21 is Ready for Review and mergeable;
+- [ ] final record-only exact-head standard CI PASS;
+- [ ] final record-only exact-head browser audit PASS;
 - [ ] squash-merge with head-SHA protection;
-- [ ] record merge SHA in canonical project state, roadmap and changelog.
+- [ ] record final head, merge SHA and post-merge canonical documentation.
