@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import "./editor-viewport.css";
+import "./editor-shell.css";
 import "./planning-exact-gap.css";
 
 export const metadata: Metadata = {
