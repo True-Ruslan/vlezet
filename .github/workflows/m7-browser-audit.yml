@@ -9,6 +9,13 @@ on:
       - "packages/**"
       - "tools/m7-browser-audit/**"
       - ".github/workflows/m7-browser-audit.yml"
+      - "docs/PROJECT_STATE.md"
+      - "docs/ROADMAP.md"
+      - "docs/CHANGELOG.md"
+      - "docs/product/UX_BROWSER_EVIDENCE.md"
+      - "docs/product/UX_ROADMAP.md"
+      - "docs/milestones/m7-0-acceptance.md"
+      - "scripts/validate-m7-docs.mjs"
       - "package.json"
       - "pnpm-lock.yaml"
   workflow_dispatch:
