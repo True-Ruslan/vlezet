@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-07-30  
+**Last updated:** 2026-07-31  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative AI layers.
 
 Read `docs/PROJECT_STATE.md` first. Detailed UX sequencing is in `docs/product/UX_ROADMAP.md`.
@@ -24,8 +24,9 @@ DONE        M6.2 Constraint-Aware Planning
 DONE        M6.3 Exact Spatial Constraints
 DONE        M6.4 Reviewed Natural-Language Intent
 DONE        M7.0 Product and UX Audit
-NOW         M7.1 Editor Shell and Responsive Context
-LATER       M7.2+ in dependency-aware browser-tested slices
+DONE        M7.1 Editor Shell and Responsive Context
+NOW         M7.2 Context Inspector Foundation
+LATER       M7.3+ in dependency-aware browser-tested slices
 ```
 
 ## Completed product foundation
@@ -56,7 +57,7 @@ area:       11.72 m²
 - semantic inspection;
 - WebGL fallback and cleanup.
 
-3D remains a projection of `VlezetDocument`. Browser evidence assigns default interior readability to M7.10.
+3D remains a projection of `VlezetDocument`. Interior readability remains owned by M7.10.
 
 ### M6 — deterministic intelligent planning
 
@@ -83,89 +84,90 @@ artifact:     8771245306
 merge:        0d5b9c1555ef85a0e271a52832cc3fd3cca4963e
 ```
 
-Delivered:
+Delivered 39 structured findings, target information architecture, interaction model, design/accessibility foundations and reproducible Chromium/WebKit browser evidence.
 
-- product vision and 11 user journeys;
-- current interface/component/style inventory;
-- 39 structured UX findings;
-- target information architecture and interaction model;
-- design-system and canonical-content foundations;
-- accessibility/viewport requirements;
-- dependency-aware M7 programme;
-- reproducible Chromium/WebKit browser harness.
+## M7.1 — Editor Shell and Responsive Context
 
-Findings:
+Status: **DONE / ACCEPTED / MERGED**.
 
 ```text
-P0  0
-P1 10
-P2 23
-P3  6
-P4  0
-TOTAL 39
+PR:                  #21
+implementation head: 6c21653b30e627a9bf160baf6f3f8d0a4d058f16
+final verified head: 8c68bd288cd3dda1133f09a469cd7afe6dab83d9
+standard CI:         30586557182 — PASS
+browser CI:          30586557394 — PASS
+artifact:            8776737145
+merge:               6b6f8751b520722a54bb94a6947dae1135e07859
 ```
 
-Browser evidence confirmed:
+Resolved:
 
-- toolbar and document overflow at common desktop widths;
-- hidden inspector under effective zoom width;
-- 9 px save state and 11 px Canvas help;
-- provider-first dense planning panel;
-- internal milestone labels in product UI;
-- initial 3D interior occlusion;
-- strong dashboard and destructive confirmation patterns.
+- `UX-SHELL-001` — command hierarchy no longer competes in one clipping row;
+- `UX-SHELL-002` — contextual controls remain reachable through docked surfaces or compact sheets;
+- `UX-DATA-001` — local-save state is readable;
+- foundational part of `UX-ACCESS-002` — zoom reflows shell controls rather than removing them.
 
-M7.0 changed no product UI or authority boundary.
+Delivered:
 
-## NOW — M7.1 Editor Shell and Responsive Context
+- separate project and tool bars;
+- visible project identity, save state, Undo and Redo;
+- labelled `Действия` overflow;
+- responsive left catalogue and right context sheets;
+- preserved selection and uncommitted form state;
+- no horizontal document escape in the required viewport/zoom matrix;
+- clean one-column 3D composition;
+- strict Chromium/WebKit blocking acceptance.
+
+Product owner confirmed:
+
+> «Я все проверил. Выглядит уже лучше и понятнее.»
+
+Canonical evidence: `docs/milestones/m7-1-acceptance.md`.
+
+## NOW — M7.2 Context Inspector Foundation
 
 ### Problems
 
-- `UX-SHELL-001` — command responsibilities compete and clip;
-- `UX-SHELL-002` — contextual controls disappear;
-- `UX-DATA-001` — local-save status is too subtle;
-- `UX-ACCESS-002` — zoom removes functionality instead of reflowing it.
+- `UX-SHELL-003` — context/workflow anatomy is inconsistent;
+- `UX-PATTERN-001` — headers, sections and actions vary by panel;
+- part of `UX-CONTENT-001` — selection identity and action language need one predictable structure.
 
 ### Goal
 
-Create a stable project/tool/context hierarchy that preserves essential actions and selected-entity controls across supported desktop widths and browser zoom.
+Create one predictable context/workflow panel anatomy with shared identity, back/close behaviour, sections, action hierarchy and safe workflow return context.
 
 ### Scope
 
-- separate global product actions from exclusive tools/display toggles;
-- preserve project identity, readable `Сохранено локально`, active tool and Undo/Redo;
-- collapse secondary utilities into labelled overflow;
-- replace disappearing inspector with a viewport-safe panel/drawer;
-- preserve Canvas useful area and semantic workflow state;
-- introduce only minimum shell tokens/primitives;
-- reuse and extend browser evidence automation.
+- shared panel header and selected-entity identity;
+- empty/wall/room/opening/object shell states;
+- consistent back/close semantics for embedded workflows;
+- reusable section hierarchy;
+- predictable primary/secondary/destructive action placement;
+- preserve drafts and selection across M7.1 docked/sheet presentation;
+- extend browser tests for representative context states.
 
 ### Acceptance
 
-- 1920×1080, 1440×900, 1366×768 and 1280×800;
-- effective 125%, 150% and 200% zoom;
-- no horizontal escape;
-- no unreachable contextual/workflow controls;
-- active tool, save status and history remain available;
-- Canvas remains usable;
-- Chromium full-flow;
-- WebKit core smoke;
-- native Safari core regression on macOS;
-- full CI;
-- product-owner browser acceptance.
+- existing context actions remain reachable;
+- selection and uncommitted drafts remain stable;
+- embedded workflow close/back returns to the correct context;
+- destructive actions remain separated and explicit;
+- docked and compact layouts use the same semantic anatomy;
+- no project/domain/geometry/persistence authority change;
+- full CI and Chromium/WebKit representative flow pass;
+- product-owner acceptance before merge.
 
 ### Non-goals
 
-- redesign every inspector;
-- change geometry, persistence or stores;
-- mobile-first editing;
-- new AI/planning capability;
-- Canvas/3D rewrite.
+- complete geometry/furniture/reference/planning form redesign;
+- broad design-system migration assigned to M7.3;
+- new geometry or planning semantics;
+- Canvas/3D rewrite;
+- mobile-first editor.
 
 ## Later M7 programme
 
 ```text
-M7.2  Context Inspector Foundation
 M7.3  Design System and Content Components
 M7.4  Canvas Selection and Mode Feedback
 M7.5  Onboarding, Status and Recovery
@@ -179,7 +181,7 @@ M7.12 Dashboard and Project Lifecycle
 M7.13 Visual Consolidation and Evidence-Driven Polish
 ```
 
-Only M7.1 is committed. Later slices may be reordered after evidence.
+Later slices remain evidence-driven and may be reordered after accepted browser evidence.
 
 ## Deferred infrastructure
 
