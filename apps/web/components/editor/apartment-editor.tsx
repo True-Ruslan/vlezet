@@ -152,12 +152,17 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   }, [compactSurface, contextKey]);
 
   const toggleFurnitureSurface = useCallback(() => {
-    const closing = props.furnitureCatalogOpen;
-    props.onToggleFurnitureCatalog();
-    if (!compactLayout) return;
-    if (closing) setCompactSurfaceChoice(null);
-    else openCatalogueSurface();
-  }, [compactLayout, openCatalogueSurface, props.furnitureCatalogOpen, props.onToggleFurnitureCatalog]);
+    if (!compactLayout) {
+      props.onToggleFurnitureCatalog();
+      return;
+    }
+    if (compactSurface === "catalogue") {
+      closeCompactSurface();
+      return;
+    }
+    if (!props.furnitureCatalogOpen) props.onToggleFurnitureCatalog();
+    openCatalogueSurface();
+  }, [closeCompactSurface, compactLayout, compactSurface, openCatalogueSurface, props.furnitureCatalogOpen, props.onToggleFurnitureCatalog]);
 
   const toggleReferenceSurface = useCallback(() => {
     props.onToggleReferencePanel();
@@ -258,7 +263,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       <EditorToolbar
         projectName={props.projectName}
         saveStatus={props.saveStatus}
-        furnitureCatalogOpen={props.furnitureCatalogOpen}
+        furnitureCatalogOpen={compactLayout ? compactSurface === "catalogue" : props.furnitureCatalogOpen}
         referencePanelOpen={props.referencePanelOpen}
         recognitionPanelOpen={props.recognitionPanelOpen}
         hasReferencePlan={props.referencePlan !== null}
