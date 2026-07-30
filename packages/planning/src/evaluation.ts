@@ -1,6 +1,10 @@
 import type { VlezetDocument } from "@vlezet/domain";
 import { evaluateObjectFits } from "@vlezet/geometry";
-import { evaluatePlanningConstraints, planningConstraintSetKey } from "./constraints";
+import {
+  evaluatePlanningConstraints,
+  planningConstraintSetKey,
+  type PairMinimumGapConstraintEvidence,
+} from "./constraints";
 import type { PlanningCandidate } from "./contracts";
 
 export type PlanningCandidateEvaluation = Readonly<{
@@ -12,6 +16,7 @@ export type PlanningCandidateEvaluation = Readonly<{
   rotatedObjectCount: number;
   totalMovementMm: number;
   reasons: readonly string[];
+  exactEvidence: readonly PairMinimumGapConstraintEvidence[];
   stableKey: string;
 }>;
 
@@ -67,7 +72,9 @@ export function evaluatePlanningCandidate(
       candidateId: candidate.id, valid: false, tightObjectCount: 0, recommendationCount: 0,
       preferencePenalty: Number.POSITIVE_INFINITY,
       rotatedObjectCount: 0, totalMovementMm: Number.POSITIVE_INFINITY,
-      reasons: ["Вариант содержит некорректные данные размещения."], stableKey,
+      reasons: ["Вариант содержит некорректные данные размещения."],
+      exactEvidence: [],
+      stableKey,
     };
   }
 
@@ -118,6 +125,7 @@ export function evaluatePlanningCandidate(
     rotatedObjectCount,
     totalMovementMm,
     reasons,
+    exactEvidence: constraintEvaluation.exactEvidence,
     stableKey,
   };
 }
