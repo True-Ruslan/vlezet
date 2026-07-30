@@ -24,7 +24,7 @@ describe("M7.1 apartment editor shell integration", () => {
     expect(normalized).toContain('<EditorSideSurfaceid="editor-context-surface"');
     expect(normalized).toContain('side="right"');
     expect(normalized).toContain("<FurnitureCatalog/>");
-    expect(normalized).toContain("<WallInspector/>");
+    expect(normalized).toContain("<WallInspectorplanningNavigation={workflowNavigation}/>");
   });
 
   it("connects the compact context trigger without persisting presentation state", () => {
