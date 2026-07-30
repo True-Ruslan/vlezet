@@ -95,6 +95,7 @@ function ranking(overrides: Partial<PlanningCandidateEvaluation>): PlanningCandi
     reasons: [],
     stableKey: "a",
     ...overrides,
+    exactEvidence: overrides.exactEvidence ?? [],
   };
 }
 

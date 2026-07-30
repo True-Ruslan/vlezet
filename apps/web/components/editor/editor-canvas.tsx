@@ -37,6 +37,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Layer, Line, Stage, Text } from "react-konva";
 import { useStore } from "zustand";
+import { deriveExactGapAnnotation } from "../planning/exact-gap-annotation";
 import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionLayer } from "../recognition/recognition-layer";
 import { ReferenceLayer } from "../reference/reference-layer";
@@ -47,6 +48,7 @@ import {
   formatRoomCanvasLabel,
 } from "./dimension-annotations";
 import { DimensionOverlay } from "./dimension-overlay";
+import { ExactGapOverlay } from "./exact-gap-overlay";
 import { getFurniturePreset } from "./furniture-presets";
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
@@ -158,6 +160,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const objectGesture = useStore(editorStore, (state) => state.objectGesture);
   const planningPreviewCandidate = useStore(planningUiStore, (state) => state.previewCandidate);
+  const activeExactPairKey = useStore(planningUiStore, (state) => state.activeExactPairKey);
 
   const visibleOpeningPreview = tool === "door" || tool === "window" ? openingPreview : null;
   const visiblePlacementPreview = placementPresetId && placementPreview?.presetId === placementPresetId ? placementPreview : null;
@@ -231,6 +234,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     };
   }, [document, planningPreviewCandidate]);
   const planningPreviewFit = useMemo(() => evaluateObjectFits(planningPreviewDocument), [planningPreviewDocument]);
+  const exactGapAnnotation = useMemo(
+    () => deriveExactGapAnnotation(planningPreviewDocument, planningPreviewCandidate, activeExactPairKey),
+    [activeExactPairKey, planningPreviewCandidate, planningPreviewDocument],
+  );
   const selectedObject = displayedObjects.find((object) => object.id === selectedObjectId) ?? null;
   const selectedClearances = useMemo<DirectionalClearances | null>(() => {
     if (!selectedObject) return null;
@@ -532,6 +539,9 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
               fitStatus={planningPreviewFit.byObjectId.get(object.id)?.status ?? "blocked"}
             />
           ))}
+          {exactGapAnnotation ? (
+            <ExactGapOverlay annotation={exactGapAnnotation} viewport={viewport} stageSize={size} />
+          ) : null}
           {visiblePlacementPreview ? (
             <PlacedObjectShape
               object={visiblePlacementPreview}

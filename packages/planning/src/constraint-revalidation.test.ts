@@ -57,4 +57,21 @@ describe("candidate constraint revalidation", () => {
       { kind: "lock-object", objectId: "table" },
     ])).valid).toBe(false);
   });
+
+  it("fails closed for malformed or stale exact pair minimum-gap constraints", () => {
+    const document = fixture();
+    const invalid: readonly (readonly PlanningConstraint[])[] = [
+      [{ kind: "pair-min-gap", objectIds: ["sofa", "sofa"], minimumMm: 100 }],
+      [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: Number.NaN }],
+      [{ kind: "pair-min-gap", objectIds: ["sofa", "missing"], minimumMm: 100 }],
+      [
+        { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 100 },
+        { kind: "pair-min-gap", objectIds: ["table", "sofa"], minimumMm: 200 },
+      ],
+    ];
+
+    for (const constraints of invalid) {
+      expect(evaluatePlanningCandidate(document, candidate(document, constraints)).valid).toBe(false);
+    }
+  });
 });

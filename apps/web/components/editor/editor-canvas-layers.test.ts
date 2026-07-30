@@ -8,4 +8,11 @@ describe("editor canvas layer budget", () => {
 
     expect(physicalLayers).toBeLessThanOrEqual(5);
   });
+
+  it("renders exact gaps from ephemeral active-pair state inside the existing object layer", () => {
+    const source = readFileSync(new URL("./editor-canvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain("ExactGapOverlay");
+    expect(source).toContain("activeExactPairKey");
+    expect(source).toContain("deriveExactGapAnnotation");
+  });
 });

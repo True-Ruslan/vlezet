@@ -1,0 +1,10 @@
+.editor-app {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 1680px) {
+  .document-status,
+  .selection-shortcuts {
+    display: none;
+  }
+}

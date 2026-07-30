@@ -77,6 +77,46 @@ describe("planning constraint validation", () => {
     expect(planningConstraintSetKey(constraints)).toBe(planningConstraintSetKey([...constraints].reverse()));
   });
 
+  it("normalizes and validates exact pair minimum gaps without conflicting with soft pair intent", () => {
+    const selected = new Set(["sofa", "table"]);
+    expect(normalizePlanningConstraints([
+      { kind: "pair-min-gap", objectIds: ["table", "sofa"], minimumMm: 800 },
+    ])).toEqual([
+      { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 },
+    ]);
+    expect(validatePlanningRequest(fixture(), {
+      roomId: roomId(fixture()),
+      objectIds: ["sofa", "table"],
+      constraints: [
+        { kind: "pair-distance", objectIds: ["table", "sofa"], preference: "near" },
+        { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 0 },
+      ],
+    }).constraints).toHaveLength(2);
+
+    const invalidMinimums = [-1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY];
+    for (const minimumMm of invalidMinimums) {
+      expect(() => validatePlanningRequest(fixture(), {
+        roomId: roomId(fixture()),
+        objectIds: ["sofa", "table"],
+        constraints: [{ kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm }],
+      })).toThrowError(expect.objectContaining<Partial<PlanningError>>({ code: "invalid-constraints" }));
+    }
+
+    const invalidExactConstraints: readonly (readonly PlanningConstraint[])[] = [
+      [{ kind: "pair-min-gap", objectIds: ["sofa", "sofa"], minimumMm: 100 }],
+      [{ kind: "pair-min-gap", objectIds: ["sofa", "chair"], minimumMm: 100 }],
+      [
+        { kind: "pair-min-gap", objectIds: ["sofa", "table"], minimumMm: 800 },
+        { kind: "pair-min-gap", objectIds: ["table", "sofa"], minimumMm: 900 },
+      ],
+    ];
+    for (const constraints of invalidExactConstraints) {
+      expect(() => validatePlanningRequest(fixture(), {
+        roomId: roomId(fixture()), objectIds: [...selected], constraints,
+      })).toThrowError(expect.objectContaining<Partial<PlanningError>>({ code: "invalid-constraints" }));
+    }
+  });
+
   it("fails closed for missing/non-selected refs, pair self-reference, conflicts and excessive constraints", () => {
     const document = fixture();
     const base = { roomId: roomId(document), objectIds: ["sofa", "table"] } as const;
