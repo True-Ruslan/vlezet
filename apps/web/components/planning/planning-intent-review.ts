@@ -23,14 +23,9 @@ export type PlanningIntentReviewClause = Readonly<{
   references: readonly PlanningIntentReviewReference[];
 }>;
 
-export type PlanningIntentReviewUnsupportedFragment = Readonly<{
-  text: string;
-  acknowledged: boolean;
-}>;
-
 export type PlanningIntentReviewDraft = Readonly<{
   clauses: readonly PlanningIntentReviewClause[];
-  unsupportedFragments: readonly PlanningIntentReviewUnsupportedFragment[];
+  unsupportedFragments: readonly Readonly<{ text: string; acknowledged: boolean }>[];
   warnings: readonly string[];
 }>;
 
@@ -42,30 +37,10 @@ export type PlanningIntentControlState = Readonly<{
   pairMinimumGapInputs: Readonly<Record<string, string>>;
 }>;
 
-function clauseObjectReferences(clause: PlanningIntentClause): readonly string[] {
-  switch (clause.kind) {
-    case "lock-object":
-    case "prefer-room-boundary":
-      return [clause.objectRef];
-    case "pair-distance":
-    case "pair-min-gap":
-      return clause.objectRefs;
-  }
-}
-
-function reviewReference(
-  clauseId: string,
-  slot: number,
-  objectRef: string,
-  roomObjects: readonly PlanningObjectReferenceTarget[],
-): PlanningIntentReviewReference {
-  const resolution = resolvePlanningObjectReference(objectRef, roomObjects);
-  return {
-    key: `${clauseId}:${slot}`,
-    objectRef,
-    resolution,
-    selectedObjectId: resolution.status === "resolved" ? resolution.objectId : null,
-  };
+function clauseReferences(clause: PlanningIntentClause): readonly string[] {
+  return clause.kind === "pair-distance" || clause.kind === "pair-min-gap"
+    ? clause.objectRefs
+    : [clause.objectRef];
 }
 
 export function buildPlanningIntentReviewDraft(
@@ -78,8 +53,15 @@ export function buildPlanningIntentReviewDraft(
       return {
         id,
         clause,
-        references: clauseObjectReferences(clause).map((objectRef, slot) =>
-          reviewReference(id, slot, objectRef, roomObjects)),
+        references: clauseReferences(clause).map((objectRef, slot) => {
+          const resolution = resolvePlanningObjectReference(objectRef, roomObjects);
+          return {
+            key: `${id}:${slot}`,
+            objectRef,
+            resolution,
+            selectedObjectId: resolution.status === "resolved" ? resolution.objectId : null,
+          };
+        }),
       };
     }),
     unsupportedFragments: interpretation.unsupportedFragments.map((text) => ({ text, acknowledged: false })),
@@ -87,37 +69,139 @@ export function buildPlanningIntentReviewDraft(
   };
 }
 
-export function planningControlStateFromIntentReview(
-  _draft: PlanningIntentReviewDraft,
-  _roomObjects: readonly PlanningObjectReferenceTarget[],
-): PlanningIntentControlState {
-  throw new Error("Not implemented");
+function allowedSelection(reference: PlanningIntentReviewReference, objectId: string): boolean {
+  if (reference.resolution.status === "resolved") return reference.resolution.objectId === objectId;
+  if (reference.resolution.status === "ambiguous") {
+    return reference.resolution.candidateObjectIds.includes(objectId);
+  }
+  return true;
 }
 
 export function resolvePlanningIntentReviewReference(
-  _draft: PlanningIntentReviewDraft,
-  _referenceKey: string,
-  _objectId: string,
-  _roomObjects: readonly PlanningObjectReferenceTarget[],
+  draft: PlanningIntentReviewDraft,
+  referenceKey: string,
+  objectId: string,
+  roomObjects: readonly PlanningObjectReferenceTarget[],
 ): PlanningIntentReviewDraft {
-  throw new Error("Not implemented");
+  if (!roomObjects.some((object) => object.id === objectId)) {
+    throw new Error("Selected planning intent object is outside the current room.");
+  }
+  let found = false;
+  const clauses = draft.clauses.map((reviewClause) => ({
+    ...reviewClause,
+    references: reviewClause.references.map((reference) => {
+      if (reference.key !== referenceKey) return reference;
+      found = true;
+      if (!allowedSelection(reference, objectId)) {
+        throw new Error("Selected object is not a candidate for this planning intent reference.");
+      }
+      return { ...reference, selectedObjectId: objectId };
+    }),
+  }));
+  if (!found) throw new Error("Planning intent reference no longer exists.");
+  return { ...draft, clauses };
 }
 
 export function toggleUnsupportedIntentAcknowledgement(
-  _draft: PlanningIntentReviewDraft,
-  _index: number,
+  draft: PlanningIntentReviewDraft,
+  index: number,
 ): PlanningIntentReviewDraft {
-  throw new Error("Not implemented");
+  if (!draft.unsupportedFragments[index]) {
+    throw new Error("Unsupported planning intent fragment no longer exists.");
+  }
+  return {
+    ...draft,
+    unsupportedFragments: draft.unsupportedFragments.map((fragment, fragmentIndex) =>
+      fragmentIndex === index ? { ...fragment, acknowledged: !fragment.acknowledged } : fragment),
+  };
 }
 
 export function removePlanningIntentReviewClause(
-  _draft: PlanningIntentReviewDraft,
-  _clauseId: string,
+  draft: PlanningIntentReviewDraft,
+  clauseId: string,
 ): PlanningIntentReviewDraft {
-  throw new Error("Not implemented");
+  const clauses = draft.clauses.filter((clause) => clause.id !== clauseId);
+  if (clauses.length === draft.clauses.length) throw new Error("Planning intent clause no longer exists.");
+  return { ...draft, clauses };
 }
 
-void planningConstraintsFromResolvedIntentDraft;
-void planningPairKey;
-void (null as unknown as ResolvedPlanningIntentClause);
-void (null as unknown as ResolvedPlanningIntentDraft);
+function selectedId(reference: PlanningIntentReviewReference): string {
+  if (!reference.selectedObjectId) {
+    throw new Error("Resolve every planning intent object reference before transfer.");
+  }
+  return reference.selectedObjectId;
+}
+
+function resolvedClause(reviewClause: PlanningIntentReviewClause): ResolvedPlanningIntentClause {
+  const clause = reviewClause.clause;
+  const first = selectedId(reviewClause.references[0]!);
+  switch (clause.kind) {
+    case "lock-object":
+      return { kind: clause.kind, objectId: first, sourceText: clause.sourceText };
+    case "prefer-room-boundary":
+      return { kind: clause.kind, objectId: first, target: clause.target, sourceText: clause.sourceText };
+    case "pair-distance":
+      return {
+        kind: clause.kind,
+        objectIds: [first, selectedId(reviewClause.references[1]!)],
+        preference: clause.preference,
+        sourceText: clause.sourceText,
+      };
+    case "pair-min-gap":
+      return {
+        kind: clause.kind,
+        objectIds: [first, selectedId(reviewClause.references[1]!)],
+        minimumMm: clause.minimumMm,
+        sourceText: clause.sourceText,
+      };
+  }
+}
+
+export function planningControlStateFromIntentReview(
+  draft: PlanningIntentReviewDraft,
+  roomObjects: readonly PlanningObjectReferenceTarget[],
+): PlanningIntentControlState {
+  if (draft.unsupportedFragments.some((fragment) => !fragment.acknowledged)) {
+    throw new Error("Acknowledge every unsupported planning intent fragment before transfer.");
+  }
+  const resolvedDraft: ResolvedPlanningIntentDraft = {
+    clauses: draft.clauses.map(resolvedClause),
+    unsupportedFragments: [],
+    warnings: draft.warnings,
+  };
+  const roomIds = new Set(roomObjects.map((object) => object.id));
+  for (const clause of resolvedDraft.clauses) {
+    const ids = clause.kind === "pair-distance" || clause.kind === "pair-min-gap"
+      ? clause.objectIds
+      : [clause.objectId];
+    if (ids.some((id) => !roomIds.has(id))) throw new Error("Planning intent object is stale.");
+  }
+
+  const transfer = planningConstraintsFromResolvedIntentDraft(resolvedDraft);
+  const lockedObjectIds: string[] = [];
+  const boundaryPreferences: Record<string, "wall" | "corner"> = {};
+  const pairPreferences: Record<string, "near" | "far"> = {};
+  const pairMinimumGapInputs: Record<string, string> = {};
+
+  for (const constraint of transfer.constraints) {
+    if (constraint.kind === "lock-object") lockedObjectIds.push(constraint.objectId);
+    if (constraint.kind === "prefer-room-boundary") {
+      boundaryPreferences[constraint.objectId] = constraint.target;
+    }
+    if (constraint.kind === "pair-distance") {
+      pairPreferences[planningPairKey(constraint.objectIds[0], constraint.objectIds[1])] = constraint.preference;
+    }
+    if (constraint.kind === "pair-min-gap") {
+      pairMinimumGapInputs[planningPairKey(constraint.objectIds[0], constraint.objectIds[1])] =
+        Number(constraint.minimumMm.toFixed(6)).toString();
+    }
+  }
+
+  return {
+    selectedObjectIds: transfer.objectIds,
+    lockedObjectIds: lockedObjectIds.sort((first, second) => first.localeCompare(second)),
+    boundaryPreferences,
+    pairPreferences,
+    pairMinimumGapInputs,
+  };
+}
