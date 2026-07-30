@@ -33,7 +33,7 @@ describe("editor viewport layout contract", () => {
     const compactPlanningCss = compact(planningCss);
 
     expect(compactPlanningCss).toContain(".planning-panel.planning-object-choice{display:grid;grid-template-columns:minmax(0,1fr)");
-    expect(compactPlanningCss).toContain(".planning-constraint-controls{display:grid;grid-template-columns:auto minmax(0,1fr)");
+    expect(compactPlanningCss).toContain(".planning-constraint-controls{display:grid;grid-template-columns:autominmax(0,1fr)");
     expect(compactPlanningCss).toContain(".planning-inline-check{display:flex;align-items:center;gap:6px");
     expect(compactPlanningCss).toContain(".planning-field{display:grid;gap:5px;min-width:0");
   });
