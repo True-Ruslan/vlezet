@@ -34,6 +34,13 @@ const ranked: RankedPlanningCandidate = {
       "Открывание дверей не перекрыто.",
       "Диван ↔ Стол: требуется минимум 800 мм, фактически 842 мм.",
     ],
+    exactEvidence: [{
+      kind: "pair-min-gap",
+      objectIds: ["sofa", "table"],
+      requiredMm: 800,
+      actualMm: 842,
+      satisfied: true,
+    }],
     stableKey: "room-1|sofa|table",
   },
 };
