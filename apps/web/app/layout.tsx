@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 import "./editor-viewport.css";
 import "./editor-shell.css";
+import "./context-panel.css";
 import "./planning-exact-gap.css";
 
 export const metadata: Metadata = {
