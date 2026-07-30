@@ -36,9 +36,9 @@ describe("M7.1 apartment editor shell integration", () => {
     expect(source).not.toContain("onViewportChange({ compactSurface");
   });
 
-  it("uses one-column spatial composition and clears only compact presentation", () => {
+  it("uses one-column spatial composition and derives hidden 2D sheets in 3D", () => {
     expect(source).toContain('viewMode === "3d" ? "is-spatial"');
-    expect(source).toContain('{ kind: "view-changed", view: viewMode }');
+    expect(source).toContain('viewMode === "3d" ? null');
     expect(source).toContain("<SpatialViewer fitRequest={fit3dRequest} />");
   });
 });
