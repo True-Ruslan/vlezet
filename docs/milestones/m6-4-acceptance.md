@@ -1,6 +1,6 @@
 # M6.4 Reviewed Natural-Language Intent — Acceptance
 
-**Status:** RC implementation complete in Draft PR #17; automated gates pass; representative browser acceptance is still required before Ready for Review or merge.  
+**Status:** browser acceptance PASS; implementation and responsive polish pass strict CI; PR #17 may proceed to final exact-head verification, Ready for Review and squash merge.  
 **Date:** 2026-07-30
 
 ## 1. Product contract
@@ -20,14 +20,13 @@ explicit Find alternatives
         ↓ existing Preview / Apply / Undo / Redo
 ```
 
-Required authority boundaries:
+Accepted authority boundaries:
 
 - [x] interpreter output contains no coordinates, placements or direct document mutations;
 - [x] object references resolve only against furniture in the selected room;
 - [x] exact normalized match precedes unique token-sequence match;
 - [x] fuzzy guessing is forbidden;
-- [x] ambiguous names require an explicit user choice;
-- [x] unresolved names require an explicit user choice;
+- [x] ambiguous and unresolved names require an explicit user choice;
 - [x] unsupported fragments remain visible and require acknowledgement;
 - [x] millimetres are canonical; mm/cm/m inputs normalize explicitly;
 - [x] confirmed clauses pass the existing `validatePlanningConstraintSet()`;
@@ -61,81 +60,59 @@ Explicitly unsupported and surfaced rather than guessed:
 
 ### Pure intent contract
 
-RED:
-
 ```text
-commit: 09ffe649e235beba3f59515d1f694b6f41fbe3ee
-run:    30546883888 — FAIL
-cause:  missing ./intent-draft module
-```
-
-GREEN:
-
-```text
-head: d765c27c3f63ae7fe1fb34fa4075a2c00faaa7b9
-run:  30547202205 — PASS
+RED   09ffe649e235beba3f59515d1f694b6f41fbe3ee
+      run 30546883888 — FAIL: missing ./intent-draft
+GREEN d765c27c3f63ae7fe1fb34fa4075a2c00faaa7b9
+      run 30547202205 — PASS
 ```
 
 ### OpenRouter provider boundary
 
-RED:
-
 ```text
-head: af3ae1e0392ac483d6874300111f8b20ecacb2e2
-run:  30547430331 — FAIL
-cause: missing intent schema/provider modules
-```
-
-GREEN:
-
-```text
-head: 26892574de912591e0bfdd54c405728278536940
-run:  30547833919 — PASS
+RED   af3ae1e0392ac483d6874300111f8b20ecacb2e2
+      run 30547430331 — FAIL: missing intent schema/provider modules
+GREEN 26892574de912591e0bfdd54c405728278536940
+      run 30547833919 — PASS
 ```
 
 ### Review and transfer model
 
-RED:
-
 ```text
-head: 97798c2594561f422e0e71579402494402498d4e
-run:  30548029175 — FAIL
-cause: missing ./planning-intent-review module
-```
-
-GREEN:
-
-```text
-head: a32a061798b4a169ab36d8d4ad50fb469bc1ca39
-run:  30548539161 — PASS
+RED   97798c2594561f422e0e71579402494402498d4e
+      run 30548029175 — FAIL: missing planning-intent-review
+GREEN a32a061798b4a169ab36d8d4ad50fb469bc1ca39
+      run 30548539161 — PASS
 ```
 
 ### Review UI and planning-panel integration
 
-RED:
-
 ```text
-head: a175cd6f7fa36ff5a96856db94b6ecc91140cf41
-run:  30548815686 — FAIL
-causes:
-- missing ./planning-intent-section module;
-- PlanningPanelView did not render the M6.4 slot.
+RED   a175cd6f7fa36ff5a96856db94b6ecc91140cf41
+      run 30548815686 — FAIL: missing intent section / slot
+GREEN 1220876eca429cbbab2486dad7765b4b41b524b9
+      run 30549668157 — PASS
 ```
 
-GREEN after React lint correction:
+### Browser-found responsive polish
+
+The accepted browser screenshots exposed one non-functional narrow-panel issue: ordinary control labels visually touched adjacent controls after transfer.
 
 ```text
-head: 1220876eca429cbbab2486dad7765b4b41b524b9
-run:  30549668157 — PASS
+RED   88bbaa64e5ca764b629f1532244fe8b6ebd7b410
+      run 30552858007 — FAIL: 2 new layout-contract tests
+CSS   e5a351c2ea4ea3e710ba5103c215c7b64217a8a2
+      run 30553051798 — FAIL: product rules present; one compact-test expectation retained whitespace
+GREEN 4980d062d33848a82584881eddeadff70b74a0b1
+      run 30553207256 — PASS
 ```
 
-Passed steps:
+The correction adds separate grid structure and gaps for:
 
-- [x] frozen install;
-- [x] full unit suite;
-- [x] TypeScript typecheck;
-- [x] ESLint;
-- [x] production Next build.
+- selected object name, lock and boundary preference;
+- field labels and their controls;
+- pair relationship cards;
+- long furniture names inside the narrow inspector.
 
 ## 4. Automated behavior coverage
 
@@ -175,11 +152,62 @@ Passed steps:
 - [x] language section renders before ordinary manual controls;
 - [x] provider error states that manual controls remain available;
 - [x] transfer/manual edits clear stale result, Preview and active exact-gap annotation;
-- [x] viewport-safe min-content styling is scoped to the existing inspector.
+- [x] viewport-safe min-content styling is scoped to the existing inspector;
+- [x] transferred manual controls retain readable label/card spacing in the narrow inspector.
 
-## 5. Scope/persistence inspection
+## 5. Representative browser acceptance — PASS
 
-PR #17 changed only:
+### Test setup
+
+One axis-aligned rectangular room contained:
+
+- `Диван`;
+- `Стул`;
+- `Рабочий стол`;
+- `Обеденный стол`.
+
+Input:
+
+```text
+Диван не двигать, кресло поставить ближе к углу,
+между креслом и столом оставить минимум 800 мм.
+Стол поставить ближе к окну.
+```
+
+### Directly evidenced in supplied screenshots and user report
+
+- [x] `Диван — не двигать` resolved uniquely;
+- [x] `кресло` was not guessed as `Стул`; the unresolved reference required manual selection;
+- [x] `стол` remained explicitly ambiguous between `Рабочий стол` and `Обеденный стол`;
+- [x] exact minimum gap normalized and displayed as `800 мм`;
+- [x] `Стол поставить ближе к окну` appeared in the `Не поддержано` block;
+- [x] unsupported window intent was not silently converted to a wall preference;
+- [x] after explicit choices and acknowledgement, `Перенести в ограничения` populated ordinary controls;
+- [x] transferred selection contained `Диван`, `Стул` and the explicitly selected table;
+- [x] `Диван` received `Не двигать`;
+- [x] `Стул` received `Ближе к углу`;
+- [x] the selected table↔chair pair received `800 мм` minimum contour gap;
+- [x] transfer did not generate alternatives automatically; `Найти варианты` remained a separate action;
+- [x] review and transferred controls remained inside the right inspector without horizontal escape.
+
+User acceptance:
+
+> «Работает все четко и ровно так, как ты описал.»
+
+### Inherited authority, not falsely attributed to this screenshot run
+
+The screenshots did not independently demonstrate every downstream action. The following remain accepted through M6.3 browser evidence, unchanged implementation paths, M6.4 scope inspection and the full regression suite:
+
+- non-mutating Preview;
+- nearest-contour evidence overlay;
+- explicit current-document-revalidated Apply;
+- one multi-object Apply = one Undo/Redo step;
+- applied ordinary transforms remain the only persistent result;
+- provider key, raw response and language draft are not persistent project state.
+
+## 6. Scope and persistence inspection
+
+PR #17 changes only:
 
 - `packages/planning/src/intent-draft*` and export;
 - planning web provider/schema/review/UI/tests;
@@ -196,81 +224,20 @@ Verified absent:
 - [x] planner/evaluator/apply/history authority changes;
 - [x] recognition or spatial-3D changes.
 
-## 6. Representative browser acceptance — pending
+## 7. Final integration gate
 
-Use one supported axis-aligned rectangular room containing:
+Before Ready for Review:
 
-- `Диван`;
-- `Кресло`;
-- `Рабочий стол`;
-- `Обеденный стол`.
-
-Canonical input:
-
-```text
-Диван не двигать, кресло поставить ближе к углу,
-между креслом и столом оставить минимум 800 мм.
-```
-
-Required scenarios:
-
-### A. Interpretation and review
-
-- [ ] enter the request and a runtime-only OpenRouter key;
-- [ ] click `Разобрать пожелания`;
-- [ ] verify `Диван — не двигать`;
-- [ ] verify `Кресло — ближе к углу`;
-- [ ] verify exact minimum gap normalized to `800 мм`;
-- [ ] verify `стол` is explicitly ambiguous between both tables;
-- [ ] select one table explicitly;
-- [ ] verify unsupported window/door language is never silently mapped to wall intent;
-- [ ] verify transfer is disabled until all ambiguities and unsupported fragments are handled.
-
-### B. Transfer fidelity
-
-- [ ] click `Перенести в ограничения`;
-- [ ] verify the referenced objects become the ordinary selected planning set;
-- [ ] verify `Диван` has `Не двигать`;
-- [ ] verify `Кресло` has `Ближе к углу`;
-- [ ] verify the selected table pair has `800 мм` exact contour gap;
-- [ ] verify no alternatives were generated automatically;
-- [ ] verify Preview and an existing active exact-gap overlay were cleared.
-
-### C. Existing planning authority
-
-- [ ] click `Найти варианты` explicitly;
-- [ ] inspect deterministic result reasons and exact evidence;
-- [ ] Preview a candidate;
-- [ ] show nearest-contour exact-gap annotation;
-- [ ] Apply explicitly;
-- [ ] one Undo removes the full multi-object Apply;
-- [ ] Redo restores it;
-- [ ] 2D→3D remains consistent;
-- [ ] reload persists only applied ordinary transforms, not language/provider state.
-
-### D. Failure and lifecycle
-
-- [ ] invalid key produces a clear error;
-- [ ] simulated provider/network failure leaves manual controls fully usable;
-- [ ] changing text clears the old review draft;
-- [ ] changing manual controls clears stale result/Preview/annotation;
-- [ ] closing the panel discards API key and language draft;
-- [ ] reopening the project does not restore raw model state.
-
-## 7. Final merge gate
-
-Before marking Ready for Review:
-
-- [ ] representative browser acceptance above passes;
-- [ ] any browser findings are fixed with regression coverage;
-- [ ] exact final PR head has green strict CI;
-- [ ] final PR changed-file inspection still shows no persistence/schema scope expansion;
-- [ ] canonical project state/roadmap/changelog are updated with final acceptance evidence.
+- [x] representative browser acceptance passes;
+- [x] browser-found narrow-panel issue has regression coverage and a fix;
+- [x] implementation/polish head `4980d062d33848a82584881eddeadff70b74a0b1` passes strict CI run `30553207256`;
+- [x] changed-file inspection shows no persistence/schema scope expansion;
+- [ ] acceptance/state documentation head passes final exact-head CI.
 
 Before merge:
 
-- [ ] PR #17 marked Ready for Review only after browser PASS;
+- [ ] PR #17 marked Ready for Review;
 - [ ] final head verified again;
 - [ ] squash merge;
-- [ ] merge SHA/date recorded;
-- [ ] next narrow milestone chosen from actual user evidence rather than speculative scope.
+- [ ] merge SHA/date recorded in canonical state and changelog;
+- [ ] next narrow milestone selected from actual user evidence rather than speculative scope.
