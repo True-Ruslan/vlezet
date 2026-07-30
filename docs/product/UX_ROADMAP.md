@@ -1,7 +1,8 @@
 # Vlezet — M7 UX Implementation Roadmap
 
-**Phase:** M7.0 Product and UX Audit  
-**Rule:** trust, reachability and interaction hierarchy precede cosmetic consolidation
+**Phase:** M7 Product UX Foundation  
+**Rule:** trust, reachability and interaction hierarchy precede cosmetic consolidation  
+**Evidence:** source audit plus accepted Chromium/WebKit evidence in `UX_BROWSER_EVIDENCE.md`
 
 ## 1. Prioritisation model
 
@@ -30,7 +31,7 @@ No false-precision numeric score is used. Later slices may be reordered from bro
 ## 3. Recommended sequence
 
 ```text
-NOW after M7.0 acceptance
+NOW
 M7.1 Editor Shell and Responsive Context
 
 THEN
@@ -42,7 +43,7 @@ M7.6 Geometry and Opening Inspector
 M7.7 Furniture and Fit Workflow
 M7.8 Reference and Recognition Workflow
 M7.9 Accessibility and Responsive Hardening
-M7.10 2D/3D Context Consistency
+M7.10 2D/3D Context and Interior Readability
 M7.11 Planning Workflow Simplification
 M7.12 Dashboard and Project Lifecycle
 M7.13 Visual Consolidation and Evidence-Driven Polish
@@ -63,10 +64,10 @@ The sequence is dependency-aware, not a promise to implement every later slice u
 - collapse lower-priority utilities into labelled overflow rather than removing them;
 - replace `display:none` inspector loss with a viewport-safe context panel/drawer model;
 - preserve Canvas minimum useful area and current selection/workflow state during layout changes;
-- add shell-level automated layout contracts and representative browser matrix;
+- reuse the M7.0 Chromium/WebKit browser harness for layout evidence;
 - introduce only the minimum design tokens/primitives required by the shell.
 
-**Dependencies:** accepted M7.0 target IA, interaction model, design tokens and accessibility matrix.  
+**Dependencies:** accepted M7.0 target IA, interaction model, design tokens, accessibility matrix and browser evidence.  
 **Non-goals:** redesign every inspector form, rewrite Canvas, alter editor stores, implement mobile editing, add new product features, migrate recognition/planning visual details.  
 **Acceptance:**
 
@@ -76,6 +77,8 @@ The sequence is dependency-aware, not a promise to implement every later slice u
 - no unreachable selected-entity/workflow controls;
 - active tool and save/history remain available;
 - Canvas remains usable;
+- Chromium representative flow and WebKit core smoke pass;
+- native Safari core regression on macOS is recorded before merge;
 - existing M0–M6.4 functional regression suite and exact-head CI pass;
 - product-owner browser acceptance before merge.
 
@@ -100,7 +103,7 @@ The sequence is dependency-aware, not a promise to implement every later slice u
 **Scope:** reusable presentation primitives, focus/error states, internal enum/milestone copy removal, representative component migration.  
 **Dependencies:** M7.1–M7.2 shell/context contracts.  
 **Non-goals:** migrate every advanced workflow in one PR.  
-**Acceptance:** essential text ≥ target token, focus/error/state examples, visual/browser regression across representative inspector and dialog.  
+**Acceptance:** essential text meets target tokens; focus/error/state examples and visual/browser regression cover representative inspector and dialog.  
 **Risk:** medium.
 
 ### M7.4 — Canvas Selection and Mode Feedback
@@ -163,15 +166,15 @@ The sequence is dependency-aware, not a promise to implement every later slice u
 **Acceptance:** documented accessibility matrix and WCAG 2.2 AA checks for applicable HTML UI.  
 **Risk:** medium/high; specialised testing required.
 
-### M7.10 — 2D/3D Context Consistency
+### M7.10 — 2D/3D Context and Interior Readability
 
-**Problem:** `UX-3D-001`  
-**Goal:** align semantic selection and inspection across 2D and read-only 3D.  
-**Scope:** shared inspector anatomy/names/status, mode transition, preserved identity where valid, clear read-only state.  
+**Problem:** `UX-3D-001`, `UX-3D-003`  
+**Goal:** align semantic inspection across 2D/3D and make the first read-only 3D frame useful for interior understanding.  
+**Scope:** shared inspector anatomy/names/status; mode transition; preserved identity where valid; clear read-only state; deterministic interior-oriented camera or wall visibility/cutaway treatment; evidence-tested perspective/isometric/top presets.  
 **Dependencies:** context/design/accessibility foundations.  
-**Non-goals:** direct 3D editing or photorealism.  
-**Acceptance:** room/wall/object paired 2D/3D browser scenarios and WebGL recovery.  
-**Risk:** medium.
+**Non-goals:** direct 3D editing, photorealism or a second spatial source of truth.  
+**Acceptance:** paired room/wall/object 2D/3D scenarios; a representative furnished closed room exposes floor and major interior objects on entry; camera presets remain deterministic; WebGL recovery preserves 2D.  
+**Risk:** medium/high because camera and wall presentation affect visual comprehension while renderer/document authority must remain isolated.
 
 ### M7.11 — Planning Workflow Simplification
 
@@ -227,6 +230,7 @@ The sequence is dependency-aware, not a promise to implement every later slice u
 | `UX-REC-003` | M7.8 |
 | `UX-3D-001` | M7.10 |
 | `UX-3D-002` | M7.9 |
+| `UX-3D-003` | M7.10 |
 | `UX-PLAN-001` | M7.11 |
 | `UX-PLAN-002` | M7.11 |
 | `UX-PLAN-003` | M7.11 |
