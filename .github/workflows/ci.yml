@@ -30,6 +30,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: M7 documentation contract
+        id: m7_docs
+        shell: bash
+        run: |
+          set +e
+          pnpm validate:m7-docs 2>&1 | tee m7-docs.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload M7 documentation diagnostics
+        if: failure() && steps.m7_docs.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: m7-docs-diagnostics
+          path: m7-docs.log
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Unit tests
         id: tests
         shell: bash

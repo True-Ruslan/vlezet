@@ -1,0 +1,12 @@
+{
+  "name": "vlezet-m7-browser-audit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "audit": "playwright test",
+    "audit:webkit": "playwright test --config=playwright.webkit.config.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.54.2"
+  }
+}

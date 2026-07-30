@@ -4,6 +4,162 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-07-30 — M7.0 Product and UX Audit accepted
+
+PR #19 status at acceptance: source audit, browser evidence and product-owner gate complete; final integration evidence is recorded in `docs/milestones/m7-0-acceptance.md` and canonical state.
+
+### Why
+
+M0–M6.4 produced a capable and trustworthy planner, but capability had accumulated faster than interface hierarchy. The next proposed feature was paused because adding more planning vocabulary before reviewing the whole product would increase panel density, terminology debt and hidden-mode risk.
+
+M7.0 therefore evaluated the complete product before redesign implementation:
+
+- dashboard and project lifecycle;
+- wall/room/opening geometry;
+- furniture and fit;
+- reference import and calibration;
+- recognition;
+- 3D;
+- deterministic planning;
+- reviewed natural-language intent;
+- save, history, export and recovery;
+- responsive, zoom, keyboard and accessibility behaviour.
+
+### Delivered documentation foundation
+
+```text
+docs/product/PRODUCT_VISION.md
+docs/product/USER_JOURNEYS.md
+docs/product/UX_AUDIT.md
+docs/product/UX_BROWSER_EVIDENCE.md
+docs/product/INFORMATION_ARCHITECTURE.md
+docs/product/INTERACTION_MODEL.md
+docs/product/UX_ROADMAP.md
+docs/design/DESIGN_SYSTEM.md
+docs/design/COMPONENT_INVENTORY.md
+docs/design/CONTENT_AND_TERMINOLOGY.md
+docs/design/ACCESSIBILITY.md
+docs/milestones/m7-0-acceptance.md
+```
+
+A mechanical documentation contract verifies required files, J01–J11, unique structured finding IDs, required finding fields and P1/P2 roadmap ownership.
+
+### Finding ledger
+
+```text
+P0  0
+P1 10
+P2 23
+P3  6
+P4  0
+TOTAL 39
+```
+
+No unsupported data-loss/P0 claim was manufactured. The architecture remains strong; dominant problems are reachability, comprehension, density, consistency and accessibility.
+
+Highest-priority findings:
+
+- project/tool/display/history actions compete and clip in one toolbar;
+- contextual inspector disappears below the current effective-width breakpoint;
+- browser zoom removes task controls instead of reflowing them;
+- local save state is rendered as 9 px metadata;
+- important helper/status meaning frequently uses 9–11 px text;
+- hard constraints, preferences, recommendations, Draft, Preview and Applied lack one visual system;
+- pointer-first spatial workflows lack complete keyboard/focus alternatives;
+- default 3D perspective can hide interior furniture behind opaque exterior walls.
+
+### Automated browser evidence
+
+Initial full Chromium representative flow:
+
+```text
+run:      30570626203 — PASS
+head:     e3602296cf4382b88443e67616a69978b3f3bab0
+artifact: 8770651801
+```
+
+Final Chromium + WebKit pass:
+
+```text
+run:      30571095361 — PASS
+head:     7278a278f1a33d99d383a54139a20be987417c85
+artifact: 8770860354
+digest:   sha256:1d4991a03f6e8b4d6388119dc296fe4f9cd311cbf2c3dbc6099b730630a3ec61
+```
+
+The real Next.js product was exercised through dashboard, room creation, room/object inspectors, furniture, responsive states, planning, reference panel, 3D and delete confirmation.
+
+Machine observations across 15 Chromium states:
+
+- 12 toolbar-overflow observations;
+- 12 document-horizontal-overflow observations;
+- 3 hidden-context-surface observations;
+- 13 save-status microtext observations;
+- 13 Canvas-help microtext observations.
+
+WebKit independently passed dashboard, IndexedDB startup, room creation/editing, 3D transition and the destructive dialog. It is recorded as an engine-level proxy, not as a manual shipping-Safari claim. Native Safari regression is an M7.1 gate because M7.1 changes the shell; M7.0 does not.
+
+### Strengths preserved
+
+- calm and understandable dashboard;
+- local-first operation and autosave;
+- shared geometry authority for dimensions and area;
+- explainable fit diagnostics;
+- reviewable recognition and language drafts;
+- non-mutating Preview and explicit Apply;
+- manual workflows remain usable after provider failures;
+- semantic Undo/Redo;
+- clear project deletion confirmation;
+- recognisable restrained visual direction.
+
+### Target UX foundation
+
+The accepted information architecture has four layers:
+
+```text
+global product layer
+        ↓
+tool/workflow layer
+        ↓
+context layer
+        ↓
+Canvas/spatial feedback layer
+```
+
+The accepted interaction model defines selection, exclusive tools, commands, display toggles, Escape priority, immediate edits, explicit Apply, Draft/Preview/Applied lifecycle and status/error hierarchy.
+
+The design foundation defines readable typography, spacing, control dimensions, semantic colour roles, focus/error states, inspector anatomy, canonical Russian terminology and required viewport/zoom acceptance.
+
+### Roadmap consequence
+
+Only **M7.1 Editor Shell and Responsive Context** is selected as `NOW`.
+
+It owns:
+
+- `UX-SHELL-001`;
+- `UX-SHELL-002`;
+- `UX-DATA-001`;
+- `UX-ACCESS-002`.
+
+M7.1 must establish command hierarchy, readable local save status and a reachable context surface before later inspector, Canvas, planning or visual consolidation work.
+
+No M7.1 product code was implemented inside M7.0.
+
+### Architecture preserved
+
+- no `VlezetDocument`, schema or migration change;
+- no IndexedDB or project-format change;
+- no geometry semantics change;
+- no planner/evaluator/M2-fit authority change;
+- no Apply/history authority change;
+- no Canvas/Three.js authority change;
+- no new AI or autonomous functionality;
+- browser automation remains non-product test tooling.
+
+Canonical evidence: `docs/milestones/m7-0-acceptance.md` and `docs/product/UX_BROWSER_EVIDENCE.md`.
+
+---
+
 ## 2026-07-30 — M6.4 Reviewed Natural-Language Intent accepted and merged
 
 PR #17 squash merge:

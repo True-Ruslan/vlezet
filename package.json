@@ -10,7 +10,8 @@
     "build": "turbo build",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "validate:m7-docs": "node scripts/validate-m7-docs.mjs"
   },
   "devDependencies": {
     "eslint": "9.39.5",
