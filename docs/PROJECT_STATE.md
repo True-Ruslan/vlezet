@@ -1,8 +1,8 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-07-30  
-**Status:** M0–M7.0 are merged and accepted in `main`. M7.0 Product and UX Audit was squash-merged through PR #19. The only selected next implementation slice is M7.1 Editor Shell and Responsive Context.  
-**Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, `docs/product/UX_BROWSER_EVIDENCE.md` and the relevant milestone checklist.
+**Last updated:** 2026-07-31  
+**Status:** M0–M7.1 are merged and accepted in `main`. M7.1 Editor Shell and Responsive Context was squash-merged through PR #21. The only selected next implementation slice is M7.2 Context Inspector Foundation.  
+**Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
 
 ## 1. Product
 
@@ -47,6 +47,7 @@ Priorities:
 21. Natural language produces a reviewable symbolic draft and transfers into ordinary controls.
 22. Provider keys, raw responses and language drafts are runtime-only.
 23. M7 may redesign presentation/composition, but not these authority boundaries.
+24. Responsive shell state is ephemeral UI state and is never part of project persistence.
 
 ## 3. Repository and stack
 
@@ -68,7 +69,8 @@ packages/planning        deterministic planning + reviewed intent
 - state: Zustand plus local ephemeral React state;
 - persistence: IndexedDB;
 - workspace: pnpm + Turborepo;
-- CI: GitHub-hosted Actions.
+- CI: GitHub-hosted Actions;
+- browser acceptance: Playwright Chromium full flow + WebKit core smoke.
 
 ## 4. Accepted milestones
 
@@ -89,6 +91,7 @@ packages/planning        deterministic planning + reviewed intent
 | M6.3 | exact contour gap and evidence overlay | `724058fe57d769e7c1329f3536d6869405e6ac42` |
 | M6.4 | reviewed natural-language intent | `02f8b041341c86f0796011b0d2fd42cac56a4e02` |
 | M7.0 | complete product/UI/UX audit and browser evidence foundation | `0d5b9c1555ef85a0e271a52832cc3fd3cca4963e` |
+| M7.1 | stable editor shell and responsive context surfaces | `6b6f8751b520722a54bb94a6947dae1135e07859` |
 
 Accepted geometry regression:
 
@@ -133,135 +136,102 @@ area:       11.72 m²
 - explicit transfer, Preview and revalidated Apply;
 - one multi-object Apply = one Undo/Redo step.
 
-## 6. M7.0 accepted audit foundation
+### UX foundation through M7.1
 
-M7.0 changed no product UI. It established the evidence and design foundation for an evolutionary redesign.
+- separate project and tool command layers;
+- readable local-save state;
+- directly reachable Undo/Redo;
+- labelled overflow for secondary project actions;
+- docked catalogue/context surfaces on wide desktop;
+- non-modal left/right sheets at compact effective widths;
+- selection and uncommitted form state survive sheet close/reopen;
+- no document horizontal overflow in the required matrix;
+- dedicated one-column 3D composition;
+- responsive state remains non-persistent.
 
-Canonical package:
-
-```text
-docs/product/PRODUCT_VISION.md
-docs/product/USER_JOURNEYS.md
-docs/product/UX_AUDIT.md
-docs/product/UX_BROWSER_EVIDENCE.md
-docs/product/INFORMATION_ARCHITECTURE.md
-docs/product/INTERACTION_MODEL.md
-docs/product/UX_ROADMAP.md
-docs/design/DESIGN_SYSTEM.md
-docs/design/COMPONENT_INVENTORY.md
-docs/design/CONTENT_AND_TERMINOLOGY.md
-docs/design/ACCESSIBILITY.md
-docs/milestones/m7-0-acceptance.md
-```
-
-Combined findings:
+## 6. M7.1 accepted evidence
 
 ```text
-P0  0
-P1 10
-P2 23
-P3  6
-P4  0
-TOTAL 39
+PR:                  #21
+implementation head: 6c21653b30e627a9bf160baf6f3f8d0a4d058f16
+final verified head: 8c68bd288cd3dda1133f09a469cd7afe6dab83d9
+standard CI:         30586557182 — PASS
+browser CI:          30586557394 — PASS
+artifact:            8776737145
+digest:              sha256:e94a4d3737b8c4a9d562d848f51319b968a12be7952341cbc26cb2a526828855
+merge:               6b6f8751b520722a54bb94a6947dae1135e07859
 ```
 
-Highest-priority themes:
+Chromium covered dashboard, required desktop/effective-zoom widths, room and object inspectors, catalogue/context sheets, uncommitted form state, planning, reference, 3D and deletion. WebKit independently covered dashboard, editor, form, 3D and dialog.
 
-1. stable project/tool/context hierarchy;
-2. reachable inspector at reduced effective width;
-3. readable local-save state;
-4. no essential 9–10 px semantics;
-5. shared hard/preference/recommendation/Draft/Preview/Applied language;
-6. practical keyboard/focus alternatives;
-7. useful interior-oriented initial 3D presentation.
+Product-owner acceptance:
 
-Target IA:
+> «Я все проверил. Выглядит уже лучше и понятнее.»
 
-```text
-global product layer
-        ↓
-tool/workflow layer
-        ↓
-context layer
-        ↓
-Canvas/spatial feedback layer
-```
+The exact local browser/version is not inferred beyond the owner's report.
 
-## 7. M7.0 evidence
+Canonical record: `docs/milestones/m7-1-acceptance.md`.
 
-```text
-feature head: 2ae83fb4a09fd9313f2befe5d9c35fd0ecab1394
-standard CI: 30572124031 — PASS
-browser CI:  30572124032 — PASS
-artifact:    8771245306
-merge:       0d5b9c1555ef85a0e271a52832cc3fd3cca4963e
-```
-
-Browser automation covered dashboard, room creation, room/object inspectors, furniture, responsive states, planning, reference panel, 3D and deletion in Chromium; WebKit independently covered dashboard, room form, 3D and dialog.
-
-Confirmed:
-
-- toolbar/document overflow at common desktop widths;
-- hidden inspector under effective zoom width;
-- 9 px save state and 11 px Canvas help;
-- provider-first dense planning entry;
-- internal milestone labels in product UI;
-- opaque-wall 3D interior occlusion;
-- strong dashboard and destructive confirmation patterns.
-
-WebKit is an engine proxy, not a manual Safari claim. Native Safari is mandatory for M7.1.
-
-## 8. Known limitations
+## 7. Known limitations
 
 - Recognition quality varies and needs fixtures/metrics.
 - Clear dimension editing remains limited to simple rectangular rooms.
 - Planning remains one rectangular room / 1–3 objects and lacks whole-apartment autonomy.
 - 3D is schematic, read-only and initially may hide interiors.
-- Toolbar clips at common widths.
-- Inspector disappears below the current breakpoint.
-- Zoom can remove task controls.
-- Important metadata uses microtext.
-- Advanced panels are dense/inconsistent.
-- Spatial keyboard/focus coverage is incomplete.
+- Canvas helper text still uses 11 px and is owned by M7.3/M7.4.
+- Domain-specific inspector anatomy remains inconsistent and is owned by M7.2+.
+- Advanced workflows remain dense/inconsistent.
+- Spatial keyboard/focus coverage remains incomplete.
+- Native browser/version details are not inferred from the automated WebKit proxy.
 
-## 9. NOW — M7.1 Editor Shell and Responsive Context
+Resolved by M7.1:
+
+- common-width document/toolbar overflow;
+- disappearing contextual inspector at reduced effective width;
+- unreadable 9 px local-save state;
+- zoom-driven removal of essential shell controls.
+
+## 8. NOW — M7.2 Context Inspector Foundation
 
 Owned findings:
 
-- `UX-SHELL-001`;
-- `UX-SHELL-002`;
-- `UX-DATA-001`;
-- `UX-ACCESS-002`.
+- `UX-SHELL-003`;
+- `UX-PATTERN-001`;
+- part of `UX-CONTENT-001`.
+
+Goal:
+
+> Establish one predictable context/workflow panel anatomy with selection identity, shared header, back/close behaviour, sections, action hierarchy and safe workflow return context.
 
 Required outcomes:
 
-- separate global actions, tools and context;
-- preserve project identity, readable local-save state, active tool and Undo/Redo;
-- move secondary utilities into labelled overflow;
-- replace disappearing inspector with a reachable panel/drawer;
-- preserve Canvas useful area and semantic state;
-- pass required desktop widths and effective zoom scenarios;
-- pass Chromium, WebKit and native Safari core regression;
-- preserve all M0–M6.4 authority and behaviour.
+- shared context header and identity model for empty/wall/room/opening/object states;
+- consistent back/close semantics for embedded workflows;
+- predictable sections and action placement;
+- sticky primary actions only where evidence requires them;
+- destructive actions visually separated from ordinary editing;
+- preserve selection, drafts, commands and responsive M7.1 container behaviour;
+- preserve all M0–M6.4 authority boundaries;
+- extend browser acceptance for representative context states.
 
 Non-goals:
 
-- redesign every inspector;
-- change geometry, persistence or editor stores;
-- mobile-first editing;
-- new AI/planning features;
-- Canvas/3D rewrite.
+- complete domain-specific form redesign;
+- geometry/schema/persistence changes;
+- new planning or AI capabilities;
+- Canvas/3D rewrite;
+- broad design-system migration assigned to M7.3.
 
-## 10. Delivery workflow
+## 9. Delivery workflow
 
 1. focused design spec;
 2. implementation plan;
 3. TDD/layout contracts;
 4. Draft PR;
 5. full CI;
-6. Chromium/WebKit/native Safari evidence;
+6. Chromium/WebKit evidence;
 7. product-owner acceptance;
-8. squash merge;
+8. squash merge with exact-head protection;
 9. canonical documentation sync.
 
 Never claim browser acceptance from unit tests alone. Never bundle unrelated feature work with UX redesign.
