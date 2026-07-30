@@ -3,7 +3,7 @@
 import type { ProjectViewport, ReferencePlan, SaveStatus } from "@vlezet/projects";
 import type { NormalizedPoint, RecognitionDecision, RecognitionOpeningCandidate } from "@vlezet/recognition";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionPanel } from "../recognition/recognition-panel";
@@ -75,6 +75,11 @@ export type ApartmentEditorProps = Readonly<{
   onDiscardRecognition: () => void;
 }>;
 
+type CompactSurfaceChoice = Readonly<{
+  surface: Exclude<CompactEditorSurface, null>;
+  contextKey: string;
+}>;
+
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
 }
@@ -88,7 +93,8 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const [fitRequest, setFitRequest] = useState(0);
   const [fitReferenceRequest, setFitReferenceRequest] = useState(0);
   const [fit3dRequest, setFit3dRequest] = useState(0);
-  const [compactSurface, setCompactSurface] = useState<CompactEditorSurface>(null);
+  const [compactSurfaceChoice, setCompactSurfaceChoice] = useState<CompactSurfaceChoice | null>(null);
+  const [dismissedContextKey, setDismissedContextKey] = useState<string | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
@@ -106,49 +112,66 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     selectedRoomId,
     selectedWallId,
   });
+  const contextKey = [
+    props.projectId,
+    contextKind,
+    planningRoomId,
+    selectedObjectId,
+    selectedOpening?.id,
+    selectedRoomId,
+    selectedWallId,
+  ].join(":");
 
-  const openCatalogueSurface = () => setCompactSurface((current) => nextCompactEditorSurface(current, { kind: "open-catalogue" }));
-  const openContextSurface = () => setCompactSurface((current) => nextCompactEditorSurface(current, { kind: "open-context" }));
-  const closeCompactSurface = () => setCompactSurface((current) => nextCompactEditorSurface(current, { kind: "close" }));
+  const compactSurface: CompactEditorSurface = viewMode === "3d" ? null : (() => {
+    if (compactSurfaceChoice?.surface === "context") return "context";
+    if (
+      compactSurfaceChoice?.surface === "catalogue" &&
+      props.furnitureCatalogOpen &&
+      (compactSurfaceChoice.contextKey === contextKey || contextKind === "empty")
+    ) return "catalogue";
+    if (contextKind !== "empty" && dismissedContextKey !== contextKey) return "context";
+    if (compactSurfaceChoice?.surface === "catalogue" && props.furnitureCatalogOpen) return "catalogue";
+    return null;
+  })();
 
-  const toggleFurnitureSurface = () => {
+  const openCatalogueSurface = useCallback(() => {
+    const surface = nextCompactEditorSurface(null, { kind: "open-catalogue" });
+    if (surface) setCompactSurfaceChoice({ surface, contextKey });
+  }, [contextKey]);
+
+  const openContextSurface = useCallback(() => {
+    const surface = nextCompactEditorSurface(null, { kind: "open-context" });
+    if (surface) setCompactSurfaceChoice({ surface, contextKey });
+    setDismissedContextKey(null);
+  }, [contextKey]);
+
+  const closeCompactSurface = useCallback(() => {
+    nextCompactEditorSurface(compactSurface, { kind: "close" });
+    if (compactSurface === "context") setDismissedContextKey(contextKey);
+    setCompactSurfaceChoice(null);
+  }, [compactSurface, contextKey]);
+
+  const toggleFurnitureSurface = useCallback(() => {
     const closing = props.furnitureCatalogOpen;
     props.onToggleFurnitureCatalog();
-    if (compactLayout) {
-      if (closing) closeCompactSurface();
-      else openCatalogueSurface();
-    }
-  };
+    if (!compactLayout) return;
+    if (closing) setCompactSurfaceChoice(null);
+    else openCatalogueSurface();
+  }, [compactLayout, openCatalogueSurface, props.furnitureCatalogOpen, props.onToggleFurnitureCatalog]);
 
-  const toggleReferenceSurface = () => {
+  const toggleReferenceSurface = useCallback(() => {
     props.onToggleReferencePanel();
     if (compactLayout) openContextSurface();
-  };
+  }, [compactLayout, openContextSurface, props.onToggleReferencePanel]);
 
-  const toggleRecognitionSurface = () => {
+  const toggleRecognitionSurface = useCallback(() => {
     props.onToggleRecognitionPanel();
     if (compactLayout) openContextSurface();
-  };
+  }, [compactLayout, openContextSurface, props.onToggleRecognitionPanel]);
 
   useEffect(() => {
     spatialViewModeStore.getState().setMode("2d");
-    setCompactSurface(null);
   }, [props.projectId]);
-
-  useEffect(() => {
-    setCompactSurface((current) => nextCompactEditorSurface(current, { kind: "view-changed", view: viewMode }));
-  }, [viewMode]);
-
-  useEffect(() => {
-    if (!compactLayout) return;
-    setCompactSurface((current) => nextCompactEditorSurface(current, { kind: "context-changed", context: contextKind }));
-  }, [compactLayout, contextKind]);
-
-  useEffect(() => {
-    if (compactLayout && !props.furnitureCatalogOpen) {
-      setCompactSurface((current) => current === "catalogue" ? null : current);
-    }
-  }, [compactLayout, props.furnitureCatalogOpen]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -187,7 +210,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [compactLayout, props, viewMode]);
+  }, [props.onStopTracing, props.recognitionPanelOpen, props.tracingMode, toggleFurnitureSurface, viewMode]);
 
   const workspaceClass = [
     "editor-workspace",
