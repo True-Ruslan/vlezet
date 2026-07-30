@@ -174,7 +174,12 @@ export function PlanningIntentSectionView({
       {models.length > 0 ? (
         <label className="planning-field">
           <span>Модель разбора</span>
-          <select className="inspector-select" value={modelId} onChange={(event) => onModelChange(event.target.value)}>
+          <select
+            className="inspector-select"
+            value={modelId}
+            disabled={loading}
+            onChange={(event) => onModelChange(event.target.value)}
+          >
             {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
           </select>
         </label>
@@ -363,6 +368,7 @@ export function PlanningIntentSection({
       }}
       onApiKeyChange={changeApiKey}
       onModelChange={(value) => {
+        activeRequest.current?.abort();
         setModelId(value);
         setDraft(null);
         setErrorMessage(null);
