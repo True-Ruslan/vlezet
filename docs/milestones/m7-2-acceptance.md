@@ -25,7 +25,7 @@ optional back action
 entity/workflow category
 user-facing title
 short summary or workflow phase
-scrolled content sections
+viewport-constrained scrolled content sections
 ordinary action area
 separated danger zone where applicable
 ```
@@ -42,6 +42,8 @@ Implemented for:
 - planning workflow.
 
 Raw entity IDs are no longer the dominant panel identity.
+
+The context frame is explicitly constrained to the available side-surface height. Its header remains stable while `.context-panel-body` owns vertical scrolling, so long room and workflow panels cannot be clipped below the viewport.
 
 ### Workflow navigation
 
@@ -77,26 +79,28 @@ Raw entity IDs are no longer the dominant panel identity.
 | ApartmentEditor return integration | head `7dbbbc8a6b052611e3cd855bd68fc36dd4b916b3`, navigation assertions RED | head `911ead092d3714d669b031c457cdc485d8128889`, CI `30591087163` PASS |
 | Workflow frames and navigation | head `ae6a32f3c9d223fa7b08306824609b218ea5de39`, workflow source contracts RED | head `e230b3b7fe3175bca5fc96cbc44abd99bd4b77b8`, CI `30591902093` PASS |
 | Honest content contract | head `a60634fac49132a1577641bfa5493af072469eac`, Unit tests RED on roadmap badge and false Undo copy | implementation head `2cb085a5f637020bdba7dafe38bc258cc4ebdca7`, CI/browser PASS |
+| Context-panel vertical scrolling | head `90b43f197dad3cc168ef50a2a43f8e4717b9b3cd`, Unit tests RED because the M7.2 frame was not height-constrained | head `376f38cafc0a46b67a04d7be54527a83d0220375`, static CSS contract plus Chromium/WebKit real-scroll regression PASS |
 
 Browser harness hardening retained product validation and corrected only automation realism:
 
 - opening placement uses `pointermove → click` so host-wall preview exists;
 - recognition scenario satisfies the real calibrated-reference prerequisite;
 - reference fixture is a representative `640 × 480` image rather than bypassing minimum-size validation;
-- WebKit furniture placement uses the same real hover-preview gesture.
+- WebKit furniture placement uses the same real hover-preview gesture;
+- the context-scroll regression creates and selects a room at the proven desktop geometry, then reduces viewport height and performs a real scroll to `Варианты расстановки`.
 
 ## Automated acceptance
 
 Implementation head before this evidence record:
 
 ```text
-2cb085a5f637020bdba7dafe38bc258cc4ebdca7
+376f38cafc0a46b67a04d7be54527a83d0220375
 ```
 
 Standard CI:
 
 ```text
-GitHub Actions 30594115306 — PASS
+GitHub Actions 30620776537 — PASS
 ```
 
 Passed:
@@ -111,9 +115,9 @@ Passed:
 Chromium/WebKit acceptance:
 
 ```text
-GitHub Actions 30594115312 — PASS
-artifact: 8779465503
-digest: sha256:3b22de4e1ea0b2ca258c40be1702ef49904836dc4b87df9655bd13b066bde224
+GitHub Actions 30620776539 — PASS
+artifact: 8789303032
+digest: sha256:ff71384f235e1c4760a82bd7f911ad88a00da8742734f77cee2acee983188446
 ```
 
 Chromium full-flow verified:
@@ -128,7 +132,8 @@ Chromium full-flow verified:
 8. stale deleted target returns to empty context;
 9. real image upload, calibration and installed-reference danger confirmation;
 10. 3D removes 2D side surfaces;
-11. no document horizontal overflow.
+11. no document horizontal overflow;
+12. a long room context has `scrollHeight > clientHeight`, scrolls vertically and exposes a working `Варианты расстановки` action.
 
 WebKit core smoke independently verified:
 
@@ -139,7 +144,8 @@ WebKit core smoke independently verified:
 - compact hide/reopen with preserved draft;
 - reference return to object;
 - clean 3D composition;
-- project-delete dialog regression.
+- project-delete dialog regression;
+- long room-context vertical scrolling and planning-action reachability.
 
 WebKit is recorded as an engine-level proxy, not as a manual native-Safari claim.
 
@@ -170,6 +176,7 @@ Product-owner browser acceptance must verify:
 5. compact panel X hides only the panel and reopening preserves the workflow/draft;
 6. object/opening danger zones clearly communicate Undo;
 7. reference removal clearly communicates that apartment geometry remains;
-8. no important existing action became harder to reach.
+8. long right-side panels scroll to every action, including `Варианты расстановки`;
+9. no important existing action became harder to reach.
 
 Do not merge PR #23 before explicit product-owner acceptance and fresh exact-head standard/browser gates including this acceptance record.
