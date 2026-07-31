@@ -15,16 +15,19 @@ export type PlacedObjectShapeProps = Readonly<{
   selected: boolean;
   fitStatus: FitStatus;
   preview?: boolean;
+  hovered?: boolean;
   onSelect?: () => void;
+  onHoverChange?: (hovered: boolean) => void;
   onGestureStart?: (kind: ObjectGestureKind) => void;
   onGesturePreview?: (patch: PlacedObjectPatch) => void;
   onGestureCommit?: () => void;
 }>;
 
-function statusStroke(status: FitStatus, selected: boolean, preview: boolean): string {
+function statusStroke(status: FitStatus, selected: boolean, preview: boolean, hovered: boolean): string {
   if (status === "blocked") return "#dc2626";
   if (status === "tight") return "#d97706";
   if (selected || preview) return "#1769ff";
+  if (hovered) return "#5b8def";
   return "#4b5563";
 }
 
@@ -73,7 +76,9 @@ export function PlacedObjectShape({
   selected,
   fitStatus,
   preview = false,
+  hovered = false,
   onSelect,
+  onHoverChange,
   onGestureStart,
   onGesturePreview,
   onGestureCommit,
@@ -83,6 +88,7 @@ export function PlacedObjectShape({
   const screen = worldToScreen(object.position, viewport);
   const width = object.width * viewport.pixelsPerMillimeter;
   const depth = object.depth * viewport.pixelsPerMillimeter;
+  const previewLabel = fitStatus === "blocked" ? "Недопустимо" : "Предпросмотр";
 
   useEffect(() => {
     const transformer = transformerRef.current;
@@ -115,11 +121,14 @@ export function PlacedObjectShape({
       y={screen.y}
       rotation={object.rotationDeg}
       draggable={!preview}
-      opacity={preview ? 0.62 : 1}
+      opacity={preview ? 0.68 : 1}
       onMouseDown={selectFromPointer}
       onTap={selectFromPointer}
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
       onDragStart={(event) => {
         event.cancelBubble = true;
+        onHoverChange?.(false);
         onSelect?.();
         onGestureStart?.("move");
       }}
@@ -144,13 +153,13 @@ export function PlacedObjectShape({
         width={width}
         height={depth}
         fill={categoryFill(object.category)}
-        stroke={statusStroke(fitStatus, selected, preview)}
-        strokeWidth={selected || preview || fitStatus !== "fits" ? 2 : 1.2}
-        dash={preview ? [7, 5] : undefined}
+        stroke={statusStroke(fitStatus, selected, preview, hovered)}
+        strokeWidth={selected || preview || fitStatus !== "fits" ? 2 : hovered ? 1.8 : 1.2}
+        dash={preview ? [7, 5] : hovered && !selected ? [4, 3] : undefined}
         cornerRadius={Math.min(8, width * 0.06, depth * 0.06)}
-        shadowColor={selected ? "#1769ff" : undefined}
-        shadowBlur={selected ? 8 : 0}
-        shadowOpacity={selected ? 0.12 : 0}
+        shadowColor={selected ? "#1769ff" : hovered ? "#5b8def" : undefined}
+        shadowBlur={selected ? 8 : hovered ? 5 : 0}
+        shadowOpacity={selected ? 0.12 : hovered ? 0.08 : 0}
       />
       <InteriorMark object={object} width={width} depth={depth} />
       {width >= 72 && depth >= 36 ? (
@@ -163,6 +172,19 @@ export function PlacedObjectShape({
           fontSize={Math.max(9, Math.min(13, depth * 0.16))}
           fill="#334155"
           ellipsis
+          listening={false}
+        />
+      ) : null}
+      {preview ? (
+        <Text
+          x={-Math.max(width, 112) / 2}
+          y={depth / 2 + 8}
+          width={Math.max(width, 112)}
+          align="center"
+          text={previewLabel}
+          fontSize={12}
+          fontStyle="bold"
+          fill={fitStatus === "blocked" ? "#b42318" : "#175cd3"}
           listening={false}
         />
       ) : null}
