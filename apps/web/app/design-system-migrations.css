@@ -41,3 +41,65 @@
 .fit-status-badge {
   margin-bottom: var(--space-2);
 }
+
+.local-storage-note.ui-notice {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  min-width: 255px;
+}
+
+.local-storage-note .ui-notice-marker {
+  color: var(--color-info);
+}
+
+.dashboard-error.ui-notice {
+  margin-bottom: var(--space-4);
+}
+
+.projects-empty.ui-empty-state {
+  max-width: 680px;
+  margin-inline: auto;
+}
+
+.confirm-dialog.ui-dialog {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.recognition-modal.ui-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.recognition-dialog-content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recognition-inline-actions .ui-button {
+  width: 100%;
+}
+
+.global-error,
+.toast {
+  border-radius: var(--radius-md);
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+  box-shadow: var(--shadow-md);
+}
+
+.global-error {
+  border-color: #fecdca;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.global-error button {
+  min-height: var(--control-height-compact);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-helper);
+}
+
+.toast {
+  border: 1px solid #abefc6;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
