@@ -25,8 +25,9 @@ DONE        M6.3 Exact Spatial Constraints
 DONE        M6.4 Reviewed Natural-Language Intent
 DONE        M7.0 Product and UX Audit
 DONE        M7.1 Editor Shell and Responsive Context
-NOW         M7.2 Context Inspector Foundation
-LATER       M7.3+ in dependency-aware browser-tested slices
+DONE        M7.2 Context Inspector Foundation
+NOW         M7.3 Design System and Content Components
+LATER       M7.4+ in dependency-aware browser-tested slices
 ```
 
 ## Completed product foundation
@@ -92,7 +93,6 @@ Status: **DONE / ACCEPTED / MERGED**.
 
 ```text
 PR:                  #21
-implementation head: 6c21653b30e627a9bf160baf6f3f8d0a4d058f16
 final verified head: 8c68bd288cd3dda1133f09a469cd7afe6dab83d9
 standard CI:         30586557182 — PASS
 browser CI:          30586557394 — PASS
@@ -100,23 +100,7 @@ artifact:            8776737145
 merge:               6b6f8751b520722a54bb94a6947dae1135e07859
 ```
 
-Resolved:
-
-- `UX-SHELL-001` — command hierarchy no longer competes in one clipping row;
-- `UX-SHELL-002` — contextual controls remain reachable through docked surfaces or compact sheets;
-- `UX-DATA-001` — local-save state is readable;
-- foundational part of `UX-ACCESS-002` — zoom reflows shell controls rather than removing them.
-
-Delivered:
-
-- separate project and tool bars;
-- visible project identity, save state, Undo and Redo;
-- labelled `Действия` overflow;
-- responsive left catalogue and right context sheets;
-- preserved selection and uncommitted form state;
-- no horizontal document escape in the required viewport/zoom matrix;
-- clean one-column 3D composition;
-- strict Chromium/WebKit blocking acceptance.
+Delivered separate project/tool bars, readable save state, direct Undo/Redo, responsive catalogue/context surfaces, preserved local drafts and a clean one-column 3D composition.
 
 Product owner confirmed:
 
@@ -124,51 +108,98 @@ Product owner confirmed:
 
 Canonical evidence: `docs/milestones/m7-1-acceptance.md`.
 
-## NOW — M7.2 Context Inspector Foundation
+## M7.2 — Context Inspector Foundation
+
+Status: **DONE / ACCEPTED / MERGED**.
+
+```text
+PR:                  #23
+final verified head: d3231a09541c2c4cf10a48e69f4e485d15a06a0a
+standard CI:         30625797753 — PASS
+browser CI:          30625797756 — PASS
+artifact:            8791323487
+digest:              sha256:e167a0944674de6a99fc07dfaa7d5bcc0eea3b1c1cce575ce1d5b1ef961dfb12
+merge:               66606356d69f96953f8afae7b914222a3f793777
+```
+
+Resolved:
+
+- `UX-SHELL-003` — workflows now preserve and restore one ordinary context;
+- foundational `UX-PATTERN-001` — shared header, sections, actions and danger hierarchy;
+- foundational `UX-CONTENT-001` — understandable entity/workflow identity and action language;
+- right-side context clipping — long panels now scroll within the viewport.
+
+Delivered:
+
+- one context anatomy for empty, wall, room, opening, object and bounded workflows;
+- explicit `К комнате…` and `К предмету…` return actions;
+- workflow-to-workflow preservation of the original ordinary target;
+- fail-closed stale-target handling;
+- compact close that hides presentation without destroying workflow or draft state;
+- separated destructive actions and accurate consequences;
+- viewport-constrained context frame with independent body scrolling;
+- Chromium/WebKit regression that scrolls to and opens `Варианты расстановки`.
+
+Product owner confirmed:
+
+> «Теперь все работает супер четко.»
+
+Canonical evidence: `docs/milestones/m7-2-acceptance.md`.
+
+## NOW — M7.3 Design System and Content Components
 
 ### Problems
 
-- `UX-SHELL-003` — context/workflow anatomy is inconsistent;
-- `UX-PATTERN-001` — headers, sections and actions vary by panel;
-- part of `UX-CONTENT-001` — selection identity and action language need one predictable structure.
+- essential typography and spacing remain partially duplicated;
+- fields, helper text, errors, notices, badges, cards and dialogs do not yet share one governed state model;
+- residual microtext and terminology inconsistencies reduce readability;
+- later workflow-specific redesigns need stable primitives first.
+
+Owned findings:
+
+- `UX-FURN-004`;
+- `UX-REC-004`;
+- `UX-PATTERN-002`;
+- `UX-PATTERN-003`;
+- remaining `UX-CONTENT-001`;
+- `UX-SHELL-005`.
 
 ### Goal
 
-Create one predictable context/workflow panel anatomy with shared identity, back/close behaviour, sections, action hierarchy and safe workflow return context.
+Create a small, explicit visual/content system for readable typography, spacing, common controls, statuses and canonical Russian terminology while preserving M7.1 shell and M7.2 context semantics.
 
 ### Scope
 
-- shared panel header and selected-entity identity;
-- empty/wall/room/opening/object shell states;
-- consistent back/close semantics for embedded workflows;
-- reusable section hierarchy;
-- predictable primary/secondary/destructive action placement;
-- preserve drafts and selection across M7.1 docked/sheet presentation;
-- extend browser tests for representative context states.
+- typography, spacing, radius, border and elevation tokens needed by current HTML UI;
+- shared field, help, error, notice, badge, card and dialog primitives;
+- consistent focus, disabled, loading, success, warning and error states;
+- canonical terminology and unit formatting;
+- representative migration across shell, context and workflow surfaces;
+- remove evidence-backed microtext below the target readable scale;
+- Chromium/WebKit coverage for representative states.
 
 ### Acceptance
 
-- existing context actions remain reachable;
-- selection and uncommitted drafts remain stable;
-- embedded workflow close/back returns to the correct context;
-- destructive actions remain separated and explicit;
-- docked and compact layouts use the same semantic anatomy;
+- essential text meets documented readable tokens;
+- representative fields and notices expose non-colour state cues;
+- focus and error states remain visible at required effective widths;
+- terminology is consistent across migrated surfaces;
+- M7.1 shell and M7.2 context/scroll behaviour do not regress;
 - no project/domain/geometry/persistence authority change;
 - full CI and Chromium/WebKit representative flow pass;
 - product-owner acceptance before merge.
 
 ### Non-goals
 
-- complete geometry/furniture/reference/planning form redesign;
-- broad design-system migration assigned to M7.3;
-- new geometry or planning semantics;
+- complete geometry/furniture/reference/recognition/planning workflow redesign;
+- new geometry, persistence, AI or planning semantics;
 - Canvas/3D rewrite;
+- final whole-product visual polish;
 - mobile-first editor.
 
 ## Later M7 programme
 
 ```text
-M7.3  Design System and Content Components
 M7.4  Canvas Selection and Mode Feedback
 M7.5  Onboarding, Status and Recovery
 M7.6  Geometry and Opening Inspector

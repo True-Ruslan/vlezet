@@ -1,8 +1,9 @@
 # M7.2 — Context Inspector Foundation Acceptance
 
-**Status:** ACCEPTED / VERIFIED; pending squash-merge.  
+**Status:** ACCEPTED / MERGED.  
 **Branch:** `feat/m7-2-context-inspector-foundation`  
-**PR:** #23
+**PR:** #23  
+**Merge:** `66606356d69f96953f8afae7b914222a3f793777`
 
 ## Product goal
 
@@ -43,7 +44,7 @@ Implemented for:
 
 Raw entity IDs are no longer the dominant panel identity.
 
-The context frame is explicitly constrained to the available side-surface height. Its header remains stable while `.context-panel-body` owns vertical scrolling, so long room and workflow panels cannot be clipped below the viewport.
+The context frame is constrained to the available side-surface height. Its header remains stable while `.context-panel-body` owns vertical scrolling, so long room and workflow panels cannot be clipped below the viewport.
 
 ### Workflow navigation
 
@@ -81,55 +82,27 @@ The context frame is explicitly constrained to the available side-surface height
 | Honest content contract | head `a60634fac49132a1577641bfa5493af072469eac`, Unit tests RED on roadmap badge and false Undo copy | implementation head `2cb085a5f637020bdba7dafe38bc258cc4ebdca7`, CI/browser PASS |
 | Context-panel vertical scrolling | head `90b43f197dad3cc168ef50a2a43f8e4717b9b3cd`, Unit tests RED because the M7.2 frame was not height-constrained | head `376f38cafc0a46b67a04d7be54527a83d0220375`, static CSS contract plus Chromium/WebKit real-scroll regression PASS |
 
-Browser harness hardening retained product validation and corrected only automation realism:
-
-- opening placement uses `pointermove → click` so host-wall preview exists;
-- recognition scenario satisfies the real calibrated-reference prerequisite;
-- reference fixture is a representative `640 × 480` image rather than bypassing minimum-size validation;
-- WebKit furniture placement uses the same real hover-preview gesture;
-- the context-scroll regression creates and selects a room at the proven desktop geometry, then reduces viewport height and performs a real scroll to `Варианты расстановки`.
-
 ## Product-owner acceptance
 
-On 2026-07-31 the product owner manually tested the M7.2 branch and confirmed:
+On 2026-07-31 the product owner manually tested the branch and confirmed:
 
 - the renewed context interface is clearer and works correctly;
-- the right panel now scrolls reliably to actions below the viewport;
+- the right panel scrolls reliably to actions below the viewport;
 - `Варианты расстановки` is reachable and opens correctly after scrolling;
-- the previously reported blocking regression is resolved;
+- the reported blocking regression is resolved;
 - the result is accepted with the explicit statement: `Теперь все работает супер четко.`
 
-This is product-owner browser acceptance. The exact browser and operating-system combination are not inferred beyond the owner's confirmed manual run.
+The exact browser and operating-system combination are not inferred beyond the owner's confirmed manual run.
 
 ## Final exact-head verification
 
-Acceptance-record head verified before this final record-only commit:
-
 ```text
-b2fed8b3829ae4db36b2f0ac15806e6bb547b92e
-```
-
-Standard CI:
-
-```text
-GitHub Actions 30624589575 — PASS
-```
-
-Passed:
-
-- frozen install;
-- M7 documentation contract;
-- full unit suite;
-- TypeScript;
-- ESLint;
-- production Next build.
-
-Chromium/WebKit acceptance:
-
-```text
-GitHub Actions 30624589562 — PASS
-artifact: 8790847195
-digest: sha256:4740c2d9cfaf8d2fdfe45e28da60bb2f32bc92698ca0972420c05011e63f020e
+final verified head: d3231a09541c2c4cf10a48e69f4e485d15a06a0a
+standard CI:        30625797753 — PASS
+browser audit:      30625797756 — PASS
+artifact:           8791323487
+digest:             sha256:e167a0944674de6a99fc07dfaa7d5bcc0eea3b1c1cce575ce1d5b1ef961dfb12
+merge:              66606356d69f96953f8afae7b914222a3f793777
 ```
 
 Chromium full-flow verified:
@@ -145,25 +118,13 @@ Chromium full-flow verified:
 9. real image upload, calibration and installed-reference danger confirmation;
 10. 3D removes 2D side surfaces;
 11. no document horizontal overflow;
-12. a long room context has `scrollHeight > clientHeight`, scrolls vertically and exposes a working `Варианты расстановки` action.
+12. a long room context scrolls vertically and exposes a working `Варианты расстановки` action.
 
-WebKit core smoke independently verified:
-
-- dashboard and editor startup;
-- room identity and rename;
-- planning return to room;
-- object identity;
-- compact hide/reopen with preserved draft;
-- reference return to object;
-- clean 3D composition;
-- project-delete dialog regression;
-- long room-context vertical scrolling and planning-action reachability.
-
-WebKit is recorded as an engine-level proxy, not as a manual native-Safari claim.
+WebKit independently verified the representative core flow, including long room-context scrolling and planning-action reachability. It is recorded as an engine-level proxy, not as a manual native-Safari claim.
 
 ## Architecture preservation
 
-Branch comparison with `main` confirms no changes in:
+No changes were made to:
 
 - `VlezetDocument` or domain schema;
 - migrations;
@@ -176,7 +137,3 @@ Branch comparison with `main` confirms no changes in:
 - Canvas or Three.js geometry authority.
 
 Presentation state remains ephemeral React state.
-
-## Merge rule
-
-The final record-only head must pass standard CI and Chromium/WebKit once more. After PASS, PR #23 may be marked ready and squash-merged with expected-head SHA protection. Canonical state, roadmaps and changelog must then be updated from the merge commit.
