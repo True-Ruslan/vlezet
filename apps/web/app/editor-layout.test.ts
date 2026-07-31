@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 const globalsCss = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 const viewportCss = readFileSync(new URL("./editor-viewport.css", import.meta.url), "utf8");
 const shellCss = readFileSync(new URL("./editor-shell.css", import.meta.url), "utf8");
-const css = `${globalsCss}\n${viewportCss}\n${shellCss}`;
+const contextCss = readFileSync(new URL("./context-panel.css", import.meta.url), "utf8");
+const css = `${globalsCss}\n${viewportCss}\n${shellCss}\n${contextCss}`;
 const planningCss = readFileSync(new URL("./planning-exact-gap.css", import.meta.url), "utf8");
 
 function compact(value: string): string {
@@ -65,6 +66,19 @@ describe("M7.1 editor viewport layout contract", () => {
     expect(responsive).toContain(".editor-side-surface.furniture-catalog");
     expect(responsive).not.toContain(".inspector-panel{display:none}");
     expect(responsive).not.toContain(".furniture-catalog{display:none}");
+  });
+
+  it("constrains the M7.2 context frame and delegates vertical scrolling to its body", () => {
+    const compactCss = compact(css);
+    const frame = compact(ruleBodies(".context-panel-frame"));
+    const body = compact(ruleBodies(".context-panel-body"));
+
+    expect(compactCss).toContain(".editor-side-surface-content>.context-panel-frame");
+    expect(frame).toContain("height:100%");
+    expect(frame).toContain("min-height:0");
+    expect(frame).toContain("overflow:hidden");
+    expect(body).toContain("min-height:0");
+    expect(body).toContain("overflow:auto");
   });
 
   it("collapses visual tool labels without removing command buttons", () => {
