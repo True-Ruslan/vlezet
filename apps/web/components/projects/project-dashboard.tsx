@@ -1,8 +1,10 @@
 "use client";
 
-import type { VlezetProjectRecord } from "@vlezet/projects";
 import { deriveRooms } from "@vlezet/geometry";
+import type { VlezetProjectRecord } from "@vlezet/projects";
 import { useRef, useState } from "react";
+import { UiButton } from "../ui/ui-button";
+import { UiEmptyState, UiNotice } from "../ui/ui-feedback";
 
 export type ProjectDashboardProps = Readonly<{
   projects: readonly VlezetProjectRecord[];
@@ -60,25 +62,30 @@ export function ProjectDashboard({
         <div className="projects-brand"><div className="brand-mark project-brand-mark">V</div><div><strong>Vlezet</strong><span>Проверим, что влезет.</span></div></div>
         <div className="projects-header-actions">
           <input ref={fileRef} className="visually-hidden" type="file" accept=".json,.vlezet.json,application/json" aria-label="Импортировать проект Vlezet" onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ""; if (file) void onImport(file); }} />
-          <button className="secondary-action dashboard-action" type="button" onClick={() => fileRef.current?.click()}>Импортировать</button>
-          <button className="secondary-action dashboard-action" type="button" onClick={() => void onCreateFromPlan()}>Из плана JPG/PDF</button>
-          <button className="primary-action dashboard-action" type="button" onClick={() => void onCreate()}>Новый проект</button>
+          <UiButton variant="secondary" className="dashboard-action" onClick={() => fileRef.current?.click()}>Импортировать</UiButton>
+          <UiButton variant="secondary" className="dashboard-action" onClick={() => void onCreateFromPlan()}>Из плана JPG/PDF</UiButton>
+          <UiButton variant="primary" className="dashboard-action" onClick={() => void onCreate()}>Новый проект</UiButton>
         </div>
       </header>
 
       <section className="projects-content">
         <div className="projects-intro">
           <div><p className="eyebrow">Мои проекты</p><h1>Планировки, к которым можно вернуться</h1><p>Начните с чистого листа или загрузите план застройщика. Всё обрабатывается и сохраняется только в этом браузере.</p></div>
-          <div className="local-storage-note"><strong>Local-first</strong><span>Без регистрации и отправки плана на сервер.</span></div>
+          <UiNotice tone="local" title="Ключевые данные остаются в браузере" className="local-storage-note">
+            Без регистрации и отправки плана на сервер.
+          </UiNotice>
         </div>
-        {error ? <div className="dashboard-error" role="alert">{error}</div> : null}
+        {error ? <UiNotice tone="error" title="Не удалось выполнить действие" className="dashboard-error">{error}</UiNotice> : null}
         {projects.length === 0 ? (
-          <div className="projects-empty">
-            <div className="empty-plan-icon" aria-hidden="true">⌂</div>
-            <h2>Создайте первую квартиру</h2>
-            <p>Загрузите реальный план и обведите его или нарисуйте стены с нуля.</p>
-            <div className="empty-actions"><button className="primary-action empty-action" type="button" onClick={() => void onCreateFromPlan()}>Загрузить план</button><button className="secondary-action empty-action" type="button" onClick={() => void onCreate()}>Начать с нуля</button></div>
-          </div>
+          <UiEmptyState
+            className="projects-empty"
+            icon="⌂"
+            title="Создайте первую квартиру"
+            primaryAction={<UiButton variant="primary" className="empty-action" onClick={() => void onCreateFromPlan()}>Загрузить план</UiButton>}
+            secondaryAction={<UiButton variant="secondary" className="empty-action" onClick={() => void onCreate()}>Начать с нуля</UiButton>}
+          >
+            Загрузите реальный план и обведите его или нарисуйте стены с нуля.
+          </UiEmptyState>
         ) : (
           <div className="project-grid">
             {projects.map((project) => (
