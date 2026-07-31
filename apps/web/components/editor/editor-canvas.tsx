@@ -42,6 +42,7 @@ import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionLayer } from "../recognition/recognition-layer";
 import { ReferenceLayer } from "../reference/reference-layer";
 import { useReferenceImage } from "../reference/use-reference-image";
+import { canvasEntityName, parseCanvasEntityName, type CanvasEntityIdentity } from "./canvas-entity-identity";
 import { deriveCanvasEntityVisual } from "./canvas-entity-visual";
 import { canvasTransientFeedbackStore } from "./canvas-transient-feedback-store";
 import {
@@ -65,10 +66,7 @@ const PLACEMENT_PREVIEW_ID = "__placement-preview__";
 type ResolvedWall = Readonly<{ wall: Wall; start: Point2; end: Point2 }>;
 type PointerSnap = Readonly<{ snap: SnapResult; target: TopologySnapTarget | null }>;
 type OpeningPreview = Readonly<{ wallId: string; pointerOffset: number; opening: Opening; valid: boolean }>;
-type HoveredCanvasEntity = Readonly<{
-  kind: "room" | "wall" | "opening" | "object";
-  id: string;
-}> | null;
+type HoveredCanvasEntity = CanvasEntityIdentity | null;
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
@@ -118,6 +116,16 @@ function visualStroke(role: ReturnType<typeof deriveCanvasEntityVisual>["strokeR
   if (role === "danger") return "#ef4444";
   if (role === "hover") return "#5b8def";
   return ordinary;
+}
+
+function canvasEntityFromKonvaNode(node: Konva.Node | null): HoveredCanvasEntity {
+  let current = node;
+  while (current) {
+    const identity = parseCanvasEntityName(current.name());
+    if (identity) return identity;
+    current = current.getParent();
+  }
+  return null;
 }
 
 export type EditorCanvasProps = Readonly<{
@@ -456,6 +464,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
       updateViewport((current) => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
       return;
     }
+    setHoveredCanvasEntity(hoverEnabled ? canvasEntityFromKonvaNode(event.target) : null);
     if (recognitionReviewActive) return;
     if (placementPresetId) updatePlacementPreview(pointer);
     else if (tool === "wall" && draftWall) {
@@ -516,7 +525,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
       for (const sign of [-1, 1]) {
         const a = worldToScreen({ x: segment.start.x + normal.x * sign, y: segment.start.y + normal.y * sign }, viewport);
         const b = worldToScreen({ x: segment.end.x + normal.x * sign, y: segment.end.y + normal.y * sign }, viewport);
-        elements.push(<Line key={`${opening.id}-window-${sign}`} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
+        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
       }
     } else {
       const hingeAtStart = opening.doorSwing?.hinge !== "end";
@@ -526,7 +535,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
       const openDirection = { x: segment.leftNormal.x * sideSign, y: segment.leftNormal.y * sideSign };
       const openEnd = { x: hinge.x + openDirection.x * opening.width, y: hinge.y + openDirection.y * opening.width };
       const hingeScreen = worldToScreen(hinge, viewport), openScreen = worldToScreen(openEnd, viewport);
-      elements.push(<Line key={`${opening.id}-leaf`} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
+      elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
       const arc = arcPoints(hinge, closedDirection, openDirection, opening.width).flatMap((point) => { const s = worldToScreen(point, viewport); return [s.x, s.y]; });
       elements.push(<Line key={`${opening.id}-arc`} points={arc} stroke={stroke} strokeWidth={1} dash={preview ? [7, 5] : [4, 3]} opacity={0.75} listening={false} />);
     }
@@ -589,6 +598,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
             const visual = deriveCanvasEntityVisual(selected ? "selected" : hovered ? "hover" : "ordinary");
             return <Line
               key={room.id}
+              name={canvasEntityName("room", room.id)}
               points={screenPolygon(room.polygon, viewport)}
               closed
               fill={selected ? "#dbeafe" : hovered ? "#eef4ff" : "#f4f7fb"}
@@ -616,6 +626,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
             const visualWidth = Math.max(2, wall.thickness * viewport.pixelsPerMillimeter);
             return <Line
               key={`${wall.id}-visible-${index}`}
+              name={canvasEntityName("wall", wall.id)}
               points={[a.x, a.y, b.x, b.y]}
               stroke={visualStroke(visual.strokeRole, "#232830")}
               strokeWidth={visualWidth + (selected ? 2 : hovered ? 1 : 0)}
@@ -659,7 +670,6 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
               hovered={visibleHoveredEntity?.kind === "object" && visibleHoveredEntity.id === object.id}
               fitStatus={fitEvaluation.byObjectId.get(object.id)?.status ?? "blocked"}
               onSelect={() => editorStore.getState().selectObject(object.id)}
-              onHoverChange={(hovered) => setHoveredCanvasEntity(hovered ? { kind: "object", id: object.id } : null)}
               onGestureStart={(kind) => editorStore.getState().beginObjectGesture(object.id, kind)}
               onGesturePreview={(patch) => previewObjectGesture(object.id, patch)}
               onGestureCommit={() => { editorStore.getState().commitObjectGesture(); setObjectGuides([]); }}
