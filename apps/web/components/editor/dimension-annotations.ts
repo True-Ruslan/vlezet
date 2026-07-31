@@ -3,6 +3,11 @@ import {
   type DerivedRoom,
   type Point2,
 } from "@vlezet/geometry";
+import {
+  formatMillimeters,
+  formatNumberRu,
+  formatSquareMeters,
+} from "../ui/presentation-format";
 
 export type LinearDimensionAnnotation = Readonly<{
   kind: "clear-room" | "centreline-wall";
@@ -12,6 +17,8 @@ export type LinearDimensionAnnotation = Readonly<{
   valueMm: number;
   outward: Point2;
 }>;
+
+const NBSP = "\u00a0";
 
 function bounds(points: readonly Point2[]): Readonly<{ minX: number; maxX: number; minY: number; maxY: number }> {
   return {
@@ -23,8 +30,10 @@ function bounds(points: readonly Point2[]): Readonly<{ minX: number; maxX: numbe
 }
 
 export function formatAreaM2FromSquareMillimeters(areaMm2: number): string {
-  const hundredthsOfSquareMeter = Math.round(areaMm2 / 10_000);
-  return (hundredthsOfSquareMeter / 100).toFixed(2);
+  return formatNumberRu(areaMm2 / 1_000_000, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function deriveRectangularRoomDimensionAnnotations(room: DerivedRoom): readonly LinearDimensionAnnotation[] {
@@ -76,12 +85,14 @@ export function deriveWallCentrelineDimensionAnnotation(start: Point2, end: Poin
 
 export function formatDimensionValue(annotation: LinearDimensionAnnotation): string {
   const suffix = annotation.kind === "clear-room" ? "внутри" : "по оси";
-  return `${Math.round(annotation.valueMm)} мм ${suffix}`;
+  return `${formatMillimeters(Math.round(annotation.valueMm))} ${suffix}`;
 }
 
 export function formatRoomCanvasLabel(room: DerivedRoom): string {
   const dimensions = deriveRectangularRoomDimensions(room);
-  const base = `${room.name}\n${formatAreaM2FromSquareMillimeters(room.areaMm2)} м²`;
+  const base = `${room.name}\n${formatSquareMeters(room.areaMm2 / 1_000_000)}`;
   if (!dimensions) return base;
-  return `${base}\n${Math.round(dimensions.widthMm)} × ${Math.round(dimensions.heightMm)} мм внутри`;
+  const width = formatNumberRu(Math.round(dimensions.widthMm), { useGrouping: false, maximumFractionDigits: 0 });
+  const height = formatNumberRu(Math.round(dimensions.heightMm), { useGrouping: false, maximumFractionDigits: 0 });
+  return `${base}\n${width} × ${height}${NBSP}мм внутри`;
 }
