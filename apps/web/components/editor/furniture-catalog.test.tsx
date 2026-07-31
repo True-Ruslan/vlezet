@@ -18,7 +18,7 @@ describe("FurnitureCatalog design-system migration", () => {
   });
 
   it("keeps active selection visible through aria-pressed and shared selected state", () => {
-    editorStore.getState().setPlacementPreset("sofa-3");
+    editorStore.getState().setPlacementPreset("sofa");
     const html = renderToStaticMarkup(<FurnitureCatalog />);
 
     expect(html).toContain('aria-pressed="true"');
