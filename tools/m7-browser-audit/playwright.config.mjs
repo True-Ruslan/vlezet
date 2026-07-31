@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["m7-audit.spec.mjs", "m7-context-scroll.spec.mjs"],
+  testMatch: ["m7-audit.spec.mjs", "m7-context-scroll.spec.mjs", "m7-design-system.spec.mjs"],
   fullyParallel: false,
   workers: 1,
   retries: 0,
