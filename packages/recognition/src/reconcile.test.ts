@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { reconcileRecognition } from "./reconcile";
-import type { RecognitionDraft, RecognitionProviderResult, RecognitionWallCandidate } from "./index";
+import { validateRecognitionDraft, type RecognitionDraft, type RecognitionProviderResult, type RecognitionWallCandidate } from "./index";
 
 const now = "2026-07-22T00:00:00.000Z";
 
@@ -48,5 +48,28 @@ describe("hybrid recognition reconciliation", () => {
     const result = reconcileRecognition({ localDraft: localDraft(), cloudResult: { walls: [], openings: [], roomLabels: [] }, existingWalls: [{ start: { x: 0.1, y: 0.2 }, end: { x: 0.9, y: 0.2 } }], now });
     expect(result.walls[0]?.conflict).toBe("duplicate-existing");
     expect(result.decisions["local-1"]).toBe("rejected");
+  });
+
+  it("drops stale decisions when a repeated cloud check replaces room-label candidates", () => {
+    const previous = localDraft();
+    const rerunDraft: RecognitionDraft = {
+      ...previous,
+      status: "reconciled",
+      roomLabels: [{ id: "rl1", text: "Старая подпись", anchor: { x: 0.4, y: 0.4 }, confidence: "medium", origin: "cloud" }],
+      decisions: { ...previous.decisions, rl1: "accepted" },
+      source: { local: true, cloud: true },
+    };
+    const cloud: RecognitionProviderResult = {
+      walls: [],
+      openings: [],
+      roomLabels: [{ id: "rl2", text: "Новая подпись", anchor: { x: 0.45, y: 0.45 }, confidence: "high", origin: "cloud" }],
+    };
+
+    const result = reconcileRecognition({ localDraft: rerunDraft, cloudResult: cloud, existingWalls: [], now });
+
+    expect(result.roomLabels.map((label) => label.id)).toEqual(["rl2"]);
+    expect(result.decisions).not.toHaveProperty("rl1");
+    expect(result.decisions.rl2).toBe("pending");
+    expect(() => validateRecognitionDraft(result)).not.toThrow();
   });
 });

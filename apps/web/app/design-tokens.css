@@ -1,0 +1,70 @@
+:root {
+  color-scheme: light;
+
+  --color-app: #f4f5f7;
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f8fafc;
+  --color-surface-raised: #ffffff;
+  --color-text-primary: #171a1f;
+  --color-text-secondary: #475467;
+  --color-text-muted: #667085;
+  --color-text-on-accent: #ffffff;
+  --color-border: #e2e5e9;
+  --color-border-strong: #cbd2dc;
+  --color-accent: #1769ff;
+  --color-accent-hover: #0e5bea;
+  --color-accent-active: #084fcf;
+  --color-accent-soft: #eaf1ff;
+  --color-success: #067647;
+  --color-success-soft: #ecfdf3;
+  --color-warning: #b54708;
+  --color-warning-soft: #fffaeb;
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
+  --color-info: #175cd3;
+  --color-info-soft: #eff8ff;
+
+  --font-body: 14px;
+  --font-compact: 13px;
+  --font-helper: 12px;
+  --font-heading-sm: 15px;
+  --font-heading-md: 18px;
+  --line-body: 20px;
+  --line-compact: 18px;
+  --line-helper: 17px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, .06);
+  --shadow-md: 0 12px 32px rgba(15, 23, 42, .14);
+  --shadow-dialog: 0 24px 80px rgba(15, 23, 42, .28);
+
+  --control-height: 40px;
+  --control-height-compact: 34px;
+  --pointer-target: 36px;
+  --focus-ring: 0 0 0 3px rgba(23, 105, 255, .18);
+  --motion-fast: 120ms;
+  --motion-standard: 180ms;
+
+  /* Compatibility aliases for the existing incremental CSS migration. */
+  --bg: var(--color-app);
+  --panel: var(--color-surface);
+  --text: var(--color-text-primary);
+  --muted: var(--color-text-muted);
+  --line: var(--color-border);
+  --accent: var(--color-accent);
+  --accent-soft: var(--color-accent-soft);
+  --danger: var(--color-danger);
+}

@@ -19,6 +19,9 @@ import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { PlanningPanel } from "../planning/planning-panel";
 import { planningUiStore } from "../planning/planning-ui-store";
+import { UiButton } from "../ui/ui-button";
+import { UiField, UiFieldMessage } from "../ui/ui-field";
+import { formatSquareMeters } from "../ui/presentation-format";
 import {
   describeEmptyContext,
   describeOpeningContext,
@@ -31,7 +34,6 @@ import {
   ContextSection,
   type ContextPanelNavigation,
 } from "./context-panel-frame";
-import { formatAreaM2FromSquareMillimeters } from "./dimension-annotations";
 import { ObjectInspector } from "./object-inspector";
 import { editorStore } from "./use-editor-store";
 import { resolveWallThicknessAlignment, type WallThicknessGrowthIntent } from "./wall-thickness-intent";
@@ -127,30 +129,42 @@ export function SelectedRoomInspector({ room }: Readonly<{ room: DerivedRoom }>)
     if (!Number.isFinite(value) || value <= 0) { setError("Введите положительный чистый размер в миллиметрах."); return; }
     try { editorStore.getState().setSelectedRoomClearDimension(axis, value, anchor); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить чистый размер комнаты."); }
   };
-  const areaLabel = `${formatAreaM2FromSquareMillimeters(room.areaMm2)} м²`;
-  const clearSizeLabel = dimensions ? `${Math.round(dimensions.widthMm)} × ${Math.round(dimensions.heightMm)} мм внутри` : undefined;
+  const areaLabel = formatSquareMeters(room.areaMm2 / 1_000_000);
+  const clearSizeLabel = dimensions ? `${Math.round(dimensions.widthMm)} × ${Math.round(dimensions.heightMm)} мм внутри` : undefined;
+  const errorMessage = error ? <UiFieldMessage tone="error" live>{error}</UiFieldMessage> : undefined;
 
   return (
     <ContextPanelFrame descriptor={describeRoomContext({ name: room.name, areaLabel, clearSizeLabel })}>
       <ContextSection title="Название">
-        <label className="field-label" htmlFor="room-name">Название комнаты</label>
-        <div className="room-name-field"><input id="room-name" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyName(); }} /></div>
-        <button className="primary-action" type="button" onClick={applyName}>Сохранить название</button>
+        <UiField id="room-name" label="Название комнаты" invalid={Boolean(error)} message={errorMessage}>
+          <input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyName(); }} />
+        </UiField>
+        <UiButton variant="primary" className="room-inspector-action" onClick={applyName}>Сохранить название</UiButton>
       </ContextSection>
 
       <ContextSection title="Чистые внутренние размеры">
-        {dimensions ? <div className="room-clear-dimensions">
-          <label className="field-label" htmlFor="room-clear-width">Ширина</label><div className="length-field-row"><input id="room-clear-width" inputMode="decimal" value={widthInput} onChange={(event) => setWidthInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyDimension("width", widthInput, widthAnchor); }} /><span>мм</span></div>
-          <label className="field-label" htmlFor="room-clear-width-anchor">Что остаётся на месте</label><select id="room-clear-width-anchor" className="inspector-select" value={widthAnchor} onChange={(event) => setWidthAnchor(event.target.value as ClearRoomDimensionAnchor)}><option value="min">Левая сторона</option><option value="center">Центр</option><option value="max">Правая сторона</option></select><button className="secondary-action" type="button" onClick={() => applyDimension("width", widthInput, widthAnchor)}>Применить ширину</button>
-          <label className="field-label" htmlFor="room-clear-height">Длина</label><div className="length-field-row"><input id="room-clear-height" inputMode="decimal" value={heightInput} onChange={(event) => setHeightInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyDimension("height", heightInput, heightAnchor); }} /><span>мм</span></div>
-          <label className="field-label" htmlFor="room-clear-height-anchor">Что остаётся на месте</label><select id="room-clear-height-anchor" className="inspector-select" value={heightAnchor} onChange={(event) => setHeightAnchor(event.target.value as ClearRoomDimensionAnchor)}><option value="min">Верхняя сторона</option><option value="center">Центр</option><option value="max">Нижняя сторона</option></select><button className="secondary-action" type="button" onClick={() => applyDimension("height", heightInput, heightAnchor)}>Применить длину</button>
+        {dimensions ? <div className="room-clear-dimensions room-design-fields">
+          <UiField id="room-clear-width" label="Ширина" unit="мм">
+            <input inputMode="decimal" value={widthInput} onChange={(event) => setWidthInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyDimension("width", widthInput, widthAnchor); }} />
+          </UiField>
+          <UiField id="room-clear-width-anchor" label="Что остаётся на месте">
+            <select value={widthAnchor} onChange={(event) => setWidthAnchor(event.target.value as ClearRoomDimensionAnchor)}><option value="min">Левая сторона</option><option value="center">Центр</option><option value="max">Правая сторона</option></select>
+          </UiField>
+          <UiButton variant="secondary" className="room-inspector-action" onClick={() => applyDimension("width", widthInput, widthAnchor)}>Применить ширину</UiButton>
+
+          <UiField id="room-clear-height" label="Длина" unit="мм">
+            <input inputMode="decimal" value={heightInput} onChange={(event) => setHeightInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyDimension("height", heightInput, heightAnchor); }} />
+          </UiField>
+          <UiField id="room-clear-height-anchor" label="Что остаётся на месте">
+            <select value={heightAnchor} onChange={(event) => setHeightAnchor(event.target.value as ClearRoomDimensionAnchor)}><option value="min">Верхняя сторона</option><option value="center">Центр</option><option value="max">Нижняя сторона</option></select>
+          </UiField>
+          <UiButton variant="secondary" className="room-inspector-action" onClick={() => applyDimension("height", heightInput, heightAnchor)}>Применить длину</UiButton>
           <p className="inspector-hint">Это расстояния между внутренними поверхностями стен. Для прямоугольной комнаты площадь считается из той же чистой геометрии.</p>
         </div> : <p className="inspector-hint">Чистые размеры можно редактировать, когда комната является простой прямоугольной геометрией. Для сложных контуров Vlezet не угадывает неоднозначные размеры.</p>}
-        {error ? <p className="field-error">{error}</p> : null}
       </ContextSection>
 
       <ContextSection title="Расстановка мебели" description="Предпросмотр не меняет проект.">
-        <button className="secondary-action" type="button" onClick={() => planningUiStore.getState().openForRoom(room.id)}>Варианты расстановки</button>
+        <UiButton variant="secondary" className="room-inspector-action" onClick={() => planningUiStore.getState().openForRoom(room.id)}>Варианты расстановки</UiButton>
         <p className="inspector-hint">Планировщик предложит до трёх проверенных вариантов для 1–3 существующих предметов.</p>
       </ContextSection>
 

@@ -21,7 +21,7 @@ describe("SpatialInspector", () => {
     );
 
     expect(html).toContain("Спальня");
-    expect(html).toContain("11.72 м²");
+    expect(html).toContain("11,72 м²");
     expect(html).toContain("3550 × 3300 мм");
     expect(html).toContain("Чистые внутренние размеры");
   });

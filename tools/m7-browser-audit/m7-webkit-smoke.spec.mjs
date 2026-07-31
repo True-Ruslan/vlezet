@@ -11,6 +11,22 @@ async function screenshot(page, name) {
   await page.screenshot({ path: path.join(artifactsDir, name), fullPage: false });
 }
 
+async function expectMinimumFont(locator, minimum = 12) {
+  await expect(locator).toBeVisible();
+  const size = await locator.evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
+  expect(size).toBeGreaterThanOrEqual(minimum);
+}
+
+async function expectMinimumHeight(locator, minimum = 40) {
+  await expect(locator).toBeVisible();
+  const height = await locator.evaluate((node) => node.getBoundingClientRect().height);
+  expect(height).toBeGreaterThanOrEqual(minimum);
+}
+
+async function expectNoDocumentOverflow(page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+}
+
 async function clickCanvasPoint(page, point) {
   const canvas = page.locator(".canvas-shell");
   const box = await canvas.boundingBox();
@@ -40,9 +56,14 @@ async function createRoom(page) {
   await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
 }
 
-test("WebKit M7.2 context identity, workflow return, compact state, 3D and dialog smoke", async ({ page }) => {
+test("WebKit M7.3 shared UI, workflow return, compact state, fit, 3D and dialog smoke", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
+  await expect(page.locator(".ui-notice-local")).toBeVisible();
+  await expect(page.locator(".ui-empty-state")).toBeVisible();
+  await expectMinimumFont(page.locator(".ui-notice-local .ui-notice-title"));
+  await expectMinimumHeight(page.getByRole("button", { name: "Новый проект" }));
+  await expectNoDocumentOverflow(page);
   await screenshot(page, "webkit-01-dashboard-1440x900.png");
 
   await page.getByRole("button", { name: "Новый проект" }).click();
@@ -50,23 +71,28 @@ test("WebKit M7.2 context identity, workflow return, compact state, 3D and dialo
   await expect(page.locator(".editor-tool-bar")).toBeVisible();
   await expect(page.locator(".canvas-shell")).toBeVisible();
   await expect(page.locator(".save-status")).toContainText("локально", { ignoreCase: true });
+  await expectMinimumFont(page.locator(".canvas-help"));
 
   await createRoom(page);
   const nameField = page.getByLabel("Название комнаты");
-  await nameField.fill("Гостиная WebKit");
+  await expectMinimumHeight(nameField);
+  await nameField.fill("Гостиная WebKit с длинным названием");
   await page.getByRole("button", { name: "Сохранить название" }).click();
-  await expect(page.locator(".context-panel-title")).toHaveText("Гостиная WebKit");
+  await expect(page.locator(".context-panel-title")).toHaveText("Гостиная WebKit с длинным названием");
+  await expectNoDocumentOverflow(page);
   await screenshot(page, "webkit-02-room-context-1440x900.png");
 
   await page.getByRole("button", { name: "Варианты расстановки" }).click();
   await expect(page.locator(".context-panel-eyebrow")).toHaveText("Варианты расстановки");
-  await expect(page.locator(".context-panel-navigation")).toHaveAccessibleName("К комнате «Гостиная WebKit»");
+  await expect(page.locator(".context-panel-navigation")).toHaveAccessibleName("К комнате «Гостиная WebKit с длинным названием»");
   await page.locator(".context-panel-navigation").click();
-  await expect(page.locator(".context-panel-title")).toHaveText("Гостиная WebKit");
+  await expect(page.locator(".context-panel-title")).toHaveText("Гостиная WebKit с длинным названием");
 
   await page.getByRole("button", { name: /Диван/ }).first().click();
   await moveAndClickCanvasPoint(page, { x: 390, y: 325 });
   await expect(page.locator(".context-panel-title")).toHaveText("Диван");
+  await expect(page.locator(".fit-status-badge")).toBeVisible();
+  await expectMinimumFont(page.locator(".fit-status-badge"));
 
   await page.setViewportSize({ width: 960, height: 600 });
   const contextSurface = page.locator("#editor-context-surface");
@@ -80,6 +106,7 @@ test("WebKit M7.2 context identity, workflow return, compact state, 3D and dialo
   await page.locator(".editor-context-trigger").click();
   await expect(contextSurface).toBeVisible();
   await expect(contextSurface.getByLabel("Название")).toHaveValue("Черновик WebKit");
+  await expectNoDocumentOverflow(page);
 
   await page.getByRole("button", { name: "Подложка" }).click();
   await expect(page.locator(".context-panel-eyebrow")).toHaveText("Подложка");
@@ -97,7 +124,13 @@ test("WebKit M7.2 context identity, workflow return, compact state, 3D and dialo
 
   await page.getByLabel("Вернуться к моим проектам").click();
   await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
-  await page.getByRole("button", { name: "Удалить", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  const deleteButton = page.getByRole("button", { name: "Удалить", exact: true });
+  await deleteButton.click();
+  const dialog = page.getByRole("dialog", { name: "Удалить проект?" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("button", { name: "Отмена" })).toBeFocused();
   await screenshot(page, "webkit-05-delete-confirmation-1440x900.png");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(deleteButton).toBeFocused();
 });

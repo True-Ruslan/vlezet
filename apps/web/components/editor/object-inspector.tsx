@@ -1,7 +1,7 @@
 "use client";
 
 import type { PlacedObject, VlezetDocument } from "@vlezet/domain";
-import { evaluateObjectFits, measureObjectClearances, type FitStatus } from "@vlezet/geometry";
+import { evaluateObjectFits, measureObjectClearances } from "@vlezet/geometry";
 import { useMemo, useState } from "react";
 import { describeObjectContext } from "./context-panel-contract";
 import {
@@ -10,13 +10,8 @@ import {
   ContextPanelFrame,
   ContextSection,
 } from "./context-panel-frame";
+import { FitStatusBadge, fitStatusPresentation } from "./fit-status-badge";
 import { editorStore } from "./use-editor-store";
-
-const STATUS_COPY: Readonly<Record<FitStatus, string>> = {
-  fits: "Влезает",
-  tight: "Влезает вплотную",
-  blocked: "Не влезает",
-};
 
 type NumericField = "x" | "y" | "width" | "depth" | "height" | "rotation" | "front" | "right" | "back" | "left";
 
@@ -83,12 +78,12 @@ export function ObjectInspector({ document, object }: Readonly<{ document: Vleze
   </>;
 
   const status = fit?.status ?? "blocked";
-  const descriptor = describeObjectContext({ name: object.name, statusLabel: STATUS_COPY[status] });
+  const descriptor = describeObjectContext({ name: object.name, statusLabel: fitStatusPresentation(status).label });
 
   return (
     <ContextPanelFrame descriptor={descriptor} className="object-inspector">
       <ContextSection title="Проверка размещения">
-        <div className={`fit-badge fit-${status}`}><span className="fit-dot" />{STATUS_COPY[status]}</div>
+        <FitStatusBadge status={status} />
         {fit?.diagnostics.length ? (
           <ul className="fit-reasons">
             {fit.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${diagnostic.relatedObjectId ?? diagnostic.relatedOpeningId ?? index}`}>{diagnostic.message}</li>)}

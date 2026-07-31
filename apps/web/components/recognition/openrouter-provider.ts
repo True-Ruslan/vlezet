@@ -152,6 +152,7 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
               schema: OPENROUTER_RECOGNITION_JSON_SCHEMA,
             },
           },
+          plugins: [{ id: "response-healing" }],
           provider: { require_parameters: true },
           stream: false,
         }),

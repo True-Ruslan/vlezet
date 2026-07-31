@@ -16,13 +16,14 @@ function successfulRecognitionResponse(): Response {
 }
 
 describe("OpenRouter direct recognition provider", () => {
-  it("uses strict structured output, image input and request-only bearer key", async () => {
+  it("uses strict structured output, response healing, image input and request-only bearer key", async () => {
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer secret-key");
       expect(JSON.stringify(body)).not.toContain("secret-key");
       expect(body.response_format.type).toBe("json_schema");
       expect(body.response_format.json_schema.strict).toBe(true);
+      expect(body.plugins).toEqual([{ id: "response-healing" }]);
       expect(body.provider.require_parameters).toBe(true);
       expect(body.messages[0].content[0].type).toBe("text");
       expect(body.messages[0].content[1]).toEqual({ type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } });
