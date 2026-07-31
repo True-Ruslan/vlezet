@@ -13,7 +13,7 @@ DONE        M1 Apartment Shell
 DONE        M2 Furnishing + Fit
 DONE        M3 Local-First Projects
 DONE        M4 Reference Plan Import
-DONE/MVP    M4.5 Assisted Recognition — measurable refinement remains backlog
+DONE/MVP    M4.5 Assisted Recognition — measurable refinement remains issue #27
 DONE        M4.6 Precision Geometry UX
 DONE        M5.1 Deterministic Spatial 3D Shell + Viewer
 DONE        M5.2 Furniture in 3D
@@ -26,8 +26,9 @@ DONE        M6.4 Reviewed Natural-Language Intent
 DONE        M7.0 Product and UX Audit
 DONE        M7.1 Editor Shell and Responsive Context
 DONE        M7.2 Context Inspector Foundation
-NOW         M7.3 Design System and Content Components
-LATER       M7.4+ in dependency-aware browser-tested slices
+DONE        M7.3 Design System and Content Components
+NOW         M7.4 Canvas Selection and Mode Feedback
+LATER       M7.5+ in dependency-aware browser-tested slices
 ```
 
 ## Completed product foundation
@@ -38,173 +39,133 @@ LATER       M7.4+ in dependency-aware browser-tested slices
 - topological walls, rooms, openings and usable area;
 - furniture, transforms and explainable fit;
 - local projects, autosave, backup/import and PNG;
-- reference-plan calibration/tracing;
-- editable assisted recognition;
-- clear room dimensions, area trust, dimension annotations and tape.
-
-Accepted regression:
-
-```text
-clear room: 3550 × 3300 mm
-area:       11.72 m²
-```
+- reference-plan calibration and editable assisted recognition;
+- clear room dimensions, area trust, annotations and tape.
 
 ### M5 — deterministic read-only 3D
 
 - renderer-neutral `SpatialScene`;
 - shell, openings, floors and furniture;
-- safe 2D↔3D switching;
-- camera presets;
-- semantic inspection;
+- safe 2D↔3D switching and semantic inspection;
 - WebGL fallback and cleanup.
-
-3D remains a projection of `VlezetDocument`. Interior readability remains owned by M7.10.
 
 ### M6 — deterministic intelligent planning
 
 - bounded alternatives for one rectangular room;
 - M2-authoritative validation;
-- lock, wall/corner and near/far rules;
-- exact pair contour gap and evidence;
-- reviewable natural-language intent;
-- explicit transfer, Preview and Apply;
-- one Apply = one Undo/Redo step.
+- lock, wall/corner, near/far and exact contour-gap rules;
+- reviewed natural-language intent;
+- explicit Preview and atomic Apply.
 
-M6.4 merge: `02f8b041341c86f0796011b0d2fd42cac56a4e02`.
+## Completed M7 foundation
 
-## M7.0 — Product and UX Audit
+### M7.0 — Product and UX Audit
 
-Status: **DONE / ACCEPTED / MERGED**.
+Status: **DONE / ACCEPTED / MERGED**.  
+Merge: `0d5b9c1555ef85a0e271a52832cc3fd3cca4963e`.
 
-```text
-PR:           #19
-feature head: 2ae83fb4a09fd9313f2befe5d9c35fd0ecab1394
-standard CI:  30572124031 — PASS
-browser CI:   30572124032 — PASS
-artifact:     8771245306
-merge:        0d5b9c1555ef85a0e271a52832cc3fd3cca4963e
-```
+Delivered 39 structured findings, target information architecture, interaction model, design/accessibility foundations and reproducible Chromium/WebKit evidence.
 
-Delivered 39 structured findings, target information architecture, interaction model, design/accessibility foundations and reproducible Chromium/WebKit browser evidence.
+### M7.1 — Editor Shell and Responsive Context
 
-## M7.1 — Editor Shell and Responsive Context
+Status: **DONE / ACCEPTED / MERGED**.  
+Merge: `6b6f8751b520722a54bb94a6947dae1135e07859`.
 
-Status: **DONE / ACCEPTED / MERGED**.
+Delivered separate project/tool bars, readable save state, direct Undo/Redo, responsive catalogue/context surfaces, preserved local drafts and one-column 3D composition.
 
-```text
-PR:                  #21
-final verified head: 8c68bd288cd3dda1133f09a469cd7afe6dab83d9
-standard CI:         30586557182 — PASS
-browser CI:          30586557394 — PASS
-artifact:            8776737145
-merge:               6b6f8751b520722a54bb94a6947dae1135e07859
-```
+### M7.2 — Context Inspector Foundation
 
-Delivered separate project/tool bars, readable save state, direct Undo/Redo, responsive catalogue/context surfaces, preserved local drafts and a clean one-column 3D composition.
+Status: **DONE / ACCEPTED / MERGED**.  
+Merge: `66606356d69f96953f8afae7b914222a3f793777`.
 
-Product owner confirmed:
+Delivered unified context anatomy, explicit workflow return, fail-closed stale targets, separated destructive actions and viewport-bounded panel scrolling.
 
-> «Я все проверил. Выглядит уже лучше и понятнее.»
-
-Canonical evidence: `docs/milestones/m7-1-acceptance.md`.
-
-## M7.2 — Context Inspector Foundation
+### M7.3 — Design System and Content Components
 
 Status: **DONE / ACCEPTED / MERGED**.
 
 ```text
-PR:                  #23
-final verified head: d3231a09541c2c4cf10a48e69f4e485d15a06a0a
-standard CI:         30625797753 — PASS
-browser CI:          30625797756 — PASS
-artifact:            8791323487
-digest:              sha256:e167a0944674de6a99fc07dfaa7d5bcc0eea3b1c1cce575ce1d5b1ef961dfb12
-merge:               66606356d69f96953f8afae7b914222a3f793777
+PR:                  #26
+final accepted head: cabe8e44153d7a56ee23e6931ea204e2fbf82119
+standard CI:         30654881419 — PASS
+browser CI:          30654879141 — PASS
+artifact:            8802854489
+digest:              sha256:1f62c1695231d266a9e28e3a54b40402a85106e231c15ca6e53dc2d577b22b32
+merge:               509dfc02e17c87a58da8356894564a8f27bc5a9b
 ```
-
-Resolved:
-
-- `UX-SHELL-003` — workflows now preserve and restore one ordinary context;
-- foundational `UX-PATTERN-001` — shared header, sections, actions and danger hierarchy;
-- foundational `UX-CONTENT-001` — understandable entity/workflow identity and action language;
-- right-side context clipping — long panels now scroll within the viewport.
 
 Delivered:
 
-- one context anatomy for empty, wall, room, opening, object and bounded workflows;
-- explicit `К комнате…` and `К предмету…` return actions;
-- workflow-to-workflow preservation of the original ordinary target;
-- fail-closed stale-target handling;
-- compact close that hides presentation without destroying workflow or draft state;
-- separated destructive actions and accurate consequences;
-- viewport-constrained context frame with independent body scrolling;
-- Chromium/WebKit regression that scrolls to and opens `Варианты расстановки`.
+- semantic color, typography, spacing, radius, elevation and control-size tokens;
+- balanced density: 14 px ordinary text, 13 px compact text, 12 px meaningful minimum;
+- store-free `UiButton`, `UiField`, messages, notices, badges, cards, empty states and dialogs;
+- consistent focus, disabled, busy, success, warning and error states;
+- Russian presentation formatting for `мм`, `м²` and `°`;
+- representative migration of room controls, furniture catalogue, fit statuses, dashboard, dialogs and recognition UI;
+- Canvas helper text raised to the governed minimum;
+- OpenRouter response healing for malformed structured output;
+- stale decision cleanup when repeated AI checks replace recognition candidates.
 
 Product owner confirmed:
 
-> «Теперь все работает супер четко.»
+> «Подтверждаю все!»
 
-Canonical evidence: `docs/milestones/m7-2-acceptance.md`.
+Recognition accuracy remains a known deferred limitation. The flow is editable and non-authoritative, but valid AI output can still reconstruct topology and areas incorrectly. Canonical future owner: issue #27 and `docs/product/RECOGNITION_QUALITY_REQUIREMENTS.md`.
 
-## NOW — M7.3 Design System and Content Components
+## NOW — M7.4 Canvas Selection and Mode Feedback
 
 ### Problems
 
-- essential typography and spacing remain partially duplicated;
-- fields, helper text, errors, notices, badges, cards and dialogs do not yet share one governed state model;
-- residual microtext and terminology inconsistencies reduce readability;
-- later workflow-specific redesigns need stable primitives first.
+- active tools and temporary modes are not always visually obvious;
+- the next required Canvas action can be unclear;
+- selection, hover, placement preview and invalid targets need stronger distinction;
+- Escape/cancellation behaviour is not consistently communicated.
 
 Owned findings:
 
-- `UX-FURN-004`;
-- `UX-REC-004`;
-- `UX-PATTERN-002`;
-- `UX-PATTERN-003`;
-- remaining `UX-CONTENT-001`;
-- `UX-SHELL-005`.
+- `UX-SHELL-004`;
+- `UX-CANVAS-001`;
+- `UX-CANVAS-002`.
 
 ### Goal
 
-Create a small, explicit visual/content system for readable typography, spacing, common controls, statuses and canonical Russian terminology while preserving M7.1 shell and M7.2 context semantics.
+Make active tool, next action, current selection and temporary spatial state obvious while preserving all existing geometry and command authority.
 
-### Scope
+### Expected scope
 
-- typography, spacing, radius, border and elevation tokens needed by current HTML UI;
-- shared field, help, error, notice, badge, card and dialog primitives;
-- consistent focus, disabled, loading, success, warning and error states;
-- canonical terminology and unit formatting;
-- representative migration across shell, context and workflow surfaces;
-- remove evidence-backed microtext below the target readable scale;
-- Chromium/WebKit coverage for representative states.
+- explicit active-tool and mode status;
+- context-sensitive next-action guidance;
+- consistent cursor feedback;
+- distinct hover, selection, valid preview and invalid preview visuals;
+- one documented Escape-priority model;
+- status copy based on existing editor state;
+- representative Chromium/WebKit tool-transition evidence.
 
 ### Acceptance
 
-- essential text meets documented readable tokens;
-- representative fields and notices expose non-colour state cues;
-- focus and error states remain visible at required effective widths;
-- terminology is consistent across migrated surfaces;
-- M7.1 shell and M7.2 context/scroll behaviour do not regress;
-- no project/domain/geometry/persistence authority change;
-- full CI and Chromium/WebKit representative flow pass;
-- product-owner acceptance before merge.
+- users can identify the active tool without relying on memory;
+- each exclusive tool communicates the next valid action;
+- hover/selection/preview/error states are distinguishable without color alone;
+- Escape exits the highest-priority temporary state consistently;
+- M7.1–M7.3 shell, context, scrolling and component behaviour do not regress;
+- no document, geometry, snapping, history or persistence authority changes;
+- full CI, Chromium/WebKit and product-owner acceptance pass.
 
 ### Non-goals
 
-- complete geometry/furniture/reference/recognition/planning workflow redesign;
-- new geometry, persistence, AI or planning semantics;
-- Canvas/3D rewrite;
-- final whole-product visual polish;
+- geometry or snapping algorithm changes;
+- inspector redesign;
+- onboarding implementation;
+- recognition-quality hardening;
 - mobile-first editor.
 
 ## Later M7 programme
 
 ```text
-M7.4  Canvas Selection and Mode Feedback
 M7.5  Onboarding, Status and Recovery
 M7.6  Geometry and Opening Inspector
 M7.7  Furniture and Fit Workflow
-M7.8  Reference and Recognition Workflow
+M7.8  Reference and Recognition Workflow + issue #27 quality hardening
 M7.9  Accessibility and Responsive Hardening
 M7.10 2D/3D Context and Interior Readability
 M7.11 Planning Workflow Simplification
@@ -220,4 +181,4 @@ Accounts, cloud sync, collaboration, managed AI and billing remain separate init
 
 ## Delivery rule
 
-Every slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, browser evidence, product-owner acceptance, squash merge and canonical documentation sync.
+Every slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, browser evidence, product-owner acceptance, exact-head squash merge and canonical documentation sync.
