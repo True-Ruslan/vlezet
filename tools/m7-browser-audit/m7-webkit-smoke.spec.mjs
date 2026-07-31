@@ -18,6 +18,15 @@ async function clickCanvasPoint(page, point) {
   await page.mouse.click(box.x + point.x, box.y + point.y);
 }
 
+async function moveAndClickCanvasPoint(page, point) {
+  const canvas = page.locator(".canvas-shell");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("Canvas has no visible bounding box in WebKit.");
+  await page.mouse.move(box.x + point.x, box.y + point.y);
+  await page.waitForTimeout(100);
+  await page.mouse.click(box.x + point.x, box.y + point.y);
+}
+
 async function createRoom(page) {
   await page.getByRole("button", { name: "Стена" }).click();
   await clickCanvasPoint(page, { x: 170, y: 150 });
@@ -43,7 +52,6 @@ test("WebKit M7.2 context identity, workflow return, compact state, 3D and dialo
   await expect(page.locator(".save-status")).toContainText("локально", { ignoreCase: true });
 
   await createRoom(page);
-  const roomTitle = await page.locator(".context-panel-title").innerText();
   const nameField = page.getByLabel("Название комнаты");
   await nameField.fill("Гостиная WebKit");
   await page.getByRole("button", { name: "Сохранить название" }).click();
@@ -57,7 +65,7 @@ test("WebKit M7.2 context identity, workflow return, compact state, 3D and dialo
   await expect(page.locator(".context-panel-title")).toHaveText("Гостиная WebKit");
 
   await page.getByRole("button", { name: /Диван/ }).first().click();
-  await clickCanvasPoint(page, { x: 390, y: 325 });
+  await moveAndClickCanvasPoint(page, { x: 390, y: 325 });
   await expect(page.locator(".context-panel-title")).toHaveText("Диван");
 
   await page.setViewportSize({ width: 960, height: 600 });
