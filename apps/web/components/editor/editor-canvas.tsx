@@ -464,7 +464,9 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
       updateViewport((current) => ({ ...current, offsetX: current.offsetX + dx, offsetY: current.offsetY + dy }));
       return;
     }
-    setHoveredCanvasEntity(hoverEnabled ? canvasEntityFromKonvaNode(event.target) : null);
+    const stage = event.target.getStage();
+    const hitNode = stage?.getIntersection(pointer) ?? event.target;
+    setHoveredCanvasEntity(hoverEnabled ? canvasEntityFromKonvaNode(hitNode) : null);
     if (recognitionReviewActive) return;
     if (placementPresetId) updatePlacementPreview(pointer);
     else if (tool === "wall" && draftWall) {
