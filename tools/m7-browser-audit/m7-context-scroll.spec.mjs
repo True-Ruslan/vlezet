@@ -10,25 +10,27 @@ async function clickCanvasPoint(page, point) {
 async function createRoom(page) {
   await page.getByRole("button", { name: "Стена" }).click();
   const points = [
-    { x: 150, y: 120 },
-    { x: 600, y: 120 },
-    { x: 600, y: 430 },
-    { x: 150, y: 430 },
-    { x: 150, y: 120 },
+    { x: 170, y: 150 },
+    { x: 610, y: 150 },
+    { x: 610, y: 500 },
+    { x: 170, y: 500 },
+    { x: 170, y: 150 },
   ];
   for (const point of points) await clickCanvasPoint(page, point);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Выбор" }).click();
-  await clickCanvasPoint(page, { x: 220, y: 380 });
+  await clickCanvasPoint(page, { x: 215, y: 445 });
   await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
 }
 
 test("scrolls a long room context to the planning action", async ({ page }) => {
-  await page.setViewportSize({ width: 1152, height: 720 });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
   await page.getByRole("button", { name: "Новый проект" }).click();
   await createRoom(page);
+
+  await page.setViewportSize({ width: 1152, height: 720 });
 
   const frame = page.locator(".context-panel-frame");
   const body = page.locator(".context-panel-body");
