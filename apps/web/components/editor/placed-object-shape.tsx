@@ -88,7 +88,7 @@ export function PlacedObjectShape({
   const screen = worldToScreen(object.position, viewport);
   const width = object.width * viewport.pixelsPerMillimeter;
   const depth = object.depth * viewport.pixelsPerMillimeter;
-  const previewLabel = fitStatus === "blocked" ? "Недопустимо" : "Предпросмотр";
+  const previewLabel = fitStatus === "blocked" ? "Предпросмотр · не влезает" : "Предпросмотр";
 
   useEffect(() => {
     const transformer = transformerRef.current;
