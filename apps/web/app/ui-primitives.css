@@ -346,6 +346,92 @@ textarea.ui-field-control {
   gap: var(--space-2);
 }
 
+.ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgba(15, 23, 42, .44);
+  backdrop-filter: blur(3px);
+}
+
+.ui-dialog {
+  display: grid;
+  gap: var(--space-4);
+  width: min(520px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-dialog);
+}
+
+.ui-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.ui-dialog-heading {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ui-dialog-heading h2 {
+  margin: 0;
+  font-size: var(--font-heading-md);
+  line-height: 24px;
+}
+
+.ui-dialog-heading p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+}
+
+.ui-dialog-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--pointer-target);
+  height: var(--pointer-target);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ui-dialog-close:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.ui-dialog-body {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+}
+
+.ui-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ui-button,
   .ui-card,
