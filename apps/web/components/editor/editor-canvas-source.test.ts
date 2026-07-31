@@ -6,23 +6,24 @@ const source = readFileSync(new URL("./editor-canvas.tsx", import.meta.url), "ut
 describe("M7.4 live Canvas feedback integration", () => {
   it("keeps hovered identity local while publishing only derived semantic feedback", () => {
     expect(source).toContain('from "./canvas-transient-feedback-store"');
+    expect(source).toContain('from "./canvas-entity-identity"');
     expect(source).toContain('from "./canvas-entity-visual"');
     expect(source).toContain("const [hoveredEntity, setHoveredEntity]");
     expect(source).toContain("const visibleHoveredEntity = hoverEnabled ? hoveredEntity : null");
-    expect(source).toContain("setHoveredCanvasEntity");
+    expect(source).toContain("canvasEntityFromKonvaNode");
+    expect(source).toContain("parseCanvasEntityName(current.name())");
+    expect(source).toContain("setHoveredCanvasEntity(hoverEnabled ? canvasEntityFromKonvaNode(event.target) : null)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().setHoveredSelectable(visibleHoveredEntity !== null)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().reset()");
-    expect(source).not.toContain("}, [placementPresetId, recognitionReviewActive, setHoveredCanvasEntity, tool]);");
   });
 
-  it("applies hover semantics to rooms, walls, openings and furniture", () => {
-    expect(source).toContain('kind: "room"');
-    expect(source).toContain('kind: "wall"');
-    expect(source).toContain('kind: "opening"');
-    expect(source).toContain('kind: "object"');
+  it("exposes rooms, walls, openings and furniture through the existing Konva hit graph", () => {
+    expect(source).toContain('name={canvasEntityName("room", room.id)}');
+    expect(source).toContain('name={canvasEntityName("wall", wall.id)}');
+    expect(source).toContain('name={!preview ? canvasEntityName("opening", opening.id) : undefined}');
     expect(source).toContain("deriveCanvasEntityVisual");
     expect(source).toContain("hovered={visibleHoveredEntity?.kind === \"object\" && visibleHoveredEntity.id === object.id}");
-    expect(source).toContain("onHoverChange={(hovered) => setHoveredCanvasEntity");
+    expect(source).not.toContain("onHoverChange={(hovered) => setHoveredCanvasEntity");
   });
 
   it("publishes valid and invalid preview state and labels opening previews", () => {
