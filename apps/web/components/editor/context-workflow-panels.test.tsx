@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const referenceSource = readFileSync(new URL("../reference/reference-panel.tsx", import.meta.url), "utf8");
 const recognitionSource = readFileSync(new URL("../recognition/recognition-panel.tsx", import.meta.url), "utf8");
 const planningSource = readFileSync(new URL("../planning/planning-panel.tsx", import.meta.url), "utf8");
+const planningIntentSource = readFileSync(new URL("../planning/planning-intent-section.tsx", import.meta.url), "utf8");
 const wallInspectorSource = readFileSync(new URL("./wall-inspector.tsx", import.meta.url), "utf8");
 const apartmentSource = readFileSync(new URL("./apartment-editor.tsx", import.meta.url), "utf8");
 
@@ -23,12 +24,18 @@ describe("M7.2 bounded workflow panels", () => {
     expect(recognitionSource).not.toContain("aria-label=\"Закрыть распознавание\"");
     expect(planningSource).not.toContain(">Закрыть<");
     expect(planningSource).not.toContain("M6.4");
+    expect(planningIntentSource).not.toContain("M6.4");
   });
 
   it("derives a visible phase from the existing workflow state", () => {
     expect(referenceSource).toContain("referenceWorkflowPhase");
     expect(recognitionSource).toContain("recognitionWorkflowPhase");
     expect(planningSource).toContain("planningWorkflowPhase");
+  });
+
+  it("describes immediate reference edits without promising editor-history Undo", () => {
+    expect(referenceSource).toContain("применяются сразу и сохраняются локально вместе с проектом");
+    expect(referenceSource).not.toContain("отменяемы через историю проекта");
   });
 
   it("keeps reference removal inline-confirmed and explicitly preserves apartment geometry", () => {
