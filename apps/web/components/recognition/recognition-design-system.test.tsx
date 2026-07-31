@@ -5,7 +5,7 @@ import { RecognitionPanel, recognitionWorkflowPhase } from "./recognition-panel"
 
 const callbacks = {
   selectedCandidateId: null,
-  navigation: { label: "К предмету «Диван»", onNavigate: () => undefined },
+  navigation: { label: "К предмету «Диван»", onActivate: () => undefined },
   onStartLocal: () => undefined,
   onSelect: () => undefined,
   onDecision: () => undefined,
