@@ -12,9 +12,10 @@ describe("M7.4 placed-object presentation", () => {
     expect(source).toContain('dash={preview ? [7, 5] : hovered && !selected ? [4, 3] : undefined}');
   });
 
-  it("labels valid and invalid previews with text", () => {
-    expect(source).toContain('previewLabel = fitStatus === "blocked" ? "Недопустимо" : "Предпросмотр"');
+  it("labels fit-blocked furniture as a placeable preview, not an invalid target", () => {
+    expect(source).toContain('previewLabel = fitStatus === "blocked" ? "Предпросмотр · не влезает" : "Предпросмотр"');
     expect(source).toContain("{preview ? (");
     expect(source).toContain("text={previewLabel}");
+    expect(source).not.toContain('fitStatus === "blocked" ? "Недопустимо"');
   });
 });
