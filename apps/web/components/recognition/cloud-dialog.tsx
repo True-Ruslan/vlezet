@@ -1,6 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { UiButton } from "../ui/ui-button";
+import { UiDialog } from "../ui/ui-dialog";
+import { UiField } from "../ui/ui-field";
+import { UiNotice } from "../ui/ui-feedback";
 import { resolveCloudRecognitionRequest } from "./cloud-dialog-flow";
 import { listCompatibleOpenRouterModels, type OpenRouterModelOption } from "./openrouter-provider";
 
@@ -14,6 +18,7 @@ export type CloudDialogProps = Readonly<{
 }>;
 
 function CloudDialogContent(props: Omit<CloudDialogProps, "open">) {
+  const apiKeyRef = useRef<HTMLInputElement>(null);
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<readonly OpenRouterModelOption[]>([]);
   const [modelId, setModelId] = useState("");
@@ -67,40 +72,79 @@ function CloudDialogContent(props: Omit<CloudDialogProps, "open">) {
     }
   };
 
-  return <div className="recognition-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
-    <section className="recognition-modal" role="dialog" aria-modal="true" aria-labelledby="cloud-recognition-title">
-      <header>
-        <div>
-          <h2 id="cloud-recognition-title">Проверить план с AI</h2>
-          <p>Опциональная проверка через OpenRouter. Изображение плана будет отправлено выбранной модели только после запуска.</p>
+  return (
+    <UiDialog
+      open
+      title="Проверить план с AI"
+      description="Опциональная проверка через OpenRouter. Изображение плана будет отправлено выбранной модели только после запуска."
+      onClose={close}
+      closeLabel={props.busy ? "Отменить AI-анализ" : "Закрыть"}
+      initialFocusRef={apiKeyRef}
+      className="recognition-modal"
+      footer={
+        <>
+          <UiButton variant="secondary" onClick={close}>{props.busy ? "Отменить запрос" : "Отмена"}</UiButton>
+          <UiButton
+            variant="primary"
+            busy={props.busy || loadingModels}
+            busyLabel={props.busy ? "AI анализирует…" : "Подбираем модель…"}
+            disabled={!apiKey.trim()}
+            onClick={() => void run()}
+          >
+            Анализировать
+          </UiButton>
+        </>
+      }
+    >
+      <div className="recognition-dialog-content" aria-busy={props.busy || undefined}>
+        <UiField id="openrouter-api-key" label="OpenRouter API key">
+          <input
+            ref={apiKeyRef}
+            type="password"
+            autoComplete="off"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder="sk-or-v1-…"
+            disabled={props.busy}
+          />
+        </UiField>
+
+        <div className="recognition-inline-actions">
+          <UiButton
+            variant="secondary"
+            busy={loadingModels}
+            busyLabel="Проверяем модели…"
+            disabled={props.busy || !apiKey.trim()}
+            onClick={() => void loadModels()}
+          >
+            Выбрать модель вручную
+          </UiButton>
         </div>
-        <button type="button" aria-label={props.busy ? "Отменить AI-анализ" : "Закрыть"} onClick={close}>×</button>
-      </header>
-      <label className="recognition-field">
-        <span>OpenRouter API key</span>
-        <input type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="sk-or-v1-…" disabled={props.busy} />
-      </label>
-      <div className="recognition-inline-actions">
-        <button className="secondary-action" type="button" onClick={() => void loadModels()} disabled={loadingModels || props.busy || !apiKey.trim()}>{loadingModels ? "Проверяем модели…" : "Выбрать модель вручную"}</button>
+
+        {models.length > 0 ? (
+          <UiField
+            id="openrouter-model"
+            label="Vision-модель"
+            message={selectedModel?.contextLength ? `Контекст: до ${selectedModel.contextLength.toLocaleString("ru-RU")} токенов` : undefined}
+          >
+            <select value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={props.busy || loadingModels}>
+              {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
+            </select>
+          </UiField>
+        ) : (
+          <UiNotice tone="info" title="Автоматический выбор модели">
+            Можно сразу нажать «Анализировать» — Vlezet сам подберёт первую совместимую vision-модель. Для ручного выбора откройте список выше.
+          </UiNotice>
+        )}
+
+        <UiNotice tone="local" title="Ключ не сохраняется">
+          Он живёт только в памяти этой формы, не попадает в проект, IndexedDB или резервную копию.
+        </UiNotice>
+
+        {error ? <UiNotice tone="error" title="Не удалось выполнить AI-проверку">{error}</UiNotice> : null}
       </div>
-      {models.length > 0 ? <label className="recognition-field">
-        <span>Vision-модель</span>
-        <select value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={props.busy || loadingModels}>
-          {models.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
-        </select>
-        {selectedModel?.contextLength ? <small>Контекст: до {selectedModel.contextLength.toLocaleString("ru-RU")} токенов</small> : null}
-      </label> : <p className="recognition-model-hint">Можно сразу нажать «Анализировать» — Vlezet сам подберёт первую совместимую vision-модель. Для ручного выбора откройте список выше.</p>}
-      <div className="recognition-privacy-note">
-        <strong>Ключ не сохраняется.</strong>
-        <span>Он живёт только в памяти этой формы, не попадает в проект, IndexedDB или резервную копию.</span>
-      </div>
-      {error ? <p className="reference-error" role="alert">{error}</p> : null}
-      <footer>
-        <button className="secondary-action" type="button" onClick={close}>{props.busy ? "Отменить запрос" : "Отмена"}</button>
-        <button className="primary-action" type="button" onClick={() => void run()} disabled={props.busy || loadingModels || !apiKey.trim()}>{props.busy ? "AI анализирует…" : loadingModels ? "Подбираем модель…" : "Анализировать"}</button>
-      </footer>
-    </section>
-  </div>;
+    </UiDialog>
+  );
 }
 
 export function CloudDialog(props: CloudDialogProps) {
