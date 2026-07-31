@@ -255,7 +255,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const livePreviewState = visibleOpeningPreview
     ? (visibleOpeningPreview.valid ? "valid" : "invalid")
     : visiblePlacementPreview
-      ? (placementPreviewFitStatus === "blocked" ? "invalid" : "valid")
+      ? "valid"
       : "none";
 
   useEffect(() => {
@@ -429,7 +429,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     if (event.evt.button !== 0) return;
     if (recognitionReviewActive) { onSelectRecognitionCandidate(null); return; }
 
-    if (placementPresetId && visiblePlacementPreview && placementPreviewFitStatus !== "blocked") {
+    if (placementPresetId && visiblePlacementPreview) {
       editorStore.getState().placeSelectedPreset(visiblePlacementPreview.position);
       setPlacementPreview(null);
       setObjectGuides([]);
