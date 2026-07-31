@@ -1,20 +1,18 @@
 # M7.3 — Product Owner Acceptance
 
-**Status:** ACCEPTED / MERGE PENDING  
+**Status:** ACCEPTED / MERGED  
 **Accepted:** 2026-07-31  
-**Branch:** `feat/m7-3-design-system-implementation`  
 **PR:** #26  
-**Accepted head before this record:** `d97e74fc7ddde75e96fa460bd932946f98290204`
+**Final accepted head:** `cabe8e44153d7a56ee23e6931ea204e2fbf82119`  
+**Merge:** `509dfc02e17c87a58da8356894564a8f27bc5a9b`
 
 ## Acceptance statement
 
-The product owner manually verified M7.3 in the browser and confirmed the delivered design-system and content-component work.
-
-Product-owner confirmation:
+The product owner manually verified M7.3 in the browser and confirmed the design-system and content-component work.
 
 > «Подтверждаю все!»
 
-The following are accepted:
+Accepted outcomes:
 
 - semantic design tokens and balanced-density typography;
 - shared store-free UI primitives;
@@ -30,23 +28,24 @@ The following are accepted:
 
 ## Deferred recognition-quality limitation
 
-The product owner also confirmed that the AI-assisted recognition flow now completes, but the reconstructed geometry can still be materially inaccurate.
+The product owner also confirmed that AI-assisted recognition now completes but may reconstruct walls, doors, windows, rooms and areas inaccurately.
 
-This limitation is explicitly accepted as deferred work rather than treated as complete or hidden inside M7.3.
+This limitation is explicitly accepted as deferred work rather than hidden inside M7.3.
 
 Canonical ownership:
 
 - `docs/product/RECOGNITION_QUALITY_REQUIREMENTS.md`;
 - issue #27 — `M7.8: improve recognition topology, openings, rooms and area accuracy`.
 
-M7.3 does not claim accurate reconstruction of walls, doors, windows, rooms or areas. Recognition remains editable, reviewable and non-authoritative until explicit Apply.
+Recognition remains editable, reviewable and non-authoritative until explicit Apply.
 
-## Verified evidence before this record
+## Final verification
 
 ```text
-head:          d97e74fc7ddde75e96fa460bd932946f98290204
-standard CI:   30654232224 — PASS
-browser audit: 30654232489 — PASS
+head:          cabe8e44153d7a56ee23e6931ea204e2fbf82119
+standard CI:   30654881419 — PASS
+browser audit: 30654879141 — PASS
+artifact:      8802854489
+digest:        sha256:1f62c1695231d266a9e28e3a54b40402a85106e231c15ca6e53dc2d577b22b32
+merge:         509dfc02e17c87a58da8356894564a8f27bc5a9b
 ```
-
-The record commit must receive fresh exact-head standard CI and Chromium/WebKit verification before PR #26 is marked ready and merged.
