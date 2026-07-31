@@ -17,12 +17,60 @@
     background var(--motion-fast) ease,
     border-color var(--motion-fast) ease,
     box-shadow var(--motion-fast) ease,
+    color var(--motion-fast) ease,
     transform var(--motion-fast) ease;
 }
 
-.ui-button:hover:not(:disabled) {
+.ui-button-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ui-button-primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.ui-button-primary:hover:not(:disabled) {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+
+.ui-button-primary:active:not(:disabled) {
+  border-color: var(--color-accent-active);
+  background: var(--color-accent-active);
+}
+
+.ui-button-secondary:hover:not(:disabled),
+.ui-button-quiet:hover:not(:disabled),
+.ui-button-icon:hover:not(:disabled) {
   border-color: var(--color-border-strong);
   background: var(--color-surface-subtle);
+}
+
+.ui-button-quiet {
+  border-color: transparent;
+  background: transparent;
+}
+
+.ui-button-danger {
+  border-color: #fecaca;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.ui-button-danger:hover:not(:disabled) {
+  border-color: #fca5a5;
+  background: #fee4e2;
+}
+
+.ui-button-icon {
+  width: var(--control-height);
+  padding: 0;
 }
 
 .ui-button:active:not(:disabled) {
@@ -50,6 +98,18 @@
   line-height: var(--line-compact);
 }
 
+.ui-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ui-field-label {
+  color: var(--color-text-primary);
+  font-size: var(--font-compact);
+  font-weight: 700;
+  line-height: var(--line-compact);
+}
+
 .ui-field-description,
 .ui-field-message,
 .ui-notice-body,
@@ -57,6 +117,70 @@
 .ui-empty-state-copy {
   font-size: var(--font-helper);
   line-height: var(--line-helper);
+}
+
+.ui-field-description,
+.ui-field-unit,
+.ui-field-message[data-tone="helper"] {
+  color: var(--color-text-muted);
+}
+
+.ui-field-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-field-control {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  line-height: var(--line-body);
+}
+
+textarea.ui-field-control {
+  min-height: 96px;
+  padding-block: var(--space-3);
+  resize: vertical;
+}
+
+.ui-field[data-invalid="true"] .ui-field-control {
+  border-color: var(--color-danger);
+}
+
+.ui-field-unit {
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+  white-space: nowrap;
+}
+
+.ui-field-message-slot {
+  min-height: var(--line-helper);
+}
+
+.ui-field-message {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.ui-field-message[data-tone="error"] {
+  color: var(--color-danger);
+}
+
+.ui-field-message[data-tone="warning"] {
+  color: var(--color-warning);
+}
+
+.ui-field-message[data-tone="success"] {
+  color: var(--color-success);
 }
 
 @media (prefers-reduced-motion: reduce) {
