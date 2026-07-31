@@ -1,0 +1,164 @@
+.recognition-panel .context-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.recognition-full-action {
+  width: 100%;
+}
+
+.recognition-progress-card {
+  text-align: left;
+}
+
+.recognition-progress-copy {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.recognition-spinner {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #dbeafe;
+  border-top-color: var(--color-accent);
+  border-radius: var(--radius-pill);
+  animation: recognition-spin .8s linear infinite;
+}
+
+@keyframes recognition-spin {
+  to { transform: rotate(360deg); }
+}
+
+.recognition-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.recognition-summary-grid .ui-card {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+
+.recognition-summary-grid span {
+  color: var(--color-text-muted);
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+}
+
+.recognition-summary-grid strong {
+  font-size: var(--font-heading-md);
+  line-height: 24px;
+}
+
+.recognition-bulk-actions,
+.recognition-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.recognition-bulk-actions .ui-button,
+.recognition-inline-actions .ui-button {
+  flex: 1 1 132px;
+}
+
+.recognition-candidate-list {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 280px;
+  overflow: auto;
+}
+
+.recognition-candidate-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.recognition-candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.recognition-candidate:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+
+.recognition-candidate-copy {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.recognition-candidate-copy strong,
+.recognition-candidate em {
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+}
+
+.recognition-candidate-copy small,
+.recognition-candidate em {
+  color: var(--color-text-muted);
+  font-style: normal;
+}
+
+.recognition-candidate em {
+  grid-column: 1 / -1;
+}
+
+.recognition-detail {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.recognition-detail-heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.recognition-detail-heading span,
+.recognition-apply-footer span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+}
+
+.recognition-conflict-label {
+  color: var(--color-danger) !important;
+}
+
+.recognition-apply-footer {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.recognition-empty-state {
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 420px) {
+  .recognition-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recognition-candidate {
+    grid-template-columns: 1fr;
+  }
+}
