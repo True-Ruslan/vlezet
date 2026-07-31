@@ -54,8 +54,9 @@ describe("M7.4 one-level Escape priority", () => {
     expect(action({ hasSelection: true })).toBe("clear-selection");
   });
 
-  it("returns from 3D only after higher-priority pointer state", () => {
+  it("returns from 3D after pointer state without closing a hidden 2D workflow", () => {
     expect(action({ viewMode: "3d", hasObjectGesture: true })).toBe("cancel-object-gesture");
+    expect(action({ viewMode: "3d", workflowOpen: true, tool: "door", hasSelection: true })).toBe("return-to-2d");
     expect(action({ viewMode: "3d" })).toBe("return-to-2d");
   });
 
