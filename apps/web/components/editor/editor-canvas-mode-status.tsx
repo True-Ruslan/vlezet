@@ -1,6 +1,7 @@
 "use client";
 
 import { useStore } from "zustand";
+import { canvasTransientFeedbackStore } from "./canvas-transient-feedback-store";
 import { deriveCanvasFeedback } from "./editor-canvas-feedback";
 import { EditorCanvasStatus } from "./editor-canvas-status";
 import { measurementToolStore } from "./measurement-tool-store";
@@ -22,20 +23,24 @@ export function EditorCanvasModeStatus({
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const measurementActive = useStore(measurementToolStore, (state) => state.active);
   const measurementPhase = useStore(measurementToolStore, (state) => state.phase);
+  const hoveredSelectable = useStore(canvasTransientFeedbackStore, (state) => state.hoveredSelectable);
+  const previewState = useStore(canvasTransientFeedbackStore, (state) => state.previewState);
+  const panState = useStore(canvasTransientFeedbackStore, (state) => state.panState);
 
+  const previewValid = previewState === "none" ? null : previewState === "valid";
   const feedback = deriveCanvasFeedback({
     viewMode,
     recognitionReviewActive,
     tracingMode,
     placementPresetId,
-    placementPreviewValid: null,
+    placementPreviewValid: placementPresetId ? previewValid : null,
     measurementActive,
     measurementPhase,
     tool,
     hasWallDraft,
-    openingPreviewValid: null,
-    hoveredSelectable: false,
-    panState: "idle",
+    openingPreviewValid: tool === "door" || tool === "window" ? previewValid : null,
+    hoveredSelectable,
+    panState,
   });
 
   return (
