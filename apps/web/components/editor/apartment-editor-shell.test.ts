@@ -44,3 +44,14 @@ describe("M7.1 apartment editor shell integration", () => {
     expect(source).toContain("<SpatialViewer fitRequest={fit3dRequest} />");
   });
 });
+
+describe("M7.4 Escape integration", () => {
+  it("derives one cancellation action instead of stacking generic cancellation and tracing exit", () => {
+    expect(source).toContain('from "./editor-escape-priority"');
+    expect(source).toContain("deriveEditorEscapeAction");
+    expect(source).toContain('case "reset-measurement"');
+    expect(source).toContain('case "cancel-wall-draft"');
+    expect(source).toContain('case "clear-selection"');
+    expect(source).not.toContain("store.cancelCurrentAction();\n          if (props.tracingMode) props.onStopTracing();");
+  });
+});
