@@ -1,6 +1,6 @@
 # M7.2 — Context Inspector Foundation Acceptance
 
-**Status:** product-owner browser acceptance PASS; final exact-head verification pending before merge.  
+**Status:** ACCEPTED / VERIFIED; pending squash-merge.  
 **Branch:** `feat/m7-2-context-inspector-foundation`  
 **PR:** #23
 
@@ -89,26 +89,47 @@ Browser harness hardening retained product validation and corrected only automat
 - WebKit furniture placement uses the same real hover-preview gesture;
 - the context-scroll regression creates and selects a room at the proven desktop geometry, then reduces viewport height and performs a real scroll to `Варианты расстановки`.
 
-## Automated acceptance before owner sign-off
+## Product-owner acceptance
 
-Implementation head before the acceptance-record commits:
+On 2026-07-31 the product owner manually tested the M7.2 branch and confirmed:
+
+- the renewed context interface is clearer and works correctly;
+- the right panel now scrolls reliably to actions below the viewport;
+- `Варианты расстановки` is reachable and opens correctly after scrolling;
+- the previously reported blocking regression is resolved;
+- the result is accepted with the explicit statement: `Теперь все работает супер четко.`
+
+This is product-owner browser acceptance. The exact browser and operating-system combination are not inferred beyond the owner's confirmed manual run.
+
+## Final exact-head verification
+
+Acceptance-record head verified before this final record-only commit:
 
 ```text
-376f38cafc0a46b67a04d7be54527a83d0220375
+b2fed8b3829ae4db36b2f0ac15806e6bb547b92e
 ```
 
 Standard CI:
 
 ```text
-GitHub Actions 30620776537 — PASS
+GitHub Actions 30624589575 — PASS
 ```
+
+Passed:
+
+- frozen install;
+- M7 documentation contract;
+- full unit suite;
+- TypeScript;
+- ESLint;
+- production Next build.
 
 Chromium/WebKit acceptance:
 
 ```text
-GitHub Actions 30620776539 — PASS
-artifact: 8789303032
-digest: sha256:ff71384f235e1c4760a82bd7f911ad88a00da8742734f77cee2acee983188446
+GitHub Actions 30624589562 — PASS
+artifact: 8790847195
+digest: sha256:4740c2d9cfaf8d2fdfe45e28da60bb2f32bc92698ca0972420c05011e63f020e
 ```
 
 Chromium full-flow verified:
@@ -140,18 +161,6 @@ WebKit core smoke independently verified:
 
 WebKit is recorded as an engine-level proxy, not as a manual native-Safari claim.
 
-## Product-owner acceptance
-
-On 2026-07-31 the product owner manually tested the M7.2 branch and confirmed:
-
-- the renewed context interface is clearer and works correctly;
-- the right panel now scrolls reliably to actions below the viewport;
-- `Варианты расстановки` is reachable and opens correctly after scrolling;
-- the previously reported blocking regression is resolved;
-- the result is accepted with the explicit statement: `Теперь все работает супер четко.`
-
-This is product-owner browser acceptance. The exact browser and operating-system combination are not inferred beyond the owner's confirmed manual run.
-
 ## Architecture preservation
 
 Branch comparison with `main` confirms no changes in:
@@ -168,13 +177,6 @@ Branch comparison with `main` confirms no changes in:
 
 Presentation state remains ephemeral React state.
 
-## Final merge gate
+## Merge rule
 
-Before merging PR #23:
-
-1. run standard CI on the exact acceptance-record head;
-2. run Chromium full-flow and WebKit core smoke on the same exact head;
-3. record the final run IDs and artifact digest;
-4. mark PR #23 ready for review;
-5. squash-merge with expected-head SHA protection;
-6. update canonical state, roadmaps and changelog after merge.
+The final record-only head must pass standard CI and Chromium/WebKit once more. After PASS, PR #23 may be marked ready and squash-merged with expected-head SHA protection. Canonical state, roadmaps and changelog must then be updated from the merge commit.
