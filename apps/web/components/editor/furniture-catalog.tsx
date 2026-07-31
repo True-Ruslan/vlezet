@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { useStore } from "zustand";
+import { UiCard } from "../ui/ui-card";
+import { formatMillimeters } from "../ui/presentation-format";
 import { FURNITURE_PRESETS, type FurniturePreset } from "./furniture-presets";
 import { editorStore } from "./use-editor-store";
 
@@ -69,20 +71,29 @@ export function FurnitureCatalog() {
             <div className="catalog-grid">
               {group.presets.map((preset) => {
                 const active = preset.id === activePresetId;
+                const dimensions = `${formatMillimeters(preset.width)} × ${formatMillimeters(preset.depth)}`;
                 return (
-                  <button
+                  <UiCard
                     key={preset.id}
-                    type="button"
-                    className={active ? "preset-card is-active" : "preset-card"}
-                    aria-pressed={active}
-                    onClick={() => editorStore.getState().setPlacementPreset(active ? null : preset.id)}
+                    variant="selectable"
+                    selected={active}
+                    className="furniture-preset-card"
                   >
-                    <PresetGlyph preset={preset} />
-                    <span className="preset-copy">
-                      <strong>{preset.name}</strong>
-                      <small>{preset.width} × {preset.depth} мм</small>
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      className="preset-card ui-card-host"
+                      aria-pressed={active}
+                      aria-label={`${preset.name}, ${dimensions}`}
+                      title={`${preset.name} — ${dimensions}`}
+                      onClick={() => editorStore.getState().setPlacementPreset(active ? null : preset.id)}
+                    >
+                      <PresetGlyph preset={preset} />
+                      <span className="preset-copy">
+                        <strong>{preset.name}</strong>
+                        <small className="ui-card-supporting">{dimensions}</small>
+                      </span>
+                    </button>
+                  </UiCard>
                 );
               })}
             </div>
