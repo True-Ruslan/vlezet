@@ -3,6 +3,13 @@
 import type { PlacedObject, VlezetDocument } from "@vlezet/domain";
 import { evaluateObjectFits, measureObjectClearances, type FitStatus } from "@vlezet/geometry";
 import { useMemo, useState } from "react";
+import { describeObjectContext } from "./context-panel-contract";
+import {
+  ContextActionArea,
+  ContextDangerZone,
+  ContextPanelFrame,
+  ContextSection,
+} from "./context-panel-frame";
 import { editorStore } from "./use-editor-store";
 
 const STATUS_COPY: Readonly<Record<FitStatus, string>> = {
@@ -76,58 +83,69 @@ export function ObjectInspector({ document, object }: Readonly<{ document: Vleze
   </>;
 
   const status = fit?.status ?? "blocked";
+  const descriptor = describeObjectContext({ name: object.name, statusLabel: STATUS_COPY[status] });
 
   return (
-    <aside className="inspector-panel object-inspector">
-      <div className="inspector-heading"><span>Предмет</span><code>{object.id.slice(0, 8)}</code></div>
-      <div className={`fit-badge fit-${status}`}><span className="fit-dot" />{STATUS_COPY[status]}</div>
-      {fit?.diagnostics.length ? (
-        <ul className="fit-reasons">
-          {fit.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${diagnostic.relatedObjectId ?? diagnostic.relatedOpeningId ?? index}`}>{diagnostic.message}</li>)}
-        </ul>
-      ) : <p className="fit-success-copy">Предмет и рекомендуемые зоны использования помещаются без конфликтов.</p>}
+    <ContextPanelFrame descriptor={descriptor} className="object-inspector">
+      <ContextSection title="Проверка размещения">
+        <div className={`fit-badge fit-${status}`}><span className="fit-dot" />{STATUS_COPY[status]}</div>
+        {fit?.diagnostics.length ? (
+          <ul className="fit-reasons">
+            {fit.diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}-${diagnostic.relatedObjectId ?? diagnostic.relatedOpeningId ?? index}`}>{diagnostic.message}</li>)}
+          </ul>
+        ) : <p className="fit-success-copy">Предмет и рекомендуемые зоны использования помещаются без конфликтов.</p>}
+      </ContextSection>
 
-      <label className="field-label" htmlFor="object-name">Название</label>
-      <div className="room-name-field"><input id="object-name" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") apply(); }} /></div>
+      <ContextSection title="Параметры">
+        <label className="field-label" htmlFor="object-name">Название</label>
+        <div className="room-name-field"><input id="object-name" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") apply(); }} /></div>
 
-      <div className="field-pair">
-        <div>{numericInput("object-x", "Центр X", "x", "мм")}</div>
-        <div>{numericInput("object-y", "Центр Y", "y", "мм")}</div>
-      </div>
-      <div className="field-pair">
-        <div>{numericInput("object-width", "Ширина", "width", "мм")}</div>
-        <div>{numericInput("object-depth", "Глубина", "depth", "мм")}</div>
-      </div>
-      <div className="field-pair">
-        <div>{numericInput("object-height", "Высота", "height", "мм")}</div>
-        <div>{numericInput("object-rotation", "Поворот", "rotation", "°")}</div>
-      </div>
+        <div className="field-pair">
+          <div>{numericInput("object-x", "Центр X", "x", "мм")}</div>
+          <div>{numericInput("object-y", "Центр Y", "y", "мм")}</div>
+        </div>
+        <div className="field-pair">
+          <div>{numericInput("object-width", "Ширина", "width", "мм")}</div>
+          <div>{numericInput("object-depth", "Глубина", "depth", "мм")}</div>
+        </div>
+        <div className="field-pair">
+          <div>{numericInput("object-height", "Высота", "height", "мм")}</div>
+          <div>{numericInput("object-rotation", "Поворот", "rotation", "°")}</div>
+        </div>
 
-      <div className="inspector-section-heading"><strong>Рекомендуемые зазоры</strong><span>Не норматив, а удобство использования</span></div>
-      <div className="field-pair">
-        <div>{numericInput("clearance-front", "Спереди", "front", "мм")}</div>
-        <div>{numericInput("clearance-right", "Справа", "right", "мм")}</div>
-      </div>
-      <div className="field-pair">
-        <div>{numericInput("clearance-back", "Сзади", "back", "мм")}</div>
-        <div>{numericInput("clearance-left", "Слева", "left", "мм")}</div>
-      </div>
+        <div className="inspector-section-heading"><strong>Рекомендуемые зазоры</strong><span>Не норматив, а удобство использования</span></div>
+        <div className="field-pair">
+          <div>{numericInput("clearance-front", "Спереди", "front", "мм")}</div>
+          <div>{numericInput("clearance-right", "Справа", "right", "мм")}</div>
+        </div>
+        <div className="field-pair">
+          <div>{numericInput("clearance-back", "Сзади", "back", "мм")}</div>
+          <div>{numericInput("clearance-left", "Слева", "left", "мм")}</div>
+        </div>
 
-      <button className="primary-action" type="button" onClick={apply}>Применить параметры</button>
-      {error ? <p className="field-error">{error}</p> : null}
+        <button className="primary-action" type="button" onClick={apply}>Применить параметры</button>
+        {error ? <p className="field-error">{error}</p> : null}
+      </ContextSection>
 
-      <dl className="wall-facts clearance-facts">
-        <div><dt>До препятствия спереди</dt><dd>{measurements?.front === null || measurements?.front === undefined ? "—" : `${Math.round(measurements.front)} мм`}</dd></div>
-        <div><dt>Справа</dt><dd>{measurements?.right === null || measurements?.right === undefined ? "—" : `${Math.round(measurements.right)} мм`}</dd></div>
-        <div><dt>Сзади</dt><dd>{measurements?.back === null || measurements?.back === undefined ? "—" : `${Math.round(measurements.back)} мм`}</dd></div>
-        <div><dt>Слева</dt><dd>{measurements?.left === null || measurements?.left === undefined ? "—" : `${Math.round(measurements.left)} мм`}</dd></div>
-      </dl>
+      <ContextSection title="Расстояния до препятствий">
+        <dl className="wall-facts clearance-facts">
+          <div><dt>Спереди</dt><dd>{measurements?.front === null || measurements?.front === undefined ? "—" : `${Math.round(measurements.front)} мм`}</dd></div>
+          <div><dt>Справа</dt><dd>{measurements?.right === null || measurements?.right === undefined ? "—" : `${Math.round(measurements.right)} мм`}</dd></div>
+          <div><dt>Сзади</dt><dd>{measurements?.back === null || measurements?.back === undefined ? "—" : `${Math.round(measurements.back)} мм`}</dd></div>
+          <div><dt>Слева</dt><dd>{measurements?.left === null || measurements?.left === undefined ? "—" : `${Math.round(measurements.left)} мм`}</dd></div>
+        </dl>
+      </ContextSection>
 
-      <div className="object-actions-row">
-        <button className="secondary-action" type="button" onClick={() => editorStore.getState().rotateSelectedObject90()}>Повернуть 90°</button>
-        <button className="secondary-action" type="button" onClick={() => editorStore.getState().duplicateSelectedObject()}>Дублировать</button>
-      </div>
-      <button className="danger-action" type="button" onClick={() => editorStore.getState().deleteSelectedObject()}>Удалить предмет</button>
-    </aside>
+      <ContextActionArea>
+        <div className="object-actions-row">
+          <button className="secondary-action" type="button" onClick={() => editorStore.getState().rotateSelectedObject90()}>Повернуть 90°</button>
+          <button className="secondary-action" type="button" onClick={() => editorStore.getState().duplicateSelectedObject()}>Дублировать</button>
+        </div>
+      </ContextActionArea>
+
+      <ContextDangerZone description="Предмет удалится из плана. Можно отменить через «Отменить».">
+        <button className="danger-action" type="button" onClick={() => editorStore.getState().deleteSelectedObject()}>Удалить предмет</button>
+      </ContextDangerZone>
+    </ContextPanelFrame>
   );
 }

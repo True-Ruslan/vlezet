@@ -146,7 +146,6 @@ export function PlanningIntentSectionView({
           <strong>Опишите пожелания</strong>
           <p className="inspector-help">Текст станет только проверяемым черновиком ограничений. Расстановка не запускается автоматически.</p>
         </div>
-        <span className="planning-intent-badge">M6.4</span>
       </div>
 
       <label className="planning-field">

@@ -11,6 +11,12 @@ import {
 } from "@vlezet/planning";
 import { type ReactNode, useMemo, useState } from "react";
 import { useStore } from "zustand";
+import { describePlanningContext } from "../editor/context-panel-contract";
+import {
+  ContextPanelFrame,
+  ContextSection,
+  type ContextPanelNavigation,
+} from "../editor/context-panel-frame";
 import { editorStore } from "../editor/use-editor-store";
 import { PlanningIntentSection } from "./planning-intent-section";
 import type { PlanningIntentControlState } from "./planning-intent-review";
@@ -51,6 +57,7 @@ export type PlanningPanelViewProps = Readonly<{
   activeExactPairKey: string | null;
   errorMessage: string | null;
   intentSection?: ReactNode;
+  navigation?: ContextPanelNavigation;
   onToggleObject: (objectId: string) => void;
   onToggleLock: (objectId: string) => void;
   onBoundaryPreferenceChange: (objectId: string, preference: PlanningBoundaryPreference) => void;
@@ -150,6 +157,12 @@ function formatMm(value: number): string {
   return Number(value.toFixed(2)).toString();
 }
 
+export function planningWorkflowPhase(result: PlanningResult | null, previewCandidateId: string | null): string {
+  if (previewCandidateId) return "Предпросмотр варианта";
+  if (result) return result.candidates.length > 0 ? "Найденные варианты" : "Варианты не найдены";
+  return "Настройка пожеланий и ограничений";
+}
+
 export function PlanningPanelView({
   roomName,
   objects,
@@ -160,6 +173,7 @@ export function PlanningPanelView({
   activeExactPairKey,
   errorMessage,
   intentSection,
+  navigation,
   onToggleObject,
   onToggleLock,
   onBoundaryPreferenceChange,
@@ -174,22 +188,20 @@ export function PlanningPanelView({
   const hasSelectedObjects = objects.some((object) => object.selected);
   const hasMovableSelectedObject = objects.some((object) => object.selected && !object.locked);
   const objectNames = new Map(objects.map((object) => [object.id, object.name]));
+  const resolvedNavigation = navigation ?? { label: `К комнате «${roomName}»`, onActivate: onClose };
+  const descriptor = describePlanningContext({
+    roomName,
+    phase: planningWorkflowPhase(result, previewCandidateId),
+    returnLabel: resolvedNavigation.label,
+  });
 
   return (
-    <aside className="inspector-panel planning-panel" aria-label="Варианты расстановки">
-      <div className="inspector-heading-row">
-        <div>
-          <span className="inspector-kicker">M6.4 · Проверяемые пожелания</span>
-          <h3>Варианты расстановки</h3>
-          <p className="inspector-help">{roomName}. Опишите пожелания или задайте ограничения вручную для 1–3 предметов.</p>
-        </div>
-        <button type="button" className="secondary-action" onClick={onClose}>Закрыть</button>
-      </div>
+    <ContextPanelFrame descriptor={descriptor} navigation={resolvedNavigation} className="planning-panel">
+      <p className="inspector-help">Опишите пожелания или задайте ограничения вручную для 1–3 предметов.</p>
 
       {intentSection}
 
-      <div className="inspector-section">
-        <strong>Что переставить</strong>
+      <ContextSection title="Что переставить">
         {objects.length === 0 ? (
           <p className="inspector-help">В этой комнате пока нет предметов для перестановки.</p>
         ) : (
@@ -224,12 +236,10 @@ export function PlanningPanelView({
             ))}
           </div>
         )}
-      </div>
+      </ContextSection>
 
       {pairs.length > 0 ? (
-        <div className="inspector-section">
-          <strong>Отношения между предметами</strong>
-          <p className="inspector-help">«Ближе/дальше» ранжируется по центрам предметов. Точный зазор — отдельное жёсткое требование по внешним контурам.</p>
+        <ContextSection title="Отношения между предметами" description="«Ближе/дальше» ранжируется по центрам предметов. Точный зазор — отдельное жёсткое требование по внешним контурам.">
           <div className="planning-pair-list">
             {pairs.map((pair) => (
               <div key={pair.key} className="planning-pair-row">
@@ -264,26 +274,22 @@ export function PlanningPanelView({
               </div>
             ))}
           </div>
-        </div>
+        </ContextSection>
       ) : null}
 
-      <div className="inspector-section">
+      <ContextSection>
         <button type="button" className="primary-action" disabled={!canGenerate} onClick={onGenerate}>
           Найти варианты
         </button>
         {!canGenerate && hasSelectedObjects && !hasMovableSelectedObject ? (
           <p className="inspector-help">Хотя бы один выбранный предмет должен оставаться подвижным.</p>
         ) : null}
-      </div>
+      </ContextSection>
 
       {errorMessage ? <div className="field-error" role="status">{errorMessage}</div> : null}
 
       {result ? (
-        <div className="inspector-section planning-results">
-          <div className="planning-results-heading">
-            <strong>Найденные варианты</strong>
-            <span>{result.validCandidateCount} допустимых · проверено {result.evaluatedCandidateCount}</span>
-          </div>
+        <ContextSection title="Найденные варианты" description={`${result.validCandidateCount} допустимых · проверено ${result.evaluatedCandidateCount}`} className="planning-results">
           {result.candidates.map((candidate, index) => {
             const previewing = previewCandidateId === candidate.candidate.id;
             return (
@@ -334,9 +340,9 @@ export function PlanningPanelView({
               </article>
             );
           })}
-        </div>
+        </ContextSection>
       ) : null}
-    </aside>
+    </ContextPanelFrame>
   );
 }
 
@@ -365,7 +371,7 @@ function cleanPairRecord<T>(record: Readonly<Record<string, T>>, allowedIds: Rea
   }));
 }
 
-export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
+export function PlanningPanel({ roomId, navigation }: Readonly<{ roomId: string; navigation: ContextPanelNavigation }>) {
   const document = useStore(editorStore, (state) => state.history.document);
   const previewCandidate = useStore(planningUiStore, (state) => state.previewCandidate);
   const activeExactPairKey = useStore(planningUiStore, (state) => state.activeExactPairKey);
@@ -511,7 +517,8 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
         result={null}
         previewCandidateId={null}
         activeExactPairKey={null}
-        errorMessage="Комната изменилась или была удалена. Закройте панель и выберите комнату заново."
+        errorMessage="Комната изменилась или была удалена. Вернитесь к плану и выберите комнату заново."
+        navigation={navigation}
         onToggleObject={() => {}}
         onToggleLock={() => {}}
         onBoundaryPreferenceChange={() => {}}
@@ -521,7 +528,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
         onPreview={() => {}}
         onShowExactPair={() => {}}
         onApply={() => {}}
-        onClose={() => planningUiStore.getState().close()}
+        onClose={navigation.onActivate}
       />
     );
   }
@@ -550,6 +557,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
       activeExactPairKey={activeExactPairKey}
       errorMessage={errorMessage}
       intentSection={<PlanningIntentSection roomObjects={roomObjects} onTransfer={transferIntentControls} />}
+      navigation={navigation}
       onToggleObject={toggleObject}
       onToggleLock={toggleLock}
       onBoundaryPreferenceChange={setBoundaryPreference}
@@ -559,7 +567,7 @@ export function PlanningPanel({ roomId }: Readonly<{ roomId: string }>) {
       onPreview={preview}
       onShowExactPair={showExactPair}
       onApply={apply}
-      onClose={() => planningUiStore.getState().close()}
+      onClose={navigation.onActivate}
     />
   );
 }

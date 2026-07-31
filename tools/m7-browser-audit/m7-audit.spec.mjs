@@ -2,10 +2,58 @@ import { expect, test } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 
 const auditRoot = path.dirname(fileURLToPath(import.meta.url));
 const artifactsDir = path.join(auditRoot, "artifacts");
 const records = [];
+
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const typeBuffer = Buffer.from(type, "ascii");
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])));
+  return Buffer.concat([length, typeBuffer, data, checksum]);
+}
+
+function referencePng(width = 640, height = 480) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const rows = [];
+  for (let y = 0; y < height; y += 1) {
+    const row = Buffer.alloc(1 + width * 3, 255);
+    row[0] = 0;
+    for (let x = 0; x < width; x += 1) {
+      if (x === 15 || x === width - 16 || y === 15 || y === height - 16) {
+        const offset = 1 + x * 3;
+        row[offset] = 44;
+        row[offset + 1] = 62;
+        row[offset + 2] = 80;
+      }
+    }
+    rows.push(row);
+  }
+  return Buffer.concat([
+    signature,
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(Buffer.concat(rows))),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 
 async function capture(page, name, context = {}) {
   await page.waitForTimeout(180);
@@ -33,15 +81,12 @@ async function capture(page, name, context = {}) {
         scrollWidth: element.scrollWidth,
         clientWidth: element.clientWidth,
         overflowing: element.scrollWidth > element.clientWidth,
+        text: element.textContent?.trim() ?? "",
       };
     };
     return {
       url: location.href,
-      viewport: {
-        width: window.innerWidth,
-        height: window.innerHeight,
-        devicePixelRatio: window.devicePixelRatio,
-      },
+      viewport: { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio },
       document: {
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
@@ -57,7 +102,12 @@ async function capture(page, name, context = {}) {
       redo: elementMetrics('.editor-history-button[aria-label="Повторить"]'),
       contextSurface: elementMetrics("#editor-context-surface"),
       catalogueSurface: elementMetrics("#editor-catalogue-surface"),
-      inspector: elementMetrics(".inspector-panel"),
+      contextFrame: elementMetrics(".context-panel-frame"),
+      contextEyebrow: elementMetrics(".context-panel-eyebrow"),
+      contextTitle: elementMetrics(".context-panel-title"),
+      contextSubtitle: elementMetrics(".context-panel-subtitle"),
+      contextPhase: elementMetrics(".context-panel-phase"),
+      contextNavigation: elementMetrics(".context-panel-navigation"),
       catalogue: elementMetrics(".furniture-catalog"),
       canvas: elementMetrics(".canvas-shell"),
       canvasHelp: elementMetrics(".canvas-help"),
@@ -67,7 +117,6 @@ async function capture(page, name, context = {}) {
         .filter(Boolean),
     };
   });
-
   const screenshot = `${name}.png`;
   await page.screenshot({ path: path.join(artifactsDir, screenshot), fullPage: false });
   records.push({ name, screenshot, context, metrics });
@@ -98,13 +147,15 @@ async function openNewProject(page) {
   await expect(page.locator(".canvas-shell")).toBeVisible();
 }
 
-async function clickCanvasPoint(page, canvas, point) {
+async function clickCanvasPoint(page, point) {
+  const canvas = page.locator(".canvas-shell");
   const box = await canvas.boundingBox();
   if (!box) throw new Error("Canvas has no visible bounding box.");
   await page.mouse.click(box.x + point.x, box.y + point.y);
 }
 
-async function moveAndClickCanvasPoint(page, canvas, point) {
+async function moveAndClickCanvasPoint(page, point) {
+  const canvas = page.locator(".canvas-shell");
   const box = await canvas.boundingBox();
   if (!box) throw new Error("Canvas has no visible bounding box.");
   await page.mouse.move(box.x + point.x, box.y + point.y);
@@ -112,7 +163,58 @@ async function moveAndClickCanvasPoint(page, canvas, point) {
   await page.mouse.click(box.x + point.x, box.y + point.y);
 }
 
-test.describe.serial("M7.1 editor shell browser acceptance", () => {
+const points = {
+  topLeft: { x: 170, y: 150 },
+  topRight: { x: 610, y: 150 },
+  bottomRight: { x: 610, y: 500 },
+  bottomLeft: { x: 170, y: 500 },
+  centre: { x: 390, y: 325 },
+  roomSelection: { x: 215, y: 445 },
+  topWall: { x: 390, y: 150 },
+};
+
+async function createRoom(page) {
+  await page.getByRole("button", { name: "Стена" }).click();
+  await clickCanvasPoint(page, points.topLeft);
+  await clickCanvasPoint(page, points.topRight);
+  await clickCanvasPoint(page, points.bottomRight);
+  await clickCanvasPoint(page, points.bottomLeft);
+  await clickCanvasPoint(page, points.topLeft);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Выбор" }).click();
+  await clickCanvasPoint(page, points.roomSelection);
+  await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
+}
+
+async function placeSofa(page) {
+  await page.getByRole("button", { name: /Диван/ }).first().click();
+  await moveAndClickCanvasPoint(page, points.centre);
+  await expect(page.locator(".context-panel-eyebrow")).toHaveText("Предмет");
+  await expect(page.locator(".context-panel-title")).toHaveText("Диван");
+}
+
+async function selectRoom(page) {
+  await page.getByRole("button", { name: "Выбор" }).click();
+  await clickCanvasPoint(page, points.roomSelection);
+  await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
+}
+
+async function installReference(page) {
+  const input = page.locator('input[type="file"][aria-label="Загрузить план квартиры"]');
+  await input.setInputFiles({ name: "audit-plan.png", mimeType: "image/png", buffer: referencePng() });
+  await expect(page.locator(".context-panel-title")).toHaveText("Калибровка масштаба");
+  const stage = page.locator(".calibration-stage");
+  await expect(stage).toBeVisible();
+  const box = await stage.boundingBox();
+  if (!box) throw new Error("Calibration stage has no bounding box.");
+  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.5);
+  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.5);
+  await page.getByLabel("Реальная длина").fill("3000");
+  await page.getByRole("button", { name: "Сохранить и открыть план" }).click();
+  await expect(page.locator(".context-panel-title")).toHaveText("Подложка настроена");
+}
+
+test.describe.serial("M7.2 context inspector browser acceptance", () => {
   test.beforeAll(async () => {
     await mkdir(artifactsDir, { recursive: true });
   });
@@ -128,139 +230,139 @@ test.describe.serial("M7.1 editor shell browser acceptance", () => {
     });
     await writeFile(path.join(artifactsDir, "audit-report.json"), `${JSON.stringify({
       generatedAt: new Date().toISOString(),
-      milestone: "M7.1 Editor Shell and Responsive Context",
+      milestone: "M7.2 Context Inspector Foundation",
       browser: "Chromium via Playwright",
-      note: "1152×720, 960×600 and 720×450 exercise effective 125%, 150% and 200% CSS viewport reachability from a 1440×900 reference window.",
+      note: "Tests semantic context identity, bounded workflow return, compact presentation-only close, stale-target failure, Undo copy and reference removal confirmation.",
       records,
       observations,
     }, null, 2)}\n`, "utf8");
   });
 
-  test("keeps project, tools, history and context entry reachable at every required width", async ({ page }) => {
+  test("keeps the shell and empty context reachable at required effective widths", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
-    await capture(page, "01-dashboard-1440x900", { surface: "dashboard", zoom: "100%" });
-
+    await capture(page, "01-dashboard-1440x900", { surface: "dashboard" });
     await page.getByRole("button", { name: "Новый проект" }).click();
-    await expect(page.locator(".editor-project-bar")).toBeVisible();
 
     const states = [
-      { width: 1920, height: 1080, name: "02-editor-1920x1080", zoom: "100%", compact: false },
-      { width: 1440, height: 900, name: "03-editor-1440x900", zoom: "100%", compact: false },
-      { width: 1366, height: 768, name: "04-editor-1366x768", zoom: "100%", compact: false },
-      { width: 1280, height: 800, name: "05-editor-1280x800", zoom: "100%", compact: false },
-      { width: 1152, height: 720, name: "06-editor-effective-125", zoom: "effective 125%", compact: false },
-      { width: 960, height: 600, name: "07-editor-effective-150", zoom: "effective 150%", compact: true },
-      { width: 720, height: 450, name: "08-editor-effective-200", zoom: "effective 200%", compact: true },
+      { width: 1920, height: 1080, name: "02-editor-1920x1080", compact: false },
+      { width: 1440, height: 900, name: "03-editor-1440x900", compact: false },
+      { width: 1280, height: 800, name: "04-editor-1280x800", compact: false },
+      { width: 1152, height: 720, name: "05-editor-effective-125", compact: false },
+      { width: 960, height: 600, name: "06-editor-effective-150", compact: true },
+      { width: 720, height: 450, name: "07-editor-effective-200", compact: true },
     ];
-
     for (const state of states) {
       await page.setViewportSize({ width: state.width, height: state.height });
-      const metrics = await capture(page, state.name, { surface: "blank editor", zoom: state.zoom });
+      const metrics = await capture(page, state.name, { surface: "blank editor" });
       expectStableShell(metrics, state.name);
       if (state.compact) expect(metrics.contextTrigger.visible, `${state.name}: context trigger`).toBe(true);
     }
 
     await page.setViewportSize({ width: 960, height: 600 });
-    const contextTrigger = page.locator(".editor-context-trigger");
-    await contextTrigger.click();
-    await expect(page.locator("#editor-context-surface")).toBeVisible();
-    await capture(page, "09-empty-context-sheet-960x600", { surface: "empty context sheet" });
+    await page.locator(".editor-context-trigger").click();
+    await expect(page.locator(".context-panel-title")).toHaveText("Ничего не выбрано");
+    await capture(page, "08-empty-context-sheet-960x600", { surface: "empty context" });
     await page.locator("#editor-context-surface").getByRole("button", { name: "Закрыть панель" }).click();
     await expect(page.locator("#editor-context-surface")).toBeHidden();
-
-    await page.locator(".editor-project-action").click();
-    await expect(page.getByRole("button", { name: /Показать весь план/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Vlezet JSON/ })).toBeVisible();
   });
 
-  test("preserves compact form state and all workflow surfaces", async ({ page }) => {
+  test("uses one entity anatomy, undoable danger actions and room planning return", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
+    await createRoom(page);
+    await expect(page.locator(".context-panel-title")).toContainText("Комната");
+    await expect(page.locator(".context-panel-subtitle")).toContainText("м²");
+    await capture(page, "09-room-context-1440x900", { surface: "room" });
 
-    const canvas = page.locator(".canvas-shell");
-    await page.getByRole("button", { name: "Стена" }).click();
-    const points = {
-      topLeft: { x: 170, y: 150 },
-      topRight: { x: 610, y: 150 },
-      bottomRight: { x: 610, y: 500 },
-      bottomLeft: { x: 170, y: 500 },
-      centre: { x: 390, y: 325 },
-      roomSelection: { x: 215, y: 445 },
-    };
-    await clickCanvasPoint(page, canvas, points.topLeft);
-    await clickCanvasPoint(page, canvas, points.topRight);
-    await clickCanvasPoint(page, canvas, points.bottomRight);
-    await clickCanvasPoint(page, canvas, points.bottomLeft);
-    await clickCanvasPoint(page, canvas, points.topLeft);
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Выбор" }).click();
+    await page.getByRole("button", { name: "Дверь" }).click();
+    await moveAndClickCanvasPoint(page, points.topWall);
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Дверь");
+    await expect(page.locator(".context-panel-danger-description")).toContainText("Можно отменить через «Отменить»");
+    await capture(page, "10-opening-context-1440x900", { surface: "door" });
+    await page.getByRole("button", { name: "Удалить дверь" }).click();
+    await expect(page.locator('.editor-history-button[aria-label="Отменить"]')).toBeEnabled();
+    await page.locator('.editor-history-button[aria-label="Отменить"]').click();
 
-    await clickCanvasPoint(page, canvas, points.roomSelection);
-    await expect(page.locator(".inspector-panel").getByText("Комната", { exact: true })).toBeVisible();
-    await capture(page, "10-room-inspector-1440x900", { surface: "selected room" });
+    await placeSofa(page);
+    await expect(page.locator(".context-panel-danger-description")).toContainText("Можно отменить через «Отменить»");
+    await capture(page, "11-object-context-1440x900", { surface: "object" });
+    await page.getByRole("button", { name: "Удалить предмет" }).click();
+    await expect(page.locator('.editor-history-button[aria-label="Отменить"]')).toBeEnabled();
+    await page.locator('.editor-history-button[aria-label="Отменить"]').click();
 
-    await page.getByRole("button", { name: /Диван/ }).first().click();
-    await moveAndClickCanvasPoint(page, canvas, points.centre);
-    await expect(page.locator(".object-inspector").getByText("Предмет", { exact: true })).toBeVisible();
-    await capture(page, "11-object-inspector-1440x900", { surface: "selected furniture" });
+    await selectRoom(page);
+    const roomTitle = await page.locator(".context-panel-title").innerText();
+    await page.getByRole("button", { name: "Варианты расстановки" }).click();
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Варианты расстановки");
+    await expect(page.locator(".context-panel-phase")).toHaveText("Настройка пожеланий и ограничений");
+    await expect(page.locator(".context-panel-navigation")).toHaveAccessibleName(`К комнате «${roomTitle}»`);
+    await capture(page, "12-planning-workflow-1440x900", { surface: "planning" });
+    await page.locator(".context-panel-navigation").click();
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
+    await expect(page.locator(".context-panel-title")).toHaveText(roomTitle);
+  });
 
-    await page.setViewportSize({ width: 1280, height: 800 });
-    const desktopObject = await capture(page, "12-object-inspector-1280x800", { surface: "selected furniture", zoom: "100%" });
-    expect(desktopObject.document.horizontalOverflow).toBe(false);
-    expect(desktopObject.contextSurface.visible).toBe(true);
+  test("preserves object context across reference and recognition workflows and compact hiding", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await createRoom(page);
+    await placeSofa(page);
 
     await page.setViewportSize({ width: 960, height: 600 });
     const contextSurface = page.locator("#editor-context-surface");
     await expect(contextSurface).toBeVisible();
-    const objectName = contextSurface.getByLabel("Название");
-    await objectName.fill("Черновик дивана");
-    await capture(page, "13-object-context-sheet-960x600", { surface: "selected object context sheet" });
+    await contextSurface.getByLabel("Название").fill("Черновик дивана");
     await contextSurface.getByRole("button", { name: "Закрыть панель" }).click();
     await expect(contextSurface).toBeHidden();
     await page.locator(".editor-context-trigger").click();
-    await expect(contextSurface).toBeVisible();
     await expect(contextSurface.getByLabel("Название")).toHaveValue("Черновик дивана");
 
-    await page.getByRole("button", { name: "Мебель" }).click();
-    const catalogueSurface = page.locator("#editor-catalogue-surface");
-    await expect(catalogueSurface).toBeVisible();
-    await expect(page.getByRole("button", { name: "Мебель" })).toHaveAttribute("aria-pressed", "true");
-    await capture(page, "14-catalogue-sheet-960x600", { surface: "catalogue sheet" });
-    await catalogueSurface.getByRole("button", { name: "Закрыть панель" }).click();
-    await expect(catalogueSurface).toBeHidden();
-    await expect(page.getByRole("button", { name: "Мебель" })).toHaveAttribute("aria-pressed", "false");
-    await page.getByRole("button", { name: "Мебель" }).click();
-    await expect(catalogueSurface).toBeVisible();
-    await catalogueSurface.getByRole("button", { name: "Закрыть панель" }).click();
+    await page.getByRole("button", { name: "Подложка" }).click();
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Подложка");
+    await expect(page.locator(".context-panel-navigation")).toHaveAccessibleName("К предмету «Диван»");
+    await contextSurface.getByRole("button", { name: "Закрыть панель" }).click();
+    await expect(contextSurface).toBeHidden();
+    await page.locator(".editor-context-trigger").click();
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Подложка");
 
+    await installReference(page);
+    await page.getByRole("button", { name: "Распознать" }).click();
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Распознавание");
+    await expect(page.locator(".context-panel-navigation")).toHaveAccessibleName("К предмету «Диван»");
+    await capture(page, "13-recognition-return-target-960x600", { surface: "recognition" });
+    await page.locator(".context-panel-navigation").click();
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Предмет");
+    await expect(page.locator(".context-panel-title")).toHaveText("Диван");
+  });
+
+  test("fails stale return targets closed and exposes reference removal consequences", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await clickCanvasPoint(page, canvas, points.roomSelection);
-    await expect(page.locator(".inspector-panel").getByText("Комната", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Варианты расстановки" }).click();
-    await expect(page.locator(".planning-panel")).toBeVisible();
-    await capture(page, "15-planning-panel-1440x900", { surface: "planning" });
-    await page.locator(".planning-panel").getByRole("button", { name: "Закрыть" }).click();
+    await openNewProject(page);
+    await createRoom(page);
+    await placeSofa(page);
 
     await page.getByRole("button", { name: "Подложка" }).click();
-    await expect(page.getByLabel("Подложка плана")).toBeVisible();
-    await capture(page, "16-reference-panel-1440x900", { surface: "reference workflow" });
-    await page.getByLabel("Подложка плана").getByRole("button", { name: "Закрыть панель" }).click();
+    await expect(page.locator(".context-panel-navigation")).toHaveAccessibleName("К предмету «Диван»");
+    await page.keyboard.press("Delete");
+    await page.locator(".context-panel-navigation").click();
+    await expect(page.locator(".context-panel-title")).toHaveText("Ничего не выбрано");
+    await page.locator('.editor-history-button[aria-label="Отменить"]').click();
+
+    await page.getByRole("button", { name: "Подложка" }).click();
+    await installReference(page);
+    await expect(page.locator(".context-panel-danger-description")).toContainText("Стены, проёмы и мебель останутся");
+    await page.getByRole("button", { name: "Удалить подложку" }).click();
+    await expect(page.getByText("Стены, проёмы и мебель останутся. Удалить только исходный план?", { exact: true })).toBeVisible();
+    await capture(page, "14-reference-remove-confirmation-1440x900", { surface: "reference danger confirmation" });
+    await page.getByRole("button", { name: "Отмена" }).click();
 
     await page.getByRole("button", { name: "3D" }).click();
     await expect(page.getByLabel("Трёхмерный вид квартиры")).toBeVisible();
     await expect(page.locator("#editor-context-surface")).toHaveCount(0);
-    await expect(page.locator("#editor-catalogue-surface")).toHaveCount(0);
-    const spatialMetrics = await capture(page, "17-spatial-view-1440x900", { surface: "3D" });
-    expect(spatialMetrics.document.horizontalOverflow).toBe(false);
-    expect(spatialMetrics.spatial.visible).toBe(true);
+    const spatial = await capture(page, "15-spatial-view-1440x900", { surface: "3D" });
+    expect(spatial.document.horizontalOverflow).toBe(false);
     await page.getByRole("button", { name: "2D" }).click();
-
-    await page.getByLabel("Вернуться к моим проектам").click();
-    await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
-    await page.getByRole("button", { name: "Удалить", exact: true }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await capture(page, "18-delete-confirmation-1440x900", { surface: "destructive confirmation" });
   });
 });
