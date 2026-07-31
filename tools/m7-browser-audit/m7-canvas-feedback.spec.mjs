@@ -79,6 +79,8 @@ test.describe("M7.4 Canvas selection and mode feedback", () => {
     await clickCanvasPoint(page, 240, 280);
     await expectMode(page, "wall-finish", "Стена · вторая точка", "Укажите вторую точку стены.");
     await clickCanvasPoint(page, 640, 280);
+    await expectMode(page, "wall-finish", "Стена · вторая точка", "Укажите вторую точку стены.");
+    await page.keyboard.press("Escape");
     await expectMode(page, "wall-start", "Стена", "Укажите первую точку стены.");
     await page.keyboard.press("Escape");
     await expectMode(page, "select", "Выбор", "Выберите объект на плане.");
