@@ -84,6 +84,36 @@
   background: var(--color-accent);
 }
 
+.canvas-shell canvas {
+  cursor: default;
+}
+
+.canvas-shell.tool-wall canvas,
+.canvas-shell.tool-door canvas,
+.canvas-shell.tool-window canvas {
+  cursor: crosshair;
+}
+
+.canvas-shell.is-hovering-selectable canvas {
+  cursor: pointer;
+}
+
+.canvas-shell.is-placing-object.is-preview-valid canvas {
+  cursor: copy;
+}
+
+.canvas-shell.is-placing-object.is-preview-invalid canvas {
+  cursor: not-allowed;
+}
+
+.canvas-shell.is-pan-ready canvas {
+  cursor: grab;
+}
+
+.canvas-shell.is-pan-active canvas {
+  cursor: grabbing;
+}
+
 @media (max-width: 640px) {
   .editor-canvas-mode-status-host {
     top: 8px;
