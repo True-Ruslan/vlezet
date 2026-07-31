@@ -133,6 +133,7 @@ describe("M7.1 editor tool bar", () => {
     expect(html).toContain('aria-label="Инструменты редактирования"');
     expect(html).toContain('aria-label="Рабочие процессы"');
     expect(html).toContain('aria-label="Представление"');
+    expect(html).toContain('data-active-tool="true"');
     expect(html).not.toContain("M7.1");
     expect(html).not.toContain("M6.4");
   });
