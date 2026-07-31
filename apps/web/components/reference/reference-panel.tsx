@@ -190,14 +190,15 @@ export function ReferencePanel({
   const dispatch = (event: Parameters<typeof reduceReferenceImport>[1]) => setState((current) => reduceReferenceImport(current, event));
 
   const beginFile = async (file: File) => {
-    dispatch({ type: "choose-file", fileName: file.name });
+    const fileName = file.name;
+    dispatch({ type: "choose-file", fileName });
     try {
       const inspected = await inspectReferenceFile(file);
       if (inspected.type === "pdf") {
         const pdf = await loadPdfReference(inspected.bytes);
         await pdfRef.current?.destroy();
         pdfRef.current = pdf;
-        if (pdf.pageCount > 1) dispatch({ type: "pdf-loaded", fileName: file.name, pageCount: pdf.pageCount });
+        if (pdf.pageCount > 1) dispatch({ type: "pdf-loaded", fileName, pageCount: pdf.pageCount });
         else {
           dispatch({ type: "normalizing", fileName, progressLabel: "Готовим страницу PDF…" });
           const raster = await pdf.renderPage(1);
