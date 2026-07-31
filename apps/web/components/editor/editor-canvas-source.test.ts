@@ -12,7 +12,7 @@ describe("M7.4 live Canvas feedback integration", () => {
     expect(source).toContain("setHoveredCanvasEntity");
     expect(source).toContain("canvasTransientFeedbackStore.getState().setHoveredSelectable(visibleHoveredEntity !== null)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().reset()");
-    expect(source).not.toContain("setHoveredCanvasEntity(null);\n    setOpeningPreview(null);\n    setPlacementPreview(null);");
+    expect(source).not.toContain("}, [placementPresetId, recognitionReviewActive, setHoveredCanvasEntity, tool]);");
   });
 
   it("applies hover semantics to rooms, walls, openings and furniture", () => {
