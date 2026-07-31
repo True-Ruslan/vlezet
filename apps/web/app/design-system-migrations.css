@@ -1,0 +1,43 @@
+.room-design-fields {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.room-inspector-action {
+  width: 100%;
+}
+
+.furniture-preset-card {
+  overflow: hidden;
+}
+
+.furniture-preset-card .preset-card.ui-card-host {
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+
+.furniture-preset-card.is-selected .preset-card.ui-card-host {
+  background: transparent;
+}
+
+.furniture-preset-card .preset-copy strong,
+.furniture-preset-card .preset-copy small,
+.catalog-heading span,
+.catalog-group h2,
+.catalog-cancel {
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+}
+
+.furniture-preset-card .preset-copy strong {
+  font-weight: 700;
+}
+
+.fit-status-badge {
+  margin-bottom: var(--space-2);
+}
