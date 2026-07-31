@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export type UiButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "icon";
 
@@ -9,7 +9,7 @@ export type UiButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & Readonly<{
   children: ReactNode;
 }>;
 
-export function UiButton({
+export const UiButton = forwardRef<HTMLButtonElement, UiButtonProps>(function UiButton({
   variant = "secondary",
   busy = false,
   busyLabel = "Выполняется…",
@@ -18,12 +18,13 @@ export function UiButton({
   disabled,
   type = "button",
   ...props
-}: UiButtonProps) {
+}, ref) {
   const classes = ["ui-button", `ui-button-${variant}`, className].filter(Boolean).join(" ");
 
   return (
     <button
       {...props}
+      ref={ref}
       type={type}
       className={classes}
       disabled={disabled || busy}
@@ -33,4 +34,4 @@ export function UiButton({
       <span className="ui-button-content">{busy ? busyLabel : children}</span>
     </button>
   );
-}
+});
