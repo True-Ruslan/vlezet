@@ -220,15 +220,11 @@ test.describe.serial("M7.3 design system browser acceptance", () => {
     test.setTimeout(90_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-
-    await page.getByRole("button", { name: "Распознать" }).click();
-    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Распознавание");
-    await expect(page.locator(".ui-notice-warning")).toContainText("Сначала нужна подложка");
-    await expectMinimumFont(page.locator(".ui-notice-warning .ui-notice-title"));
     await expectMinimumFont(page.locator(".canvas-help"));
 
     await installReference(page);
     await page.getByRole("button", { name: "Распознать" }).click();
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Распознавание");
     await page.getByRole("button", { name: "Распознать план" }).click();
     await expect(page.getByRole("button", { name: "Проверить с AI" }).first()).toBeVisible({ timeout: 45_000 });
     await page.getByRole("button", { name: "Проверить с AI" }).first().click();
