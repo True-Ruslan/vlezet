@@ -327,7 +327,8 @@ test.describe.serial("M7.2 context inspector browser acceptance", () => {
     await page.locator(".editor-context-trigger").click();
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Подложка");
 
-    await page.getByRole("button", { name: "Распознавание" }).click();
+    await installReference(page);
+    await page.getByRole("button", { name: "Распознать" }).click();
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Распознавание");
     await expect(page.locator(".context-panel-navigation")).toHaveAccessibleName("К предмету «Диван»");
     await capture(page, "13-recognition-return-target-960x600", { surface: "recognition" });
