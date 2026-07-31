@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-07-31  
-**Status:** M0–M7.1 are merged and accepted in `main`. M7.1 Editor Shell and Responsive Context was squash-merged through PR #21. The only selected next implementation slice is M7.2 Context Inspector Foundation.  
+**Status:** M0–M7.2 are merged and accepted in `main`. M7.2 Context Inspector Foundation was squash-merged through PR #23. The only selected next implementation slice is M7.3 Design System and Content Components.  
 **Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
 
 ## 1. Product
@@ -47,7 +47,7 @@ Priorities:
 21. Natural language produces a reviewable symbolic draft and transfers into ordinary controls.
 22. Provider keys, raw responses and language drafts are runtime-only.
 23. M7 may redesign presentation/composition, but not these authority boundaries.
-24. Responsive shell state is ephemeral UI state and is never part of project persistence.
+24. Responsive shell, context return targets and panel visibility are ephemeral UI state and are never part of project persistence.
 
 ## 3. Repository and stack
 
@@ -92,6 +92,7 @@ packages/planning        deterministic planning + reviewed intent
 | M6.4 | reviewed natural-language intent | `02f8b041341c86f0796011b0d2fd42cac56a4e02` |
 | M7.0 | complete product/UI/UX audit and browser evidence foundation | `0d5b9c1555ef85a0e271a52832cc3fd3cca4963e` |
 | M7.1 | stable editor shell and responsive context surfaces | `6b6f8751b520722a54bb94a6947dae1135e07859` |
+| M7.2 | unified context inspector and workflow return foundation | `66606356d69f96953f8afae7b914222a3f793777` |
 
 Accepted geometry regression:
 
@@ -136,41 +137,41 @@ area:       11.72 m²
 - explicit transfer, Preview and revalidated Apply;
 - one multi-object Apply = one Undo/Redo step.
 
-### UX foundation through M7.1
+### UX foundation through M7.2
 
 - separate project and tool command layers;
-- readable local-save state;
-- directly reachable Undo/Redo;
-- labelled overflow for secondary project actions;
+- readable local-save state and directly reachable Undo/Redo;
 - docked catalogue/context surfaces on wide desktop;
-- non-modal left/right sheets at compact effective widths;
-- selection and uncommitted form state survive sheet close/reopen;
+- non-modal side sheets at compact effective widths;
+- selection, workflow and uncommitted form state survive sheet close/reopen;
+- one semantic context anatomy for empty, wall, room, opening, object, reference, recognition and planning states;
+- explicit `К комнате…` / `К предмету…` return navigation;
+- stale workflow return targets fail closed to empty selection;
+- destructive actions are separated and communicate consequences;
+- long context panels have viewport-bounded, independently scrollable bodies;
 - no document horizontal overflow in the required matrix;
 - dedicated one-column 3D composition;
-- responsive state remains non-persistent.
+- all presentation state remains non-persistent.
 
-## 6. M7.1 accepted evidence
+## 6. M7.2 accepted evidence
 
 ```text
-PR:                  #21
-implementation head: 6c21653b30e627a9bf160baf6f3f8d0a4d058f16
-final verified head: 8c68bd288cd3dda1133f09a469cd7afe6dab83d9
-standard CI:         30586557182 — PASS
-browser CI:          30586557394 — PASS
-artifact:            8776737145
-digest:              sha256:e94a4d3737b8c4a9d562d848f51319b968a12be7952341cbc26cb2a526828855
-merge:               6b6f8751b520722a54bb94a6947dae1135e07859
+PR:                  #23
+final verified head: d3231a09541c2c4cf10a48e69f4e485d15a06a0a
+standard CI:         30625797753 — PASS
+browser CI:          30625797756 — PASS
+artifact:            8791323487
+digest:              sha256:e167a0944674de6a99fc07dfaa7d5bcc0eea3b1c1cce575ce1d5b1ef961dfb12
+merge:               66606356d69f96953f8afae7b914222a3f793777
 ```
-
-Chromium covered dashboard, required desktop/effective-zoom widths, room and object inspectors, catalogue/context sheets, uncommitted form state, planning, reference, 3D and deletion. WebKit independently covered dashboard, editor, form, 3D and dialog.
 
 Product-owner acceptance:
 
-> «Я все проверил. Выглядит уже лучше и понятнее.»
+> «Теперь все работает супер четко.»
 
-The exact local browser/version is not inferred beyond the owner's report.
+The owner specifically confirmed that the right panel scrolls and `Варианты расстановки` is reachable. The exact local browser/version is not inferred beyond the owner's report.
 
-Canonical record: `docs/milestones/m7-1-acceptance.md`.
+Canonical record: `docs/milestones/m7-2-acceptance.md`.
 
 ## 7. Known limitations
 
@@ -179,54 +180,60 @@ Canonical record: `docs/milestones/m7-1-acceptance.md`.
 - Planning remains one rectangular room / 1–3 objects and lacks whole-apartment autonomy.
 - 3D is schematic, read-only and initially may hide interiors.
 - Canvas helper text still uses 11 px and is owned by M7.3/M7.4.
-- Domain-specific inspector anatomy remains inconsistent and is owned by M7.2+.
-- Advanced workflows remain dense/inconsistent.
+- Typography, fields, notices, badges, cards and dialogs still use partially duplicated visual rules.
+- Domain-specific forms remain dense and are owned by later focused workflow slices.
 - Spatial keyboard/focus coverage remains incomplete.
 - Native browser/version details are not inferred from the automated WebKit proxy.
 
-Resolved by M7.1:
+Resolved by M7.2:
 
-- common-width document/toolbar overflow;
-- disappearing contextual inspector at reduced effective width;
-- unreadable 9 px local-save state;
-- zoom-driven removal of essential shell controls.
+- inconsistent context/workflow header anatomy;
+- ambiguous close-versus-return semantics;
+- workflow transitions losing the intended ordinary context;
+- raw IDs dominating panel identity;
+- long right-side panels clipping actions below the viewport;
+- mixed destructive-action placement and unclear consequences.
 
-## 8. NOW — M7.2 Context Inspector Foundation
+## 8. NOW — M7.3 Design System and Content Components
 
 Owned findings:
 
-- `UX-SHELL-003`;
-- `UX-PATTERN-001`;
-- part of `UX-CONTENT-001`.
+- `UX-FURN-004`;
+- `UX-REC-004`;
+- `UX-PATTERN-002`;
+- `UX-PATTERN-003`;
+- remaining `UX-CONTENT-001`;
+- `UX-SHELL-005`.
 
 Goal:
 
-> Establish one predictable context/workflow panel anatomy with selection identity, shared header, back/close behaviour, sections, action hierarchy and safe workflow return context.
+> Establish a small governed visual/content system for readable typography, spacing, fields, notices, badges, cards, dialogs and canonical Russian terminology without rewriting domain workflows.
 
 Required outcomes:
 
-- shared context header and identity model for empty/wall/room/opening/object states;
-- consistent back/close semantics for embedded workflows;
-- predictable sections and action placement;
-- sticky primary actions only where evidence requires them;
-- destructive actions visually separated from ordinary editing;
-- preserve selection, drafts, commands and responsive M7.1 container behaviour;
-- preserve all M0–M6.4 authority boundaries;
-- extend browser acceptance for representative context states.
+- explicit typography and spacing tokens for essential UI;
+- reusable field, help, error, notice, badge, card and dialog primitives;
+- consistent focus, disabled, loading, success, warning and error states;
+- canonical user-facing terminology and unit formatting;
+- remove remaining microtext where M7.0 evidence already identifies it;
+- migrate representative surfaces first, not every component at once;
+- preserve M7.1 shell and M7.2 context contracts;
+- preserve all M0–M6.4 authority and persistence boundaries;
+- Chromium/WebKit evidence for representative component states.
 
 Non-goals:
 
-- complete domain-specific form redesign;
-- geometry/schema/persistence changes;
-- new planning or AI capabilities;
+- complete geometry, furniture, recognition or planning workflow redesign;
+- new domain/schema/persistence semantics;
 - Canvas/3D rewrite;
-- broad design-system migration assigned to M7.3.
+- final visual polish across the whole product;
+- mobile-first editor.
 
 ## 9. Delivery workflow
 
 1. focused design spec;
 2. implementation plan;
-3. TDD/layout contracts;
+3. TDD/layout/content contracts;
 4. Draft PR;
 5. full CI;
 6. Chromium/WebKit evidence;
