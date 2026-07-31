@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./design-tokens.css";
+import "./ui-primitives.css";
 import "./globals.css";
 import "./editor-viewport.css";
 import "./editor-shell.css";
