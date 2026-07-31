@@ -6,6 +6,7 @@ import "./globals.css";
 import "./editor-viewport.css";
 import "./editor-shell.css";
 import "./context-panel.css";
+import "./recognition-panel.css";
 import "./design-system-migrations.css";
 import "./planning-exact-gap.css";
 
