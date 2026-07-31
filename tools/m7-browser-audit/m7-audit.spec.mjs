@@ -277,7 +277,7 @@ test.describe.serial("M7.2 context inspector browser acceptance", () => {
     await capture(page, "09-room-context-1440x900", { surface: "room" });
 
     await page.getByRole("button", { name: "Дверь" }).click();
-    await clickCanvasPoint(page, points.topWall);
+    await moveAndClickCanvasPoint(page, points.topWall);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Дверь");
     await expect(page.locator(".context-panel-danger-description")).toContainText("Можно отменить через «Отменить»");
     await capture(page, "10-opening-context-1440x900", { surface: "door" });
