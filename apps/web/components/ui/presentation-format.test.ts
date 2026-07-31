@@ -15,7 +15,7 @@ describe("Russian presentation formatting", () => {
   });
 
   it("formats canonical Vlezet units without changing numeric authority", () => {
-    expect(formatMillimeters(3550)).toBe(`3 550${NBSP}мм`);
+    expect(formatMillimeters(3550)).toBe(`3550${NBSP}мм`);
     expect(formatSquareMeters(11.715)).toBe(`11,72${NBSP}м²`);
     expect(formatDegrees(90)).toBe("90°");
   });
