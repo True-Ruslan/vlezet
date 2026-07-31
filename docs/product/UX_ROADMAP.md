@@ -2,8 +2,7 @@
 
 **Phase:** M7 Product UX Foundation  
 **Last updated:** 2026-07-31  
-**Rule:** trust, reachability and interaction hierarchy precede cosmetic consolidation  
-**Evidence:** accepted M7.0 audit plus M7.1 and M7.2 acceptance records in `docs/milestones/`
+**Rule:** trust, reachability and interaction hierarchy precede cosmetic consolidation. Only one slice is `NOW`.
 
 ## 1. Prioritisation model
 
@@ -11,37 +10,26 @@ Work is ordered by:
 
 1. destructive/data-integrity or incorrect-understanding risk;
 2. reach across journeys and surfaces;
-3. observed/reasonable frequency;
+3. observed frequency;
 4. dependency value for later fixes;
 5. implementation and regression risk;
 6. confidence of evidence.
 
-No false-precision numeric score is used. Later slices may be reordered from browser evidence, but only one slice is `NOW`.
+Later slices may be reordered from browser evidence, but only through explicit roadmap updates.
 
-## 2. Programme tiers
-
-| Tier | Meaning |
-|---|---|
-| Critical correction | P0/P1 trust, reachability or accessibility blocker |
-| Foundation | cross-surface P2 and prerequisite system work |
-| Workflow improvement | bounded journey-level P1/P2 |
-| Accessibility hardening | keyboard, semantics, zoom and non-colour gaps |
-| Visual consolidation | P3 consistency after structure is correct |
-| Optional polish | P4 evidence-driven refinements |
-
-## 3. Current sequence
+## 2. Current sequence
 
 ```text
 DONE
 M7.0 Product and UX Audit
 M7.1 Editor Shell and Responsive Context
 M7.2 Context Inspector Foundation
-
-NOW
 M7.3 Design System and Content Components
 
-THEN
+NOW
 M7.4 Canvas Selection and Mode Feedback
+
+THEN
 M7.5 Onboarding, Status and Recovery
 M7.6 Geometry and Opening Inspector
 M7.7 Furniture and Fit Workflow
@@ -53,112 +41,114 @@ M7.12 Dashboard and Project Lifecycle
 M7.13 Visual Consolidation and Evidence-Driven Polish
 ```
 
-The sequence is dependency-aware, not a promise to implement every later slice unchanged.
+## 3. Completed foundation
 
-## 4. Completed slice — M7.1 Editor Shell and Responsive Context
+### M7.0 — Product and UX Audit
 
-**Problems:** `UX-SHELL-001`, `UX-SHELL-002`, `UX-DATA-001`, foundational part of `UX-ACCESS-002`  
-**Result:** accepted and squash-merged through PR #21 as `6b6f8751b520722a54bb94a6947dae1135e07859`.
+**Result:** accepted and merged through PR #19 as `0d5b9c1555ef85a0e271a52832cc3fd3cca4963e`.
 
-Delivered separate project/tool command layers, readable local-save state, direct Undo/Redo, docked/compact side surfaces, preserved local form state, no required-matrix horizontal overflow and one-column 3D composition.
+Delivered 39 structured findings, target information architecture, interaction model, design/accessibility foundations and reproducible Chromium/WebKit browser evidence.
+
+### M7.1 — Editor Shell and Responsive Context
+
+**Problems:** `UX-SHELL-001`, `UX-SHELL-002`, `UX-DATA-001`, foundational `UX-ACCESS-002`  
+**Result:** accepted and merged through PR #21 as `6b6f8751b520722a54bb94a6947dae1135e07859`.
+
+Delivered separate project/tool command layers, readable local-save state, directly reachable Undo/Redo, docked/compact side surfaces, preserved form state, no required-matrix horizontal overflow and one-column 3D composition.
+
+### M7.2 — Context Inspector Foundation
+
+**Problems:** `UX-SHELL-003`, foundational `UX-PATTERN-001`, foundational `UX-CONTENT-001`  
+**Result:** accepted and merged through PR #23 as `66606356d69f96953f8afae7b914222a3f793777`.
+
+Delivered shared context identity, explicit workflow return, preserved ordinary targets across workflow transitions, fail-closed stale targets, compact close without state loss, consistent danger hierarchy and independently scrollable context bodies.
+
+### M7.3 — Design System and Content Components
+
+**Problems:** `UX-FURN-004`, `UX-REC-004`, `UX-PATTERN-002`, `UX-PATTERN-003`, remaining `UX-CONTENT-001`, `UX-SHELL-005`  
+**Result:** accepted and squash-merged through PR #26 as `509dfc02e17c87a58da8356894564a8f27bc5a9b`.
 
 Final evidence:
 
 ```text
-head:       8c68bd288cd3dda1133f09a469cd7afe6dab83d9
-standard:   30586557182 — PASS
-browser:    30586557394 — PASS
-artifact:   8776737145
-merge:      6b6f8751b520722a54bb94a6947dae1135e07859
+head:       cabe8e44153d7a56ee23e6931ea204e2fbf82119
+standard:   30654881419 — PASS
+browser:    30654879141 — PASS
+artifact:   8802854489
+digest:     sha256:1f62c1695231d266a9e28e3a54b40402a85106e231c15ca6e53dc2d577b22b32
+merge:      509dfc02e17c87a58da8356894564a8f27bc5a9b
 ```
-
-Remaining `UX-ACCESS-002` end-to-end hardening stays with M7.9.
-
-## 5. Completed slice — M7.2 Context Inspector Foundation
-
-**Problems:** `UX-SHELL-003`, foundational `UX-PATTERN-001`, foundational `UX-CONTENT-001`  
-**Result:** accepted and squash-merged through PR #23 as `66606356d69f96953f8afae7b914222a3f793777`.
 
 Delivered:
 
-- shared user-facing context identity and header anatomy;
-- empty, wall, room, opening and object states using one frame;
-- planning, reference and recognition workflows using the same semantic structure;
-- explicit `К комнате…` / `К предмету…` return navigation;
-- original ordinary context preserved through workflow-to-workflow transitions;
-- stale/deleted return targets failing closed;
-- compact close preserving workflow and uncommitted local drafts;
-- consistent section, action and danger hierarchy;
-- accurate Undo/reference-removal consequences;
-- viewport-constrained context frame and independently scrollable body;
-- Chromium/WebKit regression for scrolling to and opening `Варианты расстановки`.
-
-Final evidence:
-
-```text
-head:       d3231a09541c2c4cf10a48e69f4e485d15a06a0a
-standard:   30625797753 — PASS
-browser:    30625797756 — PASS
-artifact:   8791323487
-digest:     sha256:e167a0944674de6a99fc07dfaa7d5bcc0eea3b1c1cce575ce1d5b1ef961dfb12
-merge:      66606356d69f96953f8afae7b914222a3f793777
-```
+- governed semantic tokens and balanced-density typography;
+- store-free buttons, fields, messages, notices, badges, cards, empty states and dialogs;
+- consistent focus, disabled, busy, success, warning and error states;
+- canonical Russian number/unit formatting;
+- representative migration of room, catalogue, fit, dashboard, dialogs and recognition UI;
+- Canvas helper text at the governed minimum;
+- strict Chromium/WebKit coverage preserving M7.1/M7.2;
+- OpenRouter response healing and stale recognition-decision cleanup discovered during manual acceptance.
 
 Product-owner acceptance:
 
-> «Теперь все работает супер четко.»
+> «Подтверждаю все!»
 
-Canonical evidence: `docs/milestones/m7-2-acceptance.md`.
+Recognition detection accuracy is explicitly not claimed as complete. The future contract is `docs/product/RECOGNITION_QUALITY_REQUIREMENTS.md`; issue #27 is owned by M7.8.
 
-## 6. NOW — M7.3 Design System and Content Components
+## 4. NOW — M7.4 Canvas Selection and Mode Feedback
 
-**Problems:** `UX-FURN-004`, `UX-REC-004`, `UX-PATTERN-002`, `UX-PATTERN-003`, remaining `UX-CONTENT-001`, `UX-SHELL-005`  
-**Goal:** implement a small governed system for readable typography, spacing, fields, notices, badges, cards, dialogs and canonical Russian terminology.
+**Problems:** `UX-SHELL-004`, `UX-CANVAS-001`, `UX-CANVAS-002`  
+**Goal:** make active tool, next action, current selection and temporary spatial state obvious.
 
-### Scope
+### Product questions to resolve in design
 
-- define essential typography, spacing, radius, border and elevation tokens;
-- define reusable field, help, error, notice, badge, card and dialog primitives;
-- define consistent focus, disabled, loading, success, warning and error states;
-- establish canonical terminology and unit formatting;
-- remove evidence-backed microtext below the target readable scale;
-- migrate representative shell, context and workflow surfaces first;
-- retain M7.1 shell and M7.2 context semantics;
-- extend Chromium/WebKit evidence for representative component states.
+- What is the one authoritative active-tool indicator?
+- How should normal selection differ from placement preview and hover?
+- How should valid and invalid Canvas targets communicate meaning without color alone?
+- What is the exact Escape priority when dialogs, workflows, placement, measurement and selection overlap?
+- Which guidance belongs in the toolbar, Canvas status strip, cursor or context panel?
+- How does compact width preserve the same state meaning without covering the working area?
+
+### Expected scope
+
+- explicit active-tool and temporary-mode status;
+- context-sensitive next-action guidance for selection, walls, doors, windows, furniture and measurement;
+- cursor feedback derived from existing editor state;
+- distinct hover, selected, valid-preview and invalid-preview treatments;
+- documented Escape/cancellation priority and user-facing copy;
+- status feedback for completing, cancelling and switching tools;
+- representative Chromium/WebKit transitions and compact-width checks.
 
 ### Dependencies
 
-- accepted M7.0 information architecture and design/accessibility foundations;
-- accepted M7.1 responsive shell;
-- accepted M7.2 context anatomy and scrolling contract.
+- accepted M7.1 command hierarchy and responsive shell;
+- accepted M7.2 context anatomy and compact state preservation;
+- accepted M7.3 tokens, notices, badges and content terminology.
 
-### Non-goals
+### Authority boundaries
 
-- complete domain-specific workflow redesign;
-- new geometry, persistence, planning or AI semantics;
-- Canvas/Three.js rewrite;
-- final whole-product visual consolidation;
-- mobile-first editing.
+M7.4 may read existing tool, hover, selection, preview and validation state for presentation. It must not:
+
+- alter geometry algorithms;
+- change snapping tolerances or hit testing;
+- create a second selection source of truth;
+- change semantic history or command grouping;
+- persist temporary mode/hover/preview state;
+- implement onboarding or recognition-quality work.
 
 ### Acceptance
 
-- essential text meets documented readable tokens;
-- representative fields, errors and notices have understandable non-colour cues;
-- focus/disabled/loading/success/warning/error states are consistent;
-- migrated surfaces use canonical terminology and unit formatting;
-- M7.1 shell and M7.2 context/scroll behaviour do not regress;
-- no `VlezetDocument`, schema, migration, IndexedDB, geometry or planner-authority change;
-- full CI, Chromium representative flow and WebKit core smoke pass;
-- product-owner browser acceptance before merge.
+- the active tool is identifiable without remembering the previous click;
+- the next expected action is understandable for each representative exclusive tool;
+- selection, hover, valid preview and invalid preview are distinguishable through more than color;
+- Escape exits the highest-priority temporary state consistently and predictably;
+- switching tools removes stale preview/status state;
+- compact widths preserve equivalent meaning and do not block Canvas reachability;
+- M7.1–M7.3 regressions remain green;
+- full unit/type/lint/build CI, Chromium full flow, WebKit core smoke and product-owner acceptance pass.
 
-**Risk:** medium. Shared presentation rules touch many surfaces, so migration must remain representative and incremental rather than a full rewrite.
-
-## 7. Later candidate slices
-
-### M7.4 — Canvas Selection and Mode Feedback
-
-**Problems:** `UX-SHELL-004`, `UX-CANVAS-001`, `UX-CANVAS-002`  
-**Goal:** make active tool, next action, selection target and temporary spatial state obvious.
+## 5. Later candidate slices
 
 ### M7.5 — Onboarding, Status and Recovery
 
@@ -173,90 +163,63 @@ Canonical evidence: `docs/milestones/m7-2-acceptance.md`.
 ### M7.7 — Furniture and Fit Workflow
 
 **Problems:** `UX-FURN-001`, `UX-FURN-002`, `UX-FURN-003`, remaining `UX-FURN-004`  
-**Goal:** prioritise common edits, explain local orientation/clearances and improve catalogue discovery.
+**Goal:** prioritise common edits, explain orientation/clearances and improve catalogue discovery.
 
 ### M7.8 — Reference and Recognition Workflow
 
-**Problems:** `UX-REF-001`, `UX-REC-001`, `UX-REC-003`, remaining `UX-REC-004`  
-**Goal:** unify source-plan configuration and recognition review around clear phases and Draft/Applied semantics.
+**Problems:** `UX-REF-001`, `UX-REC-001`, `UX-REC-003`, remaining `UX-REC-004`, issue #27  
+**Goal:** unify source-plan setup and recognition review, then measurably improve wall/opening/room/area accuracy with a versioned benchmark corpus.
 
 ### M7.9 — Accessibility and Responsive Hardening
 
-**Problems:** `UX-REF-002`, `UX-REC-002`, `UX-3D-002`, `UX-ACCESS-001`, residual `UX-ACCESS-002`  
-**Goal:** close end-to-end keyboard/focus/non-colour/zoom gaps after foundational components exist.
+**Problems:** `UX-REF-002`, `UX-REC-002`, `UX-3D-002`, `UX-ACCESS-001`, residual `UX-ACCESS-002`.
 
 ### M7.10 — 2D/3D Context and Interior Readability
 
-**Problems:** `UX-3D-001`, `UX-3D-003`  
-**Goal:** align semantic inspection across 2D/3D and make the first read-only 3D frame useful for interior understanding.
+**Problems:** `UX-3D-001`, `UX-3D-003`.
 
 ### M7.11 — Planning Workflow Simplification
 
-**Problems:** `UX-PLAN-001`, `UX-PLAN-002`, `UX-PLAN-003`, `UX-PLAN-004`  
-**Goal:** organise planning into understandable intent, constraints and results phases while preserving deterministic authority.
+**Problems:** `UX-PLAN-001`, `UX-PLAN-002`, `UX-PLAN-003`, `UX-PLAN-004`.
 
 ### M7.12 — Dashboard and Project Lifecycle
 
-**Problems:** `UX-DATA-002`, `UX-DASH-001`, `UX-DASH-002`  
-**Goal:** make projects visually distinguishable and backup/restore understandable.
+**Problems:** `UX-DATA-002`, `UX-DASH-001`, `UX-DASH-002`.
 
 ### M7.13 — Visual Consolidation and Evidence-Driven Polish
 
-**Problem:** remaining P3 findings and later browser evidence  
-**Goal:** final visual consistency, motion, spacing and refinement without hiding precision.
+**Goal:** final visual consistency and evidence-driven refinement after workflow and accessibility work.
 
-## 8. P0–P2 coverage matrix
+## 6. Coverage matrix
 
 | Finding | Primary slice |
 |---|---|
 | `UX-SHELL-001` | M7.1 — complete |
 | `UX-SHELL-002` | M7.1 — complete |
 | `UX-SHELL-003` | M7.2 — complete |
-| `UX-ONBOARD-001` | M7.5 |
+| `UX-SHELL-004` | M7.4 |
+| `UX-SHELL-005` | M7.3 — complete |
 | `UX-CANVAS-001` | M7.4 |
 | `UX-CANVAS-002` | M7.4 |
-| `UX-GEO-001` | M7.6 |
-| `UX-GEO-002` | M7.6 |
-| `UX-GEO-003` | M7.6 |
-| `UX-FURN-001` | M7.7 |
-| `UX-FURN-002` | M7.7 |
-| `UX-FURN-003` | M7.7 |
-| `UX-FURN-004` | M7.3/M7.7 |
+| `UX-ONBOARD-001` | M7.5 |
+| `UX-GEO-001/002/003` | M7.6 |
+| `UX-FURN-001/002/003` | M7.7 |
+| `UX-FURN-004` | M7.3 foundation / M7.7 completion |
 | `UX-REF-001` | M7.8 |
-| `UX-REF-002` | M7.9 |
-| `UX-REC-001` | M7.8 |
+| `UX-REC-001/003` | M7.8 |
 | `UX-REC-002` | M7.9 |
-| `UX-REC-003` | M7.8 |
-| `UX-3D-001` | M7.10 |
-| `UX-3D-002` | M7.9 |
-| `UX-3D-003` | M7.10 |
-| `UX-PLAN-001` | M7.11 |
-| `UX-PLAN-002` | M7.11 |
-| `UX-PLAN-003` | M7.11 |
-| `UX-PLAN-004` | M7.11 |
-| `UX-DATA-001` | M7.1 — complete |
-| `UX-DATA-002` | M7.12 |
-| `UX-DASH-001` | M7.12 |
-| `UX-PATTERN-001` | M7.2 foundation / M7.3 completion |
-| `UX-PATTERN-002` | M7.3 |
+| issue #27 recognition quality | M7.8 |
 | `UX-ACCESS-001` | M7.9 |
-| `UX-ACCESS-002` | M7.1 foundation / M7.9 completion |
-| `UX-CONTENT-001` | M7.2 foundation / M7.3 completion |
+| residual `UX-ACCESS-002` | M7.9 |
+| `UX-3D-001/003` | M7.10 |
+| `UX-PLAN-001/002/003/004` | M7.11 |
+| `UX-DATA-002`, `UX-DASH-001/002` | M7.12 |
+| `UX-PATTERN-001` | M7.2/M7.3 — complete |
+| `UX-PATTERN-002/003` | M7.3 — complete |
+| `UX-CONTENT-001` | M7.2/M7.3 — complete |
 
-Every P1/P2 finding has an implementation owner. Findings become implementation work only through the focused slice workflow.
+## 7. Programme safeguards
 
-## 9. Programme safeguards
-
-Each M7.x slice requires:
-
-- focused design and implementation plan;
-- explicit authority and persistence non-goals;
-- TDD/layout/content contracts;
-- Draft PR during implementation;
-- full unit/type/lint/build CI;
-- Chromium representative evidence and WebKit core smoke;
-- product-owner acceptance;
-- exact-head protected squash merge;
-- post-merge canonical documentation sync.
+Each slice requires focused design, implementation plan, explicit authority non-goals, TDD/layout/content contracts, Draft PR, full CI, Chromium/WebKit evidence, product-owner acceptance, exact-head protected squash merge and post-merge documentation sync.
 
 No slice may silently change geometry semantics, create a second persistent UI truth, make optional AI authoritative or claim browser acceptance from unit tests alone.
