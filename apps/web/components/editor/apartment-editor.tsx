@@ -20,6 +20,7 @@ import {
   workflowReturnActionLabel,
   type EditorOrdinarySelection,
 } from "./context-workflow-return";
+import { EditorCanvasModeStatus } from "./editor-canvas-mode-status";
 import {
   deriveEditorContextKind,
   editorContextLabel,
@@ -373,6 +374,11 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         onExportPngWithReference={props.onExportPngWithReference}
       />
       <section className={workspaceClass}>
+        <EditorCanvasModeStatus
+          viewMode={viewMode}
+          recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}
+          tracingMode={props.tracingMode}
+        />
         {viewMode === "2d" && props.furnitureCatalogOpen ? (
           <EditorSideSurface id="editor-catalogue-surface" side="left" label="Мебель и техника" compact={compactLayout} open={!compactLayout || compactSurface === "catalogue"} onClose={closeCompactSurface}>
             <FurnitureCatalog />
