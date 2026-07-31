@@ -199,15 +199,15 @@ export function ReferencePanel({
         pdfRef.current = pdf;
         if (pdf.pageCount > 1) dispatch({ type: "pdf-loaded", fileName: file.name, pageCount: pdf.pageCount });
         else {
-          dispatch({ type: "normalizing", fileName: file.name, progressLabel: "Готовим страницу PDF…" });
+          dispatch({ type: "normalizing", fileName, progressLabel: "Готовим страницу PDF…" });
           const raster = await pdf.renderPage(1);
-          dispatch({ type: "raster-ready", fileName: file.name, raster, source: "pdf", pageNumber: 1, pageCount: 1 });
+          dispatch({ type: "raster-ready", fileName, raster, source: "pdf", pageNumber: 1, pageCount: 1 });
         }
         return;
       }
-      dispatch({ type: "normalizing", fileName: file.name, progressLabel: "Готовим изображение…" });
+      dispatch({ type: "normalizing", fileName, progressLabel: "Готовим изображение…" });
       const raster = await normalizeImageFile(file);
-      dispatch({ type: "raster-ready", fileName: file.name, raster, source: inspected.type });
+      dispatch({ type: "raster-ready", fileName, raster, source: inspected.type });
     } catch (cause) { setState(stateError(cause)); }
   };
 
@@ -270,7 +270,7 @@ export function ReferencePanel({
             <label className="reference-toggle"><input type="checkbox" checked={referencePlan.display.locked} onChange={(event) => updateDisplay({ locked: event.target.checked })} /><span>Заблокировать положение</span></label>
           </ContextSection>
 
-          <ContextSection title="Отображение" description="Эти изменения применяются сразу и отменяемы через историю проекта.">
+          <ContextSection title="Отображение" description="Эти изменения применяются сразу и сохраняются локально вместе с проектом.">
             <label className="field-label">Прозрачность: {Math.round(referencePlan.display.opacity * 100)}%</label>
             <input className="reference-range" type="range" min="5" max="100" value={Math.round(referencePlan.display.opacity * 100)} onChange={(event) => updateDisplay({ opacity: Number(event.target.value) / 100 })} />
             <div className="field-pair"><label className="field-label">X, мм<input type="number" value={Math.round(referencePlan.transform.originWorld.x)} onChange={(event) => updateTransform({ originWorld: { ...referencePlan.transform.originWorld, x: Number(event.target.value) } })} /></label><label className="field-label">Y, мм<input type="number" value={Math.round(referencePlan.transform.originWorld.y)} onChange={(event) => updateTransform({ originWorld: { ...referencePlan.transform.originWorld, y: Number(event.target.value) } })} /></label></div>
