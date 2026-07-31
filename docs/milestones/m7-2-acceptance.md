@@ -1,8 +1,8 @@
 # M7.2 — Context Inspector Foundation Acceptance
 
-**Status:** RC complete; automated acceptance PASS; product-owner browser acceptance pending before merge.  
+**Status:** product-owner browser acceptance PASS; final exact-head verification pending before merge.  
 **Branch:** `feat/m7-2-context-inspector-foundation`  
-**Draft PR:** #23
+**PR:** #23
 
 ## Product goal
 
@@ -89,9 +89,9 @@ Browser harness hardening retained product validation and corrected only automat
 - WebKit furniture placement uses the same real hover-preview gesture;
 - the context-scroll regression creates and selects a room at the proven desktop geometry, then reduces viewport height and performs a real scroll to `Варианты расстановки`.
 
-## Automated acceptance
+## Automated acceptance before owner sign-off
 
-Implementation head before this evidence record:
+Implementation head before the acceptance-record commits:
 
 ```text
 376f38cafc0a46b67a04d7be54527a83d0220375
@@ -102,15 +102,6 @@ Standard CI:
 ```text
 GitHub Actions 30620776537 — PASS
 ```
-
-Passed:
-
-- frozen install;
-- M7 documentation contract;
-- full unit suite;
-- TypeScript;
-- ESLint;
-- production Next build.
 
 Chromium/WebKit acceptance:
 
@@ -149,6 +140,18 @@ WebKit core smoke independently verified:
 
 WebKit is recorded as an engine-level proxy, not as a manual native-Safari claim.
 
+## Product-owner acceptance
+
+On 2026-07-31 the product owner manually tested the M7.2 branch and confirmed:
+
+- the renewed context interface is clearer and works correctly;
+- the right panel now scrolls reliably to actions below the viewport;
+- `Варианты расстановки` is reachable and opens correctly after scrolling;
+- the previously reported blocking regression is resolved;
+- the result is accepted with the explicit statement: `Теперь все работает супер четко.`
+
+This is product-owner browser acceptance. The exact browser and operating-system combination are not inferred beyond the owner's confirmed manual run.
+
 ## Architecture preservation
 
 Branch comparison with `main` confirms no changes in:
@@ -165,18 +168,13 @@ Branch comparison with `main` confirms no changes in:
 
 Presentation state remains ephemeral React state.
 
-## Remaining manual gate
+## Final merge gate
 
-Product-owner browser acceptance must verify:
+Before merging PR #23:
 
-1. room, wall, door/window and object panels feel like one family;
-2. identity/title/summary hierarchy is clearer than before;
-3. `К комнате…` from planning restores the room;
-4. `К предмету…` after reference/recognition restores the original object;
-5. compact panel X hides only the panel and reopening preserves the workflow/draft;
-6. object/opening danger zones clearly communicate Undo;
-7. reference removal clearly communicates that apartment geometry remains;
-8. long right-side panels scroll to every action, including `Варианты расстановки`;
-9. no important existing action became harder to reach.
-
-Do not merge PR #23 before explicit product-owner acceptance and fresh exact-head standard/browser gates including this acceptance record.
+1. run standard CI on the exact acceptance-record head;
+2. run Chromium full-flow and WebKit core smoke on the same exact head;
+3. record the final run IDs and artifact digest;
+4. mark PR #23 ready for review;
+5. squash-merge with expected-head SHA protection;
+6. update canonical state, roadmaps and changelog after merge.
