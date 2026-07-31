@@ -28,12 +28,16 @@ describe("project feedback design-system migration", () => {
     expect(html).toContain("ui-empty-state-secondary");
   });
 
-  it("wires editor errors and toasts to shared notices without changing state ownership", () => {
-    const source = readFileSync(new URL("./project-app.tsx", import.meta.url), "utf8");
+  it("governs editor-owned ephemeral feedback through the shared token layer", () => {
+    const controller = readFileSync(new URL("./project-app.tsx", import.meta.url), "utf8");
+    const styles = readFileSync(new URL("../../app/design-system-migrations.css", import.meta.url), "utf8");
 
-    expect(source).toContain('<UiNotice tone="error"');
-    expect(source).toContain('<UiNotice tone="success"');
-    expect(source).toContain("setError(null)");
-    expect(source).toContain("showToast");
+    expect(controller).toContain('className="global-error"');
+    expect(controller).toContain('className="toast"');
+    expect(controller).toContain("setError(null)");
+    expect(controller).toContain("showToast");
+    expect(styles).toContain(".global-error");
+    expect(styles).toContain(".toast");
+    expect(styles).toContain("font-size: var(--font-helper)");
   });
 });
