@@ -113,22 +113,26 @@ export function reconcileRecognition(input: ReconcileRecognitionInput): Recognit
     if (!consumedCloud.has(cloud.id)) walls.push(downgradeCloudWall(cloud));
   }
 
-  const decisions: Record<string, RecognitionDecision> = { ...input.localDraft.decisions };
+  const openings = reconcileOpenings(input.localDraft.openings, input.cloudResult.openings);
+  const roomLabels = input.cloudResult.roomLabels;
+  const survivingCandidateIds = new Set([...walls, ...openings, ...roomLabels].map((candidate) => candidate.id));
+  const decisions: Record<string, RecognitionDecision> = Object.fromEntries(
+    Object.entries(input.localDraft.decisions).filter(([candidateId]) => survivingCandidateIds.has(candidateId)),
+  );
+
   for (const wall of walls) {
     if (wall.conflict === "duplicate-existing") decisions[wall.id] = "rejected";
     else if (!(wall.id in decisions)) decisions[wall.id] = "pending";
   }
-
-  const openings = reconcileOpenings(input.localDraft.openings, input.cloudResult.openings);
   for (const opening of openings) if (!(opening.id in decisions)) decisions[opening.id] = "pending";
-  for (const label of input.cloudResult.roomLabels) if (!(label.id in decisions)) decisions[label.id] = "pending";
+  for (const label of roomLabels) if (!(label.id in decisions)) decisions[label.id] = "pending";
 
   return {
     ...input.localDraft,
     status: "reconciled",
     walls,
     openings,
-    roomLabels: input.cloudResult.roomLabels,
+    roomLabels,
     diagnostics,
     decisions,
     source: { local: true, cloud: true },
