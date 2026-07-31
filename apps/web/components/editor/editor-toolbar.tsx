@@ -83,6 +83,12 @@ function isEditableTarget(target: EventTarget | null): boolean {
     (target instanceof HTMLElement && target.isContentEditable);
 }
 
+export function normalizedKeyboardKey(event: unknown): string | null {
+  if (typeof event !== "object" || event === null || !("key" in event)) return null;
+  const key = (event as { key?: unknown }).key;
+  return typeof key === "string" ? key.toLowerCase() : null;
+}
+
 function ProjectNameField({ name, onRename }: Readonly<{ name: string; onRename: (name: string) => void }>) {
   const [value, setValue] = useState(name);
   const commit = () => {
@@ -284,7 +290,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "m" || event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target) || editingDisabled) return;
+      if (normalizedKeyboardKey(event) !== "m" || event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target) || editingDisabled) return;
       event.preventDefault();
       editorStore.getState().setTool("select");
       measurementToolStore.getState().setActive(true);
