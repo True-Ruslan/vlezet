@@ -76,9 +76,9 @@ test.describe("M7.4 Canvas selection and mode feedback", () => {
     await openNewProject(page);
 
     await page.getByRole("button", { name: "Стена" }).click();
-    await clickCanvasPoint(page, 240, 280);
+    await clickCanvasPoint(page, 240, 290);
     await expectMode(page, "wall-finish", "Стена · вторая точка", "Укажите вторую точку стены.");
-    await clickCanvasPoint(page, 640, 280);
+    await clickCanvasPoint(page, 640, 290);
     await expectMode(page, "wall-finish", "Стена · вторая точка", "Укажите вторую точку стены.");
     await page.keyboard.press("Escape");
     await expectMode(page, "wall-start", "Стена", "Укажите первую точку стены.");
@@ -86,12 +86,13 @@ test.describe("M7.4 Canvas selection and mode feedback", () => {
     await expectMode(page, "select", "Выбор", "Выберите объект на плане.");
 
     await moveCanvasPoint(page, 900, 600);
-    await moveCanvasPoint(page, 440, 280);
+    // Aim at the snapped wall centreline rather than the exact hit-stroke edge.
+    await moveCanvasPoint(page, 440, 290);
     await expect(page.locator(".canvas-shell")).toHaveClass(/is-hovering-selectable/);
     await expectMode(page, "select", "Выбор", "Кликните, чтобы выбрать объект.");
 
     await page.getByRole("button", { name: "Дверь" }).click();
-    await moveCanvasPoint(page, 440, 280);
+    await moveCanvasPoint(page, 440, 290);
     await expect(page.locator(".canvas-shell")).toHaveAttribute("data-preview-state", "valid");
     await expect(page.locator(".canvas-shell")).toHaveClass(/is-preview-valid/);
     await expectMode(page, "door", "Дверь", "Кликните, чтобы добавить дверь.");
