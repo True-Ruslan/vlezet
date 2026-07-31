@@ -7,6 +7,7 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useEffect, useRef } from "react";
 import { Group, Line, Rect, Text, Transformer } from "react-konva";
+import { canvasEntityName } from "./canvas-entity-identity";
 import type { ObjectGestureKind } from "./use-editor-store";
 
 export type PlacedObjectShapeProps = Readonly<{
@@ -17,7 +18,6 @@ export type PlacedObjectShapeProps = Readonly<{
   preview?: boolean;
   hovered?: boolean;
   onSelect?: () => void;
-  onHoverChange?: (hovered: boolean) => void;
   onGestureStart?: (kind: ObjectGestureKind) => void;
   onGesturePreview?: (patch: PlacedObjectPatch) => void;
   onGestureCommit?: () => void;
@@ -78,7 +78,6 @@ export function PlacedObjectShape({
   preview = false,
   hovered = false,
   onSelect,
-  onHoverChange,
   onGestureStart,
   onGesturePreview,
   onGestureCommit,
@@ -117,6 +116,7 @@ export function PlacedObjectShape({
   return <>
     <Group
       ref={groupRef}
+      name={preview ? undefined : canvasEntityName("object", object.id)}
       x={screen.x}
       y={screen.y}
       rotation={object.rotationDeg}
@@ -124,11 +124,8 @@ export function PlacedObjectShape({
       opacity={preview ? 0.68 : 1}
       onMouseDown={selectFromPointer}
       onTap={selectFromPointer}
-      onMouseEnter={() => onHoverChange?.(true)}
-      onMouseLeave={() => onHoverChange?.(false)}
       onDragStart={(event) => {
         event.cancelBubble = true;
-        onHoverChange?.(false);
         onSelect?.();
         onGestureStart?.("move");
       }}
