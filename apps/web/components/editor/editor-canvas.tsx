@@ -42,6 +42,8 @@ import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionLayer } from "../recognition/recognition-layer";
 import { ReferenceLayer } from "../reference/reference-layer";
 import { useReferenceImage } from "../reference/use-reference-image";
+import { deriveCanvasEntityVisual } from "./canvas-entity-visual";
+import { canvasTransientFeedbackStore } from "./canvas-transient-feedback-store";
 import {
   deriveRectangularRoomDimensionAnnotations,
   deriveWallCentrelineDimensionAnnotation,
@@ -63,6 +65,10 @@ const PLACEMENT_PREVIEW_ID = "__placement-preview__";
 type ResolvedWall = Readonly<{ wall: Wall; start: Point2; end: Point2 }>;
 type PointerSnap = Readonly<{ snap: SnapResult; target: TopologySnapTarget | null }>;
 type OpeningPreview = Readonly<{ wallId: string; pointerOffset: number; opening: Opening; valid: boolean }>;
+type HoveredCanvasEntity = Readonly<{
+  kind: "room" | "wall" | "opening" | "object";
+  id: string;
+}> | null;
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
@@ -107,6 +113,13 @@ function measurementLabel(value: number | null): string {
   return value === null ? "—" : `${Math.round(value)} мм`;
 }
 
+function visualStroke(role: ReturnType<typeof deriveCanvasEntityVisual>["strokeRole"], ordinary: string): string {
+  if (role === "accent") return "#1769ff";
+  if (role === "danger") return "#ef4444";
+  if (role === "hover") return "#5b8def";
+  return ordinary;
+}
+
 export type EditorCanvasProps = Readonly<{
   initialViewport: ViewportTransform;
   onViewportChange: (viewport: ViewportTransform) => void;
@@ -134,10 +147,17 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const viewportRef = useRef<ViewportTransform>({ ...initialViewport });
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [spacePressed, setSpacePressed] = useState(false);
+  const [panActive, setPanActive] = useState(false);
   const [openingPreview, setOpeningPreview] = useState<OpeningPreview | null>(null);
   const [placementPreview, setPlacementPreview] = useState<PlacedObject | null>(null);
+  const [hoveredEntity, setHoveredEntity] = useState<HoveredCanvasEntity>(null);
   const [objectGuides, setObjectGuides] = useState<readonly ObjectSnapGuide[]>([]);
   const [viewport, setViewport] = useState<ViewportTransform>(() => ({ ...initialViewport }));
+
+  const setHoveredCanvasEntity = useCallback((next: HoveredCanvasEntity) => {
+    setHoveredEntity(next);
+    canvasTransientFeedbackStore.getState().setHoveredSelectable(next !== null);
+  }, []);
 
   const commitViewport = useCallback((next: ViewportTransform) => {
     viewportRef.current = next;
@@ -204,6 +224,21 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
   }, []);
 
+  useEffect(() => {
+    if (panActive) return;
+    canvasTransientFeedbackStore.getState().setPanState(spacePressed ? "ready" : "idle");
+  }, [panActive, spacePressed]);
+
+  useEffect(() => {
+    setHoveredCanvasEntity(null);
+    setOpeningPreview(null);
+    setPlacementPreview(null);
+    setObjectGuides([]);
+    canvasTransientFeedbackStore.getState().setPreviewState("none");
+  }, [placementPresetId, recognitionReviewActive, setHoveredCanvasEntity, tool]);
+
+  useEffect(() => () => canvasTransientFeedbackStore.getState().reset(), []);
+
   const displayedObjects = useMemo(() => document.placedObjects.map((object) =>
     objectGesture?.objectId === object.id ? objectGesture.preview : object,
   ), [document.placedObjects, objectGesture]);
@@ -214,6 +249,19 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   }), [displayedObjects, document, visiblePlacementPreview]);
 
   const fitEvaluation = useMemo(() => evaluateObjectFits(evaluationDocument), [evaluationDocument]);
+  const placementPreviewFitStatus = visiblePlacementPreview
+    ? fitEvaluation.byObjectId.get(PLACEMENT_PREVIEW_ID)?.status ?? "blocked"
+    : null;
+  const livePreviewState = visibleOpeningPreview
+    ? (visibleOpeningPreview.valid ? "valid" : "invalid")
+    : visiblePlacementPreview
+      ? (placementPreviewFitStatus === "blocked" ? "invalid" : "valid")
+      : "none";
+
+  useEffect(() => {
+    canvasTransientFeedbackStore.getState().setPreviewState(livePreviewState);
+  }, [livePreviewState]);
+
   const planningPreviewObjects = useMemo(() => {
     if (!planningPreviewCandidate) return [];
     const placements = new Map(planningPreviewCandidate.placements.map((placement) => [placement.objectId, placement]));
@@ -371,11 +419,17 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const onMouseDown = (event: KonvaEventObject<MouseEvent>) => {
     const pointer = pointerPosition(event); if (!pointer) return;
     const shouldPan = event.evt.button === 1 || (event.evt.button === 0 && spacePressed);
-    if (shouldPan) { event.evt.preventDefault(); panRef.current = { active: true, last: pointer }; return; }
+    if (shouldPan) {
+      event.evt.preventDefault();
+      panRef.current = { active: true, last: pointer };
+      setPanActive(true);
+      canvasTransientFeedbackStore.getState().setPanState("active");
+      return;
+    }
     if (event.evt.button !== 0) return;
     if (recognitionReviewActive) { onSelectRecognitionCandidate(null); return; }
 
-    if (placementPresetId && visiblePlacementPreview) {
+    if (placementPresetId && visiblePlacementPreview && placementPreviewFitStatus !== "blocked") {
       editorStore.getState().placeSelectedPreset(visiblePlacementPreview.position);
       setPlacementPreview(null);
       setObjectGuides([]);
@@ -410,12 +464,18 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     } else if (tool === "door" || tool === "window") updateOpeningPreview(pointer);
   };
 
-  const endPan = () => { panRef.current.active = false; };
+  const endPan = () => {
+    panRef.current.active = false;
+    setPanActive(false);
+    canvasTransientFeedbackStore.getState().setPanState(spacePressed ? "ready" : "idle");
+  };
   const clearTransientCanvasState = () => {
     endPan();
+    setHoveredCanvasEntity(null);
     setOpeningPreview(null);
     setPlacementPreview(null);
     setObjectGuides([]);
+    canvasTransientFeedbackStore.getState().setPreviewState("none");
   };
 
   const draftStartScreen = draftWall ? worldToScreen(draftWall.start, viewport) : null;
@@ -427,16 +487,36 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     const segment = openingSegment(document, opening);
     const start = worldToScreen(segment.start, viewport), end = worldToScreen(segment.end, viewport);
     const selected = opening.id === selectedOpeningId;
-    const stroke = preview ? (visibleOpeningPreview?.valid ? "#1769ff" : "#ef4444") : (selected ? "#1769ff" : "#374151");
+    const hovered = !preview && hoveredEntity?.kind === "opening" && hoveredEntity.id === opening.id;
+    const visual = deriveCanvasEntityVisual(preview
+      ? (visibleOpeningPreview?.valid ? "preview-valid" : "preview-invalid")
+      : selected
+        ? "selected"
+        : hovered
+          ? "hover"
+          : "ordinary");
+    const stroke = visualStroke(visual.strokeRole, "#374151");
     const wall = document.walls.find((candidate) => candidate.id === opening.wallId)!;
     const gapWidth = Math.max(3, wall.thickness * viewport.pixelsPerMillimeter + 3);
+    const enter = () => {
+      if (!preview && tool === "select" && !placementPresetId) setHoveredCanvasEntity({ kind: "opening", id: opening.id });
+    };
+    const leave = () => {
+      if (!preview && hoveredEntity?.kind === "opening" && hoveredEntity.id === opening.id) setHoveredCanvasEntity(null);
+    };
+    const select = (event: KonvaEventObject<MouseEvent>) => {
+      if (!preview && tool === "select") {
+        event.cancelBubble = true;
+        editorStore.getState().selectOpening(opening.id);
+      }
+    };
     const elements = [<Line key={`${opening.id}-gap`} points={[start.x, start.y, end.x, end.y]} stroke="#ffffff" strokeWidth={gapWidth} listening={false} />];
     if (opening.kind === "window") {
       const normal = { x: segment.leftNormal.x * wall.thickness * 0.22, y: segment.leftNormal.y * wall.thickness * 0.22 };
       for (const sign of [-1, 1]) {
         const a = worldToScreen({ x: segment.start.x + normal.x * sign, y: segment.start.y + normal.y * sign }, viewport);
         const b = worldToScreen({ x: segment.end.x + normal.x * sign, y: segment.end.y + normal.y * sign }, viewport);
-        elements.push(<Line key={`${opening.id}-window-${sign}`} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={1.5} listening={!preview} onMouseDown={(e) => { if (!preview && tool === "select") { e.cancelBubble = true; editorStore.getState().selectOpening(opening.id); } }} />);
+        elements.push(<Line key={`${opening.id}-window-${sign}`} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
       }
     } else {
       const hingeAtStart = opening.doorSwing?.hinge !== "end";
@@ -446,9 +526,9 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
       const openDirection = { x: segment.leftNormal.x * sideSign, y: segment.leftNormal.y * sideSign };
       const openEnd = { x: hinge.x + openDirection.x * opening.width, y: hinge.y + openDirection.y * opening.width };
       const hingeScreen = worldToScreen(hinge, viewport), openScreen = worldToScreen(openEnd, viewport);
-      elements.push(<Line key={`${opening.id}-leaf`} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={2} hitStrokeWidth={12} listening={!preview} onMouseDown={(e) => { if (!preview && tool === "select") { e.cancelBubble = true; editorStore.getState().selectOpening(opening.id); } }} />);
+      elements.push(<Line key={`${opening.id}-leaf`} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
       const arc = arcPoints(hinge, closedDirection, openDirection, opening.width).flatMap((point) => { const s = worldToScreen(point, viewport); return [s.x, s.y]; });
-      elements.push(<Line key={`${opening.id}-arc`} points={arc} stroke={stroke} strokeWidth={1} dash={[4, 3]} opacity={0.75} listening={false} />);
+      elements.push(<Line key={`${opening.id}-arc`} points={arc} stroke={stroke} strokeWidth={1} dash={preview ? [7, 5] : [4, 3]} opacity={0.75} listening={false} />);
     }
     return elements;
   };
@@ -485,16 +565,41 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     : tool === "door" || tool === "window"
       ? "Наведите на стену и кликните"
       : "Синие узлы — соединения";
+  const cursorClass = panActive
+    ? " is-pan-active"
+    : spacePressed
+      ? " is-pan-ready"
+      : hoveredEntity
+        ? " is-hovering-selectable"
+        : livePreviewState === "invalid"
+          ? " is-preview-invalid"
+          : livePreviewState === "valid"
+            ? " is-preview-valid"
+            : "";
 
   return (
-    <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${spacePressed ? " is-pan-ready" : ""}`} onContextMenu={(event) => event.preventDefault()}>
+    <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${cursorClass}`} data-preview-state={livePreviewState} onContextMenu={(event) => event.preventDefault()}>
       <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={endPan} onMouseLeave={clearTransientCanvasState}>
         <Layer listening={false}>{gridLines.map((line) => <Line key={line.key} points={line.points} stroke={line.major ? "#d9dde3" : "#eceff3"} strokeWidth={1} perfectDrawEnabled={false} />)}</Layer>
         {referencePlan && referenceImage ? <Layer><ReferenceLayer referencePlan={referencePlan} image={referenceImage} viewport={viewport} onMoveEnd={onReferenceMoveEnd} /></Layer> : null}
         <Layer>
           {derivedRooms.rooms.map((room) => {
             const selected = room.id === selectedRoomId;
-            return <Line key={room.id} points={screenPolygon(room.polygon, viewport)} closed fill={selected ? "#dbeafe" : "#f4f7fb"} stroke={selected ? "#93c5fd" : undefined} strokeWidth={selected ? 1.5 : 0} opacity={tracingMode ? (selected ? 0.42 : 0.2) : (selected ? 0.9 : 0.72)} onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }} />;
+            const hovered = hoveredEntity?.kind === "room" && hoveredEntity.id === room.id;
+            const visual = deriveCanvasEntityVisual(selected ? "selected" : hovered ? "hover" : "ordinary");
+            return <Line
+              key={room.id}
+              points={screenPolygon(room.polygon, viewport)}
+              closed
+              fill={selected ? "#dbeafe" : hovered ? "#eef4ff" : "#f4f7fb"}
+              stroke={visual.strokeRole === "ordinary" ? undefined : visualStroke(visual.strokeRole, "#93c5fd")}
+              strokeWidth={selected ? 1.8 : hovered ? 1.4 : 0}
+              dash={visual.dash ? [...visual.dash] : undefined}
+              opacity={tracingMode ? (selected ? 0.42 : hovered ? 0.3 : 0.2) : (selected ? 0.9 : hovered ? 0.82 : 0.72)}
+              onMouseEnter={() => { if (tool === "select" && !placementPresetId) setHoveredCanvasEntity({ kind: "room", id: room.id }); }}
+              onMouseLeave={() => { if (hoveredEntity?.kind === "room" && hoveredEntity.id === room.id) setHoveredCanvasEntity(null); }}
+              onMouseDown={(event) => { if (tool === "select" && !placementPresetId) { event.cancelBubble = true; editorStore.getState().selectRoom(room.id); } }}
+            />;
           })}
           {derivedRooms.rooms.map((room) => {
             const label = worldToScreen(room.labelPoint, viewport);
@@ -506,11 +611,40 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
             const a = worldToScreen(pointAtWallOffset(document, wall.id, interval.startOffset), viewport);
             const b = worldToScreen(pointAtWallOffset(document, wall.id, interval.endOffset), viewport);
             const selected = wall.id === selectedWallId;
+            const hovered = hoveredEntity?.kind === "wall" && hoveredEntity.id === wall.id;
+            const visual = deriveCanvasEntityVisual(selected ? "selected" : hovered ? "hover" : "ordinary");
             const visualWidth = Math.max(2, wall.thickness * viewport.pixelsPerMillimeter);
-            return <Line key={`${wall.id}-visible-${index}`} points={[a.x, a.y, b.x, b.y]} stroke={selected ? "#1769ff" : "#232830"} strokeWidth={visualWidth} hitStrokeWidth={Math.max(14, visualWidth)} lineCap="square" lineJoin="miter" onMouseDown={(e) => { if (tool === "select" && !placementPresetId) { e.cancelBubble = true; editorStore.getState().selectWall(wall.id); } }} />;
+            return <Line
+              key={`${wall.id}-visible-${index}`}
+              points={[a.x, a.y, b.x, b.y]}
+              stroke={visualStroke(visual.strokeRole, "#232830")}
+              strokeWidth={visualWidth + (selected ? 2 : hovered ? 1 : 0)}
+              dash={visual.dash ? [...visual.dash] : undefined}
+              hitStrokeWidth={Math.max(14, visualWidth)}
+              lineCap="square"
+              lineJoin="miter"
+              onMouseEnter={() => { if (tool === "select" && !placementPresetId) setHoveredCanvasEntity({ kind: "wall", id: wall.id }); }}
+              onMouseLeave={() => { if (hoveredEntity?.kind === "wall" && hoveredEntity.id === wall.id) setHoveredCanvasEntity(null); }}
+              onMouseDown={(event) => { if (tool === "select" && !placementPresetId) { event.cancelBubble = true; editorStore.getState().selectWall(wall.id); } }}
+            />;
           }))}
           {document.openings.flatMap((opening) => renderOpeningSymbol(opening))}
           {visibleOpeningPreview ? renderOpeningSymbol(visibleOpeningPreview.opening, true) : null}
+          {visibleOpeningPreview ? (() => {
+            const segment = openingSegment(document, visibleOpeningPreview.opening);
+            const midpoint = worldToScreen({ x: (segment.start.x + segment.end.x) / 2, y: (segment.start.y + segment.end.y) / 2 }, viewport);
+            return <Text
+              x={midpoint.x - 58}
+              y={midpoint.y - 28}
+              width={116}
+              align="center"
+              text={visibleOpeningPreview.valid ? "Предпросмотр" : "Недопустимо"}
+              fontSize={12}
+              fontStyle="bold"
+              fill={visibleOpeningPreview.valid ? "#175cd3" : "#b42318"}
+              listening={false}
+            />;
+          })() : null}
           {tool === "wall" && !recognitionReviewActive ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
           {recognitionDraft && referencePlan ? <RecognitionLayer draft={recognitionDraft} referencePlan={referencePlan} viewport={viewport} selectedCandidateId={selectedRecognitionCandidateId} onSelect={onSelectRecognitionCandidate} onEditWall={onEditRecognitionWall} /> : null}
         </Layer>
@@ -522,8 +656,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
               object={object}
               viewport={viewport}
               selected={object.id === selectedObjectId}
+              hovered={hoveredEntity?.kind === "object" && hoveredEntity.id === object.id}
               fitStatus={fitEvaluation.byObjectId.get(object.id)?.status ?? "blocked"}
               onSelect={() => editorStore.getState().selectObject(object.id)}
+              onHoverChange={(hovered) => setHoveredCanvasEntity(hovered ? { kind: "object", id: object.id } : null)}
               onGestureStart={(kind) => editorStore.getState().beginObjectGesture(object.id, kind)}
               onGesturePreview={(patch) => previewObjectGesture(object.id, patch)}
               onGestureCommit={() => { editorStore.getState().commitObjectGesture(); setObjectGuides([]); }}
@@ -548,7 +684,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
               viewport={viewport}
               selected={false}
               preview
-              fitStatus={fitEvaluation.byObjectId.get(PLACEMENT_PREVIEW_ID)?.status ?? "blocked"}
+              fitStatus={placementPreviewFitStatus ?? "blocked"}
             />
           ) : null}
           <TapeMeasurementTool width={size.width} height={size.height} viewport={viewport} gridStep={gridStep} />
