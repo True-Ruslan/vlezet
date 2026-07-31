@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { advanceTapeMeasurement, previewTapeMeasurement } from "./tape-measurement-state";
+import {
+  advanceTapeMeasurement,
+  previewTapeMeasurement,
+  tapeMeasurementPhase,
+} from "./tape-measurement-state";
 
 describe("tape measurement interaction state", () => {
   it("starts, previews, commits, and restarts a measurement", () => {
@@ -20,5 +24,11 @@ describe("tape measurement interaction state", () => {
   it("does not change a completed measurement on pointer preview", () => {
     const complete = { start: { x: 0, y: 0 }, end: { x: 1000, y: 0 }, complete: true } as const;
     expect(previewTapeMeasurement(complete, { x: 2000, y: 0 })).toBe(complete);
+  });
+
+  it("derives the public phase from committed measurement state", () => {
+    expect(tapeMeasurementPhase(null)).toBe("idle");
+    expect(tapeMeasurementPhase({ start: { x: 0, y: 0 }, end: { x: 0, y: 0 }, complete: false })).toBe("measuring");
+    expect(tapeMeasurementPhase({ start: { x: 0, y: 0 }, end: { x: 100, y: 0 }, complete: true })).toBe("complete");
   });
 });
