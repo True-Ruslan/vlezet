@@ -85,6 +85,7 @@ test.describe("M7.4 Canvas selection and mode feedback", () => {
     await page.keyboard.press("Escape");
     await expectMode(page, "select", "Выбор", "Выберите объект на плане.");
 
+    await moveCanvasPoint(page, 900, 600);
     await moveCanvasPoint(page, 440, 280);
     await expect(page.locator(".canvas-shell")).toHaveClass(/is-hovering-selectable/);
     await expectMode(page, "select", "Выбор", "Кликните, чтобы выбрать объект.");
