@@ -160,7 +160,17 @@ artifact:                   8798148740
 digest:                     sha256:4f1009d3e4fe6207d33027cb387d232b0c91250b73d9ca1b67b8ea5f2dd46950
 ```
 
-Because this acceptance record changes the branch head, both mandatory gates must pass again after this commit before manual product-owner acceptance begins.
+## Acceptance-record verification
+
+```text
+verified record head: edf13e8d7d3d9cd1ffe6fb031977a528da5fe0bf
+standard CI:         30642980311 — PASS
+browser audit:       30642980320 — PASS
+artifact:            8798281505
+digest:              sha256:18457a9425bbfcda2a73c606824be693068e9956a5d5aa84cc24540509f9fa09
+```
+
+This evidence was captured before the record-only commit that writes these identifiers. Both mandatory gates must therefore pass one final time on the resulting branch head before manual product-owner acceptance begins.
 
 ## Architecture preservation
 
