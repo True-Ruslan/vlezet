@@ -8,11 +8,21 @@ async function openNewProject(page) {
   await expect(page.locator(".canvas-mode-status")).toBeVisible();
 }
 
-async function clickCanvasPoint(page, x, y) {
+async function canvasPosition(page, x, y) {
   const canvas = page.locator(".canvas-shell");
   const box = await canvas.boundingBox();
   if (!box) throw new Error("Canvas has no visible bounding box.");
-  await page.mouse.click(box.x + x, box.y + y);
+  return { x: box.x + x, y: box.y + y };
+}
+
+async function clickCanvasPoint(page, x, y) {
+  const point = await canvasPosition(page, x, y);
+  await page.mouse.click(point.x, point.y);
+}
+
+async function moveCanvasPoint(page, x, y) {
+  const point = await canvasPosition(page, x, y);
+  await page.mouse.move(point.x, point.y);
 }
 
 async function expectMode(page, mode, label, instruction) {
@@ -59,6 +69,33 @@ test.describe("M7.4 Canvas selection and mode feedback", () => {
 
     await page.keyboard.press("Escape");
     await expectMode(page, "select", "Выбор", "Выберите объект на плане.");
+  });
+
+  test("distinguishes selectable hover and live opening preview", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+
+    await page.getByRole("button", { name: "Стена" }).click();
+    await clickCanvasPoint(page, 240, 280);
+    await clickCanvasPoint(page, 640, 280);
+    await expectMode(page, "wall-start", "Стена", "Укажите первую точку стены.");
+    await page.keyboard.press("Escape");
+    await expectMode(page, "select", "Выбор", "Выберите объект на плане.");
+
+    await moveCanvasPoint(page, 440, 280);
+    await expect(page.locator(".canvas-shell")).toHaveClass(/is-hovering-selectable/);
+    await expectMode(page, "select", "Выбор", "Кликните, чтобы выбрать объект.");
+
+    await page.getByRole("button", { name: "Дверь" }).click();
+    await moveCanvasPoint(page, 440, 280);
+    await expect(page.locator(".canvas-shell")).toHaveAttribute("data-preview-state", "valid");
+    await expect(page.locator(".canvas-shell")).toHaveClass(/is-preview-valid/);
+    await expectMode(page, "door", "Дверь", "Кликните, чтобы добавить дверь.");
+    await expect(page.locator(".canvas-mode-preview")).toHaveText("Предпросмотр");
+
+    await moveCanvasPoint(page, 900, 600);
+    await expect(page.locator(".canvas-shell")).toHaveAttribute("data-preview-state", "none");
+    await expectMode(page, "door", "Дверь", "Наведите на стену.");
   });
 
   test("keeps equivalent mode meaning at compact width and returns from 3D", async ({ page }) => {
