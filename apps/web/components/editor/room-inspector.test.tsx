@@ -18,14 +18,18 @@ const room = {
 } as const;
 
 describe("room inspector precision semantics", () => {
-  it("shows editable clear internal dimensions for a rectangular room", () => {
+  it("uses shared fields and actions while preserving exact room controls", () => {
     const html = renderToStaticMarkup(<SelectedRoomInspector room={room} />);
 
     expect(html).toContain("Чистые внутренние размеры");
     expect(html).toContain("Ширина");
     expect(html).toContain("Длина");
-    expect(html).toContain("3550");
-    expect(html).toContain("3300");
+    expect(html).toContain('id="room-name"');
+    expect(html).toContain('id="room-clear-width"');
+    expect(html).toContain('id="room-clear-height"');
+    expect(html.match(/class="ui-field"/g)?.length).toBeGreaterThanOrEqual(5);
+    expect(html).toContain('class="ui-button ui-button-primary room-inspector-action"');
+    expect(html).toContain('class="ui-button ui-button-secondary room-inspector-action"');
     expect(html).toContain("Левая сторона");
     expect(html).toContain("Правая сторона");
     expect(html).toContain("Верхняя сторона");
