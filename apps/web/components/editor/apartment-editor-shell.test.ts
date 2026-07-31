@@ -45,7 +45,7 @@ describe("M7.1 apartment editor shell integration", () => {
   });
 });
 
-describe("M7.4 Escape integration", () => {
+describe("M7.4 interaction feedback integration", () => {
   it("derives one cancellation action instead of stacking generic cancellation and tracing exit", () => {
     expect(source).toContain('from "./editor-escape-priority"');
     expect(source).toContain("deriveEditorEscapeAction");
@@ -53,5 +53,13 @@ describe("M7.4 Escape integration", () => {
     expect(source).toContain('case "cancel-wall-draft"');
     expect(source).toContain('case "clear-selection"');
     expect(source).not.toContain("store.cancelCurrentAction();\n          if (props.tracingMode) props.onStopTracing();");
+  });
+
+  it("renders one authoritative Canvas mode status for both 2D and 3D", () => {
+    expect(source).toContain('from "./editor-canvas-mode-status"');
+    expect(source).toContain("<EditorCanvasModeStatus");
+    expect(source).toContain("viewMode={viewMode}");
+    expect(source).toContain("recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}");
+    expect(source).toContain("tracingMode={props.tracingMode}");
   });
 });
