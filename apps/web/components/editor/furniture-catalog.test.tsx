@@ -3,21 +3,27 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FurnitureCatalog } from "./furniture-catalog";
 
-describe("FurnitureCatalog design-system migration", () => {
-  it("uses shared selectable card anatomy without changing preset semantics", () => {
+describe("FurnitureCatalog", () => {
+  it("keeps shared selectable card anatomy and adds accessible discovery controls", () => {
     const html = renderToStaticMarkup(<FurnitureCatalog />);
 
     expect(html).toContain("Мебель и техника");
+    expect(html).toContain('aria-label="Поиск мебели и техники"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Все");
+    expect(html).toContain("Найдено:");
     expect(html).toContain('class="preset-card ui-card-host"');
     expect(html).toContain('class="ui-card ui-card-selectable furniture-preset-card"');
-    expect(html).toContain('aria-pressed="false"');
     expect(html).toContain("мм");
     expect(html).toContain('title="');
   });
 
-  it("wires selected, repeated-click and cancel behaviour to the existing store", () => {
+  it("uses runtime-only filters and preserves existing placement commands", () => {
     const source = readFileSync(new URL("./furniture-catalog.tsx", import.meta.url), "utf8");
 
+    expect(source).toContain("useStore(furnitureCatalogUiStore");
+    expect(source).toContain("filterFurniturePresets");
+    expect(source).toContain("resetFilters");
     expect(source).toContain("selected={active}");
     expect(source).toContain("aria-pressed={active}");
     expect(source).toContain("setPlacementPreset(active ? null : preset.id)");
