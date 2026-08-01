@@ -27,12 +27,12 @@ M7.2 Context Inspector Foundation
 M7.3 Design System and Content Components
 M7.4 Canvas Selection and Mode Feedback
 M7.5 Onboarding, Status and Recovery
-
-NOW
 M7.6 Geometry and Opening Inspector
 
-THEN
+NOW
 M7.7 Furniture and Fit Workflow
+
+THEN
 M7.8 Reference and Recognition Workflow
 M7.9 Accessibility and Responsive Hardening
 M7.10 2D/3D Context and Interior Readability
@@ -65,10 +65,8 @@ Delivered shared context identity, explicit workflow return, preserved ordinary 
 
 ### M7.3 — Design System and Content Components
 
-**Problems:** `UX-FURN-004`, `UX-REC-004`, `UX-PATTERN-002`, `UX-PATTERN-003`, remaining `UX-CONTENT-001`, `UX-SHELL-005`  
+**Problems:** foundational `UX-FURN-004`, `UX-REC-004`, `UX-PATTERN-002`, `UX-PATTERN-003`, remaining `UX-CONTENT-001`, `UX-SHELL-005`  
 **Result:** accepted and squash-merged through PR #26 as `509dfc02e17c87a58da8356894564a8f27bc5a9b`.
-
-Final evidence:
 
 ```text
 head:       cabe8e44153d7a56ee23e6931ea204e2fbf82119
@@ -85,14 +83,10 @@ Product-owner acceptance:
 
 > «Подтверждаю все!»
 
-Recognition detection accuracy is explicitly not claimed as complete. The future contract is `docs/product/RECOGNITION_QUALITY_REQUIREMENTS.md`; issue #27 is owned by M7.8.
-
 ### M7.4 — Canvas Selection and Mode Feedback
 
 **Problems:** `UX-SHELL-004`, `UX-CANVAS-001`, `UX-CANVAS-002`  
 **Result:** accepted and squash-merged through PR #29 as `399e1b439d478fb8b01cd39795213b42beece84f`.
-
-Final evidence:
 
 ```text
 head:       cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408
@@ -109,14 +103,10 @@ Product-owner acceptance:
 
 > «Все прошло строго и четко как ты описал.»
 
-Geometry, snapping, hit tolerance, selection ordering, history and persistence authority were unchanged.
-
 ### M7.5 — Onboarding, Status and Recovery
 
 **Problems:** `UX-ONBOARD-001`, `UX-DATA-003`  
 **Result:** accepted and squash-merged through PR #31 as `62413d91ebc5cef335b772e46ebbc1dae18b1acc`.
-
-Final evidence:
 
 ```text
 head:       d59273615ea2f08a4a364b91fe3e3cc408ba9090
@@ -127,88 +117,108 @@ digest:     sha256:530ebca7ee8f20d5e79fb592a7f80a1c43044bbe750ddec752e24f98c6165
 merge:      62413d91ebc5cef335b772e46ebbc1dae18b1acc
 ```
 
-Delivered:
-
-- a non-blocking first-project guide from empty state to the first authoritative closed room;
-- progress derived only from current walls and existing `deriveRooms()` output;
-- per-project browser-local dismissal without `VlezetDocument` changes;
-- durable runtime-only evidence for first room creation, recognition Apply, planning Apply and editable backup export;
-- stale room evidence clearing after Undo or room deletion;
-- recoverable backup-export failure with a valid retry action;
-- compact-width placement that preserves Canvas visibility and hit testing;
-- Chromium full-flow and WebKit core-smoke coverage.
+Delivered state-derived first-project guidance, per-project browser-local dismissal, durable runtime-only completion/recovery evidence, stale evidence clearing, valid backup retry and compact overlay placement.
 
 Product-owner acceptance:
 
 > «Все работает четко как надо и как ты описал.»
 
-No geometry, topology, recognition/planning algorithm, semantic-history or persistence authority changed.
-
-## 4. NOW — M7.6 Geometry and Opening Inspector
+### M7.6 — Geometry and Opening Inspector
 
 **Problems:** `UX-GEO-001`, `UX-GEO-002`, `UX-GEO-003`  
-**Goal:** make clear dimensions, wall-axis/thickness semantics and door/opening behaviour visually predictable without changing geometry authority.
+**Result:** accepted and squash-merged through PR #33 as `315828052edb483c34a68464acb70458bf4ff80d`.
+
+Final evidence:
+
+```text
+head:       29b631fe43ba1a00e0ad48c71ee5429371d1faa8
+standard:   30701887262 / #2212 — PASS
+browser:    30701887265 / #330 — PASS
+artifact:   8819106567
+digest:     sha256:069a3f8105d5123152f12e07b1a62c96809ac2caf02ab65b0fdee4d8a8569669
+merge:      315828052edb483c34a68464acb70458bf4ff80d
+```
+
+Delivered:
+
+- separate horizontal and vertical clear-room dimension cards;
+- wall-axis length distinct from wall thickness;
+- visible fixed endpoints and physical surfaces independent of directed-wall internals;
+- correct mapping for forward, reverse-directed and diagonal walls;
+- opening offsets measured from either visible wall end without moving the opening;
+- four accessible and visually distinct runtime-only door-swing previews;
+- fail-closed invalid opening drafts;
+- compact single-column controls without horizontal overflow;
+- one-step semantic Undo for applied room, wall and opening edits.
+
+Product-owner acceptance:
+
+> «Все работает четко строго по описанным тобой шага.»
+
+No schema, persistence, topology, area, snapping, hit-testing, command, recognition, planning or 3D authority changed.
+
+## 4. NOW — M7.7 Furniture and Fit Workflow
+
+**Problems:** `UX-FURN-001`, `UX-FURN-002`, `UX-FURN-003`, remaining `UX-FURN-004`  
+**Goal:** make furniture discovery, placement, orientation, exact editing and fit/clearance explanation feel like one predictable workflow without weakening M2 authority.
 
 ### Product questions to resolve in design
 
-- Which geometry value is the ordinary user's primary intent: clear room size, wall-axis length or wall thickness?
-- How can the inspector explain the relationship between those values without resembling a CAD parameter table?
-- Which advanced wall controls should remain immediately visible, and which can be progressively disclosed?
-- How should opening width and wall offset be described relative to the visible clear opening?
-- How should the host wall, opening side and door swing be shown before placement and after selection?
-- Which geometry edits can use immediate semantic commands and which need explicit Apply or confirmation?
-- How should diagnostics distinguish invalid input, impossible topology and a valid but surprising result?
+- Which actions should be primary immediately after placement and after later selection?
+- How should categories, search, common items and recently used items reduce catalogue scanning?
+- How should exact width, depth, rotation and object identity be grouped without recreating a dense property table?
+- How should the shortest distance between rotated contours be distinguished from object dimensions?
+- How should collisions, door conflicts, hard minimums and recommendations be prioritised?
+- Which edits can apply immediately and which need an explicit Apply boundary?
+- How can diagnostics lead to valid manual actions without auto-moving furniture?
+- How should the workflow behave with a docked panel, compact width, zoom and keyboard navigation?
 
 ### Expected scope
 
-- simplify wall, room and opening inspector hierarchy around common user intent;
-- clearly distinguish clear room dimensions, wall-axis length and thickness;
-- preserve exact millimetre values and existing semantic Undo/Redo;
-- explain opening width, offset and host-wall relationship;
-- make door swing side/direction visually legible in controls and Canvas feedback;
-- retain advanced geometry detail through progressive disclosure;
-- use M7.3 components and M7.4 Canvas feedback rather than parallel UI patterns;
+- simplify catalogue discovery and selected-object inspector hierarchy;
+- prioritise common post-placement actions;
+- make object identity, exact dimensions and rotation easy to scan;
+- preserve existing transform commands and one-step semantic Undo/Redo;
+- visually explain contour-to-contour distance and clearance semantics;
+- group fit diagnostics by severity and provide valid next actions;
+- preserve Canvas visibility and controls at compact widths;
+- use accepted M7.2–M7.6 context, components, feedback and preview patterns;
 - add focused content/layout contracts and representative Chromium/WebKit flows.
 
 ### Dependencies
 
-- accepted M7.2 context anatomy and independent scrolling;
-- accepted M7.3 components, typography and status hierarchy;
-- accepted M7.4 Canvas modes, previews and cursor roles;
-- accepted M7.5 durable completion/recovery evidence.
+- M2 remains containment/collision/door/clearance authority;
+- M7.2 owns context anatomy and workflow return;
+- M7.3 owns components, typography and status hierarchy;
+- M7.4 owns Canvas mode/preview feedback;
+- M7.6 provides physical presentation mapping patterns for dimensions and distances.
 
 ### Authority boundaries
 
-M7.6 may reorganise presentation, copy and command routing around existing geometry operations. It must not:
+M7.7 may reorganise catalogue, furniture inspector, fit presentation and command routing around existing operations. It must not:
 
-- alter wall topology, room derivation, area calculation, snapping or hit-tolerance algorithms;
-- create a second geometry model in React or Zustand;
-- silently convert between clear-size and axis-size authority;
-- auto-repair or auto-close rooms;
-- add persistent onboarding/inspector state to `VlezetDocument`;
-- change recognition-quality work owned by M7.8;
-- implement furniture/fit workflow work owned by M7.7;
-- claim M7.9 accessibility completion.
+- change M2 containment, collision, door or clearance algorithms;
+- silently auto-move or auto-rotate furniture;
+- create a second persistent furniture or fit model in React/Zustand;
+- alter `VlezetDocument` or migrations without an independently approved need;
+- expand deterministic planning or autonomous furnishing;
+- implement recognition-quality work owned by M7.8;
+- claim whole-product accessibility completion owned by M7.9;
+- perform visual-only consolidation owned by M7.13.
 
 ### Acceptance
 
-- ordinary users can identify which values represent clear room size, wall-axis length and thickness;
-- editing one value produces an understandable, explicitly attributed result;
-- wall and room inspectors prioritise common tasks without removing exact control;
-- opening width/offset and host-wall meaning are understandable before committing an edit;
-- door swing side and direction are visually predictable;
-- invalid or impossible edits provide a valid next step and do not mutate geometry;
-- Undo/Redo remains semantic and one-step for accepted operations;
+- ordinary users can find and place common furniture without scanning the full catalogue;
+- selected-object identity, dimensions, rotation and primary actions are easy to understand;
+- contour distance cannot be mistaken for furniture dimensions;
+- fit/collision/door/clearance evidence is prioritised and actionable;
+- invalid edits fail closed and preserve authoritative geometry;
+- accepted transforms remain one-step semantic Undo/Redo operations;
 - compact widths preserve Canvas and inspector reachability;
-- M7.1–M7.5 regressions remain green;
+- M7.1–M7.6 regressions remain green;
 - full unit/type/lint/build CI, Chromium full flow, WebKit core smoke and product-owner acceptance pass.
 
 ## 5. Later candidate slices
-
-### M7.7 — Furniture and Fit Workflow
-
-**Problems:** `UX-FURN-001`, `UX-FURN-002`, `UX-FURN-003`, remaining `UX-FURN-004`  
-**Goal:** prioritise common edits, explain orientation/clearances and improve catalogue discovery.
 
 ### M7.8 — Reference and Recognition Workflow
 
@@ -247,8 +257,8 @@ M7.6 may reorganise presentation, copy and command routing around existing geome
 | `UX-CANVAS-001` | M7.4 — complete |
 | `UX-CANVAS-002` | M7.4 — complete |
 | `UX-ONBOARD-001` | M7.5 — complete |
-| `UX-GEO-001/002/003` | M7.6 |
-| `UX-FURN-001/002/003` | M7.7 |
+| `UX-GEO-001/002/003` | M7.6 — complete |
+| `UX-FURN-001/002/003` | M7.7 — NOW |
 | `UX-FURN-004` | M7.3 foundation / M7.7 completion |
 | `UX-REF-001` | M7.8 |
 | `UX-REC-001/003` | M7.8 |
