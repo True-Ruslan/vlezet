@@ -122,7 +122,7 @@ jobs:
 
   # BEGIN M7_8A_LOCKFILE_PATCH
   m7-8a-lockfile-patch:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/m7-8a-recognition-benchmark-foundation'
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/m7-8a-recognition-benchmark-foundation'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
