@@ -204,6 +204,119 @@
   line-height: 1.4;
 }
 
+.object-editor-form,
+.object-main-grid,
+.object-clearance-fields,
+.object-position-fields,
+.fit-diagnostic-groups {
+  display: grid;
+  min-width: 0;
+}
+
+.object-editor-form {
+  gap: 0;
+}
+
+.object-main-grid,
+.object-clearance-fields,
+.object-position-fields {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.object-field {
+  min-width: 0;
+}
+
+.object-field .field-label {
+  margin-top: 12px;
+}
+
+.object-rotation-field {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+.object-rotate-action {
+  margin-top: 8px;
+}
+
+.object-disclosure-toggle {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.object-disclosure-toggle:hover {
+  border-color: #c6ccd4;
+  background: #fafbfc;
+}
+
+.object-disclosure-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.object-clearance-fields,
+.object-position-fields {
+  margin-top: 6px;
+}
+
+.fit-diagnostic-groups {
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fit-diagnostic-group {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.fit-diagnostic-group > strong {
+  font-size: 11px;
+}
+
+.fit-diagnostic-group .fit-reasons {
+  margin: 0;
+}
+
+.fit-diagnostic-group > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.fit-diagnostic-containment,
+.fit-diagnostic-collision,
+.fit-diagnostic-opening {
+  border-color: #fecaca;
+  background: #fffafa;
+}
+
+.fit-diagnostic-clearance {
+  border-color: #fed7aa;
+  background: #fffbeb;
+}
+
+.object-form-error {
+  margin-bottom: 6px;
+}
+
 @media (max-width: 980px) {
   .catalog-filter-controls {
     gap: 8px;
@@ -224,5 +337,11 @@
 
   .furniture-clearance-summary dd {
     display: grid;
+  }
+
+  .object-main-grid,
+  .object-clearance-fields,
+  .object-position-fields {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
