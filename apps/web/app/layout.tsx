@@ -8,6 +8,7 @@ import "./editor-shell.css";
 import "./context-panel.css";
 import "./recognition-panel.css";
 import "./canvas-feedback.css";
+import "./m7-onboarding-status.css";
 import "./design-system-migrations.css";
 import "./planning-exact-gap.css";
 
