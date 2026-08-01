@@ -2,7 +2,7 @@
 
 import type { PlacedObject, VlezetDocument } from "@vlezet/domain";
 import { evaluateObjectFits, measureObjectClearances } from "@vlezet/geometry";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { describeObjectContext } from "./context-panel-contract";
 import {
   ContextActionArea,
@@ -42,26 +42,22 @@ function draftNumber(value: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function ObjectInspector({ document, object }: Readonly<{ document: VlezetDocument; object: PlacedObject }>) {
+export function ObjectInspector(props: Readonly<{ document: VlezetDocument; object: PlacedObject }>) {
+  const authorityFingerprint = objectAuthorityFingerprint(props.object);
+  return <ObjectInspectorEditor key={authorityFingerprint} {...props} />;
+}
+
+function ObjectInspectorEditor({ document, object }: Readonly<{ document: VlezetDocument; object: PlacedObject }>) {
   const fit = useMemo(() => evaluateObjectFits(document).byObjectId.get(object.id), [document, object.id]);
   const measurements = useMemo(() => {
     try { return measureObjectClearances(document, object.id); } catch { return null; }
   }, [document, object.id]);
-  const authorityFingerprint = objectAuthorityFingerprint(object);
   const [draft, setDraft] = useState<ObjectEditorDraft>(() => createObjectEditorDraft(object));
   const [errors, setErrors] = useState<ObjectDraftErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [clearanceOpen, setClearanceOpen] = useState(false);
   const [positionOpen, setPositionOpen] = useState(false);
   const inputRefs = useRef<Partial<Record<ObjectDraftField, HTMLInputElement | null>>>({});
-
-  useEffect(() => {
-    setDraft(createObjectEditorDraft(object));
-    setErrors({});
-    setFormError(null);
-    setClearanceOpen(false);
-    setPositionOpen(false);
-  }, [authorityFingerprint, object]);
 
   const setField = (field: ObjectDraftField, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
