@@ -10,6 +10,7 @@ export type EditorOperationKind =
 export type EditorEvidenceAction =
   | Readonly<{ kind: "select-room"; roomId: string }>
   | Readonly<{ kind: "open-recognition-review" }>
+  | Readonly<{ kind: "retry-project-backup" }>
   | Readonly<{ kind: "undo" }>
   | Readonly<{ kind: "dismiss" }>;
 
