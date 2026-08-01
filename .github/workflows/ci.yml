@@ -66,6 +66,28 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      - name: Core Recognition Benchmark
+        id: recognition_core
+        shell: bash
+        env:
+          RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set +e
+          pnpm benchmark:recognition:core 2>&1 | tee recognition-core.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload Core Recognition Benchmark evidence
+        if: always() && steps.recognition_core.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: recognition-core-benchmark
+          path: |
+            tools/recognition-benchmark/artifacts/core
+            recognition-core.log
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Typecheck
         id: typecheck
         shell: bash
