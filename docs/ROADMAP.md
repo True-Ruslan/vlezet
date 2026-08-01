@@ -28,8 +28,9 @@ DONE        M7.1 Editor Shell and Responsive Context
 DONE        M7.2 Context Inspector Foundation
 DONE        M7.3 Design System and Content Components
 DONE        M7.4 Canvas Selection and Mode Feedback
-NOW         M7.5 Onboarding, Status and Recovery
-LATER       M7.6+ in dependency-aware browser-tested slices
+DONE        M7.5 Onboarding, Status and Recovery
+NOW         M7.6 Geometry and Opening Inspector
+LATER       M7.7+ in dependency-aware browser-tested slices
 ```
 
 ## Completed product foundation
@@ -95,23 +96,11 @@ digest:              sha256:1f62c1695231d266a9e28e3a54b40402a85106e231c15ca6e53d
 merge:               509dfc02e17c87a58da8356894564a8f27bc5a9b
 ```
 
-Delivered:
-
-- semantic color, typography, spacing, radius, elevation and control-size tokens;
-- balanced density: 14 px ordinary text, 13 px compact text, 12 px meaningful minimum;
-- store-free `UiButton`, `UiField`, messages, notices, badges, cards, empty states and dialogs;
-- consistent focus, disabled, busy, success, warning and error states;
-- Russian presentation formatting for `мм`, `м²` and `°`;
-- representative migration of room controls, furniture catalogue, fit statuses, dashboard, dialogs and recognition UI;
-- Canvas helper text raised to the governed minimum;
-- OpenRouter response healing for malformed structured output;
-- stale decision cleanup when repeated AI checks replace recognition candidates.
+Delivered governed design tokens, balanced-density typography, shared UI/status primitives, Russian unit formatting and representative migration of high-value surfaces.
 
 Product owner confirmed:
 
 > «Подтверждаю все!»
-
-Recognition accuracy remains a known deferred limitation. The flow is editable and non-authoritative, but valid AI output can still reconstruct topology and areas incorrectly. Canonical future owner: issue #27 and `docs/product/RECOGNITION_QUALITY_REQUIREMENTS.md`.
 
 ### M7.4 — Canvas Selection and Mode Feedback
 
@@ -127,77 +116,97 @@ digest:              sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae5
 merge:               399e1b439d478fb8b01cd39795213b42beece84f
 ```
 
-Delivered:
-
-- one authoritative Canvas mode and next-action status;
-- active-tool feedback for Select, Wall, openings, Measure, placement, tracing/review and read-only 3D;
-- explicit first-point and second-point phases for walls and measurement;
-- one-level `Escape` priority;
-- distinct ordinary, hover, selected, valid-preview and invalid-preview presentation;
-- cursor roles for selection, drawing, placement and panning;
-- live opening-preview labels;
-- Chromium full-flow and WebKit core-smoke regression coverage.
+Delivered authoritative Canvas mode/next-action feedback, gesture phases, one-level Escape, distinct hover/selection/preview states, cursor roles and compact-width equivalence.
 
 Product owner confirmed:
 
 > «Все прошло строго и четко как ты описал.»
 
-The acceptance correction changed only the browser-test pointer target from the edge of a snapped wall hit stroke to its centreline. Geometry, snapping, hit tolerance and selection ordering were not changed.
+### M7.5 — Onboarding, Status and Recovery
 
-## NOW — M7.5 Onboarding, Status and Recovery
+Status: **DONE / ACCEPTED / MERGED**.
+
+```text
+PR:                  #31
+final accepted head: d59273615ea2f08a4a364b91fe3e3cc408ba9090
+standard CI:         30692400878 — PASS
+browser CI:          30692400874 — PASS
+artifact:            8816130412
+digest:              sha256:530ebca7ee8f20d5e79fb592a7f80a1c43044bbe750ddec752e24f98c6165581
+merge:               62413d91ebc5cef335b772e46ebbc1dae18b1acc
+```
+
+Delivered:
+
+- a non-blocking first-project guide from empty project to first authoritative closed room;
+- state-derived progress without duplicated geometry truth;
+- per-project browser-local dismissal;
+- durable runtime-only evidence for room, recognition, planning and editable backup completion;
+- stale evidence clearing after Undo or deletion;
+- valid retry for backup-export failure;
+- compact-width and docked-panel-safe placement;
+- Chromium full-flow and WebKit core-smoke regression coverage.
+
+Product owner confirmed:
+
+> «Все работает четко как надо и как ты описал.»
+
+No geometry, topology, persistence, history, recognition or planning authority changed.
+
+## NOW — M7.6 Geometry and Opening Inspector
 
 ### Problems
 
-- first-room success still relies on discovering that a valid room requires closed wall topology;
-- the empty project does not guide a new user through the whole first successful task;
-- important success evidence can disappear after a short-lived toast;
-- high-impact completion or failure may not remain confirmable in the originating context.
+- clear room size, wall-axis length and wall thickness remain conceptually easy to confuse;
+- geometry controls expose precise data without enough ordinary-user hierarchy;
+- opening width and wall offset are not always self-explanatory;
+- door swing side and direction are not visually predictable enough before placement or editing.
 
 Owned findings:
 
-- `UX-ONBOARD-001`;
-- `UX-DATA-003`.
+- `UX-GEO-001`;
+- `UX-GEO-002`;
+- `UX-GEO-003`.
 
 ### Goal
 
-Guide the first successful room without a blocking wizard and make important completion or recovery evidence durable enough to verify after transient notifications disappear.
+Make clear dimensions, wall-axis/thickness semantics and opening placement or swing visually predictable without changing geometry authority.
 
 ### Expected scope
 
-- dismissible first-project checklist tied to existing state;
-- contextual next action from empty project through closed-room success;
-- explicit successful-room-closure feedback;
-- durable in-context evidence for high-impact completion events;
-- minor transient toasts retained for low-impact feedback;
-- clear failure/recovery and retry copy where the existing operation supports recovery;
-- compact-width and Chromium/WebKit coverage for first-project progress and post-toast evidence.
+- simplify wall, room and opening inspector hierarchy around common intent;
+- clearly distinguish clear dimensions, axis length and thickness;
+- preserve exact millimetre editing and semantic Undo/Redo;
+- explain opening width, offset and host-wall relationship;
+- make door swing side and direction legible in controls and Canvas feedback;
+- retain advanced values through progressive disclosure;
+- add focused content/layout contracts and Chromium/WebKit representative flows.
 
 ### Acceptance
 
-- a first-time user can create and recognise a closed rectangular room without external instruction;
-- onboarding is dismissible and does not block expert use;
-- progress is derived from authoritative document/editor state rather than duplicated product data;
-- important completion remains confirmable after a toast expires;
-- failure/recovery copy identifies the originating action and a valid next step;
-- M7.1–M7.4 shell, context, components and Canvas feedback do not regress;
-- no geometry, topology, document, persistence or history authority changes;
+- ordinary users can identify what each geometry value measures;
+- edits produce understandable, explicitly attributed results;
+- common tasks are prioritised without removing exact control;
+- opening and swing semantics are predictable before commit;
+- invalid or impossible edits fail closed with a valid next step;
+- one-step semantic Undo/Redo remains intact;
+- compact widths preserve inspector and Canvas reachability;
+- M7.1–M7.5 do not regress;
 - full CI, Chromium/WebKit and product-owner acceptance pass.
 
 ### Non-goals
 
-- geometry or topology algorithm changes;
-- automatic room generation;
-- a blocking step-by-step wizard;
-- document schema/migration changes for onboarding state;
-- dashboard/project-lifecycle redesign;
-- geometry, opening or furniture inspector redesign;
+- topology, room derivation, area, snapping or hit-tolerance algorithm changes;
+- automatic geometry repair or room generation;
+- new persistent geometry models or migrations;
 - recognition-quality hardening;
-- M7.9 accessibility completion.
+- furniture/fit workflow redesign;
+- whole-product accessibility completion;
+- visual-only consolidation.
 
 ## Later M7 programme
 
 ```text
-M7.6  Geometry and Opening Inspector
 M7.7  Furniture and Fit Workflow
 M7.8  Reference and Recognition Workflow + issue #27 quality hardening
 M7.9  Accessibility and Responsive Hardening

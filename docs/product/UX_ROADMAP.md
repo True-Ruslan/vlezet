@@ -26,12 +26,12 @@ M7.1 Editor Shell and Responsive Context
 M7.2 Context Inspector Foundation
 M7.3 Design System and Content Components
 M7.4 Canvas Selection and Mode Feedback
-
-NOW
 M7.5 Onboarding, Status and Recovery
 
-THEN
+NOW
 M7.6 Geometry and Opening Inspector
+
+THEN
 M7.7 Furniture and Fit Workflow
 M7.8 Reference and Recognition Workflow
 M7.9 Accessibility and Responsive Hardening
@@ -79,16 +79,7 @@ digest:     sha256:1f62c1695231d266a9e28e3a54b40402a85106e231c15ca6e53dc2d577b22
 merge:      509dfc02e17c87a58da8356894564a8f27bc5a9b
 ```
 
-Delivered:
-
-- governed semantic tokens and balanced-density typography;
-- store-free buttons, fields, messages, notices, badges, cards, empty states and dialogs;
-- consistent focus, disabled, busy, success, warning and error states;
-- canonical Russian number/unit formatting;
-- representative migration of room, catalogue, fit, dashboard, dialogs and recognition UI;
-- Canvas helper text at the governed minimum;
-- strict Chromium/WebKit coverage preserving M7.1/M7.2;
-- OpenRouter response healing and stale recognition-decision cleanup discovered during manual acceptance.
+Delivered governed semantic tokens, balanced-density typography, shared store-free controls/status primitives, canonical Russian unit formatting and representative migration of high-value surfaces.
 
 Product-owner acceptance:
 
@@ -112,16 +103,7 @@ digest:     sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae52e3e2c938
 merge:      399e1b439d478fb8b01cd39795213b42beece84f
 ```
 
-Delivered:
-
-- one authoritative Canvas mode and next-action status;
-- active-tool feedback for selection, wall/opening drawing, measurement, placement, tracing/review and read-only 3D;
-- explicit first-point and second-point phases;
-- one-level `Escape` priority;
-- distinct hover, selection, valid-preview and invalid-preview treatments;
-- state-derived cursor feedback;
-- live opening-preview labels;
-- compact-width equivalence plus Chromium/WebKit regression coverage.
+Delivered one authoritative Canvas mode and next-action status, explicit gesture phases, one-level `Escape`, distinct hover/selection/preview states, cursor roles and compact-width equivalence.
 
 Product-owner acceptance:
 
@@ -129,70 +111,99 @@ Product-owner acceptance:
 
 Geometry, snapping, hit tolerance, selection ordering, history and persistence authority were unchanged.
 
-## 4. NOW — M7.5 Onboarding, Status and Recovery
+### M7.5 — Onboarding, Status and Recovery
 
 **Problems:** `UX-ONBOARD-001`, `UX-DATA-003`  
-**Goal:** guide the first successful closed room without a blocking wizard and keep important completion or recovery evidence available after transient notifications disappear.
+**Result:** accepted and squash-merged through PR #31 as `62413d91ebc5cef335b772e46ebbc1dae18b1acc`.
+
+Final evidence:
+
+```text
+head:       d59273615ea2f08a4a364b91fe3e3cc408ba9090
+standard:   30692400878 — PASS
+browser:    30692400874 — PASS
+artifact:   8816130412
+digest:     sha256:530ebca7ee8f20d5e79fb592a7f80a1c43044bbe750ddec752e24f98c6165581
+merge:      62413d91ebc5cef335b772e46ebbc1dae18b1acc
+```
+
+Delivered:
+
+- a non-blocking first-project guide from empty state to the first authoritative closed room;
+- progress derived only from current walls and existing `deriveRooms()` output;
+- per-project browser-local dismissal without `VlezetDocument` changes;
+- durable runtime-only evidence for first room creation, recognition Apply, planning Apply and editable backup export;
+- stale room evidence clearing after Undo or room deletion;
+- recoverable backup-export failure with a valid retry action;
+- compact-width placement that preserves Canvas visibility and hit testing;
+- Chromium full-flow and WebKit core-smoke coverage.
+
+Product-owner acceptance:
+
+> «Все работает четко как надо и как ты описал.»
+
+No geometry, topology, recognition/planning algorithm, semantic-history or persistence authority changed.
+
+## 4. NOW — M7.6 Geometry and Opening Inspector
+
+**Problems:** `UX-GEO-001`, `UX-GEO-002`, `UX-GEO-003`  
+**Goal:** make clear dimensions, wall-axis/thickness semantics and door/opening behaviour visually predictable without changing geometry authority.
 
 ### Product questions to resolve in design
 
-- What is the smallest dismissible checklist that leads from an empty project to a valid closed room?
-- Which progress steps can be derived directly from existing document/editor state?
-- How is successful room closure acknowledged without duplicating room/topology authority?
-- Which events are minor enough for a toast, and which require durable in-context evidence?
-- Where should durable completion evidence live so it remains attributable to the originating action?
-- What recovery action is valid for each selected high-impact failure state?
-- How should dismissed onboarding behave across project reopen without changing `VlezetDocument`?
+- Which geometry value is the ordinary user's primary intent: clear room size, wall-axis length or wall thickness?
+- How can the inspector explain the relationship between those values without resembling a CAD parameter table?
+- Which advanced wall controls should remain immediately visible, and which can be progressively disclosed?
+- How should opening width and wall offset be described relative to the visible clear opening?
+- How should the host wall, opening side and door swing be shown before placement and after selection?
+- Which geometry edits can use immediate semantic commands and which need explicit Apply or confirmation?
+- How should diagnostics distinguish invalid input, impossible topology and a valid but surprising result?
 
 ### Expected scope
 
-- dismissible first-project checklist;
-- contextual next action from empty project through closed-room success;
-- explicit successful-room-closure feedback;
-- progress derived from existing editor/document state;
-- durable in-context evidence for selected high-impact completion events;
-- minor toasts retained for low-impact feedback;
-- clear retry/recovery copy where an existing operation supports recovery;
-- representative Chromium/WebKit flows including compact width and post-toast verification.
+- simplify wall, room and opening inspector hierarchy around common user intent;
+- clearly distinguish clear room dimensions, wall-axis length and thickness;
+- preserve exact millimetre values and existing semantic Undo/Redo;
+- explain opening width, offset and host-wall relationship;
+- make door swing side/direction visually legible in controls and Canvas feedback;
+- retain advanced geometry detail through progressive disclosure;
+- use M7.3 components and M7.4 Canvas feedback rather than parallel UI patterns;
+- add focused content/layout contracts and representative Chromium/WebKit flows.
 
 ### Dependencies
 
-- accepted M7.1 project/tool hierarchy and readable save status;
-- accepted M7.2 context anatomy and workflow return;
-- accepted M7.3 component/status primitives;
-- accepted M7.4 active-mode and next-action feedback.
+- accepted M7.2 context anatomy and independent scrolling;
+- accepted M7.3 components, typography and status hierarchy;
+- accepted M7.4 Canvas modes, previews and cursor roles;
+- accepted M7.5 durable completion/recovery evidence.
 
 ### Authority boundaries
 
-M7.5 may derive presentation progress and completion state from existing authoritative operations. It must not:
+M7.6 may reorganise presentation, copy and command routing around existing geometry operations. It must not:
 
-- alter wall topology, room derivation or geometry algorithms;
-- create an onboarding copy of apartment geometry;
-- auto-generate or silently close rooms;
-- change semantic history or command grouping;
-- add onboarding fields to `VlezetDocument`;
-- replace project lifecycle, export/import or recovery authority;
-- implement later inspector, recognition or accessibility slices.
+- alter wall topology, room derivation, area calculation, snapping or hit-tolerance algorithms;
+- create a second geometry model in React or Zustand;
+- silently convert between clear-size and axis-size authority;
+- auto-repair or auto-close rooms;
+- add persistent onboarding/inspector state to `VlezetDocument`;
+- change recognition-quality work owned by M7.8;
+- implement furniture/fit workflow work owned by M7.7;
+- claim M7.9 accessibility completion.
 
 ### Acceptance
 
-- a first-time user can create and recognise a closed rectangular room without external instruction;
-- onboarding is dismissible and does not block expert use;
-- checklist progress follows authoritative state and cannot become a second product truth;
-- room-closure success is understandable without relying only on a short toast;
-- selected high-impact completion remains confirmable after the toast expires;
-- failure/recovery evidence identifies the originating action and valid next step;
-- switching project or restoring state does not leave misleading onboarding/completion evidence;
-- compact widths preserve task reachability;
-- M7.1–M7.4 regressions remain green;
+- ordinary users can identify which values represent clear room size, wall-axis length and thickness;
+- editing one value produces an understandable, explicitly attributed result;
+- wall and room inspectors prioritise common tasks without removing exact control;
+- opening width/offset and host-wall meaning are understandable before committing an edit;
+- door swing side and direction are visually predictable;
+- invalid or impossible edits provide a valid next step and do not mutate geometry;
+- Undo/Redo remains semantic and one-step for accepted operations;
+- compact widths preserve Canvas and inspector reachability;
+- M7.1–M7.5 regressions remain green;
 - full unit/type/lint/build CI, Chromium full flow, WebKit core smoke and product-owner acceptance pass.
 
 ## 5. Later candidate slices
-
-### M7.6 — Geometry and Opening Inspector
-
-**Problems:** `UX-GEO-001`, `UX-GEO-002`, `UX-GEO-003`  
-**Goal:** make clear dimensions, wall-axis/thickness semantics and door swing visually predictable.
 
 ### M7.7 — Furniture and Fit Workflow
 
@@ -235,7 +246,7 @@ M7.5 may derive presentation progress and completion state from existing authori
 | `UX-SHELL-005` | M7.3 — complete |
 | `UX-CANVAS-001` | M7.4 — complete |
 | `UX-CANVAS-002` | M7.4 — complete |
-| `UX-ONBOARD-001` | M7.5 |
+| `UX-ONBOARD-001` | M7.5 — complete |
 | `UX-GEO-001/002/003` | M7.6 |
 | `UX-FURN-001/002/003` | M7.7 |
 | `UX-FURN-004` | M7.3 foundation / M7.7 completion |
@@ -247,7 +258,7 @@ M7.5 may derive presentation progress and completion state from existing authori
 | residual `UX-ACCESS-002` | M7.9 |
 | `UX-3D-001/003` | M7.10 |
 | `UX-PLAN-001/002/003/004` | M7.11 |
-| `UX-DATA-003` | M7.5 |
+| `UX-DATA-003` | M7.5 — complete |
 | `UX-DATA-002`, `UX-DASH-001/002` | M7.12 |
 | `UX-PATTERN-001` | M7.2/M7.3 — complete |
 | `UX-PATTERN-002/003` | M7.3 — complete |
