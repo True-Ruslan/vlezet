@@ -193,9 +193,6 @@ test.describe("M7.6 geometry and opening inspector", () => {
       const reverseGuide = page.locator('[data-first-project-phase="drawing"]');
       await expect(reverseGuide).toBeVisible();
       await reverseGuide.getByRole("button", { name: "Скрыть", exact: true }).click();
-      await page.keyboard.press("Escape");
-      await page.keyboard.press("Escape");
-      await clickCanvasRatio(page, 0.54, 0.34);
 
       await expect(page.locator("#wall-length-anchor")).toContainText("Левый конец");
       await expect(page.locator("#wall-length-anchor")).toContainText("Правый конец");
