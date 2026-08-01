@@ -159,6 +159,9 @@ importers:
 
   packages/recognition:
     devDependencies:
+      '@vlezet/geometry':
+        specifier: workspace:*
+        version: link:../geometry
       typescript:
         specifier: 6.0.3
         version: 6.0.3
