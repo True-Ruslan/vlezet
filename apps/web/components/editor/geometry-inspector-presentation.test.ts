@@ -47,21 +47,37 @@ describe("geometry inspector wall presentation", () => {
     expect(reverse.internalStartIsVisualStart).toBe(false);
   });
 
-  it("derives physical face labels without guessing room inside or outside", () => {
-    const horizontal = physicalFaceChoices(deriveWallVisualModel({ x: 0, y: 0 }, { x: 4000, y: 0 }));
-    const vertical = physicalFaceChoices(deriveWallVisualModel({ x: 0, y: 0 }, { x: 0, y: 4000 }));
+  it("keeps physical face labels stable while canonical alignment follows wall direction", () => {
+    const horizontalForward = physicalFaceChoices(deriveWallVisualModel({ x: 0, y: 0 }, { x: 4000, y: 0 }));
+    const horizontalReverse = physicalFaceChoices(deriveWallVisualModel({ x: 4000, y: 0 }, { x: 0, y: 0 }));
+    const verticalForward = physicalFaceChoices(deriveWallVisualModel({ x: 0, y: 0 }, { x: 0, y: 4000 }));
+    const verticalReverse = physicalFaceChoices(deriveWallVisualModel({ x: 0, y: 4000 }, { x: 0, y: 0 }));
 
-    expect(horizontal.map((choice) => choice.label)).toEqual([
+    expect(horizontalForward.map((choice) => choice.label)).toEqual([
       "Верхняя поверхность",
       "Ось стены",
       "Нижняя поверхность",
     ]);
-    expect(vertical.map((choice) => choice.label)).toEqual([
+    expect(horizontalReverse.map((choice) => choice.label)).toEqual([
+      "Верхняя поверхность",
+      "Ось стены",
+      "Нижняя поверхность",
+    ]);
+    expect(horizontalForward.map((choice) => choice.alignment)).toEqual(["right-face", "center", "left-face"]);
+    expect(horizontalReverse.map((choice) => choice.alignment)).toEqual(["left-face", "center", "right-face"]);
+
+    expect(verticalForward.map((choice) => choice.label)).toEqual([
       "Левая поверхность",
       "Ось стены",
       "Правая поверхность",
     ]);
-    expect(horizontal.map((choice) => choice.alignment)).toEqual(["left-face", "center", "right-face"]);
+    expect(verticalReverse.map((choice) => choice.label)).toEqual([
+      "Левая поверхность",
+      "Ось стены",
+      "Правая поверхность",
+    ]);
+    expect(verticalForward.map((choice) => choice.alignment)).toEqual(["left-face", "center", "right-face"]);
+    expect(verticalReverse.map((choice) => choice.alignment)).toEqual(["right-face", "center", "left-face"]);
   });
 
   it("rejects a zero-length wall", () => {
