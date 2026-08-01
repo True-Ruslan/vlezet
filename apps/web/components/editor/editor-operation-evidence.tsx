@@ -12,6 +12,7 @@ function actionLabel(action: EditorEvidenceAction): string {
   switch (action.kind) {
     case "select-room": return "Открыть комнату";
     case "open-recognition-review": return "Вернуться к проверке";
+    case "retry-project-backup": return "Повторить экспорт";
     case "undo": return "Отменить изменение";
     case "dismiss": return "Закрыть";
   }
