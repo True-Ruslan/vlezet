@@ -112,8 +112,15 @@ async function placeSofa(page) {
 }
 
 async function setObjectValues(page, values) {
-  for (const [label, value] of Object.entries(values)) await page.getByLabel(label, { exact: true }).fill(String(value));
-  await page.getByRole("button", { name: "Применить параметры" }).click();
+  const clearanceLabels = new Set(["Спереди", "Справа", "Сзади", "Слева"]);
+  if (Object.keys(values).some((label) => clearanceLabels.has(label))) {
+    const disclosure = page.getByRole("button", { name: "Настроить рекомендуемые зазоры", exact: true });
+    if (await disclosure.isVisible()) await disclosure.click();
+  }
+  for (const [label, value] of Object.entries(values)) {
+    await page.getByLabel(label, { exact: true }).fill(String(value));
+  }
+  await page.getByRole("button", { name: "Применить изменения", exact: true }).click();
 }
 
 async function installReference(page) {

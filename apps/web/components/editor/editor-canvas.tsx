@@ -52,6 +52,7 @@ import {
 } from "./dimension-annotations";
 import { DimensionOverlay } from "./dimension-overlay";
 import { ExactGapOverlay } from "./exact-gap-overlay";
+import { fitStatusPresentation } from "./fit-status-badge";
 import { getFurniturePreset } from "./furniture-presets";
 import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-store";
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
@@ -262,6 +263,9 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const fitEvaluation = useMemo(() => evaluateObjectFits(evaluationDocument), [evaluationDocument]);
   const placementPreviewFitStatus = visiblePlacementPreview
     ? fitEvaluation.byObjectId.get(PLACEMENT_PREVIEW_ID)?.status ?? "blocked"
+    : null;
+  const placementPreviewFitLabel = placementPreviewFitStatus
+    ? fitStatusPresentation(placementPreviewFitStatus).label
     : null;
   const livePreviewState = visibleOpeningPreview
     ? (visibleOpeningPreview.valid ? "valid" : "invalid")
@@ -729,6 +733,23 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
           {errorDiagnostics.map((diagnostic,index) => diagnostic.point ? (() => { const screen=worldToScreen(diagnostic.point!,viewport); return <Circle key={`diagnostic-${diagnostic.code}-${index}`} x={screen.x} y={screen.y} radius={8} fill="#ef4444" opacity={0.85}/>; })() : null)}
         </Layer>
       </Stage>
+      {visiblePlacementPreview && placementPreviewFitLabel ? (
+        <div
+          className="placement-fit-label"
+          data-fit-status={placementPreviewFitStatus}
+          role="status"
+          aria-live="polite"
+        >
+          {placementPreviewFitLabel}
+        </div>
+      ) : null}
+      {selectedObject ? (
+        <div className="object-canvas-legend" aria-label="Обозначения выбранного предмета">
+          <span><i className="object-canvas-legend-swatch is-dimension" aria-hidden="true" />Размер предмета</span>
+          <span><i className="object-canvas-legend-swatch is-recommended" aria-hidden="true" />Рекомендуемая зона использования</span>
+          <span><i className="object-canvas-legend-swatch is-actual" aria-hidden="true" />Свободно сейчас</span>
+        </div>
+      ) : null}
       {errorDiagnostics.length > 0 ? <div className="topology-alert" role="status">Проверьте геометрию: {errorDiagnostics[0]?.message}</div> : null}
       <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо — масштаб</span><span>{helpText}</span><span>Space + drag / средняя кнопка — панорама</span></div>
     </div>

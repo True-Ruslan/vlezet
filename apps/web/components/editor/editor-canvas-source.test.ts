@@ -72,3 +72,18 @@ describe("M7.6 geometry inspector Canvas preview integration", () => {
     expect(source).toContain("openingSegment(document, opening)");
   });
 });
+
+describe("M7.7 furniture fit Canvas explanation", () => {
+  it("derives placement copy from the existing M2 preview result", () => {
+    expect(source).toContain("fitStatusPresentation(placementPreviewFitStatus)");
+    expect(source).toContain('className="placement-fit-label"');
+    expect(source).not.toContain("evaluatePlacementFit");
+  });
+
+  it("distinguishes object dimensions, recommended use zone and actual free distance", () => {
+    expect(source).toContain('className="object-canvas-legend"');
+    expect(source).toContain("Размер предмета");
+    expect(source).toContain("Рекомендуемая зона использования");
+    expect(source).toContain("Свободно сейчас");
+  });
+});
