@@ -5,6 +5,9 @@
 
 Read `docs/PROJECT_STATE.md` first. Detailed UX sequencing is in `docs/product/UX_ROADMAP.md`.
 
+> **Repository maintenance note (2026-08-01):** README canonical portfolio link rollout completed through PR #36 (`5ac744c` → squash `accbf57`), exact-head CI #2318 / run `30714871143` PASS. This does not alter roadmap sequencing; M7.7 remains `NOW`.
+
+
 ## Summary
 
 ```text
