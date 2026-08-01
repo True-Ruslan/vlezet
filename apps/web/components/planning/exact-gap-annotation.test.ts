@@ -51,7 +51,7 @@ describe("deriveExactGapAnnotation", () => {
       requiredMm: 800,
       satisfied: true,
       zeroLength: false,
-      label: "↔ Зазор 842 мм",
+      label: "↔ Кратчайший зазор 842 мм",
     });
     expect(JSON.stringify(document)).toBe(documentBefore);
     expect(JSON.stringify(preview)).toBe(candidateBefore);
@@ -71,7 +71,7 @@ describe("deriveExactGapAnnotation", () => {
         requiredMm: 0,
         satisfied: true,
         zeroLength: true,
-        label: "↔ Зазор 0 мм",
+        label: "↔ Кратчайший зазор 0 мм",
       });
   });
 
