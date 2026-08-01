@@ -10,6 +10,7 @@ import "./recognition-panel.css";
 import "./canvas-feedback.css";
 import "./m7-onboarding-status.css";
 import "./m7-geometry-inspector.css";
+import "./m7-furniture-fit.css";
 import "./design-system-migrations.css";
 import "./planning-exact-gap.css";
 
