@@ -24,7 +24,7 @@ describe("room inspector precision semantics", () => {
     expect(html).toContain("Внутренние размеры");
     expect(html).toContain("По горизонтали");
     expect(html).toContain("По вертикали");
-    expect(html.match(/между внутренними поверхностями стен/g)).toHaveLength(2);
+    expect(html.match(/между внутренними поверхностями стен/gi)).toHaveLength(2);
     expect(html).toContain('id="room-clear-width"');
     expect(html).toContain('id="room-clear-height"');
     expect(html).toContain("Левая сторона");
