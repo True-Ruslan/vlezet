@@ -6,7 +6,14 @@ function observation(projectId: string, planningOpen: boolean, pastLength: numbe
 }
 
 describe("M7.5 planning Apply transition", () => {
-  it("publishes only when an open planning workflow closes after its semantic command", () => {
+  it("publishes as soon as the authoritative semantic command is appended", () => {
+    expect(observePlanningApplyTransition(
+      observation("p1", true, 4, "object/update"),
+      observation("p1", true, 5, "planning/apply-candidate"),
+    ).applied).toBe(true);
+  });
+
+  it("also remains correct when Apply and workflow close are batched", () => {
     expect(observePlanningApplyTransition(
       observation("p1", true, 4, "object/update"),
       observation("p1", false, 5, "planning/apply-candidate"),
