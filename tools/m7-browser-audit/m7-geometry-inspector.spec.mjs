@@ -39,11 +39,16 @@ async function moveCanvasRatio(page, xRatio, yRatio) {
 
 async function drawRectangle(page) {
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickCanvasRatio(page, 0.40, 0.27);
-  await clickCanvasRatio(page, 0.75, 0.27);
-  await clickCanvasRatio(page, 0.75, 0.68);
-  await clickCanvasRatio(page, 0.40, 0.68);
-  await clickCanvasRatio(page, 0.40, 0.27);
+  // Reuse the accepted M7.5 closed-room path: these points reliably snap the
+  // last segment back to the first authoritative vertex in both engines.
+  await clickCanvasRatio(page, 0.55, 0.28);
+  await clickCanvasRatio(page, 0.82, 0.28);
+  await clickCanvasRatio(page, 0.82, 0.68);
+  await clickCanvasRatio(page, 0.55, 0.68);
+  await clickCanvasRatio(page, 0.55, 0.28);
+
+  await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
+  await expect(page.locator('[data-first-project-phase="room-created"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
@@ -76,7 +81,7 @@ test.describe("M7.6 geometry and opening inspector", () => {
     await openNewProject(page);
     await drawRectangle(page);
 
-    await clickCanvasRatio(page, 0.57, 0.47);
+    await clickCanvasRatio(page, 0.685, 0.48);
     await expect(page.getByText("Внутренние размеры", { exact: true })).toBeVisible();
     await expect(page.getByText("По горизонтали", { exact: true })).toBeVisible();
     await expect(page.getByText("По вертикали", { exact: true })).toBeVisible();
@@ -96,7 +101,7 @@ test.describe("M7.6 geometry and opening inspector", () => {
       "max",
     );
 
-    await clickCanvasRatio(page, 0.57, 0.27);
+    await clickCanvasRatio(page, 0.685, 0.28);
     await expect(page.getByText("Длина по оси", { exact: true })).toBeVisible();
     await expect(page.locator("#wall-length-anchor")).toContainText("Левый конец");
     await expect(page.locator("#wall-length-anchor")).toContainText("Правый конец");
@@ -124,9 +129,9 @@ test.describe("M7.6 geometry and opening inspector", () => {
     await expect(page.locator("#wall-thickness")).toHaveValue(String(Math.round(initialThickness)));
 
     await page.getByRole("button", { name: "Дверь", exact: true }).click();
-    await moveCanvasRatio(page, 0.57, 0.27);
+    await moveCanvasRatio(page, 0.685, 0.28);
     await expect(page.locator(".canvas-shell")).toHaveAttribute("data-preview-state", "valid");
-    await clickCanvasRatio(page, 0.57, 0.27);
+    await clickCanvasRatio(page, 0.685, 0.28);
     await expect(page.getByText("Размер проёма", { exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
 
