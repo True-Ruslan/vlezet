@@ -2,9 +2,12 @@ import type { WallLengthAnchor, WallThicknessAlignment } from "@vlezet/editor-co
 import type { Point2 } from "@vlezet/geometry";
 
 const EPSILON = 1e-6;
+const OPENING_POSITION_ERROR = "Положение проёма должно быть конечным и находиться в пределах стены.";
 
 export type WallVisualAxis = "horizontal" | "vertical" | "diagonal";
 export type VisualEndpointRole = "visual-start" | "center" | "visual-end";
+export type OpeningOffsetReference = "visual-start" | "visual-end";
+export type DoorSwingValue = Readonly<{ hinge: "start" | "end"; side: "left" | "right" }>;
 
 export type WallVisualModel = Readonly<{
   axis: WallVisualAxis;
@@ -23,6 +26,15 @@ export type PhysicalFaceChoice = Readonly<{
   alignment: WallThicknessAlignment;
 }>;
 
+export type DoorSwingChoice = Readonly<{
+  id: "start-left" | "start-right" | "end-left" | "end-right";
+  value: DoorSwingValue;
+  hingeLabel: string;
+  directionLabel: string;
+  accessibleLabel: string;
+  openDirection: Point2;
+}>;
+
 type EndpointCopy = Readonly<{
   startLabel: string;
   endLabel: string;
@@ -33,6 +45,13 @@ type EndpointCopy = Readonly<{
 type CanonicalFace = Readonly<{
   vector: Point2;
   alignment: Exclude<WallThicknessAlignment, "center">;
+}>;
+
+type OpeningOffsetInput = Readonly<{
+  model: WallVisualModel;
+  wallLengthMm: number;
+  openingWidthMm: number;
+  reference: OpeningOffsetReference;
 }>;
 
 function assertFinitePoint(point: Point2): void {
@@ -84,6 +103,10 @@ function vectorComesFirst(first: Point2, second: Point2): boolean {
   return first.x < second.x;
 }
 
+function capitalize(value: string): string {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
 function faceLabel(vector: Point2): string {
   const horizontal = vector.x < -EPSILON
     ? "левая"
@@ -96,12 +119,50 @@ function faceLabel(vector: Point2): string {
       ? "нижняя"
       : null;
 
-  if (horizontal && vertical) {
-    return `${vertical[0].toUpperCase()}${vertical.slice(1)} ${horizontal} поверхность`;
-  }
-  if (vertical) return `${vertical[0].toUpperCase()}${vertical.slice(1)} поверхность`;
-  if (horizontal) return `${horizontal[0].toUpperCase()}${horizontal.slice(1)} поверхность`;
+  if (horizontal && vertical) return `${capitalize(vertical)} ${horizontal} поверхность`;
+  if (vertical) return `${capitalize(vertical)} поверхность`;
+  if (horizontal) return `${capitalize(horizontal)} поверхность`;
   throw new Error("Невозможно определить физическую поверхность стены.");
+}
+
+function assertOpeningDimensions(wallLengthMm: number, openingWidthMm: number): number {
+  if (
+    !Number.isFinite(wallLengthMm) ||
+    !Number.isFinite(openingWidthMm) ||
+    wallLengthMm <= 0 ||
+    openingWidthMm < 0 ||
+    openingWidthMm > wallLengthMm + EPSILON
+  ) {
+    throw new Error(OPENING_POSITION_ERROR);
+  }
+  return Math.max(0, wallLengthMm - openingWidthMm);
+}
+
+function normalizeOpeningOffset(value: number, maximum: number): number {
+  if (!Number.isFinite(value) || value < -EPSILON || value > maximum + EPSILON) {
+    throw new Error(OPENING_POSITION_ERROR);
+  }
+  if (Math.abs(value) <= EPSILON) return 0;
+  if (Math.abs(value - maximum) <= EPSILON) return maximum;
+  return value;
+}
+
+function referenceUsesInternalStart(model: WallVisualModel, reference: OpeningOffsetReference): boolean {
+  return reference === "visual-start"
+    ? model.internalStartIsVisualStart
+    : !model.internalStartIsVisualStart;
+}
+
+function openDirectionLabel(direction: Point2): string {
+  if (Math.abs(direction.x) > Math.abs(direction.y)) return direction.x < 0 ? "влево" : "вправо";
+  return direction.y < 0 ? "вверх" : "вниз";
+}
+
+function hingeLocation(model: WallVisualModel, hinge: DoorSwingValue["hinge"]): string {
+  const hingeIsVisualStart = hinge === "start"
+    ? model.internalStartIsVisualStart
+    : !model.internalStartIsVisualStart;
+  return hingeIsVisualStart ? model.visualStartShort : model.visualEndShort;
 }
 
 export function deriveWallVisualModel(start: Point2, end: Point2): WallVisualModel {
@@ -176,4 +237,51 @@ export function physicalFaceChoices(model: WallVisualModel): readonly PhysicalFa
       alignment: second.alignment,
     },
   ];
+}
+
+export function displayedOpeningOffsetMm(
+  input: OpeningOffsetInput & Readonly<{ canonicalOffsetMm: number }>,
+): number {
+  const maximum = assertOpeningDimensions(input.wallLengthMm, input.openingWidthMm);
+  const canonical = normalizeOpeningOffset(input.canonicalOffsetMm, maximum);
+  return referenceUsesInternalStart(input.model, input.reference)
+    ? canonical
+    : normalizeOpeningOffset(input.wallLengthMm - canonical - input.openingWidthMm, maximum);
+}
+
+export function canonicalOpeningOffsetMm(
+  input: OpeningOffsetInput & Readonly<{ displayedOffsetMm: number }>,
+): number {
+  const maximum = assertOpeningDimensions(input.wallLengthMm, input.openingWidthMm);
+  const displayed = normalizeOpeningOffset(input.displayedOffsetMm, maximum);
+  return referenceUsesInternalStart(input.model, input.reference)
+    ? displayed
+    : normalizeOpeningOffset(input.wallLengthMm - displayed - input.openingWidthMm, maximum);
+}
+
+export function deriveDoorSwingChoices(model: WallVisualModel): readonly DoorSwingChoice[] {
+  const values: readonly DoorSwingValue[] = [
+    { hinge: "start", side: "left" },
+    { hinge: "start", side: "right" },
+    { hinge: "end", side: "left" },
+    { hinge: "end", side: "right" },
+  ];
+
+  return values.map((value) => {
+    const sign = value.side === "right" ? -1 : 1;
+    const openDirection = {
+      x: model.leftNormal.x * sign,
+      y: model.leftNormal.y * sign,
+    };
+    const hingeLabel = `Петли ${hingeLocation(model, value.hinge)}`;
+    const directionLabel = `Открывание ${openDirectionLabel(openDirection)}`;
+    return {
+      id: `${value.hinge}-${value.side}` as DoorSwingChoice["id"],
+      value,
+      hingeLabel,
+      directionLabel,
+      accessibleLabel: `${hingeLabel}, ${directionLabel.toLowerCase()}`,
+      openDirection,
+    };
+  });
 }
