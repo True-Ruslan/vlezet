@@ -11,7 +11,8 @@
     "test": "turbo test",
     "typecheck": "turbo typecheck",
     "lint": "eslint .",
-    "validate:m7-docs": "node scripts/validate-m7-docs.mjs"
+    "validate:m7-docs": "node scripts/validate-m7-docs.mjs",
+    "benchmark:recognition:core": "node tools/recognition-benchmark/run-core.mjs"
   },
   "devDependencies": {
     "eslint": "9.39.5",
