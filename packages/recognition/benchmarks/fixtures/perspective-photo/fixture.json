@@ -1,0 +1,281 @@
+{
+  "schemaVersion": "recognition-benchmark-fixture-v1",
+  "id": "perspective-photo",
+  "description": "Synthetic photographed plan with perspective-like skew and frame edges.",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Generated from repository-owned vector primitives with deterministic affine distortion.",
+    "license": null
+  },
+  "tags": [
+    "perspective",
+    "calibrated",
+    "multi-room"
+  ],
+  "source": {
+    "fileName": "source.png",
+    "sha256": "f921a1e86ab6fa44ebb007bf85ef2d4888382c58cad775b8e03e49d92d2b1814",
+    "cloudResponseFileName": null
+  },
+  "calibration": {
+    "sourceWidthPx": 740,
+    "sourceHeightPx": 540,
+    "millimetersPerPixel": 10,
+    "originPx": {
+      "x": 30,
+      "y": 30
+    }
+  },
+  "tolerances": {
+    "wallEndpointMm": 120,
+    "wallOrientationDeg": 5,
+    "wallMinimumOverlapRatio": 0.7,
+    "wallLengthRelativeError": 0.2,
+    "junctionMm": 120,
+    "openingCenterMm": 150,
+    "openingWidthMm": 150,
+    "roomMinimumIoU": 0.75,
+    "labelAnchorMm": 500
+  },
+  "expectedJunctions": [
+    {
+      "id": "j-0-0",
+      "positionMm": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-0-4800",
+      "positionMm": {
+        "x": 0,
+        "y": 4800
+      }
+    },
+    {
+      "id": "j-3300-0",
+      "positionMm": {
+        "x": 3300,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-3300-4800",
+      "positionMm": {
+        "x": 3300,
+        "y": 4800
+      }
+    },
+    {
+      "id": "j-6800-0",
+      "positionMm": {
+        "x": 6800,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-6800-4800",
+      "positionMm": {
+        "x": 6800,
+        "y": 4800
+      }
+    }
+  ],
+  "expectedWalls": [
+    {
+      "id": "h-0-0-3300",
+      "startMm": {
+        "x": 0,
+        "y": 0
+      },
+      "endMm": {
+        "x": 3300,
+        "y": 0
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-0",
+      "endJunctionId": "j-3300-0"
+    },
+    {
+      "id": "h-0-3300-6800",
+      "startMm": {
+        "x": 3300,
+        "y": 0
+      },
+      "endMm": {
+        "x": 6800,
+        "y": 0
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-3300-0",
+      "endJunctionId": "j-6800-0"
+    },
+    {
+      "id": "h-4800-0-3300",
+      "startMm": {
+        "x": 0,
+        "y": 4800
+      },
+      "endMm": {
+        "x": 3300,
+        "y": 4800
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-4800",
+      "endJunctionId": "j-3300-4800"
+    },
+    {
+      "id": "h-4800-3300-6800",
+      "startMm": {
+        "x": 3300,
+        "y": 4800
+      },
+      "endMm": {
+        "x": 6800,
+        "y": 4800
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-3300-4800",
+      "endJunctionId": "j-6800-4800"
+    },
+    {
+      "id": "v-0-0-4800",
+      "startMm": {
+        "x": 0,
+        "y": 0
+      },
+      "endMm": {
+        "x": 0,
+        "y": 4800
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-0",
+      "endJunctionId": "j-0-4800"
+    },
+    {
+      "id": "v-3300-0-4800",
+      "startMm": {
+        "x": 3300,
+        "y": 0
+      },
+      "endMm": {
+        "x": 3300,
+        "y": 4800
+      },
+      "thicknessMm": 150,
+      "kind": "partition",
+      "startJunctionId": "j-3300-0",
+      "endJunctionId": "j-3300-4800"
+    },
+    {
+      "id": "v-6800-0-4800",
+      "startMm": {
+        "x": 6800,
+        "y": 0
+      },
+      "endMm": {
+        "x": 6800,
+        "y": 4800
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-6800-0",
+      "endJunctionId": "j-6800-4800"
+    }
+  ],
+  "expectedOpenings": [
+    {
+      "id": "door-1",
+      "kind": "door",
+      "hostWallId": "v-3300-0-4800",
+      "centerMm": {
+        "x": 3300,
+        "y": 2500
+      },
+      "widthMm": 900,
+      "orientationDeg": 90,
+      "swing": null
+    },
+    {
+      "id": "window-1",
+      "kind": "window",
+      "hostWallId": "h-0-3300-6800",
+      "centerMm": {
+        "x": 5000,
+        "y": 0
+      },
+      "widthMm": 1300,
+      "orientationDeg": 0,
+      "swing": null
+    }
+  ],
+  "expectedRooms": [
+    {
+      "id": "r-1-1",
+      "polygonMm": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 3300,
+          "y": 0
+        },
+        {
+          "x": 3300,
+          "y": 4800
+        },
+        {
+          "x": 0,
+          "y": 4800
+        }
+      ],
+      "name": "Комната",
+      "classification": "living",
+      "statedAreaM2": 15.84,
+      "computedAreaM2": 15.84
+    },
+    {
+      "id": "r-1-2",
+      "polygonMm": [
+        {
+          "x": 3300,
+          "y": 0
+        },
+        {
+          "x": 6800,
+          "y": 0
+        },
+        {
+          "x": 6800,
+          "y": 4800
+        },
+        {
+          "x": 3300,
+          "y": 4800
+        }
+      ],
+      "name": "Кухня",
+      "classification": "kitchen",
+      "statedAreaM2": 16.8,
+      "computedAreaM2": 16.8
+    }
+  ],
+  "expectedLabels": [],
+  "statedTotalAreaM2": 32.64,
+  "metricApplicability": {
+    "wallGeometry": true,
+    "wallTopology": true,
+    "openings": true,
+    "rooms": true,
+    "roomLabels": false,
+    "roomAreas": true,
+    "totalArea": true,
+    "confidence": true
+  }
+}

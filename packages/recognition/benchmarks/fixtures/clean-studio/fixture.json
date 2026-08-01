@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "recognition-benchmark-fixture-v1",
+  "id": "clean-studio",
+  "description": "Clean developer-style studio with one door and two windows.",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Generated from repository-owned vector primitives.",
+    "license": null
+  },
+  "tags": [
+    "clean",
+    "calibrated"
+  ],
+  "source": {
+    "fileName": "source.png",
+    "sha256": "3f0776cc40e3833fc15baad3084bfd0ec05d5efa47c87a7a7dcfda1eb1fbfb64",
+    "cloudResponseFileName": null
+  },
+  "calibration": {
+    "sourceWidthPx": 660,
+    "sourceHeightPx": 510,
+    "millimetersPerPixel": 10,
+    "originPx": {
+      "x": 30,
+      "y": 30
+    }
+  },
+  "tolerances": {
+    "wallEndpointMm": 120,
+    "wallOrientationDeg": 5,
+    "wallMinimumOverlapRatio": 0.7,
+    "wallLengthRelativeError": 0.2,
+    "junctionMm": 120,
+    "openingCenterMm": 150,
+    "openingWidthMm": 150,
+    "roomMinimumIoU": 0.75,
+    "labelAnchorMm": 500
+  },
+  "expectedJunctions": [
+    {
+      "id": "j-0-0",
+      "positionMm": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-0-4500",
+      "positionMm": {
+        "x": 0,
+        "y": 4500
+      }
+    },
+    {
+      "id": "j-6000-0",
+      "positionMm": {
+        "x": 6000,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-6000-4500",
+      "positionMm": {
+        "x": 6000,
+        "y": 4500
+      }
+    }
+  ],
+  "expectedWalls": [
+    {
+      "id": "h-0-0-6000",
+      "startMm": {
+        "x": 0,
+        "y": 0
+      },
+      "endMm": {
+        "x": 6000,
+        "y": 0
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-0",
+      "endJunctionId": "j-6000-0"
+    },
+    {
+      "id": "h-4500-0-6000",
+      "startMm": {
+        "x": 0,
+        "y": 4500
+      },
+      "endMm": {
+        "x": 6000,
+        "y": 4500
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-4500",
+      "endJunctionId": "j-6000-4500"
+    },
+    {
+      "id": "v-0-0-4500",
+      "startMm": {
+        "x": 0,
+        "y": 0
+      },
+      "endMm": {
+        "x": 0,
+        "y": 4500
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-0",
+      "endJunctionId": "j-0-4500"
+    },
+    {
+      "id": "v-6000-0-4500",
+      "startMm": {
+        "x": 6000,
+        "y": 0
+      },
+      "endMm": {
+        "x": 6000,
+        "y": 4500
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-6000-0",
+      "endJunctionId": "j-6000-4500"
+    }
+  ],
+  "expectedOpenings": [
+    {
+      "id": "door-1",
+      "kind": "door",
+      "hostWallId": "h-4500-0-6000",
+      "centerMm": {
+        "x": 1200,
+        "y": 4500
+      },
+      "widthMm": 900,
+      "orientationDeg": 0,
+      "swing": null
+    },
+    {
+      "id": "window-1",
+      "kind": "window",
+      "hostWallId": "h-0-0-6000",
+      "centerMm": {
+        "x": 2500,
+        "y": 0
+      },
+      "widthMm": 1400,
+      "orientationDeg": 0,
+      "swing": null
+    },
+    {
+      "id": "window-2",
+      "kind": "window",
+      "hostWallId": "v-6000-0-4500",
+      "centerMm": {
+        "x": 6000,
+        "y": 2600
+      },
+      "widthMm": 1200,
+      "orientationDeg": 90,
+      "swing": null
+    }
+  ],
+  "expectedRooms": [
+    {
+      "id": "r-1-1",
+      "polygonMm": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 6000,
+          "y": 0
+        },
+        {
+          "x": 6000,
+          "y": 4500
+        },
+        {
+          "x": 0,
+          "y": 4500
+        }
+      ],
+      "name": "Студия",
+      "classification": "living",
+      "statedAreaM2": 27,
+      "computedAreaM2": 27
+    }
+  ],
+  "expectedLabels": [],
+  "statedTotalAreaM2": 27,
+  "metricApplicability": {
+    "wallGeometry": true,
+    "wallTopology": true,
+    "openings": true,
+    "rooms": true,
+    "roomLabels": false,
+    "roomAreas": true,
+    "totalArea": true,
+    "confidence": true
+  }
+}

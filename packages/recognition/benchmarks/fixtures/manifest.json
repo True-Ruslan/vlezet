@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "recognition-corpus-manifest-v1",
+  "corpusVersion": "recognition-corpus-v1",
+  "fixtureIds": [
+    "clean-studio",
+    "clean-multi-room",
+    "openings-heavy",
+    "labels-and-areas",
+    "furniture-heavy",
+    "low-resolution",
+    "perspective-photo",
+    "m7-3-regression-anonymized"
+  ]
+}
