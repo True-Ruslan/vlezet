@@ -24,7 +24,7 @@ describe("M7.1 apartment editor shell integration", () => {
     expect(normalized).toContain('<EditorSideSurfaceid="editor-context-surface"');
     expect(normalized).toContain('side="right"');
     expect(normalized).toContain("<FurnitureCatalog/>");
-    expect(normalized).toContain("<WallInspectorplanningNavigation={workflowNavigation}");
+    expect(normalized).toContain("<WallInspectorplanningNavigation={workflowNavigation}/>");
   });
 
   it("connects the compact context trigger without persisting presentation state", () => {
@@ -75,9 +75,9 @@ describe("M7.5 onboarding and durable evidence integration", () => {
     expect(source).toContain("referencePanelOpen={props.referencePanelOpen}");
   });
 
-  it("passes project identity to planning presentation without changing planning domain data", () => {
-    expect(source).toContain("<WallInspector");
-    expect(source).toContain("projectId={props.projectId}");
+  it("keeps project identity in presentation and outside document mutations", () => {
+    expect(compact(source)).toContain("<WallInspectorplanningNavigation={workflowNavigation}/>");
     expect(source).not.toContain("replaceProjectDocument(current, { projectId");
+    expect(source).not.toContain("history.document.projectId");
   });
 });
