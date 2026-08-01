@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactElement } from "react";
 import {
-  classifyCardinalScreenSide,
+  describeFurnitureScreenDirection,
   furnitureLocalSideScreenVector,
   type ClearanceSidePresentation,
   type FurnitureLocalSide,
@@ -19,13 +19,6 @@ const SIDE_LABELS: Readonly<Record<FurnitureLocalSide, string>> = {
   back: "Сзади",
   left: "Слева",
 };
-
-const SCREEN_LABELS = {
-  top: "сверху на плане",
-  right: "справа на плане",
-  bottom: "снизу на плане",
-  left: "слева на плане",
-} as const;
 
 function compact(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
@@ -50,19 +43,19 @@ export function FurnitureOrientationCue({
       <div className="furniture-orientation-visual">
         <div className="furniture-orientation-stage" aria-hidden="true">
           <div className="furniture-orientation-object" style={objectStyle}>
-            <span className="furniture-front-marker">Перед предмета</span>
+            <span className="furniture-front-marker">↓</span>
           </div>
         </div>
-        <p>Поворот {compact(rotationDeg)}° · размер {compact(widthMm)} × {compact(depthMm)} мм</p>
+        <p><strong>Перед предмета</strong> отмечен стрелкой · Поворот {compact(rotationDeg)}° · размер {compact(widthMm)} × {compact(depthMm)} мм</p>
       </div>
 
       <dl className="furniture-clearance-summary">
         {(["front", "right", "back", "left"] as const).map((side) => {
           const presentation = sides[side];
-          const screenSide = classifyCardinalScreenSide(furnitureLocalSideScreenVector(side, rotationDeg));
+          const screenDirection = describeFurnitureScreenDirection(furnitureLocalSideScreenVector(side, rotationDeg));
           return (
             <div key={side} aria-invalid={presentation.invalid ? "true" : undefined}>
-              <dt>{SIDE_LABELS[side]} · {SCREEN_LABELS[screenSide]}</dt>
+              <dt>{SIDE_LABELS[side]} · {screenDirection}</dt>
               <dd>
                 <span>Рекомендуется {compact(presentation.recommendedMm)} мм</span>
                 <span>{presentation.actualMm === null
