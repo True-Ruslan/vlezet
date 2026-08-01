@@ -35,6 +35,12 @@ export type DoorSwingChoice = Readonly<{
   openDirection: Point2;
 }>;
 
+export type OpeningCueDraft = Readonly<{
+  visualOffsetMm: number;
+  widthMm: number;
+  usingAuthoritativeFallback: boolean;
+}>;
+
 type EndpointCopy = Readonly<{
   startLabel: string;
   endLabel: string;
@@ -51,6 +57,16 @@ type OpeningOffsetInput = Readonly<{
   model: WallVisualModel;
   wallLengthMm: number;
   openingWidthMm: number;
+  reference: OpeningOffsetReference;
+}>;
+
+type OpeningCueDraftInput = Readonly<{
+  model: WallVisualModel;
+  wallLengthMm: number;
+  authoritativeWidthMm: number;
+  authoritativeOffsetMm: number;
+  draftWidthMm: number;
+  displayedOffsetMm: number;
   reference: OpeningOffsetReference;
 }>;
 
@@ -257,6 +273,41 @@ export function canonicalOpeningOffsetMm(
   return referenceUsesInternalStart(input.model, input.reference)
     ? displayed
     : normalizeOpeningOffset(input.wallLengthMm - displayed - input.openingWidthMm, maximum);
+}
+
+export function deriveOpeningCueDraft(input: OpeningCueDraftInput): OpeningCueDraft {
+  try {
+    const canonicalOffsetMm = canonicalOpeningOffsetMm({
+      model: input.model,
+      wallLengthMm: input.wallLengthMm,
+      openingWidthMm: input.draftWidthMm,
+      displayedOffsetMm: input.displayedOffsetMm,
+      reference: input.reference,
+    });
+    return {
+      visualOffsetMm: displayedOpeningOffsetMm({
+        model: input.model,
+        wallLengthMm: input.wallLengthMm,
+        openingWidthMm: input.draftWidthMm,
+        canonicalOffsetMm,
+        reference: "visual-start",
+      }),
+      widthMm: input.draftWidthMm,
+      usingAuthoritativeFallback: false,
+    };
+  } catch {
+    return {
+      visualOffsetMm: displayedOpeningOffsetMm({
+        model: input.model,
+        wallLengthMm: input.wallLengthMm,
+        openingWidthMm: input.authoritativeWidthMm,
+        canonicalOffsetMm: input.authoritativeOffsetMm,
+        reference: "visual-start",
+      }),
+      widthMm: input.authoritativeWidthMm,
+      usingAuthoritativeFallback: true,
+    };
+  }
 }
 
 export function deriveDoorSwingChoices(model: WallVisualModel): readonly DoorSwingChoice[] {
