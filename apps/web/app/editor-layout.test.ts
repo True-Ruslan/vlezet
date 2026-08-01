@@ -5,7 +5,8 @@ const globalsCss = readFileSync(new URL("./globals.css", import.meta.url), "utf8
 const viewportCss = readFileSync(new URL("./editor-viewport.css", import.meta.url), "utf8");
 const shellCss = readFileSync(new URL("./editor-shell.css", import.meta.url), "utf8");
 const contextCss = readFileSync(new URL("./context-panel.css", import.meta.url), "utf8");
-const css = `${globalsCss}\n${viewportCss}\n${shellCss}\n${contextCss}`;
+const canvasFeedbackCss = readFileSync(new URL("./canvas-feedback.css", import.meta.url), "utf8");
+const css = `${globalsCss}\n${viewportCss}\n${shellCss}\n${contextCss}\n${canvasFeedbackCss}`;
 const planningCss = readFileSync(new URL("./planning-exact-gap.css", import.meta.url), "utf8");
 
 function compact(value: string): string {
@@ -93,6 +94,21 @@ describe("M7.1 editor viewport layout contract", () => {
   it("overrides the legacy compact rule that hid project identity", () => {
     const projectTitle = compact(ruleBodies(".editor-project-bar .project-title-stack"));
     expect(projectTitle).toContain("display:grid");
+  });
+});
+
+describe("M7.4 Canvas status layout", () => {
+  it("keeps status readable, non-blocking and width-bounded", () => {
+    const host = compact(ruleBodies(".editor-canvas-mode-status-host"));
+    const status = compact(ruleBodies(".canvas-mode-status"));
+    const instruction = compact(ruleBodies(".canvas-mode-instruction"));
+
+    expect(host).toContain("position:absolute");
+    expect(host).toContain("pointer-events:none");
+    expect(status).toContain("max-width:min(560px,calc(100vw-32px))");
+    expect(status).toContain("font-size:12px");
+    expect(instruction).toContain("min-width:0");
+    expect(compact(canvasFeedbackCss)).toContain("@media(max-width:640px)");
   });
 });
 

@@ -15,7 +15,12 @@ import { Circle, Group, Line, Rect, Text } from "react-konva";
 import { useStore } from "zustand";
 import { measurementToolStore } from "./measurement-tool-store";
 import { shouldHandleTapePointer } from "./tape-measurement-pointer";
-import { advanceTapeMeasurement, previewTapeMeasurement, type TapeMeasurementState } from "./tape-measurement-state";
+import {
+  advanceTapeMeasurement,
+  previewTapeMeasurement,
+  tapeMeasurementPhase,
+  type TapeMeasurementState,
+} from "./tape-measurement-state";
 import { editorStore } from "./use-editor-store";
 
 const SNAP_TOLERANCE_PX = 12;
@@ -58,7 +63,7 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
   const endpoints = useMemo(() => document.vertices.map((vertex) => vertex.position), [document.vertices]);
 
   useEffect(() => measurementToolStore.subscribe((state) => {
-    if (!state.active) setMeasurement(null);
+    if (!state.active || state.phase === "idle") setMeasurement(null);
   }), []);
 
   useEffect(() => {
@@ -70,9 +75,6 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
     if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === "Space") spacePressedRef.current = true;
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setMeasurement(null);
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code === "Space") spacePressedRef.current = false;
@@ -127,7 +129,13 @@ export function TapeMeasurementTool({ width, height, viewport, gridStep }: TapeM
     if (!pointer) return;
     event.cancelBubble = true;
     const point = snapPoint(pointer);
-    setMeasurement((current) => commit ? advanceTapeMeasurement(current, point) : previewTapeMeasurement(current, point));
+    setMeasurement((current) => {
+      const next = commit
+        ? advanceTapeMeasurement(current, point)
+        : previewTapeMeasurement(current, point);
+      if (commit) measurementToolStore.getState().setPhase(tapeMeasurementPhase(next));
+      return next;
+    });
   };
 
   return <Group>

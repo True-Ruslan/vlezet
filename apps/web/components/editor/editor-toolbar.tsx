@@ -210,6 +210,8 @@ type CommandButtonProps = Readonly<{
   onClick: () => void;
 }>;
 
+const EXCLUSIVE_TOOL_ICONS: ReadonlySet<EditorCommandIconName> = new Set(["select", "wall", "door", "window", "measure"]);
+
 function CommandButton({ icon, label, shortcut, active = false, disabled = false, title, indicator = false, onClick }: CommandButtonProps) {
   return (
     <button
@@ -218,6 +220,7 @@ function CommandButton({ icon, label, shortcut, active = false, disabled = false
       className={active ? "tool-button editor-command-button is-active" : "tool-button editor-command-button"}
       aria-label={label}
       aria-pressed={active}
+      data-active-tool={active && EXCLUSIVE_TOOL_ICONS.has(icon) ? "true" : undefined}
       title={title ?? (shortcut ? `${label} (${shortcut})` : label)}
       onClick={onClick}
     >

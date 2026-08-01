@@ -1,4 +1,5 @@
 import type { Point2 } from "@vlezet/geometry";
+import type { MeasurementPhase } from "./measurement-tool-store";
 
 export type TapeMeasurementState = Readonly<{
   start: Point2;
@@ -22,4 +23,9 @@ export function previewTapeMeasurement(
 ): TapeMeasurementState {
   if (!current || current.complete) return current;
   return { ...current, end: point };
+}
+
+export function tapeMeasurementPhase(measurement: TapeMeasurementState): MeasurementPhase {
+  if (!measurement) return "idle";
+  return measurement.complete ? "complete" : "measuring";
 }

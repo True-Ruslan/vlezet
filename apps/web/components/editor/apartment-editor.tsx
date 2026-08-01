@@ -20,16 +20,19 @@ import {
   workflowReturnActionLabel,
   type EditorOrdinarySelection,
 } from "./context-workflow-return";
+import { EditorCanvasModeStatus } from "./editor-canvas-mode-status";
 import {
   deriveEditorContextKind,
   editorContextLabel,
   nextCompactEditorSurface,
   type CompactEditorSurface,
 } from "./editor-context-kind";
+import { deriveEditorEscapeAction } from "./editor-escape-priority";
 import { EditorSideSurface } from "./editor-side-surface";
 import { EditorToolbar } from "./editor-toolbar";
 import { FurnitureCatalog } from "./furniture-catalog";
 import { getEditorShortcut } from "./keyboard";
+import { measurementToolStore } from "./measurement-tool-store";
 import { editorStore } from "./use-editor-store";
 import { useCompactEditorLayout } from "./use-compact-editor-layout";
 import { WallInspector } from "./wall-inspector";
@@ -251,13 +254,8 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       if (isEditableTarget(event.target) && event.key !== "Escape") return;
       const shortcut = getEditorShortcut(event);
       if (!shortcut) return;
-      if (viewMode === "3d") {
-        if (shortcut === "cancel") {
-          event.preventDefault();
-          spatialViewModeStore.getState().setMode("2d");
-        }
-        return;
-      }
+      if (viewMode === "3d" && shortcut !== "cancel") return;
+
       event.preventDefault();
       const store = editorStore.getState();
       switch (shortcut) {
@@ -275,15 +273,40 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           if (store.selectedObjectId) store.deleteSelectedObject();
           else if (store.selectedOpeningId) store.deleteSelectedOpening();
           break;
-        case "cancel":
-          store.cancelCurrentAction();
-          if (props.tracingMode) props.onStopTracing();
+        case "cancel": {
+          const measurement = measurementToolStore.getState();
+          const escapeAction = deriveEditorEscapeAction({
+            viewMode,
+            hasObjectGesture: store.objectGesture !== null,
+            measurementActive: measurement.active,
+            measurementPhase: measurement.phase,
+            hasWallDraft: store.draftWall !== null,
+            hasPlacement: store.placementPresetId !== null,
+            tracingMode: props.tracingMode,
+            workflowOpen: props.recognitionPanelOpen || props.referencePanelOpen || planningUiStore.getState().roomId !== null,
+            tool: store.tool,
+            hasSelection: Boolean(store.selectedWallId || store.selectedRoomId || store.selectedOpeningId || store.selectedObjectId),
+          });
+          switch (escapeAction) {
+            case "cancel-object-gesture": store.cancelObjectGesture(); break;
+            case "reset-measurement": measurementToolStore.getState().resetMeasurement(); break;
+            case "cancel-wall-draft": store.cancelDraft(); break;
+            case "cancel-placement": store.setPlacementPreset(null); break;
+            case "finish-tracing": props.onStopTracing(); break;
+            case "exit-measurement": measurementToolStore.getState().setActive(false); break;
+            case "close-workflow": returnFromWorkflow(); break;
+            case "exit-tool": store.setTool("select"); break;
+            case "clear-selection": store.selectWall(null); break;
+            case "return-to-2d": spatialViewModeStore.getState().setMode("2d"); break;
+            case "none": break;
+          }
           break;
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [props.onStopTracing, props.recognitionPanelOpen, props.tracingMode, toggleFurnitureSurface, viewMode]);
+  }, [props.onStopTracing, props.recognitionPanelOpen, props.referencePanelOpen, props.tracingMode, returnFromWorkflow, toggleFurnitureSurface, viewMode]);
 
   const workspaceClass = [
     "editor-workspace",
@@ -351,6 +374,11 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         onExportPngWithReference={props.onExportPngWithReference}
       />
       <section className={workspaceClass}>
+        <EditorCanvasModeStatus
+          viewMode={viewMode}
+          recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}
+          tracingMode={props.tracingMode}
+        />
         {viewMode === "2d" && props.furnitureCatalogOpen ? (
           <EditorSideSurface id="editor-catalogue-surface" side="left" label="Мебель и техника" compact={compactLayout} open={!compactLayout || compactSurface === "catalogue"} onClose={closeCompactSurface}>
             <FurnitureCatalog />
