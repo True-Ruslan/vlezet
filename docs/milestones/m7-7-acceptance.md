@@ -1,6 +1,6 @@
 # M7.7 — Furniture and Fit Workflow Acceptance
 
-**Status:** AUTOMATED ACCEPTANCE PASS / PRODUCT OWNER REVIEW PENDING  
+**Status:** PRODUCT OWNER ACCEPTED / MERGE PENDING  
 **Date:** 2026-08-01  
 **PR:** #35  
 **Branch:** `feat/m7-7-furniture-fit-workflow`  
@@ -81,6 +81,8 @@ Final review additionally corrected empty required numeric values, diagonal dire
 
 ## 4. Exact-head automated verification
 
+Product implementation candidate:
+
 ```text
 head:          ac802593f5ef47054b0f85fffb1df146ac8ad503
 standard CI:   30708809014 / #2307 — PASS
@@ -89,7 +91,17 @@ artifact:      8821214664
 digest:        sha256:a2e85ef8645359253201ffda7ef94b333b72a9b8f7a958b880e3972aa0b51edb
 ```
 
-The exact product head passed:
+Pre-review documentation candidate:
+
+```text
+head:          f72b82af5aec5a850c15baf5a086dcf6f04b8d16
+standard CI:   30708985205 / #2311 — PASS
+browser audit: 30708985198 / #373 — PASS
+artifact:      8821265004
+digest:        sha256:62dbdd25dba87274d7ceba4602a630580e6a6d2d47f3b2416a624b3579064217
+```
+
+The candidates passed:
 
 - frozen dependency installation;
 - M7 documentation contract;
@@ -116,8 +128,14 @@ The automated M7.7 flow verifies:
 9. compact width without document-level horizontal overflow;
 10. existing M7.1–M7.6 and design-system fit-state regressions.
 
-## 6. Product-owner gate
+## 6. Product-owner acceptance
 
-Product-owner browser acceptance remains mandatory before PR #35 can leave Draft or merge.
+The product owner completed the documented manual browser checklist on 2026-08-01 and confirmed:
 
-After manual acceptance is recorded, the final acceptance-record head must independently pass Standard CI and Browser Audit. Merge must then use protected squash mode with exact-head verification and no unresolved review threads.
+> Все проверки прошли, все круто.
+
+This confirms manual acceptance of catalogue search and recovery, placement fit copy, selected-object hierarchy, Canvas legend, atomic Apply and Undo, exact 90° and 45° orientation behaviour, recommended versus actual clearances, fail-closed validation, fit-state transitions and compact-width behaviour.
+
+## 7. Merge gate
+
+The acceptance-record head created by this confirmation must independently pass Standard CI and Browser Audit. After both workflows pass and review threads remain empty, PR #35 may leave Draft and merge through protected squash mode with exact-head verification.
