@@ -4,9 +4,11 @@
 
 Automated acceptance: **PASS**
 
-Product-owner browser acceptance: **pending**
+Product-owner browser acceptance: **PASS**
 
-The pull request must remain Draft until the product-owner browser smoke is explicitly accepted.
+Milestone acceptance: **COMPLETE**
+
+The product owner completed the prescribed browser smoke on 2026-08-01 and confirmed that every scenario behaved exactly as specified. PR #29 may leave Draft after the documentation-only acceptance commit passes the required workflow gates.
 
 ## Tested implementation
 
@@ -16,11 +18,11 @@ The pull request must remain Draft until the product-owner browser smoke is expl
 - Tested implementation SHA: `0140f48c2de1d9c0f235f382d674e0151d7c265c`
 - Base SHA: `be85f807017ff47f524baafb16a9349c5654a049`
 
-The acceptance evidence commit is documentation-only. The implementation and browser-test candidate above is the exact SHA used by both required workflow gates.
+The implementation and browser-test candidate above is the exact SHA used by both required implementation workflow gates. Subsequent commits are acceptance documentation only.
 
 ## Required workflow evidence
 
-### Standard CI
+### Implementation CI
 
 - Workflow: `CI`
 - Run ID: `30664624339`
@@ -37,7 +39,7 @@ Verified gates:
 - lint — PASS
 - production build — PASS
 
-### Browser acceptance
+### Implementation browser acceptance
 
 - Workflow: `M7 Browser Audit`
 - Run ID: `30664624124`
@@ -52,6 +54,15 @@ Verified gates:
 - Chromium M7 full browser audit — PASS
 - WebKit core smoke — PASS
 - browser evidence upload — PASS
+
+### Acceptance-document head verification
+
+The first acceptance-document head `38d0516e59299d7d16deb4079c29fd69dedbc357` also passed both workflows:
+
+- CI — PASS — run `30664841397` / #1941
+- M7 Browser Audit — PASS — run `30664841409` / #209
+- Chromium full flow — PASS
+- WebKit core smoke — PASS
 
 ## Browser evidence artifact
 
@@ -75,6 +86,25 @@ Verified gates:
 - preservation of the existing M7.2 and M7.3 Chromium regression suite;
 - WebKit core smoke.
 
+## Product-owner browser acceptance
+
+Accepted on 2026-08-01.
+
+The product owner manually verified:
+
+1. Wall first-point and second-point feedback.
+2. Sequential one-level `Escape` behaviour for Wall.
+3. Measure first-point and second-point feedback.
+4. Sequential one-level `Escape` behaviour for Measure.
+5. Hover presentation distinct from persistent selection.
+6. Door and window preview appearance and clearing.
+7. Invalid opening-placement feedback and blocked commit.
+8. Read-only 3D status and `Escape` return to 2D.
+9. Compact layout readability without horizontal overflow.
+10. Pan cursor states and furniture placement feedback.
+
+Result: all checks passed exactly as prescribed; no acceptance deviations were reported.
+
 ## Regression diagnosis recorded during acceptance
 
 The previous candidate `f5eebbce5043c85d37eb97b12a2522680a2a1997` passed standard CI but failed one Chromium hover assertion because the test pointer targeted the exact edge of the snapped wall hit stroke. The browser test was corrected to target the snapped wall centreline. Product geometry, hit width, snapping and selection order were not changed by that correction.
@@ -92,13 +122,6 @@ The accepted implementation does not change:
 - planning authority;
 - spatial/3D authority.
 
-## Remaining manual gate
+## Acceptance conclusion
 
-Before PR #29 leaves Draft, manually verify in a supported desktop browser:
-
-1. Wall first point, second point and sequential `Escape` behaviour.
-2. Measure first point, second point and sequential `Escape` behaviour.
-3. Hover is visually distinct from selection for a wall and another selectable entity.
-4. Door/window valid preview appears on a wall and clears away from it.
-5. Compact layout remains readable without horizontal overflow.
-6. `Escape` from 3D returns to 2D without closing an unrelated hidden workflow.
+M7.4 is accepted at product and automated levels. PR #29 is eligible to leave Draft once the workflow gates for this documentation-only acceptance commit complete successfully.
