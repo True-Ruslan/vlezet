@@ -119,3 +119,31 @@ jobs:
           path: build.log
           if-no-files-found: error
           retention-days: 3
+
+  # BEGIN M7_8A_LOCKFILE_PATCH
+  m7-8a-lockfile-patch:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feat/m7-8a-recognition-benchmark-foundation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/m7-8a-recognition-benchmark-foundation
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Synchronize lockfile and remove temporary patch
+        run: python3 .github/scripts/m7-8a-lockfile-patch.py
+  # END M7_8A_LOCKFILE_PATCH
