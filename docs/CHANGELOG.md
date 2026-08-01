@@ -4,6 +4,22 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-01 — Canonical engineering-portfolio link
+
+**Status:** merged to `main`; exact-head CI PASS.
+
+```text
+PR:                  #36
+accepted head:       5ac744cb2966e933375b217c0e250042355921ca
+CI:                  30714871143 / #2318 — PASS
+squash merge:        accbf57a9ef810217f7066d0e9a862b7e5a406a1
+```
+
+Added one explicit README link to `https://trueruslan.ru/`. No project-relative link, runtime behavior, schema, persistence, product milestone, recognition boundary, fit authority, planning authority or 3D behavior changed. M7.7 remains the selected next slice.
+
+---
+
+
 ## 2026-07-30 — M7.0 Product and UX Audit accepted
 
 PR #19 status at acceptance: source audit, browser evidence and product-owner gate complete; final integration evidence is recorded in `docs/milestones/m7-0-acceptance.md` and canonical state.

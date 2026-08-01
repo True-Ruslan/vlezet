@@ -4,6 +4,21 @@
 **Status:** M0–M7.6 are merged and accepted in `main`. M7.6 Geometry and Opening Inspector was squash-merged through PR #33 as `315828052edb483c34a68464acb70458bf4ff80d`. The only selected next implementation slice is M7.7 Furniture and Fit Workflow.  
 **Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
 
+## Repository visibility update — 2026-08-01
+
+The public README now exposes the canonical author and engineering-portfolio origin `https://trueruslan.ru/`.
+
+```text
+feature PR:          #36
+accepted head:       5ac744cb2966e933375b217c0e250042355921ca
+CI:                  30714871143 / #2318 — PASS
+squash merge:        accbf57a9ef810217f7066d0e9a862b7e5a406a1
+changed file:        README.md only
+```
+
+This is repository-discovery maintenance only. It changes no product capability, architecture, persistence, geometry, recognition, planning, 3D or browser-acceptance claim. **M7.7 Furniture and Fit Workflow remains the only selected next implementation slice.**
+
+
 ## 1. Product
 
 **Vlezet** is a precise, approachable apartment planner for non-professional owners and buyers.
