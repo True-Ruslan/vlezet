@@ -2,14 +2,14 @@ import { expect, test } from "@playwright/test";
 
 async function openNewProject(page) {
   await page.goto("/");
-  await expect(page.locator(".dashboard, .editor-app").first()).toBeVisible();
+  await expect(page.locator(".projects-page, .editor-app").first()).toBeVisible();
 
   if (await page.locator(".editor-app").isVisible()) {
     await page.getByRole("button", { name: "Вернуться к моим проектам" }).click();
   }
 
-  await expect(page.locator(".dashboard")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Мои проекты" })).toBeVisible();
+  await expect(page.locator(".projects-page")).toBeVisible();
+  await expect(page.getByText("Мои проекты", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Новый проект" }).click();
   await expect(page.locator(".editor-app")).toBeVisible();
   await expect(page.locator(".konvajs-content canvas").first()).toBeVisible();
@@ -66,8 +66,8 @@ test.describe("M7.5 onboarding, status and recovery", () => {
     await expect(page.getByText("Сохранено локально", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Вернуться к моим проектам" }).click();
-    await expect(page.getByRole("heading", { name: "Мои проекты" })).toBeVisible();
-    await page.locator(".project-card").first().locator(".project-open").click();
+    await expect(page.getByText("Мои проекты", { exact: true })).toBeVisible();
+    await page.locator(".project-card").first().locator(".project-card-open").click();
     await expect(page.locator(".editor-app")).toBeVisible();
     await expect(page.locator("[data-first-project-phase]")).toHaveCount(0);
 
