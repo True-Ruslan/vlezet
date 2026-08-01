@@ -1,7 +1,7 @@
 # Vlezet — M7 UX Implementation Roadmap
 
 **Phase:** M7 Product UX Foundation  
-**Last updated:** 2026-07-31  
+**Last updated:** 2026-08-01  
 **Rule:** trust, reachability and interaction hierarchy precede cosmetic consolidation. Only one slice is `NOW`.
 
 ## 1. Prioritisation model
@@ -25,12 +25,12 @@ M7.0 Product and UX Audit
 M7.1 Editor Shell and Responsive Context
 M7.2 Context Inspector Foundation
 M7.3 Design System and Content Components
-
-NOW
 M7.4 Canvas Selection and Mode Feedback
 
-THEN
+NOW
 M7.5 Onboarding, Status and Recovery
+
+THEN
 M7.6 Geometry and Opening Inspector
 M7.7 Furniture and Fit Workflow
 M7.8 Reference and Recognition Workflow
@@ -96,64 +96,98 @@ Product-owner acceptance:
 
 Recognition detection accuracy is explicitly not claimed as complete. The future contract is `docs/product/RECOGNITION_QUALITY_REQUIREMENTS.md`; issue #27 is owned by M7.8.
 
-## 4. NOW — M7.4 Canvas Selection and Mode Feedback
+### M7.4 — Canvas Selection and Mode Feedback
 
 **Problems:** `UX-SHELL-004`, `UX-CANVAS-001`, `UX-CANVAS-002`  
-**Goal:** make active tool, next action, current selection and temporary spatial state obvious.
+**Result:** accepted and squash-merged through PR #29 as `399e1b439d478fb8b01cd39795213b42beece84f`.
+
+Final evidence:
+
+```text
+head:       cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408
+standard:   30686372996 — PASS
+browser:    30686372995 — PASS
+artifact:   8814078535
+digest:     sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae52e3e2c938926
+merge:      399e1b439d478fb8b01cd39795213b42beece84f
+```
+
+Delivered:
+
+- one authoritative Canvas mode and next-action status;
+- active-tool feedback for selection, wall/opening drawing, measurement, placement, tracing/review and read-only 3D;
+- explicit first-point and second-point phases;
+- one-level `Escape` priority;
+- distinct hover, selection, valid-preview and invalid-preview treatments;
+- state-derived cursor feedback;
+- live opening-preview labels;
+- compact-width equivalence plus Chromium/WebKit regression coverage.
+
+Product-owner acceptance:
+
+> «Все прошло строго и четко как ты описал.»
+
+Geometry, snapping, hit tolerance, selection ordering, history and persistence authority were unchanged.
+
+## 4. NOW — M7.5 Onboarding, Status and Recovery
+
+**Problems:** `UX-ONBOARD-001`, `UX-DATA-003`  
+**Goal:** guide the first successful closed room without a blocking wizard and keep important completion or recovery evidence available after transient notifications disappear.
 
 ### Product questions to resolve in design
 
-- What is the one authoritative active-tool indicator?
-- How should normal selection differ from placement preview and hover?
-- How should valid and invalid Canvas targets communicate meaning without color alone?
-- What is the exact Escape priority when dialogs, workflows, placement, measurement and selection overlap?
-- Which guidance belongs in the toolbar, Canvas status strip, cursor or context panel?
-- How does compact width preserve the same state meaning without covering the working area?
+- What is the smallest dismissible checklist that leads from an empty project to a valid closed room?
+- Which progress steps can be derived directly from existing document/editor state?
+- How is successful room closure acknowledged without duplicating room/topology authority?
+- Which events are minor enough for a toast, and which require durable in-context evidence?
+- Where should durable completion evidence live so it remains attributable to the originating action?
+- What recovery action is valid for each selected high-impact failure state?
+- How should dismissed onboarding behave across project reopen without changing `VlezetDocument`?
 
 ### Expected scope
 
-- explicit active-tool and temporary-mode status;
-- context-sensitive next-action guidance for selection, walls, doors, windows, furniture and measurement;
-- cursor feedback derived from existing editor state;
-- distinct hover, selected, valid-preview and invalid-preview treatments;
-- documented Escape/cancellation priority and user-facing copy;
-- status feedback for completing, cancelling and switching tools;
-- representative Chromium/WebKit transitions and compact-width checks.
+- dismissible first-project checklist;
+- contextual next action from empty project through closed-room success;
+- explicit successful-room-closure feedback;
+- progress derived from existing editor/document state;
+- durable in-context evidence for selected high-impact completion events;
+- minor toasts retained for low-impact feedback;
+- clear retry/recovery copy where an existing operation supports recovery;
+- representative Chromium/WebKit flows including compact width and post-toast verification.
 
 ### Dependencies
 
-- accepted M7.1 command hierarchy and responsive shell;
-- accepted M7.2 context anatomy and compact state preservation;
-- accepted M7.3 tokens, notices, badges and content terminology.
+- accepted M7.1 project/tool hierarchy and readable save status;
+- accepted M7.2 context anatomy and workflow return;
+- accepted M7.3 component/status primitives;
+- accepted M7.4 active-mode and next-action feedback.
 
 ### Authority boundaries
 
-M7.4 may read existing tool, hover, selection, preview and validation state for presentation. It must not:
+M7.5 may derive presentation progress and completion state from existing authoritative operations. It must not:
 
-- alter geometry algorithms;
-- change snapping tolerances or hit testing;
-- create a second selection source of truth;
+- alter wall topology, room derivation or geometry algorithms;
+- create an onboarding copy of apartment geometry;
+- auto-generate or silently close rooms;
 - change semantic history or command grouping;
-- persist temporary mode/hover/preview state;
-- implement onboarding or recognition-quality work.
+- add onboarding fields to `VlezetDocument`;
+- replace project lifecycle, export/import or recovery authority;
+- implement later inspector, recognition or accessibility slices.
 
 ### Acceptance
 
-- the active tool is identifiable without remembering the previous click;
-- the next expected action is understandable for each representative exclusive tool;
-- selection, hover, valid preview and invalid preview are distinguishable through more than color;
-- Escape exits the highest-priority temporary state consistently and predictably;
-- switching tools removes stale preview/status state;
-- compact widths preserve equivalent meaning and do not block Canvas reachability;
-- M7.1–M7.3 regressions remain green;
+- a first-time user can create and recognise a closed rectangular room without external instruction;
+- onboarding is dismissible and does not block expert use;
+- checklist progress follows authoritative state and cannot become a second product truth;
+- room-closure success is understandable without relying only on a short toast;
+- selected high-impact completion remains confirmable after the toast expires;
+- failure/recovery evidence identifies the originating action and valid next step;
+- switching project or restoring state does not leave misleading onboarding/completion evidence;
+- compact widths preserve task reachability;
+- M7.1–M7.4 regressions remain green;
 - full unit/type/lint/build CI, Chromium full flow, WebKit core smoke and product-owner acceptance pass.
 
 ## 5. Later candidate slices
-
-### M7.5 — Onboarding, Status and Recovery
-
-**Problems:** `UX-ONBOARD-001`, `UX-DATA-003`  
-**Goal:** guide the first successful room and make important async completion/recovery durable.
 
 ### M7.6 — Geometry and Opening Inspector
 
@@ -197,10 +231,10 @@ M7.4 may read existing tool, hover, selection, preview and validation state for 
 | `UX-SHELL-001` | M7.1 — complete |
 | `UX-SHELL-002` | M7.1 — complete |
 | `UX-SHELL-003` | M7.2 — complete |
-| `UX-SHELL-004` | M7.4 |
+| `UX-SHELL-004` | M7.4 — complete |
 | `UX-SHELL-005` | M7.3 — complete |
-| `UX-CANVAS-001` | M7.4 |
-| `UX-CANVAS-002` | M7.4 |
+| `UX-CANVAS-001` | M7.4 — complete |
+| `UX-CANVAS-002` | M7.4 — complete |
 | `UX-ONBOARD-001` | M7.5 |
 | `UX-GEO-001/002/003` | M7.6 |
 | `UX-FURN-001/002/003` | M7.7 |
@@ -213,6 +247,7 @@ M7.4 may read existing tool, hover, selection, preview and validation state for 
 | residual `UX-ACCESS-002` | M7.9 |
 | `UX-3D-001/003` | M7.10 |
 | `UX-PLAN-001/002/003/004` | M7.11 |
+| `UX-DATA-003` | M7.5 |
 | `UX-DATA-002`, `UX-DASH-001/002` | M7.12 |
 | `UX-PATTERN-001` | M7.2/M7.3 — complete |
 | `UX-PATTERN-002/003` | M7.3 — complete |

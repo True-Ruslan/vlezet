@@ -6,20 +6,22 @@ Automated acceptance: **PASS**
 
 Product-owner browser acceptance: **PASS**
 
-Milestone acceptance: **COMPLETE**
+Milestone acceptance: **COMPLETE / MERGED**
 
-The product owner completed the prescribed browser smoke on 2026-08-01 and confirmed that every scenario behaved exactly as specified.
+The product owner completed the prescribed browser smoke on 2026-08-01 and confirmed that every scenario behaved exactly as specified. PR #29 was then squash-merged into `main`.
 
-## Tested implementation
+## Tested implementation and integration
 
 - Repository: `True-Ruslan/vlezet`
 - Pull request: `#29`
 - Branch: `feat/m7-4-canvas-selection-mode-feedback`
 - Tested implementation SHA: `0140f48c2de1d9c0f235f382d674e0151d7c265c`
-- Final acceptance-document SHA before this evidence-only update: `005571b5662be5c483e7b81a41724961d375b39f`
+- Final accepted head SHA: `cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408`
 - Base SHA: `be85f807017ff47f524baafb16a9349c5654a049`
+- Squash merge SHA: `399e1b439d478fb8b01cd39795213b42beece84f`
+- Merged at: `2026-08-01T05:50:29Z`
 
-The implementation and browser-test candidate above is the exact SHA used by both required implementation workflow gates. Subsequent commits are acceptance documentation only.
+The implementation and browser-test candidate above is the exact SHA used by both required implementation workflow gates. Commits after the implementation SHA contain acceptance documentation only. The final accepted head was independently reverified before merge.
 
 ## Required workflow evidence
 
@@ -56,12 +58,12 @@ Verified gates:
 - WebKit core smoke — PASS
 - browser evidence upload — PASS
 
-### Final acceptance-head verification
+### Final exact-head verification
 
-The product-owner acceptance head `005571b5662be5c483e7b81a41724961d375b39f` passed both required workflows:
+The final accepted head `cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408` passed both required workflows immediately before merge:
 
-- CI — PASS — run `30686257574` / #1943
-- M7 Browser Audit — PASS — run `30686257558` / #210
+- CI — PASS — run `30686372996` / #1945
+- M7 Browser Audit — PASS — run `30686372995` / #211
 - Chromium full flow — PASS
 - WebKit core smoke — PASS
 - browser evidence upload — PASS
@@ -69,12 +71,12 @@ The product-owner acceptance head `005571b5662be5c483e7b81a41724961d375b39f` pas
 Final-head browser artifact:
 
 - Artifact name: `m7-browser-audit-evidence`
-- Artifact ID: `8814039131`
-- Size: `1,898,196` bytes
-- Digest: `sha256:272f3f120e1e6270f04b15bd663b9f7641b2b51c191579055434e748519bc30f`
-- Created: `2026-08-01T05:42:08Z`
-- Expires: `2026-08-15T05:42:07Z`
-- Artifact: https://github.com/True-Ruslan/vlezet/actions/runs/30686257558/artifacts/8814039131
+- Artifact ID: `8814078535`
+- Size: `1,898,075` bytes
+- Digest: `sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae52e3e2c938926`
+- Created: `2026-08-01T05:45:40Z`
+- Expires: `2026-08-15T05:45:40Z`
+- Artifact: https://github.com/True-Ruslan/vlezet/actions/runs/30686372995/artifacts/8814078535
 
 ## Original implementation browser evidence artifact
 
@@ -117,6 +119,10 @@ The product owner manually verified:
 
 Result: all checks passed exactly as prescribed; no acceptance deviations were reported.
 
+Product-owner statement:
+
+> «Все прошло строго и четко как ты описал.»
+
 ## Regression diagnosis recorded during acceptance
 
 The previous candidate `f5eebbce5043c85d37eb97b12a2522680a2a1997` passed standard CI but failed one Chromium hover assertion because the test pointer targeted the exact edge of the snapped wall hit stroke. The browser test was corrected to target the snapped wall centreline. Product geometry, hit width, snapping and selection order were not changed by that correction.
@@ -136,4 +142,4 @@ The accepted implementation does not change:
 
 ## Acceptance conclusion
 
-M7.4 is accepted at product and automated levels. PR #29 is eligible to leave Draft and proceed to integration.
+M7.4 is accepted, verified and squash-merged into `main` as `399e1b439d478fb8b01cd39795213b42beece84f`. The next selected slice is M7.5 Onboarding, Status and Recovery.

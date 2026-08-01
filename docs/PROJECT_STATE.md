@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-07-31  
-**Status:** M0–M7.3 are merged and accepted in `main`. M7.3 Design System and Content Components was squash-merged through PR #26. The only selected next implementation slice is M7.4 Canvas Selection and Mode Feedback.  
+**Last updated:** 2026-08-01  
+**Status:** M0–M7.4 are merged and accepted in `main`. M7.4 Canvas Selection and Mode Feedback was squash-merged through PR #29. The only selected next implementation slice is M7.5 Onboarding, Status and Recovery.  
 **Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
 
 ## 1. Product
@@ -85,6 +85,7 @@ packages/planning        deterministic planning + reviewed intent
 | M7.1 | editor shell and responsive context | `6b6f8751b520722a54bb94a6947dae1135e07859` |
 | M7.2 | context inspector and workflow return | `66606356d69f96953f8afae7b914222a3f793777` |
 | M7.3 | design system and content components | `509dfc02e17c87a58da8356894564a8f27bc5a9b` |
+| M7.4 | Canvas selection and mode feedback | `399e1b439d478fb8b01cd39795213b42beece84f` |
 
 Accepted geometry regression:
 
@@ -120,7 +121,7 @@ area:       11.72 m²
 - reviewed natural-language intent;
 - explicit Preview and revalidated atomic Apply.
 
-### UX foundation through M7.3
+### UX foundation through M7.4
 
 - separate project/tool command layers and reachable Undo/Redo;
 - docked and compact side surfaces with preserved local state;
@@ -132,28 +133,32 @@ area:       11.72 m²
 - shared store-free buttons, fields, messages, notices, badges, cards, empty states and dialogs;
 - Russian presentation formatting for millimetres, square metres and degrees;
 - representative migration of room, catalogue, fit, dashboard, dialogs and recognition UI;
+- authoritative Canvas mode and next-action status;
+- explicit first/second-point phases for walls and measurement;
+- distinct hover, selection, valid-preview and invalid-preview presentation;
+- consistent cursor roles for selection, drawing, placement and panning;
+- one-level `Escape` priority across gestures, tools, workflows, selection and read-only 3D;
 - no document-level horizontal overflow in the required browser matrix.
 
-## 6. M7.3 accepted evidence
+## 6. M7.4 accepted evidence
 
 ```text
-PR:                  #26
-final accepted head: cabe8e44153d7a56ee23e6931ea204e2fbf82119
-standard CI:         30654881419 — PASS
-browser CI:          30654879141 — PASS
-artifact:            8802854489
-digest:              sha256:1f62c1695231d266a9e28e3a54b40402a85106e231c15ca6e53dc2d577b22b32
-merge:               509dfc02e17c87a58da8356894564a8f27bc5a9b
+PR:                  #29
+final accepted head: cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408
+standard CI:         30686372996 — PASS
+browser CI:          30686372995 — PASS
+artifact:            8814078535
+digest:              sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae52e3e2c938926
+merge:               399e1b439d478fb8b01cd39795213b42beece84f
 ```
 
 Product-owner acceptance:
 
-> «Подтверждаю все!»
+> «Все прошло строго и четко как ты описал.»
 
-Canonical records:
+Canonical record:
 
-- `docs/milestones/m7-3-acceptance.md`;
-- `docs/milestones/m7-3-product-owner-acceptance.md`.
+- `docs/milestones/m7-4-acceptance.md`.
 
 ## 7. Known limitations
 
@@ -162,38 +167,42 @@ Canonical records:
 - Clear dimension editing remains limited to simple rectangular rooms.
 - Planning remains one rectangular room / 1–3 objects and lacks whole-apartment autonomy.
 - 3D is schematic, read-only and may initially hide interiors.
+- First-project success still depends on discovering that a room requires a valid closed wall topology.
+- High-impact completion evidence can still disappear with a short-lived toast.
 - Domain-specific forms remain dense and are owned by later workflow slices.
 - Spatial keyboard/focus coverage remains incomplete.
 - WebKit automation is an engine-level proxy, not a manual native-Safari claim.
 
-## 8. NOW — M7.4 Canvas Selection and Mode Feedback
+## 8. NOW — M7.5 Onboarding, Status and Recovery
 
 Owned findings:
 
-- `UX-SHELL-004`;
-- `UX-CANVAS-001`;
-- `UX-CANVAS-002`.
+- `UX-ONBOARD-001`;
+- `UX-DATA-003`.
 
 Goal:
 
-> Make the active tool, current selection, next required action and temporary spatial state obvious without changing geometry, snapping, history or command authority.
+> Guide a new user to the first successful closed room without a blocking wizard, and keep important completion or recovery evidence available after transient notifications disappear.
 
 Expected scope:
 
-- explicit active-tool and temporary-mode feedback;
-- clear next-action guidance for wall, opening, furniture and measurement workflows;
-- distinct selection, hover, placement preview and invalid-target visuals;
-- consistent Escape priority and cancellation copy;
-- cursor and status feedback derived from existing editor state;
-- Chromium/WebKit coverage for representative tool transitions.
+- dismissible first-project checklist tied to existing editor/document state;
+- contextual guidance from empty project to closed-room success;
+- explicit recognition of successful room closure;
+- durable in-context evidence for high-impact completion actions;
+- minor transient toasts retained where appropriate;
+- clear recovery or next-action copy when a high-impact operation fails or completes;
+- Chromium/WebKit coverage for first-project progress and post-toast evidence.
 
 Non-goals:
 
-- geometry or snapping algorithm changes;
-- domain inspector redesign;
-- onboarding implementation;
-- mobile-first editing;
-- recognition-quality work from issue #27.
+- geometry or topology algorithm changes;
+- automatic room generation or a blocking tutorial wizard;
+- document schema or migration changes for onboarding state;
+- dashboard/project-lifecycle redesign;
+- inspector redesign;
+- recognition-quality work from issue #27;
+- accessibility hardening owned by M7.9.
 
 ## 9. Delivery workflow
 

@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-07-31  
+**Last updated:** 2026-08-01  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative AI layers.
 
 Read `docs/PROJECT_STATE.md` first. Detailed UX sequencing is in `docs/product/UX_ROADMAP.md`.
@@ -27,8 +27,9 @@ DONE        M7.0 Product and UX Audit
 DONE        M7.1 Editor Shell and Responsive Context
 DONE        M7.2 Context Inspector Foundation
 DONE        M7.3 Design System and Content Components
-NOW         M7.4 Canvas Selection and Mode Feedback
-LATER       M7.5+ in dependency-aware browser-tested slices
+DONE        M7.4 Canvas Selection and Mode Feedback
+NOW         M7.5 Onboarding, Status and Recovery
+LATER       M7.6+ in dependency-aware browser-tested slices
 ```
 
 ## Completed product foundation
@@ -112,57 +113,90 @@ Product owner confirmed:
 
 Recognition accuracy remains a known deferred limitation. The flow is editable and non-authoritative, but valid AI output can still reconstruct topology and areas incorrectly. Canonical future owner: issue #27 and `docs/product/RECOGNITION_QUALITY_REQUIREMENTS.md`.
 
-## NOW — M7.4 Canvas Selection and Mode Feedback
+### M7.4 — Canvas Selection and Mode Feedback
+
+Status: **DONE / ACCEPTED / MERGED**.
+
+```text
+PR:                  #29
+final accepted head: cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408
+standard CI:         30686372996 — PASS
+browser CI:          30686372995 — PASS
+artifact:            8814078535
+digest:              sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae52e3e2c938926
+merge:               399e1b439d478fb8b01cd39795213b42beece84f
+```
+
+Delivered:
+
+- one authoritative Canvas mode and next-action status;
+- active-tool feedback for Select, Wall, openings, Measure, placement, tracing/review and read-only 3D;
+- explicit first-point and second-point phases for walls and measurement;
+- one-level `Escape` priority;
+- distinct ordinary, hover, selected, valid-preview and invalid-preview presentation;
+- cursor roles for selection, drawing, placement and panning;
+- live opening-preview labels;
+- Chromium full-flow and WebKit core-smoke regression coverage.
+
+Product owner confirmed:
+
+> «Все прошло строго и четко как ты описал.»
+
+The acceptance correction changed only the browser-test pointer target from the edge of a snapped wall hit stroke to its centreline. Geometry, snapping, hit tolerance and selection ordering were not changed.
+
+## NOW — M7.5 Onboarding, Status and Recovery
 
 ### Problems
 
-- active tools and temporary modes are not always visually obvious;
-- the next required Canvas action can be unclear;
-- selection, hover, placement preview and invalid targets need stronger distinction;
-- Escape/cancellation behaviour is not consistently communicated.
+- first-room success still relies on discovering that a valid room requires closed wall topology;
+- the empty project does not guide a new user through the whole first successful task;
+- important success evidence can disappear after a short-lived toast;
+- high-impact completion or failure may not remain confirmable in the originating context.
 
 Owned findings:
 
-- `UX-SHELL-004`;
-- `UX-CANVAS-001`;
-- `UX-CANVAS-002`.
+- `UX-ONBOARD-001`;
+- `UX-DATA-003`.
 
 ### Goal
 
-Make active tool, next action, current selection and temporary spatial state obvious while preserving all existing geometry and command authority.
+Guide the first successful room without a blocking wizard and make important completion or recovery evidence durable enough to verify after transient notifications disappear.
 
 ### Expected scope
 
-- explicit active-tool and mode status;
-- context-sensitive next-action guidance;
-- consistent cursor feedback;
-- distinct hover, selection, valid preview and invalid preview visuals;
-- one documented Escape-priority model;
-- status copy based on existing editor state;
-- representative Chromium/WebKit tool-transition evidence.
+- dismissible first-project checklist tied to existing state;
+- contextual next action from empty project through closed-room success;
+- explicit successful-room-closure feedback;
+- durable in-context evidence for high-impact completion events;
+- minor transient toasts retained for low-impact feedback;
+- clear failure/recovery and retry copy where the existing operation supports recovery;
+- compact-width and Chromium/WebKit coverage for first-project progress and post-toast evidence.
 
 ### Acceptance
 
-- users can identify the active tool without relying on memory;
-- each exclusive tool communicates the next valid action;
-- hover/selection/preview/error states are distinguishable without color alone;
-- Escape exits the highest-priority temporary state consistently;
-- M7.1–M7.3 shell, context, scrolling and component behaviour do not regress;
-- no document, geometry, snapping, history or persistence authority changes;
+- a first-time user can create and recognise a closed rectangular room without external instruction;
+- onboarding is dismissible and does not block expert use;
+- progress is derived from authoritative document/editor state rather than duplicated product data;
+- important completion remains confirmable after a toast expires;
+- failure/recovery copy identifies the originating action and a valid next step;
+- M7.1–M7.4 shell, context, components and Canvas feedback do not regress;
+- no geometry, topology, document, persistence or history authority changes;
 - full CI, Chromium/WebKit and product-owner acceptance pass.
 
 ### Non-goals
 
-- geometry or snapping algorithm changes;
-- inspector redesign;
-- onboarding implementation;
+- geometry or topology algorithm changes;
+- automatic room generation;
+- a blocking step-by-step wizard;
+- document schema/migration changes for onboarding state;
+- dashboard/project-lifecycle redesign;
+- geometry, opening or furniture inspector redesign;
 - recognition-quality hardening;
-- mobile-first editor.
+- M7.9 accessibility completion.
 
 ## Later M7 programme
 
 ```text
-M7.5  Onboarding, Status and Recovery
 M7.6  Geometry and Opening Inspector
 M7.7  Furniture and Fit Workflow
 M7.8  Reference and Recognition Workflow + issue #27 quality hardening
