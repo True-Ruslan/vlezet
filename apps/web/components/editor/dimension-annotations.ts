@@ -16,7 +16,7 @@ export type LinearDimensionAnnotation = Readonly<{
   end: Point2;
   valueMm: number;
   outward: Point2;
-  emphasized: boolean;
+  emphasized?: boolean;
 }>;
 
 const NBSP = "\u00a0";
