@@ -357,7 +357,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     const wallCandidate = resolvedWalls.map((resolved, index) => ({ resolved, index, projection: projectPointToSegment(rawPoint, resolved.start, resolved.end) })).filter((candidate) => candidate.projection.distance <= tolerance && candidate.projection.t > 1e-6 && candidate.projection.t < 1 - 1e-6).sort((a, b) => a.projection.distance - b.projection.distance || a.index - b.index)[0];
     if (wallCandidate) {
       const point = wallCandidate.projection.point;
-      return { snap: { point, kind: "wall", wallId: wallCandidate.resolved.wall.id, point } };
+      return {
+        snap: { point, kind: "wall", guides: [] },
+        target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point },
+      };
     }
     return { snap: snapWallPoint({ rawPoint, startPoint, endpoints, gridStep, tolerance }), target: null };
   };
