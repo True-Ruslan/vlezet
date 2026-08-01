@@ -29,8 +29,11 @@ describe("object editor presentation", () => {
       width: "0",
       depth: "abc",
       height: "-1",
+      rotation: "",
+      x: " ",
       front: "-10",
       right: "NaN",
+      back: "",
     }, object);
 
     expect(result).toEqual({
@@ -40,8 +43,11 @@ describe("object editor presentation", () => {
         width: "Введите ширину больше 0 мм",
         depth: "Введите число",
         height: "Введите высоту больше 0 мм",
+        rotation: "Введите число",
+        x: "Введите число",
         front: "Введите неотрицательный зазор",
         right: "Введите число",
+        back: "Введите число",
       }),
     });
   });
