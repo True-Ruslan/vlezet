@@ -2,6 +2,13 @@ import { expect, test } from "@playwright/test";
 
 async function openNewProject(page) {
   await page.goto("/");
+  await expect(page.locator(".dashboard, .editor-app").first()).toBeVisible();
+
+  if (await page.locator(".editor-app").isVisible()) {
+    await page.getByRole("button", { name: "Вернуться к моим проектам" }).click();
+  }
+
+  await expect(page.locator(".dashboard")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Мои проекты" })).toBeVisible();
   await page.getByRole("button", { name: "Новый проект" }).click();
   await expect(page.locator(".editor-app")).toBeVisible();
@@ -16,17 +23,6 @@ async function clickCanvasRatio(page, xRatio, yRatio) {
     Math.round(box.x + box.width * xRatio),
     Math.round(box.y + box.height * yRatio),
   );
-}
-
-async function drawClosedRectangle(page) {
-  const points = [
-    [0.55, 0.28],
-    [0.82, 0.28],
-    [0.82, 0.68],
-    [0.55, 0.68],
-    [0.55, 0.28],
-  ];
-  for (const [x, y] of points) await clickCanvasRatio(page, x, y);
 }
 
 async function documentHasNoHorizontalOverflow(page) {
