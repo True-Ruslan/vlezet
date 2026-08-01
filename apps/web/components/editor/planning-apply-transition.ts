@@ -17,8 +17,6 @@ export function observePlanningApplyTransition(
   const applied = Boolean(
     previous &&
     previous.projectId === current.projectId &&
-    previous.planningOpen &&
-    !current.planningOpen &&
     current.pastLength > previous.pastLength &&
     current.lastLabel === "planning/apply-candidate",
   );
