@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SelectedWallInspector } from "./wall-inspector";
 
-function simpleWallDocument(): VlezetDocument {
+function simpleWallDocument(reverse = false): VlezetDocument {
   return {
     schemaVersion: 3,
     vertices: [
@@ -11,7 +11,13 @@ function simpleWallDocument(): VlezetDocument {
       { id: "b", position: { x: 3550, y: 0 } },
     ],
     walls: [
-      { id: "wall", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 },
+      {
+        id: "wall",
+        startVertexId: reverse ? "b" : "a",
+        endVertexId: reverse ? "a" : "b",
+        junctionVertexIds: [],
+        thickness: 150,
+      },
     ],
     openings: [],
     roomAnnotations: [],
@@ -41,39 +47,50 @@ function rectangleDocument(): VlezetDocument {
 }
 
 describe("wall inspector precision semantics", () => {
-  it("names centreline length explicitly and exposes fixed-anchor choices", () => {
-    const document = simpleWallDocument();
-    const wall = document.walls[0]!;
-    const html = renderToStaticMarkup(<SelectedWallInspector document={document} wall={wall} />);
+  it("names centreline length explicitly with stable visible endpoints", () => {
+    const forwardDocument = simpleWallDocument();
+    const reverseDocument = simpleWallDocument(true);
+    const forward = renderToStaticMarkup(
+      <SelectedWallInspector document={forwardDocument} wall={forwardDocument.walls[0]!} />,
+    );
+    const reverse = renderToStaticMarkup(
+      <SelectedWallInspector document={reverseDocument} wall={reverseDocument.walls[0]!} />,
+    );
 
-    expect(html).toContain("Длина по оси стены");
-    expect(html).toContain("Что остаётся на месте");
-    expect(html).toContain("Начало");
-    expect(html).toContain("Центр");
-    expect(html).toContain("Конец");
-    expect(html).toContain("Это не всегда равно чистому внутреннему размеру комнаты");
-    expect(html).not.toContain("Точная длина");
+    for (const html of [forward, reverse]) {
+      expect(html).toContain("Длина по оси стены");
+      expect(html).toContain("Что оставить на месте");
+      expect(html).toContain("Левый конец");
+      expect(html).toContain("Центр");
+      expect(html).toContain("Правый конец");
+      expect(html).toContain("Применить осевую длину");
+      expect(html).toContain("Это не всегда равно чистому внутреннему размеру комнаты");
+      expect(html).not.toContain(">Начало<");
+      expect(html).not.toContain(">Конец<");
+    }
   });
 
-  it("shows inside/center/outside thickness intent when the room side is unambiguous", () => {
+  it("shows fixed inside, axis and outside surfaces when room side is unambiguous", () => {
     const document = rectangleDocument();
     const wall = document.walls.find((candidate) => candidate.id === "top")!;
     const html = renderToStaticMarkup(<SelectedWallInspector document={document} wall={wall} />);
 
-    expect(html).toContain("Куда меняется толщина");
-    expect(html).toContain("Внутрь помещения");
-    expect(html).toContain("По центру");
-    expect(html).toContain("Наружу");
+    expect(html).toContain("Что оставить на месте");
+    expect(html).toContain("Внутренняя поверхность");
+    expect(html).toContain("Ось стены");
+    expect(html).toContain("Наружная поверхность");
+    expect(html).not.toContain("Куда меняется толщина");
   });
 
-  it("does not guess inside/outside for a wall without an unambiguous room side", () => {
+  it("uses physical screen surfaces when inside and outside are ambiguous", () => {
     const document = simpleWallDocument();
     const wall = document.walls[0]!;
     const html = renderToStaticMarkup(<SelectedWallInspector document={document} wall={wall} />);
 
-    expect(html).toContain("Сохранить грань");
-    expect(html).toContain("Левая грань");
-    expect(html).toContain("Правая грань");
-    expect(html).not.toContain("Внутрь помещения");
+    expect(html).toContain("Верхняя поверхность");
+    expect(html).toContain("Ось стены");
+    expect(html).toContain("Нижняя поверхность");
+    expect(html).not.toContain("Внутренняя поверхность");
+    expect(html).not.toContain("Наружная поверхность");
   });
 });
