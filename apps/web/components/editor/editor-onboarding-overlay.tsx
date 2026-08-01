@@ -3,7 +3,11 @@
 import { deriveRooms } from "@vlezet/geometry";
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "zustand";
-import { subscribeProjectBackupExported } from "../projects/download-events";
+import {
+  dispatchProjectBackupExportRequested,
+  subscribeProjectBackupExported,
+  subscribeProjectBackupExportFailed,
+} from "../projects/download-events";
 import { formatSquareMeters } from "../ui/presentation-format";
 import { EditorOperationEvidenceNotice } from "./editor-operation-evidence";
 import {
@@ -152,18 +156,36 @@ export function EditorOnboardingOverlay({
     });
   }, [history.past.length, lastHistoryLabel, projectId]);
 
-  useEffect(() => subscribeProjectBackupExported((filename) => {
-    editorOperationEvidenceStore.getState().publish({
-      id: runtimeEvidenceId(),
-      projectId,
-      kind: "project-backup-exported",
-      tone: "success",
-      title: "Резервная копия сохранена",
-      description: `Файл «${filename}» содержит редактируемый проект и подходит для последующего восстановления.`,
-      sourceContext: "project",
-      action: { kind: "dismiss" },
+  useEffect(() => {
+    const unsubscribeSuccess = subscribeProjectBackupExported((filename) => {
+      editorOperationEvidenceStore.getState().publish({
+        id: runtimeEvidenceId(),
+        projectId,
+        kind: "project-backup-exported",
+        tone: "success",
+        title: "Резервная копия сохранена",
+        description: `Файл «${filename}» содержит редактируемый проект и подходит для последующего восстановления.`,
+        sourceContext: "project",
+        action: { kind: "dismiss" },
+      });
     });
-  }), [projectId]);
+    const unsubscribeFailure = subscribeProjectBackupExportFailed(() => {
+      editorOperationEvidenceStore.getState().publish({
+        id: runtimeEvidenceId(),
+        projectId,
+        kind: "recoverable-failure",
+        tone: "error",
+        title: "Не удалось сохранить резервную копию",
+        description: "Файл не создан. Текущий проект остался открыт и не изменился; экспорт можно повторить.",
+        sourceContext: "project",
+        action: { kind: "retry-project-backup" },
+      });
+    });
+    return () => {
+      unsubscribeSuccess();
+      unsubscribeFailure();
+    };
+  }, [projectId]);
 
   useEffect(() => {
     if (evidence && !visibleEvidence) editorOperationEvidenceStore.getState().dismiss();
@@ -187,6 +209,9 @@ export function EditorOnboardingOverlay({
         break;
       case "open-recognition-review":
         if (!recognitionPanelOpen) onOpenRecognitionReview();
+        break;
+      case "retry-project-backup":
+        dispatchProjectBackupExportRequested();
         break;
       case "undo":
         editorStore.getState().undo();
