@@ -5,8 +5,7 @@
 
 Read `docs/PROJECT_STATE.md` first. Detailed UX sequencing is in `docs/product/UX_ROADMAP.md`.
 
-> **Repository maintenance note (2026-08-01):** README canonical portfolio link rollout completed through PR #36 (`5ac744c` → squash `accbf57`), exact-head CI #2318 / run `30714871143` PASS. This does not alter roadmap sequencing; M7.7 remains `NOW`.
-
+> **Repository maintenance note (2026-08-01):** README canonical portfolio link rollout completed through PR #36 (`5ac744c` → squash `accbf57`), exact-head CI #2318 / run `30714871143` PASS and canonical sync `1aa82a3`. This does not alter roadmap sequencing; M7.8 is `NOW`.
 
 ## Summary
 
@@ -33,8 +32,9 @@ DONE        M7.3 Design System and Content Components
 DONE        M7.4 Canvas Selection and Mode Feedback
 DONE        M7.5 Onboarding, Status and Recovery
 DONE        M7.6 Geometry and Opening Inspector
-NOW         M7.7 Furniture and Fit Workflow
-LATER       M7.8+ in dependency-aware browser-tested slices
+DONE        M7.7 Furniture and Fit Workflow
+NOW         M7.8 Reference and Recognition Workflow
+LATER       M7.9–M7.13 in dependency-aware browser-tested slices
 ```
 
 ## Completed product foundation
@@ -65,176 +65,124 @@ LATER       M7.8+ in dependency-aware browser-tested slices
 
 ## Completed M7 foundation
 
-### M7.0 — Product and UX Audit
+### M7.0–M7.6
 
-Status: **DONE / ACCEPTED / MERGED**.  
-Merge: `0d5b9c1555ef85a0e271a52832cc3fd3cca4963e`.
+The accepted UX foundation includes:
 
-Delivered 39 structured findings, target information architecture, interaction model, design/accessibility foundations and reproducible Chromium/WebKit evidence.
+- product/UX audit and structured findings;
+- responsive editor shell and reachable project/tool commands;
+- unified context inspector and workflow return;
+- governed design tokens and shared content/status components;
+- authoritative Canvas mode, selection and preview semantics;
+- state-derived onboarding, durable status and recovery;
+- explicit room dimensions, wall-axis/thickness separation and accessible opening controls.
 
-### M7.1 — Editor Shell and Responsive Context
+Canonical merge commits are recorded in `docs/PROJECT_STATE.md` and `docs/product/UX_ROADMAP.md`.
 
-Status: **DONE / ACCEPTED / MERGED**.  
-Merge: `6b6f8751b520722a54bb94a6947dae1135e07859`.
-
-Delivered separate project/tool bars, readable save state, direct Undo/Redo, responsive catalogue/context surfaces, preserved local drafts and one-column 3D composition.
-
-### M7.2 — Context Inspector Foundation
-
-Status: **DONE / ACCEPTED / MERGED**.  
-Merge: `66606356d69f96953f8afae7b914222a3f793777`.
-
-Delivered unified context anatomy, explicit workflow return, fail-closed stale targets, separated destructive actions and viewport-bounded panel scrolling.
-
-### M7.3 — Design System and Content Components
+### M7.7 — Furniture and Fit Workflow
 
 Status: **DONE / ACCEPTED / MERGED**.
 
 ```text
-PR:                  #26
-final accepted head: cabe8e44153d7a56ee23e6931ea204e2fbf82119
-standard CI:         30654881419 — PASS
-browser CI:          30654879141 — PASS
-artifact:            8802854489
-digest:              sha256:1f62c1695231d266a9e28e3a54b40402a85106e231c15ca6e53dc2d577b22b32
-merge:               509dfc02e17c87a58da8356894564a8f27bc5a9b
-```
-
-Delivered governed design tokens, balanced-density typography, shared UI/status primitives, Russian unit formatting and representative migration of high-value surfaces.
-
-Product owner confirmed:
-
-> «Подтверждаю все!»
-
-### M7.4 — Canvas Selection and Mode Feedback
-
-Status: **DONE / ACCEPTED / MERGED**.
-
-```text
-PR:                  #29
-final accepted head: cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408
-standard CI:         30686372996 — PASS
-browser CI:          30686372995 — PASS
-artifact:            8814078535
-digest:              sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae52e3e2c938926
-merge:               399e1b439d478fb8b01cd39795213b42beece84f
-```
-
-Delivered authoritative Canvas mode/next-action feedback, gesture phases, one-level Escape, distinct hover/selection/preview states, cursor roles and compact-width equivalence.
-
-Product owner confirmed:
-
-> «Все прошло строго и четко как ты описал.»
-
-### M7.5 — Onboarding, Status and Recovery
-
-Status: **DONE / ACCEPTED / MERGED**.
-
-```text
-PR:                  #31
-final accepted head: d59273615ea2f08a4a364b91fe3e3cc408ba9090
-standard CI:         30692400878 — PASS
-browser CI:          30692400874 — PASS
-artifact:            8816130412
-digest:              sha256:530ebca7ee8f20d5e79fb592a7f80a1c43044bbe750ddec752e24f98c6165581
-merge:               62413d91ebc5cef335b772e46ebbc1dae18b1acc
-```
-
-Delivered state-derived onboarding, browser-local dismissal, durable runtime-only completion/recovery evidence, stale evidence clearing, valid backup retry and compact overlay placement.
-
-Product owner confirmed:
-
-> «Все работает четко как надо и как ты описал.»
-
-### M7.6 — Geometry and Opening Inspector
-
-Status: **DONE / ACCEPTED / MERGED**.
-
-```text
-PR:                  #33
-final accepted head: 29b631fe43ba1a00e0ad48c71ee5429371d1faa8
-standard CI:         30701887262 / #2212 — PASS
-browser CI:          30701887265 / #330 — PASS
-artifact:            8819106567
-digest:              sha256:069a3f8105d5123152f12e07b1a62c96809ac2caf02ab65b0fdee4d8a8569669
-merge:               315828052edb483c34a68464acb70458bf4ff80d
+PR:                  #35
+final accepted head: 65c5fca7cbf75620e1411a7463811848009257a8
+standard CI:         30715144250 / #2324 — PASS
+browser CI:          30715144281 / #376 — PASS
+artifact:            8823120889
+digest:              sha256:a1e5e799679f5f4ea2aa9f52fe13576bfb3375f2c003874e94e6dc27d63a2656
+merge:               4514950b35922e7a757c523baafd4c1287dfe2a6
 ```
 
 Delivered:
 
-- explicit horizontal/vertical room clear dimensions;
-- wall-axis length separated from wall thickness;
-- visible fixed endpoints and physical surfaces independent of wall direction;
-- equivalent opening offsets from either visible wall end;
-- four accessible and distinct door-swing previews;
-- fail-closed invalid drafts;
-- compact layout without horizontal overflow;
-- one-step semantic Undo for accepted geometry edits.
+- deterministic Russian-aware catalogue search and compact categories;
+- runtime-only filtering, stable counts/order and empty-state recovery;
+- M2-derived non-colour placement fit labels;
+- selected-object hierarchy for fit, common parameters, use zones and exact position;
+- one atomic Apply operation and one-step semantic Undo;
+- field-local fail-closed validation with reveal/focus recovery;
+- exact-angle orientation explanation including diagonal directions;
+- Canvas legend for dimensions, recommended zones and actual free distances;
+- `Кратчайший зазор` terminology for nearest rotated contours;
+- compact-width Chromium/WebKit coverage.
 
 Product owner confirmed:
 
-> «Все работает четко строго по описанным тобой шага.»
+> Все проверки прошли, все круто.
 
-No schema, topology, area, persistence, history, recognition, planning or 3D authority changed.
+No schema, persistence, M2 fit, snapping, history, planning, recognition or 3D authority changed.
 
-## NOW — M7.7 Furniture and Fit Workflow
+## NOW — M7.8 Reference and Recognition Workflow
 
 ### Problems
 
-- catalogue discovery requires too much scanning for common objects;
-- selected-furniture editing distributes identity, dimensions, rotation and actions across dense controls;
-- shortest contour distance can be mistaken for furniture dimensions;
-- collision, door and clearance evidence needs clearer prioritisation and next actions;
-- placement and later editing do not yet feel like one continuous workflow.
+- source-plan setup, calibration, recognition, optional AI check and review still feel like separate technical stages;
+- valid structured responses can produce incorrect wall topology, openings, rooms and area relationships;
+- confidence currently does not guarantee structural correctness;
+- recognition quality lacks an accepted versioned benchmark corpus and reproducible score report;
+- review remains candidate-oriented rather than room/topology-oriented;
+- repeated AI checks must never leave stale decisions or unknown-host openings.
 
-Owned findings:
+Owned findings and issue:
 
-- `UX-FURN-001`;
-- `UX-FURN-002`;
-- `UX-FURN-003`;
-- remaining `UX-FURN-004`.
+- `UX-REF-001`;
+- `UX-REC-001`;
+- `UX-REC-003`;
+- remaining `UX-REC-004`;
+- issue #27.
 
 ### Goal
 
-Make furniture discovery, placement, orientation, exact editing and fit/clearance explanation feel like one predictable workflow without weakening M2 fit authority.
+Unify source-plan setup and recognition review, then measurably improve wall topology, openings, rooms and area accuracy with a versioned benchmark corpus while preserving editable Draft and explicit Apply authority.
 
-### Expected scope
+### Required delivery order
 
-- simplify catalogue categories, search and common/recent object discovery;
-- prioritise common actions immediately after placement and later selection;
-- make object identity, exact dimensions and rotation easy to scan;
-- preserve existing transform commands and semantic Undo/Redo;
-- visually distinguish contour distance from furniture dimensions;
-- group fit, collision, door and clearance diagnostics by severity;
-- provide valid manual next actions without auto-moving objects;
-- preserve Canvas and controls at compact widths;
-- add focused content/layout contracts and Chromium/WebKit representative flows.
+1. versioned anonymised benchmark corpus and scoring harness;
+2. source normalisation and architectural-line filtering;
+3. wall topology graph;
+4. door/window classification and host-wall validation;
+5. room-face derivation;
+6. OCR/room-label and area constraints;
+7. hybrid reconciliation and confidence calibration;
+8. room-oriented review UX;
+9. exact-head benchmark report plus Chromium/WebKit and product-owner acceptance.
+
+### Initial measurable targets
+
+- exact spatial-zone count on at least 90% of benchmark plans;
+- median total-area error no greater than 5%;
+- median room-area error no greater than 10% and no greater than 0.5 m² where practical;
+- wall topology F1 at least 0.90;
+- door/window detection F1 at least 0.85;
+- incorrect high-confidence candidates at most 2%;
+- zero unknown-host openings after post-processing;
+- zero stale decisions referencing removed candidates.
 
 ### Acceptance
 
-- common furniture can be found and placed without scanning the full catalogue;
-- selected-object dimensions, orientation and primary actions are understandable;
-- contour distance cannot be confused with object dimensions;
-- fit evidence is prioritised and actionable;
-- invalid edits fail closed without mutating authoritative geometry;
-- accepted transforms retain one-step semantic Undo/Redo;
-- compact widths preserve Canvas and inspector reachability;
-- M7.1–M7.6 do not regress;
-- full CI, Chromium/WebKit and product-owner acceptance pass.
+- source setup and recognition review form one understandable workflow;
+- benchmark corpus and scoring harness are versioned and reproducible;
+- accepted benchmark thresholds are met;
+- the plan observed during M7.3 manual acceptance becomes an anonymised regression fixture;
+- invalid openings never reference unknown host walls;
+- repeated AI checks leave no stale decisions;
+- candidates remain editable and only explicit Apply mutates the document;
+- compact widths and keyboard navigation preserve workflow reachability;
+- M7.1–M7.7 do not regress;
+- full CI, benchmark report, Chromium/WebKit and product-owner acceptance pass.
 
 ### Non-goals
 
-- changing M2 containment, collision, door or clearance algorithms;
-- silent auto-move/auto-rotation or autonomous furnishing;
-- new persistent furniture/fit authority in React or Zustand;
-- recognition-quality hardening owned by M7.8;
+- making AI/CV output authoritative;
+- silently replacing existing geometry;
+- bypassing deterministic validation or explicit Apply;
+- persisting provider keys, raw model responses or transient review state;
 - whole-product accessibility completion owned by M7.9;
-- visual-only consolidation owned by M7.13.
+- 3D, planning, dashboard or visual-only consolidation work.
 
 ## Later M7 programme
 
 ```text
-M7.8  Reference and Recognition Workflow + issue #27 quality hardening
 M7.9  Accessibility and Responsive Hardening
 M7.10 2D/3D Context and Interior Readability
 M7.11 Planning Workflow Simplification
@@ -242,7 +190,7 @@ M7.12 Dashboard and Project Lifecycle
 M7.13 Visual Consolidation and Evidence-Driven Polish
 ```
 
-Later slices remain evidence-driven and may be reordered after accepted browser evidence.
+Later slices remain evidence-driven and may be reordered after accepted browser or benchmark evidence.
 
 ## Deferred infrastructure
 
@@ -250,4 +198,4 @@ Accounts, cloud sync, collaboration, managed AI and billing remain separate init
 
 ## Delivery rule
 
-Every slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, browser evidence, product-owner acceptance, exact-head squash merge and canonical documentation sync.
+Every slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, benchmark evidence where applicable, browser evidence, product-owner acceptance, exact-head squash merge and canonical documentation sync.
