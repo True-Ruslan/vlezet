@@ -23,7 +23,7 @@ describe("recognition benchmark corpus loader", () => {
     }
   });
 
-  it("fails closed when a manifest references a missing fixture directory", async () => {
+  it("fails closed when a manifest references missing fixture directories", async () => {
     const root = await mkdtemp(join(tmpdir(), "vlezet-recognition-corpus-"));
     temporaryDirectories.push(root);
     await writeFile(join(root, "manifest.json"), JSON.stringify({
@@ -31,6 +31,6 @@ describe("recognition benchmark corpus loader", () => {
       corpusVersion: "recognition-corpus-v1",
       fixtureIds: APPROVED_RECOGNITION_FIXTURE_IDS,
     }));
-    await expect(loadRecognitionBenchmarkCorpus(root)).rejects.toThrow(/clean-studio/);
+    await expect(loadRecognitionBenchmarkCorpus(root)).rejects.toThrow(/fixture-директории/);
   });
 });
