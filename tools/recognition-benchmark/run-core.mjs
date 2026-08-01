@@ -20,7 +20,7 @@ const result = spawnSync(command, [
   env: {
     ...process.env,
     RECOGNITION_BENCHMARK_OUTPUT_DIR: outputDirectory,
-    RECOGNITION_BENCHMARK_COMMIT_SHA: process.env.GITHUB_SHA ?? process.env.RECOGNITION_BENCHMARK_COMMIT_SHA,
+    RECOGNITION_BENCHMARK_COMMIT_SHA: process.env.RECOGNITION_BENCHMARK_COMMIT_SHA ?? process.env.GITHUB_SHA,
   },
 });
 
