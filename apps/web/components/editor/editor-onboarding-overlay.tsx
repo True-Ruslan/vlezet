@@ -3,7 +3,6 @@
 import { deriveRooms } from "@vlezet/geometry";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { planningUiStore } from "../planning/planning-ui-store";
 import { formatSquareMeters } from "../ui/presentation-format";
 import { EditorOperationEvidenceNotice } from "./editor-operation-evidence";
 import {
@@ -21,6 +20,10 @@ import {
   observeFirstRoomTransition,
   type FirstRoomObservation,
 } from "./first-room-transition";
+import {
+  observePlanningApplyTransition,
+  type PlanningApplyObservation,
+} from "./planning-apply-transition";
 import { editorStore } from "./use-editor-store";
 
 export type EditorOnboardingOverlayProps = Readonly<{
@@ -47,10 +50,12 @@ export function EditorOnboardingOverlay({
   planningOpen,
   onOpenRecognitionReview,
 }: EditorOnboardingOverlayProps) {
-  const document = useStore(editorStore, (state) => state.history.document);
+  const history = useStore(editorStore, (state) => state.history);
+  const document = history.document;
   const evidence = useStore(editorOperationEvidenceStore, (state) => state.evidence);
   const [guideDismissed, setGuideDismissed] = useState(true);
-  const observationRef = useRef<FirstRoomObservation | null>(null);
+  const roomObservationRef = useRef<FirstRoomObservation | null>(null);
+  const planningObservationRef = useRef<PlanningApplyObservation | null>(null);
 
   const rooms = useMemo(() => deriveRooms(document).rooms, [document]);
   const roomIds = useMemo(() => rooms.map((room) => room.id), [rooms]);
@@ -61,16 +66,23 @@ export function EditorOnboardingOverlay({
     roomCount: rooms.length,
   }), [document.walls.length, rooms.length]);
   const visibleEvidence = visibleEditorOperationEvidence(evidence, projectId, validRoomIds);
+  const lastHistoryLabel = history.past[history.past.length - 1]?.forward.label ?? null;
 
   useEffect(() => {
     editorOperationEvidenceStore.getState().clearForProjectSwitch();
     setGuideDismissed(readFirstProjectGuideDismissed(projectId));
-    observationRef.current = { projectId, roomIds };
+    roomObservationRef.current = { projectId, roomIds };
+    planningObservationRef.current = {
+      projectId,
+      planningOpen,
+      pastLength: history.past.length,
+      lastLabel: lastHistoryLabel,
+    };
   }, [projectId]);
 
   useEffect(() => {
-    const transition = observeFirstRoomTransition(observationRef.current, { projectId, roomIds });
-    observationRef.current = transition.next;
+    const transition = observeFirstRoomTransition(roomObservationRef.current, { projectId, roomIds });
+    roomObservationRef.current = transition.next;
     if (!transition.createdRoomId) return;
 
     const room = rooms.find((candidate) => candidate.id === transition.createdRoomId);
@@ -87,6 +99,29 @@ export function EditorOnboardingOverlay({
       action: { kind: "select-room", roomId: room.id },
     });
   }, [projectId, roomIdsKey, rooms]);
+
+  useEffect(() => {
+    const current: PlanningApplyObservation = {
+      projectId,
+      planningOpen,
+      pastLength: history.past.length,
+      lastLabel: lastHistoryLabel,
+    };
+    const transition = observePlanningApplyTransition(planningObservationRef.current, current);
+    planningObservationRef.current = transition.next;
+    if (!transition.applied) return;
+
+    editorOperationEvidenceStore.getState().publish({
+      id: runtimeEvidenceId(),
+      projectId,
+      kind: "planning-applied",
+      tone: "success",
+      title: "Вариант расстановки применён",
+      description: "Положение выбранной мебели обновлено. Изменение можно отменить одним действием.",
+      sourceContext: "planning",
+      action: { kind: "undo" },
+    });
+  }, [history.past.length, lastHistoryLabel, planningOpen, projectId]);
 
   useEffect(() => {
     if (evidence && !visibleEvidence) editorOperationEvidenceStore.getState().dismiss();
