@@ -119,3 +119,54 @@ jobs:
           path: build.log
           if-no-files-found: error
           retention-days: 3
+
+  m7-8a-generate-corpus:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/m7-8a-recognition-benchmark-foundation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/m7-8a-recognition-benchmark-foundation
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Synchronize workspace lockfile
+        run: pnpm install --lockfile-only
+
+      - name: Install benchmark tool dependencies
+        working-directory: tools/recognition-benchmark
+        run: npm install --no-package-lock --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: tools/recognition-benchmark
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate and verify corpus
+        working-directory: tools/recognition-benchmark
+        run: |
+          npm run generate:fixtures
+          npm run verify:fixtures
+
+      - name: Commit generated corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pnpm-lock.yaml packages/recognition/benchmarks/fixtures/manifest.json packages/recognition/benchmarks/fixtures/*/fixture.json packages/recognition/benchmarks/fixtures/*/segments.json packages/recognition/benchmarks/fixtures/*/source.png packages/recognition/benchmarks/fixtures/*/source.sha256
+          git add packages/recognition/benchmarks/fixtures/*/cloud-response.json || true
+          git commit -m 'test: materialize recognition benchmark corpus'
+          git push origin HEAD:feat/m7-8a-recognition-benchmark-foundation
