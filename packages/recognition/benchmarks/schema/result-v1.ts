@@ -35,11 +35,26 @@ export type RecognitionAggregateMetricsV1 = Readonly<{
   staleDecisions: BenchmarkMetricValue;
 }>;
 
+export type RecognitionFixtureEvidenceV1 = Readonly<{
+  wallGeometry: BenchmarkCountMetric | null;
+  wallTopology: BenchmarkCountMetric | null;
+  openings: BenchmarkCountMetric | null;
+  roomDetection: BenchmarkCountMetric | null;
+  roomIous: readonly number[];
+  totalAreaAbsolutePercentageErrors: readonly number[];
+  roomAreaAbsolutePercentageErrors: readonly number[];
+  highConfidencePredictionCount: number;
+  highConfidenceFalsePositiveCount: number;
+  unknownHostOpenings: number;
+  staleDecisions: number;
+}>;
+
 export type RecognitionFixtureResultV1 = Readonly<{
   fixtureId: string;
   failed: boolean;
   diagnostics: readonly string[];
   metrics: RecognitionFixtureMetricsV1;
+  evidence: RecognitionFixtureEvidenceV1;
 }>;
 
 export type RecognitionAggregateResultV1 = Readonly<{
@@ -81,36 +96,18 @@ export class RecognitionBenchmarkResultValidationError extends Error {
 }
 
 const FIXTURE_METRICS = [
-  "wallGeometryF1",
-  "wallTopologyF1",
-  "openingF1",
-  "exactZoneCount",
-  "totalAreaAbsolutePercentageError",
-  "roomAreaMedianAbsolutePercentageError",
-  "incorrectHighConfidenceRate",
-  "unknownHostOpenings",
-  "staleDecisions",
+  "wallGeometryF1", "wallTopologyF1", "openingF1", "exactZoneCount",
+  "totalAreaAbsolutePercentageError", "roomAreaMedianAbsolutePercentageError",
+  "incorrectHighConfidenceRate", "unknownHostOpenings", "staleDecisions",
 ] as const;
-
 const AGGREGATE_METRICS = [
-  "wallGeometryF1",
-  "wallTopologyF1",
-  "openingF1",
-  "exactZoneCountRate",
-  "totalAreaMedianAbsolutePercentageError",
-  "roomAreaMedianAbsolutePercentageError",
-  "incorrectHighConfidenceRate",
-  "unknownHostOpenings",
-  "staleDecisions",
+  "wallGeometryF1", "wallTopologyF1", "openingF1", "exactZoneCountRate",
+  "totalAreaMedianAbsolutePercentageError", "roomAreaMedianAbsolutePercentageError",
+  "incorrectHighConfidenceRate", "unknownHostOpenings", "staleDecisions",
 ] as const;
-
 const RATE_METRICS = new Set<string>([
-  "wallGeometryF1",
-  "wallTopologyF1",
-  "openingF1",
-  "exactZoneCount",
-  "exactZoneCountRate",
-  "incorrectHighConfidenceRate",
+  "wallGeometryF1", "wallTopologyF1", "openingF1", "exactZoneCount",
+  "exactZoneCountRate", "incorrectHighConfidenceRate",
 ]);
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -172,11 +169,7 @@ function metric(value: unknown, label: string, rate: boolean): BenchmarkMetricVa
   return { status: "measured", value: result };
 }
 
-function metricSet<K extends string>(
-  value: unknown,
-  names: readonly K[],
-  label: string,
-): Record<K, BenchmarkMetricValue> {
+function metricSet<K extends string>(value: unknown, names: readonly K[], label: string): Record<K, BenchmarkMetricValue> {
   const input = record(value, label);
   const output = {} as Record<K, BenchmarkMetricValue>;
   for (const name of names) output[name] = metric(input[name], `${label}.${name}`, RATE_METRICS.has(name));
@@ -195,6 +188,31 @@ export function validateBenchmarkCountMetric(value: unknown, label = "countMetri
     if (current < 0 || current > 1) throw new RecognitionBenchmarkResultValidationError(`${label}.${name} должен быть от 0 до 1.`);
   }
   return { truePositive, falsePositive, falseNegative, precision, recall, f1 };
+}
+
+function nullableCountMetric(value: unknown, label: string): BenchmarkCountMetric | null {
+  return value === null ? null : validateBenchmarkCountMetric(value, label);
+}
+
+function nonNegativeArray(value: unknown, label: string): number[] {
+  return list(value, label).map((entry, index) => nonNegative(entry, `${label}[${index}]`));
+}
+
+function fixtureEvidence(value: unknown, label: string): RecognitionFixtureEvidenceV1 {
+  const input = record(value, label);
+  return {
+    wallGeometry: nullableCountMetric(input.wallGeometry, `${label}.wallGeometry`),
+    wallTopology: nullableCountMetric(input.wallTopology, `${label}.wallTopology`),
+    openings: nullableCountMetric(input.openings, `${label}.openings`),
+    roomDetection: nullableCountMetric(input.roomDetection, `${label}.roomDetection`),
+    roomIous: nonNegativeArray(input.roomIous, `${label}.roomIous`),
+    totalAreaAbsolutePercentageErrors: nonNegativeArray(input.totalAreaAbsolutePercentageErrors, `${label}.totalAreaAbsolutePercentageErrors`),
+    roomAreaAbsolutePercentageErrors: nonNegativeArray(input.roomAreaAbsolutePercentageErrors, `${label}.roomAreaAbsolutePercentageErrors`),
+    highConfidencePredictionCount: integer(input.highConfidencePredictionCount, `${label}.highConfidencePredictionCount`),
+    highConfidenceFalsePositiveCount: integer(input.highConfidenceFalsePositiveCount, `${label}.highConfidenceFalsePositiveCount`),
+    unknownHostOpenings: integer(input.unknownHostOpenings, `${label}.unknownHostOpenings`),
+    staleDecisions: integer(input.staleDecisions, `${label}.staleDecisions`),
+  };
 }
 
 function baselineComparison(value: unknown): RecognitionBaselineComparisonV1 | null {
@@ -228,12 +246,8 @@ function baselineComparison(value: unknown): RecognitionBaselineComparisonV1 | n
 
 export function validateRecognitionBenchmarkResultV1(value: unknown): RecognitionBenchmarkResultV1 {
   const input = record(value, "result");
-  if (input.schemaVersion !== "recognition-benchmark-result-v1") {
-    throw new RecognitionBenchmarkResultValidationError("Неподдерживаемая версия result schema.");
-  }
-  if (input.corpusVersion !== "recognition-corpus-v1") {
-    throw new RecognitionBenchmarkResultValidationError("Неподдерживаемая версия corpus.");
-  }
+  if (input.schemaVersion !== "recognition-benchmark-result-v1") throw new RecognitionBenchmarkResultValidationError("Неподдерживаемая версия result schema.");
+  if (input.corpusVersion !== "recognition-corpus-v1") throw new RecognitionBenchmarkResultValidationError("Неподдерживаемая версия corpus.");
 
   const fixtures = list(input.fixtures, "fixtures").map((entry, index): RecognitionFixtureResultV1 => {
     const item = record(entry, `fixtures[${index}]`);
@@ -243,6 +257,7 @@ export function validateRecognitionBenchmarkResultV1(value: unknown): Recognitio
       failed: item.failed,
       diagnostics: list(item.diagnostics, `fixtures[${index}].diagnostics`).map((diagnostic, diagnosticIndex) => text(diagnostic, `fixtures[${index}].diagnostics[${diagnosticIndex}]`)),
       metrics: metricSet(item.metrics, FIXTURE_METRICS, `fixtures[${index}].metrics`) as RecognitionFixtureMetricsV1,
+      evidence: fixtureEvidence(item.evidence, `fixtures[${index}].evidence`),
     };
   });
   if (new Set(fixtures.map((entry) => entry.fixtureId)).size !== fixtures.length) {
