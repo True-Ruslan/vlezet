@@ -171,19 +171,19 @@ describe("wall topology scoring", () => {
   it("uses one-to-one optimal junction assignment", () => {
     const expectedWalls = [
       wall("w1", { x: 1000, y: 1000 }, { x: 5000, y: 1000 }, "a1", "a2"),
-      wall("w2", { x: 1000, y: 1100 }, { x: 5000, y: 1100 }, "b1", "b2"),
+      wall("w2", { x: 1000, y: 1200 }, { x: 5000, y: 1200 }, "b1", "b2"),
     ];
     const expectedJunctions = [
       { id: "a1", positionMm: { x: 1000, y: 1000 } },
       { id: "a2", positionMm: { x: 5000, y: 1000 } },
-      { id: "b1", positionMm: { x: 1000, y: 1100 } },
-      { id: "b2", positionMm: { x: 5000, y: 1100 } },
+      { id: "b1", positionMm: { x: 1000, y: 1200 } },
+      { id: "b2", positionMm: { x: 5000, y: 1200 } },
     ];
     const score = scoreWallTopology({
-      fixture: fixture(expectedWalls, expectedJunctions, 100),
+      fixture: fixture(expectedWalls, expectedJunctions, 150),
       predictions: [
-        prediction("flexible", 1000, 1000, 5000, 1000),
-        prediction("only-first", 1000, 950, 5000, 950),
+        prediction("flexible", 1000, 1050, 5000, 1050),
+        prediction("only-first", 1000, 850, 5000, 850),
       ],
     });
     expect(score.junctions.truePositive).toBe(4);
