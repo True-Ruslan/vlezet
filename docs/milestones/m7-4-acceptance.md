@@ -8,7 +8,7 @@ Product-owner browser acceptance: **PASS**
 
 Milestone acceptance: **COMPLETE**
 
-The product owner completed the prescribed browser smoke on 2026-08-01 and confirmed that every scenario behaved exactly as specified. PR #29 may leave Draft after the documentation-only acceptance commit passes the required workflow gates.
+The product owner completed the prescribed browser smoke on 2026-08-01 and confirmed that every scenario behaved exactly as specified.
 
 ## Tested implementation
 
@@ -16,6 +16,7 @@ The product owner completed the prescribed browser smoke on 2026-08-01 and confi
 - Pull request: `#29`
 - Branch: `feat/m7-4-canvas-selection-mode-feedback`
 - Tested implementation SHA: `0140f48c2de1d9c0f235f382d674e0151d7c265c`
+- Final acceptance-document SHA before this evidence-only update: `005571b5662be5c483e7b81a41724961d375b39f`
 - Base SHA: `be85f807017ff47f524baafb16a9349c5654a049`
 
 The implementation and browser-test candidate above is the exact SHA used by both required implementation workflow gates. Subsequent commits are acceptance documentation only.
@@ -55,16 +56,27 @@ Verified gates:
 - WebKit core smoke — PASS
 - browser evidence upload — PASS
 
-### Acceptance-document head verification
+### Final acceptance-head verification
 
-The first acceptance-document head `38d0516e59299d7d16deb4079c29fd69dedbc357` also passed both workflows:
+The product-owner acceptance head `005571b5662be5c483e7b81a41724961d375b39f` passed both required workflows:
 
-- CI — PASS — run `30664841397` / #1941
-- M7 Browser Audit — PASS — run `30664841409` / #209
+- CI — PASS — run `30686257574` / #1943
+- M7 Browser Audit — PASS — run `30686257558` / #210
 - Chromium full flow — PASS
 - WebKit core smoke — PASS
+- browser evidence upload — PASS
 
-## Browser evidence artifact
+Final-head browser artifact:
+
+- Artifact name: `m7-browser-audit-evidence`
+- Artifact ID: `8814039131`
+- Size: `1,898,196` bytes
+- Digest: `sha256:272f3f120e1e6270f04b15bd663b9f7641b2b51c191579055434e748519bc30f`
+- Created: `2026-08-01T05:42:08Z`
+- Expires: `2026-08-15T05:42:07Z`
+- Artifact: https://github.com/True-Ruslan/vlezet/actions/runs/30686257558/artifacts/8814039131
+
+## Original implementation browser evidence artifact
 
 - Artifact name: `m7-browser-audit-evidence`
 - Artifact ID: `8806491228`
@@ -124,4 +136,4 @@ The accepted implementation does not change:
 
 ## Acceptance conclusion
 
-M7.4 is accepted at product and automated levels. PR #29 is eligible to leave Draft once the workflow gates for this documentation-only acceptance commit complete successfully.
+M7.4 is accepted at product and automated levels. PR #29 is eligible to leave Draft and proceed to integration.
