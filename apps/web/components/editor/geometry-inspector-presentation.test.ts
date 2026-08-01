@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalOpeningOffsetMm,
   deriveDoorSwingChoices,
+  deriveOpeningCueDraft,
   deriveWallVisualModel,
   displayedOpeningOffsetMm,
   physicalFaceChoices,
@@ -153,6 +154,46 @@ describe("geometry inspector opening presentation", () => {
       displayedOffsetMm: 3200,
       reference: "visual-start",
     })).toThrow("Положение проёма должно быть конечным и находиться в пределах стены.");
+  });
+
+  it("keeps the cue on authoritative geometry for invalid draft width or offset", () => {
+    const model = deriveWallVisualModel({ x: 0, y: 0 }, { x: 4000, y: 0 });
+    const authoritative = {
+      model,
+      wallLengthMm: 4000,
+      authoritativeWidthMm: 900,
+      authoritativeOffsetMm: 600,
+      reference: "visual-start" as const,
+    };
+
+    expect(deriveOpeningCueDraft({
+      ...authoritative,
+      draftWidthMm: 5000,
+      displayedOffsetMm: 600,
+    })).toEqual({ visualOffsetMm: 600, widthMm: 900, usingAuthoritativeFallback: true });
+    expect(deriveOpeningCueDraft({
+      ...authoritative,
+      draftWidthMm: Number.NaN,
+      displayedOffsetMm: 600,
+    })).toEqual({ visualOffsetMm: 600, widthMm: 900, usingAuthoritativeFallback: true });
+    expect(deriveOpeningCueDraft({
+      ...authoritative,
+      draftWidthMm: 900,
+      displayedOffsetMm: 3500,
+    })).toEqual({ visualOffsetMm: 600, widthMm: 900, usingAuthoritativeFallback: true });
+  });
+
+  it("uses valid draft geometry for the cue without applying it", () => {
+    const model = deriveWallVisualModel({ x: 0, y: 0 }, { x: 4000, y: 0 });
+    expect(deriveOpeningCueDraft({
+      model,
+      wallLengthMm: 4000,
+      authoritativeWidthMm: 900,
+      authoritativeOffsetMm: 600,
+      draftWidthMm: 1000,
+      displayedOffsetMm: 750,
+      reference: "visual-start",
+    })).toEqual({ visualOffsetMm: 750, widthMm: 1000, usingAuthoritativeFallback: false });
   });
 
   it("describes four distinct visible door swings without internal enum copy", () => {
