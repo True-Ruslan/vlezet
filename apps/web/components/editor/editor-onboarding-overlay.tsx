@@ -3,6 +3,7 @@
 import { deriveRooms } from "@vlezet/geometry";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
+import { subscribeProjectBackupExported } from "../projects/download-events";
 import { formatSquareMeters } from "../ui/presentation-format";
 import { EditorOperationEvidenceNotice } from "./editor-operation-evidence";
 import {
@@ -24,6 +25,10 @@ import {
   observePlanningApplyTransition,
   type PlanningApplyObservation,
 } from "./planning-apply-transition";
+import {
+  observeRecognitionApplyTransition,
+  type RecognitionApplyObservation,
+} from "./recognition-apply-transition";
 import { editorStore } from "./use-editor-store";
 
 export type EditorOnboardingOverlayProps = Readonly<{
@@ -56,6 +61,7 @@ export function EditorOnboardingOverlay({
   const [guideDismissed, setGuideDismissed] = useState(true);
   const roomObservationRef = useRef<FirstRoomObservation | null>(null);
   const planningObservationRef = useRef<PlanningApplyObservation | null>(null);
+  const recognitionObservationRef = useRef<RecognitionApplyObservation | null>(null);
 
   const rooms = useMemo(() => deriveRooms(document).rooms, [document]);
   const roomIds = useMemo(() => rooms.map((room) => room.id), [rooms]);
@@ -75,6 +81,11 @@ export function EditorOnboardingOverlay({
     planningObservationRef.current = {
       projectId,
       planningOpen,
+      pastLength: history.past.length,
+      lastLabel: lastHistoryLabel,
+    };
+    recognitionObservationRef.current = {
+      projectId,
       pastLength: history.past.length,
       lastLabel: lastHistoryLabel,
     };
@@ -122,6 +133,41 @@ export function EditorOnboardingOverlay({
       action: { kind: "undo" },
     });
   }, [history.past.length, lastHistoryLabel, planningOpen, projectId]);
+
+  useEffect(() => {
+    const current: RecognitionApplyObservation = {
+      projectId,
+      pastLength: history.past.length,
+      lastLabel: lastHistoryLabel,
+    };
+    const transition = observeRecognitionApplyTransition(recognitionObservationRef.current, current);
+    recognitionObservationRef.current = transition.next;
+    if (!transition.applied) return;
+
+    editorOperationEvidenceStore.getState().publish({
+      id: runtimeEvidenceId(),
+      projectId,
+      kind: "recognition-applied",
+      tone: "success",
+      title: "Распознавание применено",
+      description: "Проверенные кандидаты добавлены как обычная редактируемая геометрия. Результат можно отменить одним действием.",
+      sourceContext: "recognition",
+      action: { kind: "undo" },
+    });
+  }, [history.past.length, lastHistoryLabel, projectId]);
+
+  useEffect(() => subscribeProjectBackupExported((filename) => {
+    editorOperationEvidenceStore.getState().publish({
+      id: runtimeEvidenceId(),
+      projectId,
+      kind: "project-backup-exported",
+      tone: "success",
+      title: "Резервная копия сохранена",
+      description: `Файл «${filename}» содержит редактируемый проект и подходит для последующего восстановления.`,
+      sourceContext: "project",
+      action: { kind: "dismiss" },
+    });
+  }), [projectId]);
 
   useEffect(() => {
     if (evidence && !visibleEvidence) editorOperationEvidenceStore.getState().dismiss();
