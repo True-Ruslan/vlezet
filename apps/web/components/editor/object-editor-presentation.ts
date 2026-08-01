@@ -52,7 +52,9 @@ export function objectAuthorityFingerprint(object: PlacedObject): string {
 }
 
 function parseNumber(value: string): number | null {
-  const parsed = Number(value.trim().replace(",", "."));
+  const normalized = value.trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
 }
 
