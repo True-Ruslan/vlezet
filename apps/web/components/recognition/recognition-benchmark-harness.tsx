@@ -1,7 +1,7 @@
 "use client";
 
 import type { RecognitionDraft } from "@vlezet/recognition";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { runLocalRecognitionEngine } from "./local-recognition-engine";
 import { runLocalRecognition } from "./local-recognition-client";
 import type { MaterializedLocalRecognitionInput } from "./local-recognition-types";
@@ -18,15 +18,15 @@ declare global {
 }
 
 export function RecognitionBenchmarkHarness() {
-  const [ready, setReady] = useState(false);
-
   useEffect(() => {
     const api: RecognitionBenchmarkHarnessApi = {
       runEngine: (input) => runLocalRecognitionEngine(input, { createDraftId: () => "benchmark-draft" }),
-      runWorker: (input) => runLocalRecognition(input),
+      runWorker: (input) => runLocalRecognition({
+        ...input,
+        sourceMillimetersPerPixel: input.sourceMillimetersPerPixel ?? undefined,
+      }),
     };
     window.__vlezetRecognitionBenchmark = api;
-    setReady(true);
     return () => {
       if (window.__vlezetRecognitionBenchmark === api) delete window.__vlezetRecognitionBenchmark;
     };
@@ -35,7 +35,7 @@ export function RecognitionBenchmarkHarness() {
   return (
     <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
       <h1>Recognition Benchmark Harness</h1>
-      <p role="status">{ready ? "Ready" : "Loading"}</p>
+      <p role="status">Ready</p>
       <p>This route exists only for deterministic browser benchmark execution.</p>
     </main>
   );
