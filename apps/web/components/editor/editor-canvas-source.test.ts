@@ -58,7 +58,8 @@ describe("M7.6 geometry inspector Canvas preview integration", () => {
   });
 
   it("emphasizes only the existing selected-room annotation", () => {
-    expect(source).toContain("const emphasizedRoomAxis = roomSpanPreview?.roomId === selectedRoom?.id");
+    expect(source).toContain("const emphasizedRoomAxis = roomSpanPreview && roomSpanPreview.roomId === selectedRoom?.id");
+    expect(source).toContain("? roomSpanPreview.axis");
     expect(source).toContain("deriveRectangularRoomDimensionAnnotations(selectedRoom, emphasizedRoomAxis)");
   });
 
