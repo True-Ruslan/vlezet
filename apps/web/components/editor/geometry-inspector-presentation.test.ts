@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  canonicalOpeningOffsetMm,
+  deriveDoorSwingChoices,
   deriveWallVisualModel,
+  displayedOpeningOffsetMm,
   physicalFaceChoices,
   wallLengthAnchorForVisualRole,
 } from "./geometry-inspector-presentation";
@@ -84,5 +87,100 @@ describe("geometry inspector wall presentation", () => {
     expect(() => deriveWallVisualModel({ x: 10, y: 20 }, { x: 10, y: 20 })).toThrow(
       "Стена должна иметь ненулевую длину.",
     );
+  });
+});
+
+describe("geometry inspector opening presentation", () => {
+  it("converts an opening from either visible end on a reverse-directed wall", () => {
+    const model = deriveWallVisualModel({ x: 4000, y: 0 }, { x: 0, y: 0 });
+
+    expect(displayedOpeningOffsetMm({
+      model,
+      wallLengthMm: 4000,
+      openingWidthMm: 900,
+      canonicalOffsetMm: 600,
+      reference: "visual-start",
+    })).toBe(2500);
+    expect(displayedOpeningOffsetMm({
+      model,
+      wallLengthMm: 4000,
+      openingWidthMm: 900,
+      canonicalOffsetMm: 600,
+      reference: "visual-end",
+    })).toBe(600);
+    expect(canonicalOpeningOffsetMm({
+      model,
+      wallLengthMm: 4000,
+      openingWidthMm: 900,
+      displayedOffsetMm: 2500,
+      reference: "visual-start",
+    })).toBe(600);
+  });
+
+  it("round-trips both references without moving the opening", () => {
+    const model = deriveWallVisualModel({ x: 0, y: 0 }, { x: 0, y: 5000 });
+    for (const reference of ["visual-start", "visual-end"] as const) {
+      const displayed = displayedOpeningOffsetMm({
+        model,
+        wallLengthMm: 5000,
+        openingWidthMm: 1200,
+        canonicalOffsetMm: 750,
+        reference,
+      });
+      expect(canonicalOpeningOffsetMm({
+        model,
+        wallLengthMm: 5000,
+        openingWidthMm: 1200,
+        displayedOffsetMm: displayed,
+        reference,
+      })).toBe(750);
+    }
+  });
+
+  it("fails closed for non-finite or outside-wall offsets", () => {
+    const model = deriveWallVisualModel({ x: 0, y: 0 }, { x: 4000, y: 0 });
+    expect(() => displayedOpeningOffsetMm({
+      model,
+      wallLengthMm: 4000,
+      openingWidthMm: 900,
+      canonicalOffsetMm: Number.NaN,
+      reference: "visual-start",
+    })).toThrow("Положение проёма должно быть конечным и находиться в пределах стены.");
+    expect(() => canonicalOpeningOffsetMm({
+      model,
+      wallLengthMm: 4000,
+      openingWidthMm: 900,
+      displayedOffsetMm: 3200,
+      reference: "visual-start",
+    })).toThrow("Положение проёма должно быть конечным и находиться в пределах стены.");
+  });
+
+  it("describes four distinct visible door swings without internal enum copy", () => {
+    const choices = deriveDoorSwingChoices(deriveWallVisualModel({ x: 0, y: 0 }, { x: 4000, y: 0 }));
+
+    expect(choices).toHaveLength(4);
+    expect(new Set(choices.map((choice) => choice.accessibleLabel)).size).toBe(4);
+    expect(choices.map((choice) => choice.accessibleLabel)).toEqual([
+      "Петли слева, открывание вниз",
+      "Петли слева, открывание вверх",
+      "Петли справа, открывание вниз",
+      "Петли справа, открывание вверх",
+    ]);
+    expect(choices.map((choice) => choice.accessibleLabel).join(" ")).not.toMatch(/start|end|left|right/);
+  });
+
+  it("keeps visible door descriptions stable when wall direction reverses", () => {
+    const forward = deriveDoorSwingChoices(deriveWallVisualModel({ x: 0, y: 0 }, { x: 0, y: 4000 }));
+    const reverse = deriveDoorSwingChoices(deriveWallVisualModel({ x: 0, y: 4000 }, { x: 0, y: 0 }));
+
+    expect(forward.map((choice) => choice.accessibleLabel).sort()).toEqual(
+      reverse.map((choice) => choice.accessibleLabel).sort(),
+    );
+    expect(new Set(forward.map((choice) => choice.accessibleLabel))).toEqual(new Set([
+      "Петли сверху, открывание влево",
+      "Петли сверху, открывание вправо",
+      "Петли снизу, открывание влево",
+      "Петли снизу, открывание вправо",
+    ]));
   });
 });
