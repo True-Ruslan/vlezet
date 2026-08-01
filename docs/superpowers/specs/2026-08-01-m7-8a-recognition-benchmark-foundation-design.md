@@ -112,7 +112,7 @@ It runs in Standard CI.
 
 ### 5.2 Source Benchmark
 
-A Chromium/Playwright benchmark runs the real browser OpenCV worker over committed source images.
+A Chromium/Playwright benchmark runs the real browser OpenCV recognition path over committed source images.
 
 It covers:
 
@@ -135,7 +135,28 @@ It catches regressions that candidate-only fixtures cannot detect, including cha
 - analysis/source scaling;
 - worker integration.
 
-It runs in a dedicated `Recognition Benchmark` workflow and uploads immutable evidence.
+The current worker implementation keeps the recognition function private inside `recognition.worker.ts`. M7.8A may extract that behaviour into a browser-compatible function with this exact boundary:
+
+```ts
+export async function runLocalRecognitionEngine(
+  input: LocalRecognitionInput,
+  options: Readonly<{
+    signal?: AbortSignal;
+    onProgress?: (progress: LocalRecognitionProgress) => void;
+  }>,
+): Promise<RecognitionDraft>;
+```
+
+Normative requirements for this extraction:
+
+- the Worker remains the production caller;
+- the benchmark harness invokes the same function in Chromium;
+- no algorithm, thresholds, candidate ordering or diagnostics change during extraction;
+- equivalence tests compare Worker-visible output before and after extraction;
+- the benchmark must not reimplement OpenCV recognition separately;
+- the extracted function remains browser-only and is not imported into Node Core Benchmark execution.
+
+The Source Benchmark runs in a dedicated `Recognition Benchmark` workflow and uploads immutable evidence.
 
 ## 6. Repository structure
 
@@ -166,6 +187,7 @@ packages/recognition/
     src/
       coordinates.ts
       validate-fixture.ts
+      assignment.ts
       match-walls.ts
       score-wall-topology.ts
       match-openings.ts
@@ -177,6 +199,10 @@ packages/recognition/
       compare-baseline.ts
     baselines/
       recognition-v1.json
+
+apps/web/components/recognition/
+  local-recognition-engine.ts
+  recognition.worker.ts
 
 tools/recognition-benchmark/
   playwright.config.mjs
@@ -243,7 +269,22 @@ Corpus v1 contains eight fixtures.
    - altered names, dimensions and proportions;
    - contains no personal data or original private source raster.
 
-### 7.2 Fixture provenance
+### 7.2 Fixture file manifest
+
+Every fixture directory must contain:
+
+- `fixture.json` — validated ground truth and metadata;
+- one source raster referenced by `fixture.json`;
+- `segments.json` — deterministic Core Benchmark line-segment evidence generated from or designed for that fixture.
+
+A fixture may additionally contain:
+
+- `cloud-response.json` — sanitised provider result used for reconciliation tests;
+- `notes.md` — human-readable construction/provenance notes.
+
+A missing required file fails the benchmark. Optional files must be declared in `fixture.json`; undeclared extra machine-consumed files are ignored.
+
+### 7.3 Fixture provenance
 
 Every fixture must declare one of:
 
@@ -253,16 +294,18 @@ Every fixture must declare one of:
 
 Unverified web images must not enter the corpus.
 
-### 7.3 Privacy and public-repository rules
+### 7.4 Privacy and public-repository rules
 
 Before commit, fixture assets must:
 
 - contain no names, addresses, apartment numbers, QR codes or personal identifiers;
 - contain no private developer/customer metadata;
-- have EXIF and embedded metadata removed;
+- have EXIF and ancillary embedded metadata removed;
 - avoid reproducing the original private plan exactly;
 - have a documented legal provenance;
 - use bounded raster dimensions and compressed lossless/lossy formats appropriate to the case.
+
+The privacy validator inspects both fixture metadata and raster container metadata. A human review remains mandatory for visible content because automated metadata checks cannot prove visual anonymisation.
 
 The original M7.3 user-supplied plan is not committed.
 
@@ -273,7 +316,7 @@ Benchmark ground truth uses **reference-local millimetres**.
 ```text
 origin: top-left of calibrated source raster
 x-axis: right
- y-axis: down
+y-axis: down
 unit: millimetres
 ```
 
@@ -320,6 +363,7 @@ export type RecognitionBenchmarkFixtureV1 = Readonly<{
   source: BenchmarkSourceAssetV1;
   calibration: BenchmarkCalibrationV1;
   tolerances: BenchmarkTolerancesV1;
+  expectedJunctions: readonly BenchmarkJunctionV1[];
   expectedWalls: readonly BenchmarkWallV1[];
   expectedOpenings: readonly BenchmarkOpeningV1[];
   expectedRooms: readonly BenchmarkRoomV1[];
@@ -329,9 +373,14 @@ export type RecognitionBenchmarkFixtureV1 = Readonly<{
 }>;
 ```
 
-### 9.1 Expected walls
+### 9.1 Expected junctions and walls
 
 ```ts
+export type BenchmarkJunctionV1 = Readonly<{
+  id: string;
+  positionMm: BenchmarkPointMm;
+}>;
+
 export type BenchmarkWallV1 = Readonly<{
   id: string;
   startMm: BenchmarkPointMm;
@@ -346,9 +395,10 @@ export type BenchmarkWallV1 = Readonly<{
 Requirements:
 
 - finite coordinates;
-- non-zero length;
-- unique wall IDs;
+- non-zero wall length;
+- unique wall and junction IDs;
 - existing junction references;
+- wall endpoint coordinates must equal their referenced junction coordinates within `0.001 mm` schema tolerance;
 - thickness positive when present;
 - wall direction is not semantically significant.
 
@@ -400,6 +450,7 @@ Requirements:
 - at least three polygon vertices;
 - simple, non-self-intersecting polygon;
 - positive computed area;
+- `computedAreaM2` must agree with polygon shoelace area within `0.001 m²`;
 - stated area remains evidence, not geometry authority.
 
 ### 9.4 Metric applicability
@@ -455,18 +506,21 @@ The scorer must not:
 - use candidate IDs as matching evidence;
 - mutate predictions or ground truth.
 
-### 11.2 Stable assignment
+### 11.2 Stable optimal assignment
 
 For each entity type:
 
 1. build all admissible expected/predicted pairs;
-2. compute a deterministic cost tuple;
-3. sort pairs by the complete cost tuple and stable geometry-derived keys;
-4. select pairs greedily only where neither side is already consumed;
-5. report unmatched predictions as false positives;
-6. report unmatched expected entities as false negatives.
+2. encode the complete deterministic cost tuple as lexicographically comparable fixed-precision integers;
+3. find a **maximum-cardinality** one-to-one matching;
+4. among maximum-cardinality matchings, select the **minimum-total-cost** matching;
+5. resolve any remaining equal-cost solution by stable geometry-derived expected and predicted keys;
+6. report unmatched predictions as false positives;
+7. report unmatched expected entities as false negatives.
 
-Corpus v1 does not require an external Hungarian-algorithm dependency. A future schema version may replace the assignment algorithm only with an explicit baseline migration.
+A greedy pair-selection algorithm is explicitly forbidden because locally cheapest matches can reduce global cardinality or produce a worse total assignment.
+
+The implementation may use an internal bounded bipartite assignment algorithm without adding a dependency. Corpus sizes are intentionally small. Any future assignment-algorithm change requires scorer equivalence tests or an explicit baseline migration.
 
 ### 11.3 Wall admissibility
 
@@ -484,8 +538,8 @@ endpoint distance
 orientation delta
 1 - overlap ratio
 absolute length error
-stable expected wall key
-stable predicted geometry key
+stable expected wall geometry key
+stable predicted wall geometry key
 ```
 
 ### 11.4 Opening admissibility
@@ -495,9 +549,9 @@ A predicted opening may match an expected opening only when:
 - kind matches exactly;
 - centre distance is within tolerance;
 - width error is within tolerance;
-- the predicted host wall resolves to the matched expected host wall.
+- the predicted host wall resolves through wall matching to the expected host wall.
 
-An opening with correct position but wrong host wall is not a true positive.
+An opening with correct position but wrong or unknown host wall is not a true positive.
 
 ### 11.5 Room admissibility
 
@@ -555,7 +609,17 @@ Per fixture:
 
 ### 13.2 Wall topology
 
-Expected and predicted walls are converted to junction graphs.
+Expected topology uses declared junction IDs.
+
+Predicted topology is derived only for scoring and does not mutate runtime candidates:
+
+1. convert predicted wall endpoints to fixture-local millimetres;
+2. collect all endpoints with stable geometry keys;
+3. cluster endpoints whose pairwise distance is within `junctionMm` using deterministic connected components;
+4. assign each cluster a stable ID from its sorted, rounded member coordinates;
+5. reject self-loop edges created by a wall whose endpoints fall into the same cluster;
+6. create an undirected edge for each surviving predicted wall;
+7. preserve duplicate predicted edges as duplicate/extra topology evidence rather than collapsing them silently.
 
 Metrics:
 
@@ -564,7 +628,11 @@ Metrics:
 - connected-component count error;
 - missing edge count;
 - extra edge count;
+- self-loop count;
+- duplicate edge count;
 - topology F1.
+
+Junction matching uses the same maximum-cardinality minimum-cost assignment policy with distance as the admissibility/cost measure. Predicted edge correctness is evaluated through the matched junction pair, not through wall candidate IDs.
 
 A wall geometry match with wrong junction connectivity may pass geometry matching but fail topology scoring.
 
@@ -595,6 +663,14 @@ Metrics:
 - label-to-room association accuracy.
 
 Computed geometry area and stated source area remain separate evidence fields.
+
+Current M7.8A runtime predictions do not yet include room polygons. For source/current-main baseline fixtures where room predictions are absent:
+
+- room metrics are reported as applicable with zero recall when the fixture expects rooms and the benchmark input contract says a future prediction channel is expected;
+- they are `not-applicable` only for fixtures that explicitly disable room evaluation;
+- the scorer does not fabricate room predictions from raw wall candidates during M7.8A.
+
+This preserves an honest baseline for M7.8C.
 
 ### 13.5 Confidence
 
@@ -670,7 +746,7 @@ Aggregation rules:
 
 ## 15. Baseline policy
 
-The initial baseline records the current `main` recognition behaviour.
+The initial baseline records current `main` recognition behaviour as exercised by the completed M7.8A harness.
 
 It is expected to miss final M7.8 quality targets. M7.8A succeeds by making that quality measurable and reproducible.
 
@@ -680,10 +756,13 @@ It is expected to miss final M7.8 quality targets. M7.8A succeeds by making that
 
 - corpus version;
 - recognition engine version;
-- implementation commit SHA used to create it;
+- product base commit SHA `039ddba143cd03ddec0b090606dfdde752446014` whose recognition behaviour is being measured;
+- harness/scorer commit SHA used to generate the file;
 - per-fixture metrics;
 - aggregate metrics;
 - expected deterministic diagnostics.
+
+Because M7.8A does not alter recognition behaviour, the measured product behaviour must remain equivalent to the stated product base commit.
 
 ### 15.2 Regression gate
 
@@ -735,7 +814,7 @@ pnpm benchmark:recognition:compare
 Expected semantics:
 
 - `core` validates fixtures and executes deterministic non-browser scoring;
-- `source` executes browser/OpenCV fixtures;
+- `source` executes browser/OpenCV fixtures through the shared engine seam;
 - `report` combines available result fragments into JSON and Markdown;
 - `compare` compares the generated result with the committed baseline and exits non-zero on a regression.
 
@@ -766,7 +845,7 @@ The Core Benchmark must not:
 A dedicated workflow runs on pull requests that change:
 
 - `packages/recognition/**`;
-- browser recognition worker/integration files;
+- browser recognition worker/engine/integration files;
 - benchmark fixtures/tooling;
 - workflow itself;
 - relevant lockfiles.
@@ -779,13 +858,19 @@ Required steps:
 2. frozen dependency install;
 3. install Chromium;
 4. validate fixture privacy/provenance metadata;
-5. run Source Benchmark;
-6. combine Core and Source results;
-7. compare baseline;
-8. upload JSON report;
-9. upload Markdown summary;
-10. upload per-fixture overlays/diagnostics;
-11. publish artifact SHA-256 digest.
+5. start a benchmark-only browser harness served from repository tooling;
+6. load each source asset as browser `ImageData`;
+7. invoke `runLocalRecognitionEngine()` directly in Chromium using the same OpenCV module as the Worker;
+8. compare a representative fixture output with the Worker message-path output to preserve seam equivalence;
+9. run all Source Benchmark fixtures;
+10. combine Core and Source results;
+11. compare baseline;
+12. upload JSON report;
+13. upload Markdown summary;
+14. upload per-fixture overlays/diagnostics;
+15. publish artifact SHA-256 digest.
+
+The benchmark-only harness is not a user-facing product route, is not included in ordinary application navigation, and does not persist any recognition session or project data.
 
 The workflow is merge-blocking for M7.8A and later recognition changes.
 
@@ -825,7 +910,7 @@ Determinism requirements:
 
 - stable fixture discovery order;
 - stable candidate sorting before scoring;
-- stable matching tie-breakers;
+- stable optimal-assignment tie-breakers;
 - stable diagnostic ordering;
 - fixed numeric rounding in reports;
 - no random IDs in benchmark semantics;
@@ -843,14 +928,15 @@ The benchmark fails closed.
 Examples:
 
 - invalid fixture schema → fixture fails and whole command exits non-zero;
-- missing source asset → failure, not skip;
+- missing source asset or `segments.json` → failure, not skip;
 - missing applicable ground truth → failure;
 - scorer exception → fixture recorded as failed and whole command exits non-zero;
 - Source Benchmark browser crash → workflow failure;
 - absent baseline metric → failure;
 - new metric not represented in baseline schema → explicit baseline migration required;
-- unavailable cloud snapshot → affected cloud test fails;
-- `not-applicable` metric used in aggregate denominator → contract-test failure.
+- unavailable declared cloud snapshot → affected cloud test fails;
+- `not-applicable` metric used in aggregate denominator → contract-test failure;
+- Worker/shared-engine equivalence mismatch → failure.
 
 ## 23. Testing strategy
 
@@ -859,23 +945,29 @@ Implementation follows RED → GREEN.
 Required focused tests include:
 
 1. fixture validation rejects malformed IDs, coordinates, walls, hosts and polygons;
-2. coordinate conversion preserves calibration and top-left orientation;
-3. reversed wall direction matches identically;
-4. one prediction cannot satisfy two expected walls;
-5. matching is invariant to input array order;
-6. close wall with wrong junction topology loses topology credit;
-7. opening with wrong host wall is a false positive;
-8. unknown-host opening count is explicit;
-9. room IoU and zone-count metrics are deterministic;
-10. stated and computed areas remain separate;
-11. disabled metrics produce `not-applicable`;
-12. high-confidence false-positive rate is correct;
-13. stale reconciliation decisions remain zero;
-14. report aggregation excludes only explicit `not-applicable` values;
-15. repeated runs produce identical canonical JSON;
-16. baseline comparison rejects regressions;
-17. CI cannot update the baseline;
-18. Source Benchmark exercises the real worker rather than fixture snapshots only.
+2. fixture validation rejects missing files and undeclared provenance;
+3. coordinate conversion preserves calibration and top-left orientation;
+4. reversed wall direction matches identically;
+5. one prediction cannot satisfy two expected walls;
+6. matching is invariant to input array order;
+7. matching finds the maximum-cardinality global optimum where greedy selection would fail;
+8. equal-cost matching resolves by stable geometry keys;
+9. close wall with wrong junction topology loses topology credit;
+10. predicted endpoint clustering is deterministic and reports self-loops/duplicates;
+11. opening with wrong host wall is a false positive;
+12. unknown-host opening count is explicit;
+13. room IoU and zone-count metrics are deterministic;
+14. missing room predictions produce honest zero recall rather than `not-applicable` where rooms are enabled;
+15. stated and computed areas remain separate;
+16. disabled metrics produce `not-applicable`;
+17. high-confidence false-positive rate is correct;
+18. stale reconciliation decisions remain zero;
+19. report aggregation excludes only explicit `not-applicable` values;
+20. repeated runs produce identical canonical JSON;
+21. baseline comparison rejects regressions;
+22. CI cannot update the baseline;
+23. shared engine extraction preserves Worker-visible output;
+24. Source Benchmark exercises the real OpenCV engine rather than fixture snapshots only.
 
 ## 24. Product and architecture non-goals
 
@@ -896,19 +988,21 @@ M7.8A does not authorise:
 - planning or 3D changes;
 - claims that final recognition targets are already met.
 
+The only permitted production-code refactor is extraction of the existing local engine into the shared browser seam defined in section 5.2, with strict behaviour-equivalence tests.
+
 ## 25. Initial target context
 
 The approved quality requirements define the intended future release targets:
 
 ```text
-exact spatial-zone count:              ≥ 90% of benchmark plans
-total-area absolute percentage error:  median ≤ 5%
+exact spatial-zone count:                ≥ 90% of benchmark plans
+total-area absolute percentage error:    median ≤ 5%
 per-room area absolute percentage error: median ≤ 10%
-wall topology F1:                       ≥ 0.90
-door/window detection F1:               ≥ 0.85
-incorrect high-confidence candidates:   ≤ 2%
-unknown-host openings:                  0
-stale decisions:                        0
+wall topology F1:                         ≥ 0.90
+door/window detection F1:                ≥ 0.85
+incorrect high-confidence candidates:     ≤ 2%
+unknown-host openings:                    0
+stale decisions:                          0
 ```
 
 M7.8A reports these targets but does not require current-main recognition to meet them.
@@ -922,22 +1016,27 @@ M7.8A is complete only when all conditions are satisfied.
 ### Corpus
 
 - eight required fixtures are committed;
+- every fixture contains `fixture.json`, a declared source raster and `segments.json`;
 - all fixture assets are anonymised and provenance-documented;
 - the M7.3 failure characteristics are represented without committing the private original;
-- EXIF/metadata privacy checks pass;
+- automated raster-metadata checks and manual visual privacy review pass;
 - fixture schema v1 validates every fixture.
 
 ### Core benchmark
 
 - coordinate conversion is implemented and tested;
+- maximum-cardinality minimum-cost assignment is implemented and tested;
 - wall, topology, opening, room, area, confidence and reconciliation scorers exist;
-- one-to-one matching is deterministic and order-invariant;
+- matching is deterministic and order-invariant;
+- predicted topology derivation is deterministic;
 - metric applicability is explicit;
 - Core Benchmark runs in Standard CI.
 
 ### Source benchmark
 
-- real Chromium/OpenCV worker execution is covered;
+- the production Worker delegates to the shared browser engine seam;
+- behaviour-equivalence tests pass;
+- real Chromium/OpenCV engine execution is covered;
 - all source fixtures complete;
 - expected/predicted overlays and diagnostics are generated;
 - no network/provider calls occur;
@@ -945,7 +1044,7 @@ M7.8A is complete only when all conditions are satisfied.
 
 ### Baseline and reports
 
-- current-main baseline is committed;
+- current-main-equivalent baseline is committed;
 - report contains per-fixture and aggregate metrics;
 - baseline comparison fails on unapproved regression;
 - repeated runs are semantically identical;
@@ -954,7 +1053,7 @@ M7.8A is complete only when all conditions are satisfied.
 
 ### Architecture
 
-- product recognition workflow behaviour is unchanged;
+- product recognition behaviour is unchanged;
 - runtime recognition persistence is unchanged;
 - Apply and semantic history are unchanged;
 - benchmark types do not become product source-of-truth types;
@@ -973,14 +1072,16 @@ M7.8A is complete only when all conditions are satisfied.
 The approved implementation sequence is:
 
 1. fixture/result schemas and fail-closed validation;
-2. coordinate conversion and stable wall matching;
-3. topology, opening, room, area and confidence scoring;
-4. aggregate report and canonical deterministic output;
-5. initial synthetic/redrawn fixture set;
-6. current-main baseline generation;
-7. Core Benchmark commands and Standard CI gate;
-8. Source Benchmark browser harness;
-9. dedicated workflow, overlays and artifact evidence;
-10. exact-head verification and product-owner report review.
+2. coordinate conversion and deterministic optimal assignment;
+3. wall geometry matching and predicted topology derivation;
+4. opening, room, area, confidence and reconciliation scoring;
+5. aggregate report and canonical deterministic output;
+6. initial synthetic/redrawn fixture set;
+7. behaviour-preserving local-engine extraction;
+8. current-main-equivalent baseline generation;
+9. Core Benchmark commands and Standard CI gate;
+10. Source Benchmark browser harness;
+11. dedicated workflow, overlays and artifact evidence;
+12. exact-head verification and product-owner report review.
 
-No runtime recognition algorithm changes may be mixed into M7.8A implementation commits except fixes strictly necessary to expose an existing pure test seam without changing behaviour. Any such refactor requires explicit equivalence tests.
+No runtime recognition algorithm changes may be mixed into M7.8A implementation commits. Any production-code change beyond the explicitly permitted engine extraction requires a separate design amendment and user approval.
