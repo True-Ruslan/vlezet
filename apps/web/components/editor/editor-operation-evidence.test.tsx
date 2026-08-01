@@ -46,4 +46,18 @@ describe("M7.5 durable operation evidence", () => {
     expect(html).toContain('data-tone="error"');
     expect(html).toContain("Вернуться к проверке");
   });
+
+  it("offers a truthful retry for project backup failure", () => {
+    const html = render({
+      id: "e3",
+      projectId: "p1",
+      kind: "recoverable-failure",
+      tone: "error",
+      title: "Не удалось сохранить резервную копию",
+      description: "Проект остался открыт и не изменился.",
+      sourceContext: "project",
+      action: { kind: "retry-project-backup" },
+    });
+    expect(html).toContain("Повторить экспорт");
+  });
 });
