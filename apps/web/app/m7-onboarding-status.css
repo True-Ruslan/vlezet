@@ -1,0 +1,137 @@
+.first-project-guide,
+.editor-operation-evidence {
+  min-width: 0;
+  max-width: min(460px, calc(100% - 32px));
+}
+
+.first-project-guide {
+  position: absolute;
+  z-index: 8;
+  inset-inline-start: 16px;
+  inset-block-start: 72px;
+  pointer-events: auto;
+}
+
+.first-project-guide-heading,
+.editor-operation-evidence-actions,
+.first-project-guide-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.first-project-guide-heading {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.first-project-guide-heading h2 {
+  margin: 2px 0 0;
+  font-size: var(--font-size-title-sm, 18px);
+  line-height: 1.25;
+}
+
+.first-project-guide-kicker {
+  display: block;
+  color: var(--text-muted, #667085);
+  font-size: var(--font-size-caption, 12px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.first-project-guide-copy {
+  margin: var(--space-3, 12px) 0;
+  color: var(--text-secondary, #475467);
+  font-size: max(12px, var(--font-size-body-sm, 13px));
+  line-height: 1.45;
+}
+
+.first-project-guide-steps {
+  display: grid;
+  gap: var(--space-2, 8px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-project-guide-steps li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2, 8px);
+  min-width: 0;
+  color: var(--text-secondary, #475467);
+  font-size: max(12px, var(--font-size-body-sm, 13px));
+}
+
+.first-project-guide-steps li[data-step-state="current"] {
+  color: var(--text-primary, #101828);
+  font-weight: 700;
+}
+
+.first-project-guide-steps li[data-step-state="complete"] {
+  color: var(--status-success-text, #067647);
+}
+
+.first-project-guide-step-marker {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-subtle, #d0d5dd);
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.first-project-guide-steps li[data-step-state="current"] .first-project-guide-step-marker {
+  border-color: var(--accent-border, #6172f3);
+}
+
+.first-project-guide-steps li[data-step-state="complete"] .first-project-guide-step-marker {
+  border-color: var(--status-success-border, #75e0a7);
+}
+
+.first-project-guide-actions {
+  flex-wrap: wrap;
+  margin-top: var(--space-4, 16px);
+}
+
+.editor-operation-evidence {
+  position: absolute;
+  z-index: 9;
+  inset-inline: 50%;
+  inset-block-end: 20px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.editor-operation-evidence .ui-notice {
+  box-shadow: var(--shadow-lg, 0 12px 28px rgb(16 24 40 / 18%));
+}
+
+.editor-operation-evidence-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .first-project-guide,
+  .editor-operation-evidence {
+    position: relative;
+    inset: auto;
+    transform: none;
+    width: auto;
+    max-width: none;
+    margin: var(--space-2, 8px) var(--space-3, 12px);
+  }
+
+  .first-project-guide {
+    order: -1;
+  }
+
+  .first-project-guide-actions,
+  .editor-operation-evidence-actions {
+    align-items: stretch;
+  }
+}
