@@ -41,7 +41,7 @@ describe("ObjectInspector M7.7 workflow", () => {
     expect((html.match(/Повернуть 90°/g) ?? [])).toHaveLength(1);
     expect(html).toContain("Применить изменения");
     expect(html).toContain("Рекомендуется");
-    expect(html).toContain("Свободно сейчас");
+    expect(html).toContain("Нет ближайшего препятствия");
   });
 
   it("routes one atomic patch through the existing command and resets stale drafts", () => {
