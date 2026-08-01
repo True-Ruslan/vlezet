@@ -12,13 +12,14 @@ const result = spawnSync(command, [
   "exec",
   "vitest",
   "run",
-  "benchmarks/src/core-benchmark.command.ts",
+  "benchmarks/src/core-benchmark.command.test.ts",
   "--reporter=verbose",
 ], {
   cwd: repositoryRoot,
   stdio: "inherit",
   env: {
     ...process.env,
+    RECOGNITION_BENCHMARK_COMMAND: "1",
     RECOGNITION_BENCHMARK_OUTPUT_DIR: outputDirectory,
     RECOGNITION_BENCHMARK_COMMIT_SHA: process.env.RECOGNITION_BENCHMARK_COMMIT_SHA ?? process.env.GITHUB_SHA,
   },
