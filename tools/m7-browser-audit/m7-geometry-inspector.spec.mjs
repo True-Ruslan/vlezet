@@ -190,6 +190,9 @@ test.describe("M7.6 geometry and opening inspector", () => {
       await page.getByRole("button", { name: "Стена", exact: true }).click();
       await clickCanvasRatio(page, 0.72, 0.34);
       await clickCanvasRatio(page, 0.36, 0.34);
+      const reverseGuide = page.locator('[data-first-project-phase="drawing"]');
+      await expect(reverseGuide).toBeVisible();
+      await reverseGuide.getByRole("button", { name: "Скрыть", exact: true }).click();
       await page.keyboard.press("Escape");
       await page.keyboard.press("Escape");
       await clickCanvasRatio(page, 0.54, 0.34);
