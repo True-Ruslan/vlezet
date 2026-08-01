@@ -1,7 +1,7 @@
 "use client";
 
 import { deriveRooms } from "@vlezet/geometry";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "zustand";
 import { subscribeProjectBackupExported } from "../projects/download-events";
 import { formatSquareMeters } from "../ui/presentation-format";
@@ -12,10 +12,7 @@ import {
   type EditorEvidenceAction,
 } from "./editor-operation-evidence-store";
 import { FirstProjectGuide } from "./first-project-guide";
-import {
-  readFirstProjectGuideDismissed,
-  writeFirstProjectGuideDismissed,
-} from "./first-project-guide-preference";
+import { firstProjectGuideRuntimeStore } from "./first-project-guide-runtime-store";
 import { deriveFirstProjectProgress } from "./first-project-progress";
 import {
   observeFirstRoomTransition,
@@ -58,14 +55,12 @@ export function EditorOnboardingOverlay({
   const history = useStore(editorStore, (state) => state.history);
   const document = history.document;
   const evidence = useStore(editorOperationEvidenceStore, (state) => state.evidence);
-  const [guideDismissed, setGuideDismissed] = useState(true);
-  const roomObservationRef = useRef<FirstRoomObservation | null>(null);
-  const planningObservationRef = useRef<PlanningApplyObservation | null>(null);
-  const recognitionObservationRef = useRef<RecognitionApplyObservation | null>(null);
+  const guideDismissed = useStore(firstProjectGuideRuntimeStore, (state) =>
+    state.projectId === projectId ? state.dismissed : true,
+  );
 
   const rooms = useMemo(() => deriveRooms(document).rooms, [document]);
   const roomIds = useMemo(() => rooms.map((room) => room.id), [rooms]);
-  const roomIdsKey = roomIds.join("\u0000");
   const validRoomIds = useMemo(() => new Set(roomIds), [roomIds]);
   const progress = useMemo(() => deriveFirstProjectProgress({
     wallCount: document.walls.length,
@@ -74,21 +69,22 @@ export function EditorOnboardingOverlay({
   const visibleEvidence = visibleEditorOperationEvidence(evidence, projectId, validRoomIds);
   const lastHistoryLabel = history.past[history.past.length - 1]?.forward.label ?? null;
 
+  const roomObservationRef = useRef<FirstRoomObservation>({ projectId, roomIds });
+  const planningObservationRef = useRef<PlanningApplyObservation>({
+    projectId,
+    planningOpen,
+    pastLength: history.past.length,
+    lastLabel: lastHistoryLabel,
+  });
+  const recognitionObservationRef = useRef<RecognitionApplyObservation>({
+    projectId,
+    pastLength: history.past.length,
+    lastLabel: lastHistoryLabel,
+  });
+
   useEffect(() => {
     editorOperationEvidenceStore.getState().clearForProjectSwitch();
-    setGuideDismissed(readFirstProjectGuideDismissed(projectId));
-    roomObservationRef.current = { projectId, roomIds };
-    planningObservationRef.current = {
-      projectId,
-      planningOpen,
-      pastLength: history.past.length,
-      lastLabel: lastHistoryLabel,
-    };
-    recognitionObservationRef.current = {
-      projectId,
-      pastLength: history.past.length,
-      lastLabel: lastHistoryLabel,
-    };
+    firstProjectGuideRuntimeStore.getState().load(projectId);
   }, [projectId]);
 
   useEffect(() => {
@@ -109,7 +105,7 @@ export function EditorOnboardingOverlay({
       entityId: room.id,
       action: { kind: "select-room", roomId: room.id },
     });
-  }, [projectId, roomIdsKey, rooms]);
+  }, [projectId, roomIds, rooms]);
 
   useEffect(() => {
     const current: PlanningApplyObservation = {
@@ -173,11 +169,6 @@ export function EditorOnboardingOverlay({
     if (evidence && !visibleEvidence) editorOperationEvidenceStore.getState().dismiss();
   }, [evidence, visibleEvidence]);
 
-  const dismissGuide = () => {
-    setGuideDismissed(true);
-    writeFirstProjectGuideDismissed(projectId);
-  };
-
   const runGuideAction = () => {
     if (progress.primaryAction === "activate-wall-tool") {
       editorStore.getState().setTool("wall");
@@ -219,7 +210,7 @@ export function EditorOnboardingOverlay({
         <FirstProjectGuide
           progress={progress}
           onPrimaryAction={runGuideAction}
-          onDismiss={dismissGuide}
+          onDismiss={() => firstProjectGuideRuntimeStore.getState().dismiss(projectId)}
         />
       ) : null}
       {viewMode === "2d" && visibleEvidence ? (
