@@ -41,6 +41,7 @@ import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-stor
 import {
   canonicalOpeningOffsetMm,
   deriveDoorSwingChoices,
+  deriveOpeningCueDraft,
   deriveWallVisualModel,
   displayedOpeningOffsetMm,
   physicalFaceChoices,
@@ -481,27 +482,16 @@ export function SelectedOpeningInspector({
     }
   };
 
-  let cueCanonicalOffset = opening.offset;
   const draftWidth = parseDecimal(widthInput);
-  try {
-    cueCanonicalOffset = canonicalOpeningOffsetMm({
-      model: visualModel,
-      wallLengthMm: wallLength,
-      openingWidthMm: draftWidth,
-      displayedOffsetMm: parseDecimal(offsetInput),
-      reference,
-    });
-  } catch {
-    cueCanonicalOffset = opening.offset;
-  }
-  const cueVisualOffset = displayedOpeningOffsetMm({
+  const cueDraft = deriveOpeningCueDraft({
     model: visualModel,
     wallLengthMm: wallLength,
-    openingWidthMm: Number.isFinite(draftWidth) && draftWidth > 0 ? draftWidth : opening.width,
-    canonicalOffsetMm: cueCanonicalOffset,
-    reference: "visual-start",
+    authoritativeWidthMm: opening.width,
+    authoritativeOffsetMm: opening.offset,
+    draftWidthMm: draftWidth,
+    displayedOffsetMm: parseDecimal(offsetInput),
+    reference,
   });
-  const safeDraftWidth = Number.isFinite(draftWidth) && draftWidth > 0 ? draftWidth : opening.width;
   const label = opening.kind === "door" ? "дверь" : "окно";
 
   return (
@@ -525,8 +515,8 @@ export function SelectedOpeningInspector({
           <OpeningPositionCue
             model={visualModel}
             reference={reference}
-            offsetRatio={wallLength > 0 ? cueVisualOffset / wallLength : 0}
-            widthRatio={wallLength > 0 ? safeDraftWidth / wallLength : 0}
+            offsetRatio={wallLength > 0 ? cueDraft.visualOffsetMm / wallLength : 0}
+            widthRatio={wallLength > 0 ? cueDraft.widthMm / wallLength : 0}
           />
           <UiField id="opening-offset-reference" label="От какого конца измерять">
             <select value={reference} onChange={(event) => switchReference(event.target.value as OpeningOffsetReference)}>
