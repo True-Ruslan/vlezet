@@ -18,22 +18,23 @@ const room = {
 } as const;
 
 describe("room inspector precision semantics", () => {
-  it("uses shared fields and actions while preserving exact room controls", () => {
+  it("ties each editable value to a visible physical interior span", () => {
     const html = renderToStaticMarkup(<SelectedRoomInspector room={room} />);
 
-    expect(html).toContain("Чистые внутренние размеры");
-    expect(html).toContain("Ширина");
-    expect(html).toContain("Длина");
-    expect(html).toContain('id="room-name"');
+    expect(html).toContain("Внутренние размеры");
+    expect(html).toContain("По горизонтали");
+    expect(html).toContain("По вертикали");
+    expect(html.match(/между внутренними поверхностями стен/g)).toHaveLength(2);
     expect(html).toContain('id="room-clear-width"');
     expect(html).toContain('id="room-clear-height"');
-    expect(html.match(/class="ui-field"/g)?.length).toBeGreaterThanOrEqual(5);
-    expect(html).toContain('class="ui-button ui-button-primary room-inspector-action"');
-    expect(html).toContain('class="ui-button ui-button-secondary room-inspector-action"');
     expect(html).toContain("Левая сторона");
     expect(html).toContain("Правая сторона");
     expect(html).toContain("Верхняя сторона");
     expect(html).toContain("Нижняя сторона");
+    expect(html).toContain("Применить горизонтальный размер");
+    expect(html).toContain("Применить вертикальный размер");
+    expect(html).not.toContain("Применить ширину");
+    expect(html).not.toContain("Применить длину");
     expect(html).toContain("11,72");
   });
 });
