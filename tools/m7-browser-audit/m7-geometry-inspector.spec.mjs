@@ -50,7 +50,7 @@ async function drawRectangle(page) {
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
   const guide = page.locator('[data-first-project-phase="room-created"]');
   await expect(guide).toBeVisible();
-  await guide.getByRole("button", { name: "Скрыть", exact: true }).click();
+  await guide.getByRole("button", { name: "Завершить", exact: true }).click();
 
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
