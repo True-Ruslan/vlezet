@@ -48,15 +48,13 @@ async function drawRectangle(page) {
   await clickCanvasRatio(page, 0.55, 0.28);
 
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
-  await expect(page.locator('[data-first-project-phase="room-created"]')).toBeVisible();
+  const guide = page.locator('[data-first-project-phase="room-created"]');
+  await expect(guide).toBeVisible();
+  await guide.getByRole("button", { name: "Скрыть", exact: true }).click();
+
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
-
-  const guide = page.locator('[data-first-project-phase="room-created"]');
-  if (await guide.isVisible()) {
-    await guide.getByRole("button", { name: "Скрыть", exact: true }).click();
-  }
 }
 
 async function applyAndUndoDimension(page, inputSelector, buttonName, anchorSelector, anchorValue) {
