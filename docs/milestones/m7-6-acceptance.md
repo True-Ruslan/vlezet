@@ -1,30 +1,28 @@
 # M7.6 — Geometry and Opening Inspector Acceptance
 
-**Status:** ACCEPTED / READY FOR PROTECTED SQUASH MERGE  
+**Status:** ACCEPTED / MERGED  
 **Date:** 2026-08-01  
 **PR:** #33  
-**Branch:** `feat/m7-6-geometry-opening-inspector`  
-**Implementation head:** `f1c4c6355cde623b729e839eed48b252e7b97ab6`  
-**Accepted documentation head:** `cbcdbecca72253bbf855ee78c81cf040cba2d2fb`  
-**Verified product-and-changelog head:** `601d8b44614e1785ae4cd5647ddb327c883be51a`
+**Final accepted head:** `29b631fe43ba1a00e0ad48c71ee5429371d1faa8`  
+**Squash merge:** `315828052edb483c34a68464acb70458bf4ff80d`
 
 ## 1. Accepted scope
 
-M7.6 owns `UX-GEO-001`, `UX-GEO-002` and `UX-GEO-003` and delivers:
+M7.6 resolves `UX-GEO-001`, `UX-GEO-002` and `UX-GEO-003` and delivers:
 
-- explicit horizontal and vertical room interior-span cards;
+- explicit horizontal and vertical room interior-dimension cards;
 - one semantic Apply action and one local validation surface per room axis;
 - wall centreline length with screen-stable visible endpoints;
 - wall thickness with screen-stable physical surfaces;
 - correct endpoint/face mapping for forward, reverse-directed and diagonal walls;
 - opening width and position shown as separate physical quantities;
 - opening position measured from either visible wall end without moving the opening;
-- four accessible door-swing choices expressed as visible hinge side and opening side;
+- four accessible door-swing choices expressed through visible hinge and opening sides;
 - four visually distinct runtime-only door previews on the authoritative Canvas renderer;
-- runtime-only active-axis/door preview state that stores IDs and presentation choices only;
-- fail-closed opening-draft presentation that falls back to last authoritative geometry;
+- runtime-only active-axis and door-preview state containing IDs and presentation choices only;
+- fail-closed invalid opening drafts that retain the last authoritative geometry;
 - compact single-column door-choice layout without horizontal document overflow;
-- one-step semantic Undo for every applied room, wall and opening edit.
+- one-step semantic Undo for applied room, wall and opening edits.
 
 ## 2. Authority boundaries
 
@@ -32,9 +30,8 @@ Confirmed unchanged:
 
 - `VlezetDocument`, schema, migrations and portable backup format;
 - IndexedDB project records;
-- topology and room derivation;
-- room-area calculation;
-- snapping, hit testing and opening validation authority;
+- topology, room derivation and room-area calculation;
+- snapping, hit testing and opening-validation authority;
 - editor-core command semantics;
 - semantic-history grouping and Undo/Redo authority;
 - recognition and planning algorithms;
@@ -48,7 +45,7 @@ The presentation model maps existing authoritative geometry into visible labels.
 The implementation was delivered through explicit RED/GREEN slices covering:
 
 - stable endpoint and wall-face orientation mapping;
-- equivalent opening offset conversion from either visible end;
+- equivalent opening-offset conversion from either visible end;
 - four door-swing descriptions independent of directed-wall terminology;
 - runtime-only preview-store lifecycle;
 - store-free geometry cue components;
@@ -58,48 +55,27 @@ The implementation was delivered through explicit RED/GREEN slices covering:
 - compact layout and horizontal-overflow constraints;
 - Chromium and WebKit end-to-end behavior.
 
-Release-candidate browser hardening corrected only the specialized test setup so that it follows real product behavior:
+Release-candidate browser hardening corrected only test setup so it follows real product behavior:
 
-1. the room is closed through the already accepted M7.5 snapped-wall path;
+1. room closure reuses the accepted M7.5 snapped-wall path;
 2. completed onboarding uses its canonical `Завершить` action;
-3. overlays are explicitly dismissed before covered Canvas interactions;
-4. a newly created reverse-directed wall is verified while its authoritative inspector is already selected, instead of clearing and recreating selection after layout reflow.
+3. overlays are dismissed before covered Canvas interactions;
+4. a reverse-directed wall is verified while its authoritative inspector is already selected.
 
 These corrections did not alter product geometry or command behavior.
 
-## 4. Exact-head automated verification
-
-Implementation-bearing head:
+## 4. Final exact-head verification
 
 ```text
-head:          f1c4c6355cde623b729e839eed48b252e7b97ab6
-standard CI:   30700610937 / #2182 — PASS
-browser audit: 30700610940 / #315 — PASS
-artifact:      8818716707
-digest:        sha256:7967ff419bd7a8b718da0584c722d4db55988fb25b34a945cabb57b889495838
+head:          29b631fe43ba1a00e0ad48c71ee5429371d1faa8
+standard CI:   30701887262 / #2212 — PASS
+browser audit: 30701887265 / #330 — PASS
+artifact:      8819106567
+digest:        sha256:069a3f8105d5123152f12e07b1a62c96809ac2caf02ab65b0fdee4d8a8569669
+merge:         315828052edb483c34a68464acb70458bf4ff80d
 ```
 
-Accepted documentation head:
-
-```text
-head:          cbcdbecca72253bbf855ee78c81cf040cba2d2fb
-standard CI:   30700776396 / #2184 — PASS
-browser audit: 30700776394 / #316 — PASS
-artifact:      8818766838
-digest:        sha256:48eb9f0f4a45192d2a4117c4e45eaab5f0356c863ee1c2f7e2acf8d5edfd0244
-```
-
-Verified product-and-changelog head:
-
-```text
-head:          601d8b44614e1785ae4cd5647ddb327c883be51a
-standard CI:   30701504839 / #2188 — PASS
-browser audit: 30701504841 / #318 — PASS
-artifact:      8818986254
-digest:        sha256:8e8220b41caec6fb96bec8f931db658f690381244e90447b1d6fa661089175ca
-```
-
-The verified head passed:
+The exact accepted head passed:
 
 - frozen dependency installation and supply-chain policy verification;
 - M7 documentation contract;
@@ -111,11 +87,9 @@ The verified head passed:
 - WebKit core smoke suite, including M7.6 room/wall/opening behavior;
 - browser evidence upload.
 
-The final acceptance-record commit must independently pass the same required workflows before protected merge. Its SHA and run IDs remain available in immutable GitHub Actions and PR history, avoiding a self-referential commit identifier inside this file.
-
 ## 5. Product-owner browser acceptance
 
-The product owner completed the representative browser scenarios on 2026-08-01 in branch `feat/m7-6-geometry-opening-inspector` and confirmed:
+The product owner completed the documented representative browser path on 2026-08-01 in branch `feat/m7-6-geometry-opening-inspector` and confirmed:
 
 > «Все работает четко строго по описанным тобой шага.»
 
@@ -123,23 +97,24 @@ This confirmation covers:
 
 1. horizontal and vertical room dimension presentation;
 2. Apply and one-step Undo for both room dimensions;
-3. physical distinction between wall centreline length and wall thickness;
+3. the physical distinction between wall centreline length and wall thickness;
 4. visible fixed endpoints and surfaces while editing walls;
 5. Apply and one-step Undo for wall length and thickness;
-6. equivalent opening offset measured from either visible wall end;
+6. equivalent opening offsets measured from either visible wall end;
 7. four visibly distinct door-swing previews;
 8. one-step Apply and Undo for door-swing changes;
-9. fail-closed handling of an invalid oversized opening draft;
+9. fail-closed handling of an oversized invalid opening draft;
 10. compact single-column door choices without horizontal page overflow;
 11. screen-stable endpoint and surface labels for a wall drawn from right to left.
 
-## 6. Merge gate
+## 6. Integration outcome
 
-All M7.6 merge conditions are satisfied subject to the immutable checks on the final PR head:
+All merge gates were satisfied:
 
-- product-owner browser acceptance is recorded;
-- standard CI and browser audit passed on the verified product-and-changelog head;
-- the final acceptance-record commit must pass the same two workflows;
-- no unresolved review threads may remain;
-- PR #33 must remain mergeable;
-- merge must use squash mode with expected-head protection.
+- product-owner acceptance was recorded;
+- Standard CI and Browser Audit passed on the exact final head;
+- no unresolved review threads or submitted blocking reviews existed;
+- PR #33 was mergeable;
+- squash merge used expected-head protection.
+
+M7.6 was squash-merged into `main` as `315828052edb483c34a68464acb70458bf4ff80d`. The next selected slice is M7.7 Furniture and Fit Workflow.
