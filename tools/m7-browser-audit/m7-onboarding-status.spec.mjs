@@ -61,7 +61,7 @@ test.describe("M7.5 onboarding, status and recovery", () => {
     await expect(successEvidence).toHaveCount(0);
     await expect(page.locator('[data-first-project-phase="drawing"]')).toBeVisible();
 
-    await page.locator('[data-first-project-phase="drawing"]').getByRole("button", { name: "Скрыть" }).click();
+    await page.locator('[data-first-project-phase="drawing"]').getByRole("button", { name: "Скрыть", exact: true }).click();
     await expect(page.locator("[data-first-project-phase]")).toHaveCount(0);
     await expect(page.getByText("Сохранено локально", { exact: true })).toBeVisible();
 
