@@ -85,7 +85,25 @@ function validResult() {
     recognitionEngineVersion: "3",
     commitSha: "b".repeat(40),
     generatedAt: "2026-08-01T20:00:00.000Z",
-    fixtures: [{ fixtureId: "contract-fixture", failed: false, diagnostics: [], metrics: fixtureMetrics }],
+    fixtures: [{
+      fixtureId: "contract-fixture",
+      failed: false,
+      diagnostics: [],
+      metrics: fixtureMetrics,
+      evidence: {
+        wallGeometry: { truePositive: 1, falsePositive: 0, falseNegative: 0, precision: 1, recall: 1, f1: 1 },
+        wallTopology: { truePositive: 1, falsePositive: 0, falseNegative: 0, precision: 1, recall: 1, f1: 1 },
+        openings: { truePositive: 1, falsePositive: 0, falseNegative: 0, precision: 1, recall: 1, f1: 1 },
+        roomDetection: { truePositive: 1, falsePositive: 0, falseNegative: 0, precision: 1, recall: 1, f1: 1 },
+        roomIous: [1],
+        totalAreaAbsolutePercentageErrors: [0],
+        roomAreaAbsolutePercentageErrors: [0],
+        highConfidencePredictionCount: 1,
+        highConfidenceFalsePositiveCount: 0,
+        unknownHostOpenings: 0,
+        staleDecisions: 0,
+      },
+    }],
     aggregate: {
       fixtureCount: 1,
       failedFixtureCount: 0,
@@ -201,10 +219,7 @@ describe("recognition benchmark result v1", () => {
       ...result,
       aggregate: {
         ...result.aggregate,
-        metrics: {
-          ...result.aggregate.metrics,
-          wallGeometryF1: { status: "measured", value: Number.NaN },
-        },
+        metrics: { ...result.aggregate.metrics, wallGeometryF1: { status: "measured", value: Number.NaN } },
       },
     };
     expect(() => validateRecognitionBenchmarkResultV1(malformed)).toThrow();
@@ -216,10 +231,7 @@ describe("recognition benchmark result v1", () => {
       ...result,
       aggregate: {
         ...result.aggregate,
-        metrics: {
-          ...result.aggregate.metrics,
-          wallGeometryF1: { status: "measured", value: 1.1 },
-        },
+        metrics: { ...result.aggregate.metrics, wallGeometryF1: { status: "measured", value: 1.1 } },
       },
     };
     expect(() => validateRecognitionBenchmarkResultV1(malformed)).toThrow();
