@@ -6,7 +6,7 @@
 **Branch:** `feat/m7-6-geometry-opening-inspector`  
 **Implementation head:** `f1c4c6355cde623b729e839eed48b252e7b97ab6`  
 **Accepted documentation head:** `cbcdbecca72253bbf855ee78c81cf040cba2d2fb`  
-**Final merge-candidate head:** `601d8b44614e1785ae4cd5647ddb327c883be51a`
+**Verified product-and-changelog head:** `601d8b44614e1785ae4cd5647ddb327c883be51a`
 
 ## 1. Accepted scope
 
@@ -89,7 +89,7 @@ artifact:      8818766838
 digest:        sha256:48eb9f0f4a45192d2a4117c4e45eaab5f0356c863ee1c2f7e2acf8d5edfd0244
 ```
 
-Final merge-candidate head:
+Verified product-and-changelog head:
 
 ```text
 head:          601d8b44614e1785ae4cd5647ddb327c883be51a
@@ -99,7 +99,7 @@ artifact:      8818986254
 digest:        sha256:8e8220b41caec6fb96bec8f931db658f690381244e90447b1d6fa661089175ca
 ```
 
-The exact final merge-candidate head passed:
+The verified head passed:
 
 - frozen dependency installation and supply-chain policy verification;
 - M7 documentation contract;
@@ -110,6 +110,8 @@ The exact final merge-candidate head passed:
 - Chromium full M7 regression suite, including the complete M7.6 flow;
 - WebKit core smoke suite, including M7.6 room/wall/opening behavior;
 - browser evidence upload.
+
+The final acceptance-record commit must independently pass the same required workflows before protected merge. Its SHA and run IDs remain available in immutable GitHub Actions and PR history, avoiding a self-referential commit identifier inside this file.
 
 ## 5. Product-owner browser acceptance
 
@@ -133,10 +135,11 @@ This confirmation covers:
 
 ## 6. Merge gate
 
-All M7.6 merge conditions are satisfied:
+All M7.6 merge conditions are satisfied subject to the immutable checks on the final PR head:
 
 - product-owner browser acceptance is recorded;
-- standard CI and browser audit passed on the exact final merge-candidate head;
-- no unresolved review threads remain;
-- PR #33 is mergeable;
+- standard CI and browser audit passed on the verified product-and-changelog head;
+- the final acceptance-record commit must pass the same two workflows;
+- no unresolved review threads may remain;
+- PR #33 must remain mergeable;
 - merge must use squash mode with expected-head protection.
