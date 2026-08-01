@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-01  
-**Status:** M0–M7.4 are merged and accepted in `main`. M7.4 Canvas Selection and Mode Feedback was squash-merged through PR #29. The only selected next implementation slice is M7.5 Onboarding, Status and Recovery.  
+**Status:** M0–M7.5 are merged and accepted in `main`. M7.5 Onboarding, Status and Recovery was squash-merged through PR #31. The only selected next implementation slice is M7.6 Geometry and Opening Inspector.  
 **Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
 
 ## 1. Product
@@ -86,6 +86,7 @@ packages/planning        deterministic planning + reviewed intent
 | M7.2 | context inspector and workflow return | `66606356d69f96953f8afae7b914222a3f793777` |
 | M7.3 | design system and content components | `509dfc02e17c87a58da8356894564a8f27bc5a9b` |
 | M7.4 | Canvas selection and mode feedback | `399e1b439d478fb8b01cd39795213b42beece84f` |
+| M7.5 | onboarding, durable status and recovery | `62413d91ebc5cef335b772e46ebbc1dae18b1acc` |
 
 Accepted geometry regression:
 
@@ -121,7 +122,7 @@ area:       11.72 m²
 - reviewed natural-language intent;
 - explicit Preview and revalidated atomic Apply.
 
-### UX foundation through M7.4
+### UX foundation through M7.5
 
 - separate project/tool command layers and reachable Undo/Redo;
 - docked and compact side surfaces with preserved local state;
@@ -138,71 +139,78 @@ area:       11.72 m²
 - distinct hover, selection, valid-preview and invalid-preview presentation;
 - consistent cursor roles for selection, drawing, placement and panning;
 - one-level `Escape` priority across gestures, tools, workflows, selection and read-only 3D;
+- state-derived first-project guidance from empty project to first closed room;
+- per-project browser-local onboarding dismissal without document-schema changes;
+- durable runtime-only evidence for room creation, recognition Apply, planning Apply and editable backup export;
+- stale room evidence clearing after Undo or room deletion;
+- recoverable backup-export failure with a valid retry action;
+- compact guide/evidence placement that preserves Canvas hit testing and visibility;
 - no document-level horizontal overflow in the required browser matrix.
 
-## 6. M7.4 accepted evidence
+## 6. M7.5 accepted evidence
 
 ```text
-PR:                  #29
-final accepted head: cd9fe67fb5ea9a2d1647fce5bd7055f6a1c05408
-standard CI:         30686372996 — PASS
-browser CI:          30686372995 — PASS
-artifact:            8814078535
-digest:              sha256:38544ca0c259c83ddf1be36c484f207cbdb6723215b4fd922ae52e3e2c938926
-merge:               399e1b439d478fb8b01cd39795213b42beece84f
+PR:                  #31
+final accepted head: d59273615ea2f08a4a364b91fe3e3cc408ba9090
+standard CI:         30692400878 — PASS
+browser CI:          30692400874 — PASS
+artifact:            8816130412
+digest:              sha256:530ebca7ee8f20d5e79fb592a7f80a1c43044bbe750ddec752e24f98c6165581
+merge:               62413d91ebc5cef335b772e46ebbc1dae18b1acc
 ```
 
 Product-owner acceptance:
 
-> «Все прошло строго и четко как ты описал.»
+> «Все работает четко как надо и как ты описал.»
 
 Canonical record:
 
-- `docs/milestones/m7-4-acceptance.md`.
+- `docs/milestones/m7-5-acceptance.md`.
 
 ## 7. Known limitations
 
 - Recognition quality varies and needs a versioned benchmark corpus and measurable topology/area metrics.
 - Issue #27 owns future M7.8 recognition hardening; valid AI responses can still reconstruct walls, openings, rooms and areas inaccurately.
 - Clear dimension editing remains limited to simple rectangular rooms.
+- Wall-axis, clear-size and thickness semantics remain too dense in geometry editing.
+- Opening placement and door-swing direction are not yet visually predictable enough for ordinary users.
 - Planning remains one rectangular room / 1–3 objects and lacks whole-apartment autonomy.
 - 3D is schematic, read-only and may initially hide interiors.
-- First-project success still depends on discovering that a room requires a valid closed wall topology.
-- High-impact completion evidence can still disappear with a short-lived toast.
 - Domain-specific forms remain dense and are owned by later workflow slices.
 - Spatial keyboard/focus coverage remains incomplete.
 - WebKit automation is an engine-level proxy, not a manual native-Safari claim.
 
-## 8. NOW — M7.5 Onboarding, Status and Recovery
+## 8. NOW — M7.6 Geometry and Opening Inspector
 
 Owned findings:
 
-- `UX-ONBOARD-001`;
-- `UX-DATA-003`.
+- `UX-GEO-001`;
+- `UX-GEO-002`;
+- `UX-GEO-003`.
 
 Goal:
 
-> Guide a new user to the first successful closed room without a blocking wizard, and keep important completion or recovery evidence available after transient notifications disappear.
+> Make clear dimensions, wall-axis/thickness semantics and opening placement or swing visually predictable without changing geometry authority.
 
 Expected scope:
 
-- dismissible first-project checklist tied to existing editor/document state;
-- contextual guidance from empty project to closed-room success;
-- explicit recognition of successful room closure;
-- durable in-context evidence for high-impact completion actions;
-- minor transient toasts retained where appropriate;
-- clear recovery or next-action copy when a high-impact operation fails or completes;
-- Chromium/WebKit coverage for first-project progress and post-toast evidence.
+- simplify wall and room geometry controls around ordinary user intent;
+- clearly distinguish clear room size, wall-axis length and wall thickness;
+- preserve exact millimetre editing and semantic history;
+- improve opening offset, width and host-wall explanation;
+- make door swing side and direction visible before and after placement;
+- keep advanced geometry detail available without dominating common tasks;
+- add focused layout/content contracts and Chromium/WebKit representative flows.
 
 Non-goals:
 
-- geometry or topology algorithm changes;
-- automatic room generation or a blocking tutorial wizard;
-- document schema or migration changes for onboarding state;
-- dashboard/project-lifecycle redesign;
-- inspector redesign;
+- wall topology, room derivation, snapping or hit-tolerance algorithm changes;
+- automatic geometry repair or room generation;
+- new persistent geometry models or migrations;
 - recognition-quality work from issue #27;
-- accessibility hardening owned by M7.9.
+- furniture/fit workflow redesign owned by M7.7;
+- whole-product accessibility completion owned by M7.9;
+- visual-only consolidation owned by M7.13.
 
 ## 9. Delivery workflow
 
