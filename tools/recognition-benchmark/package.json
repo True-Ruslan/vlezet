@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "generate:fixtures": "node generate-fixture-assets.mjs",
-    "verify:fixtures": "node verify-fixture-assets.mjs"
+    "verify:fixtures": "node verify-fixture-assets.mjs",
+    "score:source": "node run-source-score.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.54.2"
