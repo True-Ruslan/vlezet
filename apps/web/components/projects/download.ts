@@ -1,4 +1,7 @@
-import { dispatchProjectBackupExported } from "./download-events";
+import {
+  dispatchProjectBackupExported,
+  dispatchProjectBackupExportFailed,
+} from "./download-events";
 
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -13,6 +16,11 @@ export function downloadBlob(blob: Blob, filename: string): void {
 }
 
 export function downloadText(text: string, filename: string, type = "application/json;charset=utf-8"): void {
-  downloadBlob(new Blob([text], { type }), filename);
-  dispatchProjectBackupExported(filename);
+  try {
+    downloadBlob(new Blob([text], { type }), filename);
+    dispatchProjectBackupExported(filename);
+  } catch (error) {
+    dispatchProjectBackupExportFailed(filename);
+    throw error;
+  }
 }
