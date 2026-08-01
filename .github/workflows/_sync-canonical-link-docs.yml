@@ -1,0 +1,98 @@
+name: Temporary canonical link continuity sync
+
+on:
+  push:
+    branches:
+      - docs/sync-canonical-portfolio-link
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/sync-canonical-portfolio-link
+          fetch-depth: 0
+      - name: Synchronize durable project documents
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          state_path = Path('docs/PROJECT_STATE.md')
+          state = state_path.read_text(encoding='utf-8')
+          state_marker = '\n\n## 1. Product'
+          state_block = '''
+
+## Repository visibility update — 2026-08-01
+
+The public README now exposes the canonical author and engineering-portfolio origin `https://trueruslan.ru/`.
+
+```text
+feature PR:          #36
+accepted head:       5ac744cb2966e933375b217c0e250042355921ca
+CI:                  30714871143 / #2318 — PASS
+squash merge:        accbf57a9ef810217f7066d0e9a862b7e5a406a1
+changed file:        README.md only
+```
+
+This is repository-discovery maintenance only. It changes no product capability, architecture, persistence, geometry, recognition, planning, 3D or browser-acceptance claim. **M7.7 Furniture and Fit Workflow remains the only selected next implementation slice.**
+'''
+          if 'feature PR:          #36' not in state:
+              if state.count(state_marker) != 1:
+                  raise SystemExit('PROJECT_STATE marker mismatch')
+              state = state.replace(state_marker, state_block + state_marker, 1)
+              state_path.write_text(state, encoding='utf-8')
+
+          roadmap_path = Path('docs/ROADMAP.md')
+          roadmap = roadmap_path.read_text(encoding='utf-8')
+          roadmap_marker = '\n\n## Summary'
+          roadmap_block = '''
+
+> **Repository maintenance note (2026-08-01):** README canonical portfolio link rollout completed through PR #36 (`5ac744c` → squash `accbf57`), exact-head CI #2318 / run `30714871143` PASS. This does not alter roadmap sequencing; M7.7 remains `NOW`.
+'''
+          if 'README canonical portfolio link rollout completed through PR #36' not in roadmap:
+              if roadmap.count(roadmap_marker) != 1:
+                  raise SystemExit('ROADMAP marker mismatch')
+              roadmap = roadmap.replace(roadmap_marker, roadmap_block + roadmap_marker, 1)
+              roadmap_path.write_text(roadmap, encoding='utf-8')
+
+          changelog_path = Path('docs/CHANGELOG.md')
+          changelog = changelog_path.read_text(encoding='utf-8')
+          changelog_marker = '\n\n## 2026-07-30 — M7.0 Product and UX Audit accepted'
+          changelog_block = '''
+
+## 2026-08-01 — Canonical engineering-portfolio link
+
+**Status:** merged to `main`; exact-head CI PASS.
+
+```text
+PR:                  #36
+accepted head:       5ac744cb2966e933375b217c0e250042355921ca
+CI:                  30714871143 / #2318 — PASS
+squash merge:        accbf57a9ef810217f7066d0e9a862b7e5a406a1
+```
+
+Added one explicit README link to `https://trueruslan.ru/`. No project-relative link, runtime behavior, schema, persistence, product milestone, recognition boundary, fit authority, planning authority or 3D behavior changed. M7.7 remains the selected next slice.
+
+---
+'''
+          if '## 2026-08-01 — Canonical engineering-portfolio link' not in changelog:
+              if changelog.count(changelog_marker) != 1:
+                  raise SystemExit('CHANGELOG marker mismatch')
+              changelog = changelog.replace(changelog_marker, changelog_block + changelog_marker, 1)
+              changelog_path.write_text(changelog, encoding='utf-8')
+          PY
+          rm .github/workflows/_sync-canonical-link-docs.yml
+      - name: Commit continuity sync
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/PROJECT_STATE.md docs/ROADMAP.md docs/CHANGELOG.md .github/workflows/_sync-canonical-link-docs.yml
+          git commit -m 'docs: sync canonical portfolio link state'
+          git push origin HEAD:docs/sync-canonical-portfolio-link
