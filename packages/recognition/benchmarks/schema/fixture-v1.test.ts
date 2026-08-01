@@ -78,7 +78,7 @@ function validResult() {
     incorrectHighConfidenceRate: { status: "measured", value: 0 },
     unknownHostOpenings: { status: "measured", value: 0 },
     staleDecisions: { status: "measured", value: 0 },
-  };
+  } as const;
   return {
     schemaVersion: "recognition-benchmark-result-v1",
     corpusVersion: "recognition-corpus-v1",
@@ -102,7 +102,7 @@ function validResult() {
       },
     },
     baselineComparison: null,
-  };
+  } as const;
 }
 
 describe("recognition benchmark fixture v1", () => {
@@ -111,28 +111,81 @@ describe("recognition benchmark fixture v1", () => {
     expect(validateRecognitionBenchmarkFixtureV1(fixture)).toEqual(fixture);
   });
 
-  it.each([
-    ["duplicate wall ids", (fixture: any) => fixture.expectedWalls.push({ ...fixture.expectedWalls[0] })],
-    ["zero-length wall", (fixture: any) => fixture.expectedWalls[0].endMm = fixture.expectedWalls[0].startMm],
-    ["unknown opening host", (fixture: any) => fixture.expectedOpenings[0].hostWallId = "missing"],
-    ["self-intersecting room", (fixture: any) => fixture.expectedRooms[0].polygonMm = [{ x: 0, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }, { x: 1000, y: 0 }]],
-    ["missing provenance note", (fixture: any) => fixture.provenance.note = ""],
-    ["window swing", (fixture: any) => { fixture.expectedOpenings[0].kind = "window"; }],
-    ["unknown junction", (fixture: any) => fixture.expectedWalls[0].startJunctionId = "missing"],
-    ["missing room ground truth", (fixture: any) => fixture.expectedRooms = []],
-  ])("rejects %s", (_name, mutate) => {
-    const fixture = structuredClone(validFixture()) as any;
-    mutate(fixture);
-    expect(() => validateRecognitionBenchmarkFixtureV1(fixture)).toThrow();
+  it("rejects duplicate wall ids", () => {
+    const fixture = validFixture();
+    const malformed = { ...fixture, expectedWalls: [...fixture.expectedWalls, { ...fixture.expectedWalls[0]! }] };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
+  });
+
+  it("rejects a zero-length wall", () => {
+    const fixture = validFixture();
+    const wall = fixture.expectedWalls[0]!;
+    const malformed = { ...fixture, expectedWalls: [{ ...wall, endMm: wall.startMm }] };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
+  });
+
+  it("rejects an unknown opening host", () => {
+    const fixture = validFixture();
+    const opening = fixture.expectedOpenings[0]!;
+    const malformed = { ...fixture, expectedOpenings: [{ ...opening, hostWallId: "missing" }] };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
+  });
+
+  it("rejects a self-intersecting room", () => {
+    const fixture = validFixture();
+    const room = fixture.expectedRooms[0]!;
+    const malformed = {
+      ...fixture,
+      expectedRooms: [{
+        ...room,
+        polygonMm: [{ x: 0, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }, { x: 1000, y: 0 }],
+      }],
+    };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
+  });
+
+  it("rejects missing provenance notes", () => {
+    const fixture = validFixture();
+    const malformed = { ...fixture, provenance: { ...fixture.provenance, note: "" } };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
+  });
+
+  it("rejects door-swing metadata on a window", () => {
+    const fixture = validFixture();
+    const opening = fixture.expectedOpenings[0]!;
+    const malformed = { ...fixture, expectedOpenings: [{ ...opening, kind: "window" }] };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
+  });
+
+  it("rejects an unknown junction", () => {
+    const fixture = validFixture();
+    const wall = fixture.expectedWalls[0]!;
+    const malformed = { ...fixture, expectedWalls: [{ ...wall, startJunctionId: "missing" }] };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
+  });
+
+  it("rejects missing room ground truth while room metrics are enabled", () => {
+    const fixture = validFixture();
+    const malformed = { ...fixture, expectedRooms: [] };
+    expect(() => validateRecognitionBenchmarkFixtureV1(malformed)).toThrow();
   });
 
   it("accepts explicitly disabled room metrics without room ground truth", () => {
-    const fixture = structuredClone(validFixture()) as any;
-    fixture.expectedRooms = [];
-    fixture.expectedLabels = [];
-    fixture.statedTotalAreaM2 = null;
-    Object.assign(fixture.metricApplicability, { rooms: false, roomLabels: false, roomAreas: false, totalArea: false });
-    expect(validateRecognitionBenchmarkFixtureV1(fixture).metricApplicability.rooms).toBe(false);
+    const fixture = validFixture();
+    const candidate = {
+      ...fixture,
+      expectedRooms: [],
+      expectedLabels: [],
+      statedTotalAreaM2: null,
+      metricApplicability: {
+        ...fixture.metricApplicability,
+        rooms: false,
+        roomLabels: false,
+        roomAreas: false,
+        totalArea: false,
+      },
+    };
+    expect(validateRecognitionBenchmarkFixtureV1(candidate).metricApplicability.rooms).toBe(false);
   });
 });
 
@@ -142,15 +195,50 @@ describe("recognition benchmark result v1", () => {
     expect(validateRecognitionBenchmarkResultV1(result)).toEqual(result);
   });
 
-  it.each([
-    ["non-finite metric", (result: any) => result.aggregate.metrics.wallGeometryF1.value = Number.NaN],
-    ["out-of-range F1", (result: any) => result.aggregate.metrics.wallGeometryF1.value = 1.1],
-    ["duplicate fixture ids", (result: any) => result.fixtures.push(structuredClone(result.fixtures[0]))],
-    ["fixture count mismatch", (result: any) => result.aggregate.fixtureCount = 2],
-    ["malformed commit SHA", (result: any) => result.commitSha = "head"],
-  ])("rejects %s", (_name, mutate) => {
-    const result = structuredClone(validResult()) as any;
-    mutate(result);
-    expect(() => validateRecognitionBenchmarkResultV1(result)).toThrow();
+  it("rejects a non-finite metric", () => {
+    const result = validResult();
+    const malformed = {
+      ...result,
+      aggregate: {
+        ...result.aggregate,
+        metrics: {
+          ...result.aggregate.metrics,
+          wallGeometryF1: { status: "measured", value: Number.NaN },
+        },
+      },
+    };
+    expect(() => validateRecognitionBenchmarkResultV1(malformed)).toThrow();
+  });
+
+  it("rejects an out-of-range F1", () => {
+    const result = validResult();
+    const malformed = {
+      ...result,
+      aggregate: {
+        ...result.aggregate,
+        metrics: {
+          ...result.aggregate.metrics,
+          wallGeometryF1: { status: "measured", value: 1.1 },
+        },
+      },
+    };
+    expect(() => validateRecognitionBenchmarkResultV1(malformed)).toThrow();
+  });
+
+  it("rejects duplicate fixture ids", () => {
+    const result = validResult();
+    const malformed = { ...result, fixtures: [...result.fixtures, { ...result.fixtures[0]! }] };
+    expect(() => validateRecognitionBenchmarkResultV1(malformed)).toThrow();
+  });
+
+  it("rejects a fixture-count mismatch", () => {
+    const result = validResult();
+    const malformed = { ...result, aggregate: { ...result.aggregate, fixtureCount: 2 } };
+    expect(() => validateRecognitionBenchmarkResultV1(malformed)).toThrow();
+  });
+
+  it("rejects a malformed commit SHA", () => {
+    const result = validResult();
+    expect(() => validateRecognitionBenchmarkResultV1({ ...result, commitSha: "head" })).toThrow();
   });
 });
