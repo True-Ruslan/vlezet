@@ -24,7 +24,7 @@ describe("M7.1 apartment editor shell integration", () => {
     expect(normalized).toContain('<EditorSideSurfaceid="editor-context-surface"');
     expect(normalized).toContain('side="right"');
     expect(normalized).toContain("<FurnitureCatalog/>");
-    expect(normalized).toContain("<WallInspectorplanningNavigation={workflowNavigation}/>");
+    expect(normalized).toContain("<WallInspectorplanningNavigation={workflowNavigation}");
   });
 
   it("connects the compact context trigger without persisting presentation state", () => {
@@ -61,5 +61,23 @@ describe("M7.4 interaction feedback integration", () => {
     expect(source).toContain("viewMode={viewMode}");
     expect(source).toContain("recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}");
     expect(source).toContain("tracingMode={props.tracingMode}");
+  });
+});
+
+describe("M7.5 onboarding and durable evidence integration", () => {
+  it("renders one editor-scoped onboarding overlay with current project and workflow state", () => {
+    expect(source).toContain('from "./editor-onboarding-overlay"');
+    expect(source).toContain("<EditorOnboardingOverlay");
+    expect(source).toContain("projectId={props.projectId}");
+    expect(source).toContain("viewMode={viewMode}");
+    expect(source).toContain("planningOpen={planningRoomId !== null}");
+    expect(source).toContain("recognitionPanelOpen={props.recognitionPanelOpen}");
+    expect(source).toContain("referencePanelOpen={props.referencePanelOpen}");
+  });
+
+  it("passes project identity to planning presentation without changing planning domain data", () => {
+    expect(source).toContain("<WallInspector");
+    expect(source).toContain("projectId={props.projectId}");
+    expect(source).not.toContain("replaceProjectDocument(current, { projectId");
   });
 });
