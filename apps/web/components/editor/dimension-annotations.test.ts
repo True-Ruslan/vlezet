@@ -34,9 +34,20 @@ describe("canvas dimension annotations", () => {
     expect(annotations).toHaveLength(2);
     expect(annotations.map((item) => item.valueMm)).toEqual([3550, 3300]);
     expect(annotations.map((item) => item.kind)).toEqual(["clear-room", "clear-room"]);
+    expect(annotations.map((item) => item.emphasized)).toEqual([false, false]);
     expect(formatRoomCanvasLabel(room())).toBe(`Комната 3\n11,72${NBSP}м²\n3550 × 3300${NBSP}мм внутри`);
     expect(formatDimensionValue(annotations[0]!)).toBe(`3550${NBSP}мм внутри`);
     expect(formatDimensionValue(annotations[1]!)).toBe(`3300${NBSP}мм внутри`);
+  });
+
+  it("emphasizes an existing span without changing its measurement", () => {
+    const horizontal = deriveRectangularRoomDimensionAnnotations(room(), "horizontal");
+    const vertical = deriveRectangularRoomDimensionAnnotations(room(), "vertical");
+
+    expect(horizontal.map((item) => item.valueMm)).toEqual([3550, 3300]);
+    expect(horizontal.map((item) => item.emphasized)).toEqual([true, false]);
+    expect(vertical.map((item) => item.valueMm)).toEqual([3550, 3300]);
+    expect(vertical.map((item) => item.emphasized)).toEqual([false, true]);
   });
 
   it("does not invent width and height for a non-rectangular room", () => {
@@ -63,6 +74,7 @@ describe("canvas dimension annotations", () => {
     expect(annotation).not.toBeNull();
     expect(annotation?.kind).toBe("centreline-wall");
     expect(annotation?.valueMm).toBe(3550);
+    expect(annotation?.emphasized).toBe(false);
     expect(formatDimensionValue(annotation!)).toBe(`3550${NBSP}мм по оси`);
   });
 });
