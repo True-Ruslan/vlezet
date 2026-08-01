@@ -53,6 +53,7 @@ import {
 import { DimensionOverlay } from "./dimension-overlay";
 import { ExactGapOverlay } from "./exact-gap-overlay";
 import { getFurniturePreset } from "./furniture-presets";
+import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-store";
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
 import { TapeMeasurementTool } from "./tape-measurement-tool";
@@ -188,6 +189,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const objectGesture = useStore(editorStore, (state) => state.objectGesture);
   const planningPreviewCandidate = useStore(planningUiStore, (state) => state.previewCandidate);
   const activeExactPairKey = useStore(planningUiStore, (state) => state.activeExactPairKey);
+  const roomSpanPreview = useStore(geometryInspectorPreviewStore, (state) => state.roomSpan);
+  const doorSwingPreview = useStore(geometryInspectorPreviewStore, (state) => state.doorSwing);
 
   const hoverEnabled = tool === "select" && !placementPresetId && !recognitionReviewActive;
   const visibleHoveredEntity = hoverEnabled ? hoveredEntity : null;
@@ -309,14 +312,17 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const derivedRooms = useMemo(() => deriveRooms(document), [document]);
   const selectedRoom = derivedRooms.rooms.find((room) => room.id === selectedRoomId) ?? null;
   const selectedResolvedWall = resolvedWalls.find(({ wall }) => wall.id === selectedWallId) ?? null;
+  const emphasizedRoomAxis = roomSpanPreview && roomSpanPreview.roomId === selectedRoom?.id
+    ? roomSpanPreview.axis
+    : null;
   const canvasDimensionAnnotations = useMemo(() => {
-    if (selectedRoom) return deriveRectangularRoomDimensionAnnotations(selectedRoom);
+    if (selectedRoom) return deriveRectangularRoomDimensionAnnotations(selectedRoom, emphasizedRoomAxis);
     if (selectedResolvedWall) {
       const annotation = deriveWallCentrelineDimensionAnnotation(selectedResolvedWall.start, selectedResolvedWall.end);
       return annotation ? [annotation] : [];
     }
     return [];
-  }, [selectedResolvedWall, selectedRoom]);
+  }, [emphasizedRoomAxis, selectedResolvedWall, selectedRoom]);
   const errorDiagnostics = derivedRooms.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const gridStep = chooseGridStep(viewport.pixelsPerMillimeter);
   const endpoints = useMemo(() => document.vertices.map((vertex) => vertex.position), [document.vertices]);
@@ -351,7 +357,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
     const wallCandidate = resolvedWalls.map((resolved, index) => ({ resolved, index, projection: projectPointToSegment(rawPoint, resolved.start, resolved.end) })).filter((candidate) => candidate.projection.distance <= tolerance && candidate.projection.t > 1e-6 && candidate.projection.t < 1 - 1e-6).sort((a, b) => a.projection.distance - b.projection.distance || a.index - b.index)[0];
     if (wallCandidate) {
       const point = wallCandidate.projection.point;
-      return { snap: { point, kind: "wall", guides: [] }, target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point } };
+      return {
+        snap: { point, kind: "wall", guides: [] },
+        target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point },
+      };
     }
     return { snap: snapWallPoint({ rawPoint, startPoint, endpoints, gridStep, tolerance }), target: null };
   };
@@ -530,10 +539,13 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
         elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
       }
     } else {
-      const hingeAtStart = opening.doorSwing?.hinge !== "end";
+      const effectiveDoorSwing = doorSwingPreview?.openingId === opening.id && opening.id === selectedOpeningId
+        ? doorSwingPreview.value
+        : opening.doorSwing;
+      const hingeAtStart = effectiveDoorSwing?.hinge !== "end";
       const hinge = hingeAtStart ? segment.start : segment.end;
       const closedDirection = hingeAtStart ? segment.tangent : { x: -segment.tangent.x, y: -segment.tangent.y };
-      const sideSign = opening.doorSwing?.side === "right" ? -1 : 1;
+      const sideSign = effectiveDoorSwing?.side === "right" ? -1 : 1;
       const openDirection = { x: segment.leftNormal.x * sideSign, y: segment.leftNormal.y * sideSign };
       const openEnd = { x: hinge.x + openDirection.x * opening.width, y: hinge.y + openDirection.y * opening.width };
       const hingeScreen = worldToScreen(hinge, viewport), openScreen = worldToScreen(openEnd, viewport);

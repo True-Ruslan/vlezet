@@ -47,3 +47,28 @@ describe("M7.4 live Canvas feedback integration", () => {
     expect(source).toContain("{visibleObjectGuides.map");
   });
 });
+
+describe("M7.6 geometry inspector Canvas preview integration", () => {
+  it("subscribes to runtime-only preview state without replacing document geometry", () => {
+    expect(source).toContain('from "./geometry-inspector-preview-store"');
+    expect(source).toContain("const roomSpanPreview = useStore(geometryInspectorPreviewStore");
+    expect(source).toContain("const doorSwingPreview = useStore(geometryInspectorPreviewStore");
+    expect(source).not.toContain("placedObjects: doorSwingPreview");
+    expect(source).not.toContain("openings: document.openings.map");
+  });
+
+  it("emphasizes only the existing selected-room annotation", () => {
+    expect(source).toContain("const emphasizedRoomAxis = roomSpanPreview && roomSpanPreview.roomId === selectedRoom?.id");
+    expect(source).toContain("? roomSpanPreview.axis");
+    expect(source).toContain("deriveRectangularRoomDimensionAnnotations(selectedRoom, emphasizedRoomAxis)");
+  });
+
+  it("overrides only the matching door renderer with the draft swing", () => {
+    expect(source).toContain("const effectiveDoorSwing = doorSwingPreview?.openingId === opening.id");
+    expect(source).toContain("? doorSwingPreview.value");
+    expect(source).toContain(": opening.doorSwing;");
+    expect(source).toContain('effectiveDoorSwing?.hinge !== "end"');
+    expect(source).toContain('effectiveDoorSwing?.side === "right"');
+    expect(source).toContain("openingSegment(document, opening)");
+  });
+});

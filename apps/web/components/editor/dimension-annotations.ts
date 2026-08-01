@@ -16,6 +16,7 @@ export type LinearDimensionAnnotation = Readonly<{
   end: Point2;
   valueMm: number;
   outward: Point2;
+  emphasized?: boolean;
 }>;
 
 const NBSP = "\u00a0";
@@ -36,7 +37,10 @@ export function formatAreaM2FromSquareMillimeters(areaMm2: number): string {
   });
 }
 
-export function deriveRectangularRoomDimensionAnnotations(room: DerivedRoom): readonly LinearDimensionAnnotation[] {
+export function deriveRectangularRoomDimensionAnnotations(
+  room: DerivedRoom,
+  emphasizedAxis: "horizontal" | "vertical" | null = null,
+): readonly LinearDimensionAnnotation[] {
   const dimensions = deriveRectangularRoomDimensions(room);
   if (!dimensions) return [];
 
@@ -49,6 +53,7 @@ export function deriveRectangularRoomDimensionAnnotations(room: DerivedRoom): re
       end: { x: maxX, y: minY },
       valueMm: dimensions.widthMm,
       outward: { x: 0, y: -1 },
+      emphasized: emphasizedAxis === "horizontal",
     },
     {
       kind: "clear-room",
@@ -57,6 +62,7 @@ export function deriveRectangularRoomDimensionAnnotations(room: DerivedRoom): re
       end: { x: minX, y: maxY },
       valueMm: dimensions.heightMm,
       outward: { x: -1, y: 0 },
+      emphasized: emphasizedAxis === "vertical",
     },
   ];
 }
@@ -80,6 +86,7 @@ export function deriveWallCentrelineDimensionAnnotation(start: Point2, end: Poin
     end,
     valueMm,
     outward: { x: -dy / valueMm, y: dx / valueMm },
+    emphasized: false,
   };
 }
 

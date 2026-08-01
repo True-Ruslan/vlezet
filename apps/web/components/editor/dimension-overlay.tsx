@@ -34,8 +34,10 @@ export function DimensionOverlay({ annotations, viewport }: DimensionOverlayProp
       };
       const clearRoom = annotation.kind === "clear-room";
       const stroke = clearRoom ? "#1769ff" : "#64748b";
-      const labelFill = clearRoom ? "#eff6ff" : "#f8fafc";
+      const labelFill = annotation.emphasized ? "#dbeafe" : clearRoom ? "#eff6ff" : "#f8fafc";
       const labelText = clearRoom ? "#174ea6" : "#475569";
+      const dimensionStrokeWidth = annotation.emphasized ? 2.4 : 1.4;
+      const labelFontSize = annotation.emphasized ? 12 : 11;
       const key = `${annotation.kind}-${annotation.start.x}-${annotation.start.y}-${annotation.end.x}-${annotation.end.y}-${index}`;
 
       return <Group key={key} listening={false}>
@@ -44,31 +46,31 @@ export function DimensionOverlay({ annotations, viewport }: DimensionOverlayProp
           geometry.measuredStart.y,
           geometry.dimensionStart.x,
           geometry.dimensionStart.y,
-        ]} stroke={stroke} strokeWidth={1} opacity={0.58} />
+        ]} stroke={stroke} strokeWidth={annotation.emphasized ? 1.4 : 1} opacity={annotation.emphasized ? 0.82 : 0.58} />
         <Line points={[
           geometry.measuredEnd.x,
           geometry.measuredEnd.y,
           geometry.dimensionEnd.x,
           geometry.dimensionEnd.y,
-        ]} stroke={stroke} strokeWidth={1} opacity={0.58} />
+        ]} stroke={stroke} strokeWidth={annotation.emphasized ? 1.4 : 1} opacity={annotation.emphasized ? 0.82 : 0.58} />
         <Line points={[
           geometry.dimensionStart.x,
           geometry.dimensionStart.y,
           geometry.dimensionEnd.x,
           geometry.dimensionEnd.y,
-        ]} stroke={stroke} strokeWidth={1.4} />
+        ]} stroke={stroke} strokeWidth={dimensionStrokeWidth} />
         <Line points={[
           geometry.dimensionStart.x - tick.x,
           geometry.dimensionStart.y - tick.y,
           geometry.dimensionStart.x + tick.x,
           geometry.dimensionStart.y + tick.y,
-        ]} stroke={stroke} strokeWidth={1.4} />
+        ]} stroke={stroke} strokeWidth={dimensionStrokeWidth} />
         <Line points={[
           geometry.dimensionEnd.x - tick.x,
           geometry.dimensionEnd.y - tick.y,
           geometry.dimensionEnd.x + tick.x,
           geometry.dimensionEnd.y + tick.y,
-        ]} stroke={stroke} strokeWidth={1.4} />
+        ]} stroke={stroke} strokeWidth={dimensionStrokeWidth} />
         <Rect
           x={geometry.labelPoint.x - LABEL_WIDTH_PX / 2}
           y={geometry.labelPoint.y - LABEL_HEIGHT_PX / 2}
@@ -84,7 +86,7 @@ export function DimensionOverlay({ annotations, viewport }: DimensionOverlayProp
           width={LABEL_WIDTH_PX}
           align="center"
           text={formatDimensionValue(annotation)}
-          fontSize={11}
+          fontSize={labelFontSize}
           fontStyle="bold"
           fill={labelText}
         />
