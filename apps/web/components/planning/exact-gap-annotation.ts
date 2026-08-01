@@ -57,6 +57,6 @@ export function deriveExactGapAnnotation(
     requiredMm: constraint.minimumMm,
     satisfied: actualMm + EXACT_SPATIAL_EPSILON_MM >= constraint.minimumMm,
     zeroLength: actualMm <= EXACT_SPATIAL_EPSILON_MM,
-    label: `↔ Зазор ${compactMm(actualMm)} мм`,
+    label: `↔ Кратчайший зазор ${compactMm(actualMm)} мм`,
   };
 }
