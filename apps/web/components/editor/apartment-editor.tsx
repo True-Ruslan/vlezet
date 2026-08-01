@@ -348,7 +348,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       onStartTracing={props.onStartTracing}
       onFitReference={() => setFitReferenceRequest((value) => value + 1)}
     />
-  ) : <WallInspector projectId={props.projectId} planningNavigation={workflowNavigation} />;
+  ) : <WallInspector planningNavigation={workflowNavigation} />;
 
   return (
     <main className="editor-app">
