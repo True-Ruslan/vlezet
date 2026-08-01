@@ -1,0 +1,90 @@
+name: Recognition Benchmark
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/web/components/recognition/**"
+      - "apps/web/app/__recognition-benchmark/**"
+      - "packages/recognition/**"
+      - "tools/recognition-benchmark/**"
+      - ".github/workflows/recognition-benchmark.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Install product dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install benchmark harness
+        working-directory: tools/recognition-benchmark
+        run: npm install --no-package-lock --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: tools/recognition-benchmark
+        run: npx playwright install --with-deps chromium
+
+      - name: Start benchmark-only Vlezet harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          RECOGNITION_BENCHMARK_HARNESS=1 NEXT_TELEMETRY_DISABLED=1 pnpm --dir apps/web exec next dev --hostname 127.0.0.1 > /tmp/vlezet-recognition-benchmark.log 2>&1 &
+          echo $! > /tmp/vlezet-recognition-benchmark.pid
+          for attempt in {1..90}; do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/__recognition-benchmark > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/vlezet-recognition-benchmark.log
+          exit 1
+
+      - name: Run Chromium Source Benchmark
+        working-directory: tools/recognition-benchmark
+        env:
+          RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
+        run: npx playwright test --config=playwright.config.mjs
+
+      - name: Upload Source Benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recognition-source-benchmark
+          path: |
+            tools/recognition-benchmark/artifacts/source
+            tools/recognition-benchmark/test-results
+            /tmp/vlezet-recognition-benchmark.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop benchmark harness
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/vlezet-recognition-benchmark.pid ]; then
+            kill "$(cat /tmp/vlezet-recognition-benchmark.pid)" || true
+          fi
