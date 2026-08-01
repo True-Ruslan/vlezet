@@ -108,3 +108,24 @@
   font-size: var(--font-helper);
   line-height: var(--line-helper);
 }
+
+.catalog-category-chip,
+.catalog-result-summary,
+.catalog-empty-state span,
+.furniture-orientation-visual > p,
+.furniture-front-marker,
+.furniture-clearance-summary dt,
+.furniture-clearance-summary dd,
+.object-disclosure-toggle,
+.fit-diagnostic-group > strong,
+.fit-diagnostic-group > p,
+.placement-fit-label,
+.object-canvas-legend {
+  font-size: var(--font-helper);
+  line-height: var(--line-helper);
+}
+
+.furniture-front-marker::before {
+  content: none;
+  margin: 0;
+}
