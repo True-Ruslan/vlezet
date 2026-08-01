@@ -241,6 +241,8 @@ Canonical conversion:
 - from the wall’s internal end: displayed offset equals `wallLength - opening.offset - opening.width`;
 - on Apply from the internal end: canonical offset equals `wallLength - displayedOffset - opening.width`.
 
+The presentation model first maps the selected visible end to the corresponding internal end, then uses these formulas. Reversing internal wall endpoints therefore never changes the meaning of the visible labels.
+
 Conversion must be pure, finite and fail closed. Existing opening validation remains authoritative for width, boundaries and overlap.
 
 ### 7.4 Door swing selector
@@ -273,28 +275,30 @@ User-facing copy is based on the actual visible result, for example:
 Петли сверху, открывание вправо
 ```
 
+Diagonal walls use ordinary eight-direction wording such as `вверх-вправо` or `вниз-влево`; internal `left/right` is never shown.
+
 The selector must behave correctly for horizontal, vertical, reverse-directed and representative diagonal walls.
 
 The document continues to store only the existing `doorSwing` pair.
 
 ## 8. Runtime preview
 
-Add an ephemeral store only if the final component integration requires cross-component Canvas preview:
+Add:
 
 ```text
 apps/web/components/editor/geometry-inspector-preview-store.ts
 ```
 
-Allowed state:
+The ephemeral store contains only presentation intent:
 
-- active room span identity for visual emphasis;
-- draft door swing for the currently selected door.
+- active room span identity (`horizontal` or `vertical`) for emphasis of the existing authoritative dimension annotation;
+- draft door swing pair for the currently selected door.
 
-The store must not contain apartment geometry, command results or persisted values.
+It must not contain apartment geometry, calculated room dimensions, command results or persisted values.
 
 Preview lifecycle:
 
-- created from current inspector draft;
+- created from current inspector focus/selection or door-swing draft;
 - cleared after successful Apply;
 - cleared when selected entity changes or disappears;
 - cleared on project switch;
@@ -302,9 +306,9 @@ Preview lifecycle:
 - never serialized;
 - never used to determine whether Apply succeeded.
 
-The Canvas may reuse the existing door leaf/arc renderer with a presentation-only override for the selected door. Existing document geometry remains the source for all other openings.
+The Canvas reuses the existing door leaf/arc renderer with a presentation-only override for the selected door. Existing document geometry remains the source for all other openings.
 
-Room-span emphasis may reuse existing dimension annotations and visibility controls; it must not add a second measurement calculation.
+Room-span emphasis reuses existing dimension annotations and visibility controls. It highlights the already-derived annotation and never calculates or previews a different room size before Apply.
 
 ## 9. Apply, validation and errors
 
@@ -341,7 +345,7 @@ At docked and compact widths:
 - selected state is not colour-only;
 - every visual selector has ordinary-language labels;
 - keyboard focus remains visible;
-- native select fallback is not required if the visual selector fully implements radio-group semantics.
+- the door selector implements radio-group semantics and supports arrow-key selection plus Space/Enter activation.
 
 M7.6 improves accessible descriptions for its new controls but does not claim completion of the broader M7.9 spatial keyboard programme.
 
@@ -386,7 +390,7 @@ Use explicit RED/GREEN slices:
 6. room inspector migration;
 7. wall inspector migration;
 8. opening inspector migration;
-9. optional runtime preview and stale-state cleanup;
+9. runtime preview and stale-state cleanup;
 10. compact layout contracts;
 11. Chromium and WebKit acceptance flow;
 12. milestone documentation and exact-head verification.
@@ -417,7 +421,7 @@ Cover:
 - wall axis and thickness sections;
 - opening width/position sections;
 - radio-group semantics for door choices;
-- selected state and keyboard activation;
+- selected state, arrow keys and Space/Enter activation;
 - compact-width stacking and no overflow;
 - use of existing M7.3 primitives and tokens.
 
