@@ -6,7 +6,8 @@ const viewportCss = readFileSync(new URL("./editor-viewport.css", import.meta.ur
 const shellCss = readFileSync(new URL("./editor-shell.css", import.meta.url), "utf8");
 const contextCss = readFileSync(new URL("./context-panel.css", import.meta.url), "utf8");
 const canvasFeedbackCss = readFileSync(new URL("./canvas-feedback.css", import.meta.url), "utf8");
-const css = `${globalsCss}\n${viewportCss}\n${shellCss}\n${contextCss}\n${canvasFeedbackCss}`;
+const onboardingCss = readFileSync(new URL("./m7-onboarding-status.css", import.meta.url), "utf8");
+const css = `${globalsCss}\n${viewportCss}\n${shellCss}\n${contextCss}\n${canvasFeedbackCss}\n${onboardingCss}`;
 const planningCss = readFileSync(new URL("./planning-exact-gap.css", import.meta.url), "utf8");
 
 function compact(value: string): string {
@@ -109,6 +110,23 @@ describe("M7.4 Canvas status layout", () => {
     expect(status).toContain("font-size:12px");
     expect(instruction).toContain("min-width:0");
     expect(compact(canvasFeedbackCss)).toContain("@media(max-width:640px)");
+  });
+});
+
+describe("M7.5 onboarding and evidence layout", () => {
+  it("anchors overlays to the central Canvas column while docked panels remain open", () => {
+    const compactOnboarding = compact(onboardingCss);
+    expect(compactOnboarding).toContain(".editor-workspace:not(.catalog-closed)>.first-project-guide,.editor-workspace:not(.catalog-closed)>.editor-operation-evidence{grid-column:2;grid-row:1");
+    expect(compactOnboarding).toContain(".editor-workspace.catalog-closed>.first-project-guide,.editor-workspace.catalog-closed>.editor-operation-evidence{grid-column:1;grid-row:1");
+    expect(compactOnboarding).toContain("@media(max-width:1100px)");
+    expect(compactOnboarding).toContain("grid-column:1");
+  });
+
+  it("leaves Canvas hit testing untouched outside explicit guide controls", () => {
+    const guide = compact(ruleBodies(".first-project-guide"));
+    const button = compact(ruleBodies(".first-project-guide .ui-button"));
+    expect(guide).toContain("pointer-events:none");
+    expect(button).toContain("pointer-events:auto");
   });
 });
 

@@ -3,6 +3,7 @@
 import type { SaveStatus } from "@vlezet/projects";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
+import { subscribeProjectBackupExportRequested } from "../projects/download-events";
 import { spatialViewModeStore, type SpatialViewMode } from "../spatial/view-mode-store";
 import { EditorCommandIcon, type EditorCommandIconName } from "./editor-command-icon";
 import { dimensionVisibilityStore } from "./dimension-visibility-store";
@@ -301,6 +302,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [editingDisabled]);
+
+  useEffect(() => subscribeProjectBackupExportRequested(props.onExportJson), [props.onExportJson]);
 
   const toggleFurniture = () => {
     measurementToolStore.getState().setActive(false);

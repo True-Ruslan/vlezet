@@ -63,3 +63,21 @@ describe("M7.4 interaction feedback integration", () => {
     expect(source).toContain("tracingMode={props.tracingMode}");
   });
 });
+
+describe("M7.5 onboarding and durable evidence integration", () => {
+  it("renders one editor-scoped onboarding overlay with current project and workflow state", () => {
+    expect(source).toContain('from "./editor-onboarding-overlay"');
+    expect(source).toContain("<EditorOnboardingOverlay");
+    expect(source).toContain("projectId={props.projectId}");
+    expect(source).toContain("viewMode={viewMode}");
+    expect(source).toContain("planningOpen={planningRoomId !== null}");
+    expect(source).toContain("recognitionPanelOpen={props.recognitionPanelOpen}");
+    expect(source).toContain("referencePanelOpen={props.referencePanelOpen}");
+  });
+
+  it("keeps project identity in presentation and outside document mutations", () => {
+    expect(compact(source)).toContain("<WallInspectorplanningNavigation={workflowNavigation}/>");
+    expect(source).not.toContain("replaceProjectDocument(current, { projectId");
+    expect(source).not.toContain("history.document.projectId");
+  });
+});

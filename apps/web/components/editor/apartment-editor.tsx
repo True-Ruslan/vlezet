@@ -28,6 +28,7 @@ import {
   type CompactEditorSurface,
 } from "./editor-context-kind";
 import { deriveEditorEscapeAction } from "./editor-escape-priority";
+import { EditorOnboardingOverlay } from "./editor-onboarding-overlay";
 import { EditorSideSurface } from "./editor-side-surface";
 import { EditorToolbar } from "./editor-toolbar";
 import { FurnitureCatalog } from "./furniture-catalog";
@@ -378,6 +379,15 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           viewMode={viewMode}
           recognitionReviewActive={props.recognitionPanelOpen && recognitionDraft !== null}
           tracingMode={props.tracingMode}
+        />
+        <EditorOnboardingOverlay
+          projectId={props.projectId}
+          viewMode={viewMode}
+          planningOpen={planningRoomId !== null}
+          recognitionPanelOpen={props.recognitionPanelOpen}
+          referencePanelOpen={props.referencePanelOpen}
+          tracingMode={props.tracingMode}
+          onOpenRecognitionReview={toggleRecognitionSurface}
         />
         {viewMode === "2d" && props.furnitureCatalogOpen ? (
           <EditorSideSurface id="editor-catalogue-surface" side="left" label="Мебель и техника" compact={compactLayout} open={!compactLayout || compactSurface === "catalogue"} onClose={closeCompactSurface}>
