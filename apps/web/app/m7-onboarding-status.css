@@ -141,20 +141,23 @@
 }
 
 @media (max-width: 760px) {
-  .first-project-guide,
-  .editor-operation-evidence {
-    position: relative;
-    inset: auto;
-    grid-column: 1;
-    grid-row: auto;
-    transform: none;
+  .first-project-guide {
+    position: absolute;
+    inset-inline: 12px;
+    inset-block-start: 64px;
     width: auto;
-    max-width: none;
-    margin: var(--space-2, 8px) var(--space-3, 12px);
+    max-width: min(420px, calc(100% - 24px));
+    margin: 0;
   }
 
-  .first-project-guide {
-    order: -1;
+  .editor-operation-evidence {
+    position: absolute;
+    inset-inline: 12px;
+    inset-block-end: 12px;
+    width: auto;
+    max-width: none;
+    transform: none;
+    margin: 0;
   }
 
   .first-project-guide-actions,
