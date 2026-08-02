@@ -269,12 +269,17 @@ export async function runLocalRecognitionEngine(
     });
 
     options.onProgress?.({ phase: "openings", progress: 0.9 });
-    const analysisOpenings = buildOpeningHypotheses({
+    const wallCandidateIds = new Set(analysisWalls.map((wall) => wall.id));
+    const openingHypotheses = buildOpeningHypotheses({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       wallCandidates: analysisWalls,
       segments,
     });
+    const analysisOpenings = openingHypotheses.filter((opening) =>
+      opening.hostWallCandidateId !== null
+      && wallCandidateIds.has(opening.hostWallCandidateId));
+    const rejectedUnknownHostOpeningCount = openingHypotheses.length - analysisOpenings.length;
     const { walls, openings } = rescaleRecognitionPixelEvidence({
       walls: analysisWalls,
       openings: analysisOpenings,
@@ -300,6 +305,14 @@ export async function runLocalRecognitionEngine(
         message: analysisMillimetersPerPixel == null
           ? "Строгий локальный анализ нашёл мало стен, поэтому применены более гибкие пороги относительно размера изображения. Проверьте найденные линии перед применением."
           : "Строгий локальный анализ нашёл мало стен, поэтому применены более гибкие пороги по физическому масштабу. Проверьте найденные линии перед применением.",
+        candidateId: null,
+      });
+    }
+    if (rejectedUnknownHostOpeningCount > 0) {
+      diagnostics.push({
+        code: "unknown-host-openings-rejected",
+        severity: "info" as const,
+        message: `Отброшено проёмов без подтверждённой стены: ${rejectedUnknownHostOpeningCount}.`,
         candidateId: null,
       });
     }
