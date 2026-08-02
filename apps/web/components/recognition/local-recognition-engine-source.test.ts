@@ -17,16 +17,43 @@ describe("shared local recognition engine extraction", () => {
     expect(workerSource).not.toContain("MIN_STRICT_WALLS");
   });
 
-  it("moves the unchanged production algorithm constants into the shared engine", () => {
+  it("uses bounded equalised strict and permissive source passes", () => {
     expect(engineSource).toContain('import cvModule from "@techstark/opencv-js"');
     expect(engineSource).toContain("const MIN_STRICT_WALLS = 3");
+    expect(engineSource).toContain("cv.equalizeHist(gray, equalized)");
     expect(engineSource).toContain("new cv.Size(5, 5)");
-    expect(engineSource).toContain("cv.Canny(blurred, edges, 50, 150, 3, false)");
-    expect(engineSource).toContain("cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 50");
+    expect(engineSource).toContain("new cv.Size(3, 3)");
+    expect(engineSource).toContain("cv.Canny(strictBlurred, strictEdges, 50, 150, 3, false)");
+    expect(engineSource).toContain("cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false)");
+    expect(engineSource).toContain("appendHoughSegments({");
+    expect(engineSource.match(/appendHoughSegments\(\{/g)).toHaveLength(2);
+    expect(engineSource).toContain("deduplicateDetectedSegments(rawSegments");
+    expect(engineSource.indexOf("deduplicateDetectedSegments(rawSegments"))
+      .toBeLessThan(engineSource.indexOf("buildWallCandidates({"));
+  });
+
+  it("keeps topology-aware recognition and pixel evidence in the shared engine", () => {
     expect(engineSource).toContain("buildWallCandidates");
     expect(engineSource).toContain("buildOpeningHypotheses");
     expect(engineSource).toContain("rescaleRecognitionPixelEvidence");
     expect(engineSource).toContain("resolveOpenCvModule");
+    expect(engineSource).toContain('code: "multi-pass-source-normalisation"');
+  });
+
+  it("deletes every temporary OpenCV matrix", () => {
+    for (const matrix of [
+      "permissiveLines",
+      "strictLines",
+      "permissiveEdges",
+      "strictEdges",
+      "permissiveBlurred",
+      "strictBlurred",
+      "equalized",
+      "gray",
+      "source",
+    ]) {
+      expect(engineSource).toContain(`${matrix}?.delete()`);
+    }
   });
 
   it("supports deterministic draft IDs without detaching the browser Crypto method", () => {
