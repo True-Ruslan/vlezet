@@ -31,6 +31,34 @@ function mask(widthPx = 200, heightPx = 120): StructuralMaskView {
   };
 }
 
+function bandMask({
+  widthPx = 200,
+  heightPx = 120,
+  x1,
+  x2,
+  y,
+  thicknessPx,
+  emptyRanges = [],
+}: Readonly<{
+  widthPx?: number;
+  heightPx?: number;
+  x1: number;
+  x2: number;
+  y: number;
+  thicknessPx: number;
+  emptyRanges?: readonly Readonly<{ start: number; end: number }>[];
+}>): StructuralMaskView {
+  const half = thicknessPx / 2;
+  return {
+    widthPx,
+    heightPx,
+    isStructural: (x, sampleY) => {
+      if (x < x1 || x > x2 || sampleY < y - half || sampleY > y + half) return false;
+      return !emptyRanges.some((range) => x >= range.start && x <= range.end);
+    },
+  };
+}
+
 describe("evidence-gated wall completion contracts", () => {
   it("fails closed for invalid mask dimensions without mutating input", () => {
     const source = [line(80, 40, 20, 40)];
@@ -111,5 +139,65 @@ describe("evidence-gated wall completion contracts", () => {
     });
 
     expect(first).toEqual(second);
+  });
+});
+
+describe("evidence-gated collinear wall bridges", () => {
+  it("bridges a small raster-supported gap in one pass", () => {
+    const result = completeWallCenterlines({
+      centerlines: [
+        line(20, 40, 80, 40),
+        line(88, 40, 150, 40),
+      ],
+      mask: bandMask({ x1: 20, x2: 150, y: 40, thicknessPx: 10 }),
+      options: DEFAULT_WALL_COMPLETION_OPTIONS,
+    });
+
+    expect(result.acceptedCompletionCount).toBe(1);
+    expect(result.centerlines).toHaveLength(1);
+    expect(result.centerlines[0]).toEqual(expect.objectContaining({
+      startPx: { x: 20, y: 40 },
+      endPx: { x: 150, y: 40 },
+      confidence: "medium",
+    }));
+    expect(result.centerlines[0]?.reasons).toContain("completion-raster-bridge");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "bridge-accepted" }));
+  });
+
+  it("preserves a clean opening instead of bridging it", () => {
+    const result = completeWallCenterlines({
+      centerlines: [
+        line(20, 40, 80, 40),
+        line(88, 40, 150, 40),
+      ],
+      mask: bandMask({
+        x1: 20,
+        x2: 150,
+        y: 40,
+        thicknessPx: 10,
+        emptyRanges: [{ start: 81, end: 87 }],
+      }),
+      options: DEFAULT_WALL_COMPLETION_OPTIONS,
+    });
+
+    expect(result.acceptedCompletionCount).toBe(0);
+    expect(result.centerlines).toHaveLength(2);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "bridge-likely-opening" }));
+  });
+
+  it("produces identical bridges for reversed and permuted inputs", () => {
+    const structuralMask = bandMask({ x1: 20, x2: 150, y: 40, thicknessPx: 10 });
+    const first = completeWallCenterlines({
+      centerlines: [line(20, 40, 80, 40), line(88, 40, 150, 40)],
+      mask: structuralMask,
+      options: DEFAULT_WALL_COMPLETION_OPTIONS,
+    });
+    const second = completeWallCenterlines({
+      centerlines: [line(150, 40, 88, 40), line(80, 40, 20, 40)],
+      mask: structuralMask,
+      options: DEFAULT_WALL_COMPLETION_OPTIONS,
+    });
+
+    expect(second).toEqual(first);
   });
 });
