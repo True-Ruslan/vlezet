@@ -14,6 +14,7 @@
     "validate:m7-docs": "node scripts/validate-m7-docs.mjs",
     "benchmark:recognition:core": "node tools/recognition-benchmark/run-core.mjs",
     "benchmark:recognition:source-score": "npm --prefix tools/recognition-benchmark run score:source",
+    "benchmark:recognition:m7-8c-gate": "node tools/recognition-benchmark/m7-8c-opening-gate.mjs",
     "benchmark:recognition:evidence": "node tools/recognition-benchmark/run-evidence.mjs"
   },
   "devDependencies": {
