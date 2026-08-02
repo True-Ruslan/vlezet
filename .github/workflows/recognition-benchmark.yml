@@ -86,6 +86,7 @@ jobs:
         env:
           RECOGNITION_CORE_RESULT_PATH: tools/recognition-benchmark/artifacts/core/recognition-core-result.json
           RECOGNITION_SOURCE_RESULT_PATH: tools/recognition-benchmark/artifacts/source/recognition-source-result.json
+          RECOGNITION_SOURCE_OVERLAYS_DIR: tools/recognition-benchmark/artifacts/source
           RECOGNITION_EVIDENCE_OUTPUT_DIR: tools/recognition-benchmark/artifacts/evidence
         run: pnpm benchmark:recognition:evidence
 
