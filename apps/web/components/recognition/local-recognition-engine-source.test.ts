@@ -27,9 +27,10 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain("cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false)");
     expect(engineSource).toContain("appendHoughSegments({");
     expect(engineSource.match(/appendHoughSegments\(\{/g)).toHaveLength(2);
-    expect(engineSource).toContain("deduplicateDetectedSegments(rawSegments");
-    expect(engineSource.indexOf("deduplicateDetectedSegments(rawSegments"))
-      .toBeLessThan(engineSource.indexOf("buildWallCandidates({"));
+    const finalDeduplication = engineSource.lastIndexOf("deduplicateDetectedSegments(");
+    const wallConstruction = engineSource.indexOf("buildWallCandidates({");
+    expect(finalDeduplication).toBeGreaterThan(-1);
+    expect(finalDeduplication).toBeLessThan(wallConstruction);
   });
 
   it("keeps topology-aware recognition and pixel evidence in the shared engine", () => {
