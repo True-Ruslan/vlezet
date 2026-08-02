@@ -10,15 +10,19 @@ on:
       - ".github/workflows/m7-8c-generate-fixtures.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
+      - name: Checkout feature branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -44,6 +48,22 @@ jobs:
 
       - name: Generate canonical fixtures
         run: npm --prefix tools/recognition-benchmark run generate:fixtures
+
+      - name: Commit generated snapshots
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/recognition/benchmarks/fixtures
+          if git diff --cached --quiet; then
+            echo "Generated fixtures are already current."
+            exit 0
+          fi
+          git commit -m "test: regenerate opening-aware benchmark fixtures [skip ci]"
+          git push origin "HEAD:${HEAD_BRANCH}"
 
       - name: Upload generated fixtures
         uses: actions/upload-artifact@v4
