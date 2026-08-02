@@ -5,31 +5,19 @@
 **PR:** #41  
 **Feature branch:** `feat/m7-8b-source-normalization-wall-topology`  
 **Base:** `d6e8668c5ad0780a0a28d9c1fef6e9d37e9bbe4d`  
-**Final product implementation head:** `adc07f536bc1f99f908575e7b036ad7ef29ae8ef`
+**Final product implementation head:** `f2694519fce95ac02a3f43e916f5b6c96d133c36`
 
-## Product-owner failure that blocked the first implementation
+## Product-owner failures that block merge
 
-The first M7.8B candidate was not accepted. A representative clear apartment plan produced:
+The first M7.8B candidate produced 417 local wall candidates from a representative clear plan. Furniture, sanitary symbols, labels, digits and door arcs entered the wall graph. That failure caused the line-first pipeline to be replaced with region-first structural recognition.
 
-- 417 local wall candidates;
-- 0 openings;
-- furniture, sanitary symbols, labels, digits and door arcs promoted into the wall graph;
-- no fully confident candidate;
-- AI review that retained the polluted network and added unsupported long lines.
+After region-first remediation, the same real plan produced a materially better and reviewable local Draft: 35 walls, 3 provisional openings and no candidate explosion. One real wall remained missed. The optional GPT-4o review was then materially worse than the local Draft: it added long unsupported lines across the image and reconstructed unrelated topology.
 
-This is recorded in `m7-8b-product-owner-fail-2026-08-02.md`. PR #41 remains Draft and must not be merged until the same real plan passes a new product-owner review.
+PR #41 remains Draft and must not be merged until the same real plan passes another product-owner review. The private source plan and screenshots were not committed.
 
-The private source plan and screenshots were not committed.
+## Confirmed local-recognition root cause
 
-## Confirmed root cause
-
-The line-first path ran Hough evidence over the complete raster. On the representative source it produced roughly 1,000 line segments. Pairwise parallel-line matching then created more than 12,000 possible centrelines. Dense symbol and furniture networks could become larger and more connected than the actual apartment shell.
-
-The earlier largest-component and dominant-thickness filters were therefore downstream symptom filters. They could not reliably recover architectural meaning once the candidate space had already been polluted.
-
-## Remediation delivered
-
-### Region-first wall evidence
+The old line-first path ran Hough evidence over the complete raster. Roughly 1,000 source segments could create more than 12,000 candidate parallel-edge centrelines. Dense symbol and furniture networks could therefore become larger than the apartment shell.
 
 The browser engine now treats filled thick wall regions as primary evidence:
 
@@ -39,14 +27,57 @@ The browser engine now treats filled thick wall regions as primary evidence:
 4. deterministic horizontal and vertical thick-region scan;
 5. stable band grouping by overlap and run-length similarity;
 6. thickness, length and aspect-ratio validation;
-7. conversion of each accepted region into exactly two boundary segments;
-8. existing centreline and topology construction.
+7. exactly two boundary segments per accepted wall region;
+8. deterministic centreline and topology construction.
 
-Canny/Hough is now a bounded fallback only when fewer than three structural regions are available. On all orthogonal benchmark plans the selected mode is `regions`; Hough is not executed.
+Canny/Hough is a bounded fallback only when fewer than three structural regions are available.
 
-This directly prevents thin labels, dimensions, furniture outlines, sanitary symbols, hatching and door arcs from entering the wall-pair combinatorics.
+## Confirmed AI-review root cause
 
-### Fail-closed product boundaries
+The OpenRouter request previously sent the source image and only a count such as “the local detector proposed 35 walls”. It did not send local candidate IDs or coordinates. GPT-4o was therefore effectively asked to recognise the plan from scratch instead of verifying the local Draft.
+
+Reconciliation then accepted unmatched cloud-only walls and averaged matched local coordinates with AI coordinates. This allowed AI to add topology and move otherwise valid local geometry.
+
+## AI verification-only remediation
+
+AI review is now constrained by three independent layers.
+
+### Request contract
+
+When a local Draft exists, the prompt now:
+
+- declares verification-only mode rather than repeat recognition;
+- sends every local wall ID and exact `0..10000` start/end coordinates;
+- forbids new wall IDs and new geometry;
+- requires returned candidates to preserve the original ID and coordinates;
+- allows only confidence/score verification;
+- requires unconfirmed walls to be omitted;
+- requires `openings: []` until M7.8C host-wall classification.
+
+### Provider sanitation
+
+Before reconciliation, the sanitizer rejects:
+
+- wall IDs absent from the local verification set;
+- a known local ID returned with mismatched geometry;
+- almost-full-frame unsupported lines;
+- frame artifacts outside local bounds;
+- candidate explosions.
+
+### Reconciliation authority
+
+Reconciliation now:
+
+- never adds an unmatched cloud-only wall;
+- never adds a cloud-only opening;
+- never moves local wall coordinates;
+- uses matching AI evidence only to raise confidence and record agreement;
+- preserves existing review decisions;
+- emits explicit diagnostics for deferred cloud-only geometry.
+
+This means GPT-4o can confirm or reject local candidates, but cannot repair a missed local wall by inventing one. The remaining missed wall is a local CV/topology issue and remains visible rather than being hidden by uncontrolled AI reconstruction.
+
+## Fail-closed product boundaries
 
 - more than 80 local walls are rejected as an unreviewable Draft;
 - an overloaded Draft is not persisted or supplied to AI;
@@ -55,19 +86,16 @@ This directly prevents thin labels, dimensions, furniture outlines, sanitary sym
 - cloud candidate explosions are rejected fail-closed;
 - local opening hypotheses remain deferred until M7.8C host-wall classification.
 
-### Engine and corpus migration
+## Engine and corpus migration
 
 - local recognition engine version: `5`;
 - one public engine-version source for Worker, controller and benchmark;
 - explicit reviewed baseline migration;
 - corpus expanded from eight to nine fixtures;
-- new `clutter-symbol-regression` fixture is repository-owned synthetic data with independently generated geometry and no user raster, dimensions or identifiers;
-- generator preserves the manually reviewed clutter fixture instead of overwriting it;
-- corpus verifier applies PNG metadata, size, schema, dimensions and SHA-256 checks to all nine fixtures.
+- `clutter-symbol-regression` is repository-owned synthetic data with no user raster, dimensions or identifiers;
+- corpus verification enforces PNG metadata, size, schema, dimensions and SHA-256 checks.
 
-## Measured result
-
-### Aggregate
+## Measured local-recognition result
 
 | Metric | Previous post-failure Source | Region-first Core | Region-first Source |
 | --- | ---: | ---: | ---: |
@@ -77,7 +105,7 @@ This directly prevents thin labels, dimensions, furniture outlines, sanitary sym
 | Unknown-host openings | `0` | `0` | `0` |
 | Stale decisions | `0` | `0` | `0` |
 
-### Dense anonymised regression
+Dense anonymised regression:
 
 ```text
 Source wall geometry F1: 0.880000
@@ -85,7 +113,7 @@ Source wall topology F1: 0.880000
 geometry evidence:       TP 11 / FP 2 / FN 1
 ```
 
-### New clutter-symbol regression
+Clutter-symbol regression:
 
 ```text
 structural regions: 19
@@ -97,34 +125,59 @@ geometry evidence:   TP 12 / FP 0 / FN 0
 candidate overload:  false
 ```
 
-The overlay confirms that the large digit, furniture, sanitary symbols, hatching, labels and door arcs are not promoted into wall candidates.
+## RED → GREEN evidence for AI review
+
+```text
+RED: 64d42f6110412d2871a961c2412e6a46ac93b7bc
+     cloud-only walls remained in the Draft
+
+GREEN: 6a32509a4b46582835095a9bb5321676c5429929
+       unmatched walls/openings deferred
+
+RED: 4194ffac2d89e0432119026a8d8404c11e73f7cc
+     agreeing AI geometry still moved local endpoints
+
+GREEN: c1df64a321b99090d06565c9a0debebe73fb7014
+       local coordinates remain authoritative
+
+RED: 8c0930499e4bec92bc4b659cf17b02dffab794cf
+     provider prompt contained only candidate counts
+
+GREEN: 8e7e68d70a61e8c5cde0cf3bd54efdcadc693e6b
+       exact local IDs/coordinates and verification-only contract sent
+
+RED: 19c6d06003e922258000053663a5495d84825d15
+     unknown IDs and geometry substitutions survived sanitation
+
+GREEN: f2694519fce95ac02a3f43e916f5b6c96d133c36
+       provider output bound to local identity and geometry
+```
 
 ## Exact product-head verification
 
 ```text
-head:                    adc07f536bc1f99f908575e7b036ad7ef29ae8ef
-Standard CI:             30756866790 / #2752 — PASS
-Recognition Benchmark:  30756866802 / #124 — PASS
-M7 Browser Audit:        30756866789 / #577 — PASS
-benchmark artifact:      8836204545
-benchmark digest:        sha256:57f1627558ef171decf0ebc31f35063f8db282dcab84bf397709fddedd3582cb
+head:                    f2694519fce95ac02a3f43e916f5b6c96d133c36
+Standard CI:             30758342299 / #2774 — PASS
+Recognition Benchmark:  30758342317 / #135 — PASS
+M7 Browser Audit:        30758342345 / #588 — PASS
+benchmark artifact:      8836651302
+benchmark digest:        sha256:24fae84aa1e3233aa87efdc1555643f0e749d0e8f0cc8eb68b2f3244af43bf5e
 ```
 
 Verified on the exact head:
 
-- all unit tests;
-- Core benchmark and explicit engine-5 baseline comparison;
-- nine Chromium/OpenCV source fixtures;
-- nine deterministic source overlays;
-- clutter fixture constrained to 12 architectural walls;
+- complete unit suite, including verification-only prompt and reconciliation tests;
+- Core benchmark and engine-5 baseline comparison;
+- nine Chromium/OpenCV source fixtures and overlays;
+- local benchmark metrics unchanged by AI-only remediation;
 - production Worker/shared-engine equivalence;
 - TypeScript, ESLint and production build;
 - Chromium full M7 regression;
 - WebKit core smoke;
-- portable `sha256sum -c SHA256SUMS` for Core/Source reports, aggregate evidence and all nine overlays;
-- zero incorrect high-confidence candidates;
-- zero unknown-host openings;
-- zero stale decisions.
+- portable `sha256sum -c SHA256SUMS` evidence integrity;
+- zero incorrect high-confidence benchmark candidates;
+- zero unknown-host benchmark openings;
+- zero stale benchmark decisions.
 
 ## Preserved authority
 
@@ -136,28 +189,29 @@ Unchanged:
 - Draft → explicit Apply authority;
 - M2 containment, collision, door-swing, clearance and fit authority;
 - planner and 3D authority;
-- OpenRouter runtime-only secrets and provider contract.
+- OpenRouter runtime-only secrets.
 
-The wall topology remains transient recognition evidence. It is never persisted as a second document model.
+The wall topology remains transient recognition evidence and is never persisted as a second document model.
 
 ## Known limitations
 
 - final Source wall-topology target `≥ 0.90` is not yet reached globally;
-- the perspective-photo fixture remains `0/0` and needs perspective/source rectification;
+- the representative real plan still misses one wall locally;
+- the perspective-photo fixture remains `0/0`;
 - doors and windows remain intentionally deferred to M7.8C;
 - room faces, OCR labels and areas are not produced;
-- AI output remains optional, non-authoritative and can still be structurally wrong;
-- the benchmark improvement does not substitute for repeating the exact real-plan product review.
+- AI cannot add a missing wall in M7.8B because local geometry is deliberately authoritative.
 
 ## Product-owner re-review gate
 
 On the same representative real plan, verify:
 
-1. local recognition no longer produces hundreds of candidates;
-2. the Draft contains a reviewable set of exterior and principal internal walls;
-3. furniture, sanitary symbols, digits, labels and door arcs are not presented as walls;
-4. no document geometry changes before explicit Apply;
-5. AI review does not reintroduce a large unsupported wall network;
-6. Apply remains one semantic operation and Undo restores the prior document.
+1. local recognition still produces the improved reviewable wall set rather than hundreds of candidates;
+2. after GPT-4o review, the wall count and coordinates do not increase or move;
+3. no long cloud-only lines appear;
+4. matching local walls may become more confident;
+5. AI does not add doors/windows in this slice;
+6. no document geometry changes before explicit Apply;
+7. Apply remains one semantic operation and Undo restores the prior document.
 
 Only literal product-owner acceptance may change this document to PASS, mark PR #41 Ready and permit merge.
