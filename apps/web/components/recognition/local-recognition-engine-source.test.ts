@@ -47,7 +47,7 @@ describe("shared local recognition engine extraction", () => {
 
   it("defers local opening candidates until M7.8C host-wall validation", () => {
     expect(engineSource).toContain("const openingHypotheses = buildOpeningHypotheses({");
-    expect(engineSource).toContain("const analysisOpenings = []");
+    expect(engineSource).toContain("const analysisOpenings: ReturnType<typeof buildOpeningHypotheses> = []");
     expect(engineSource).toContain('code: "opening-classification-deferred"');
     expect(engineSource).not.toContain("unknown-host-openings-rejected");
   });
