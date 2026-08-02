@@ -14,11 +14,16 @@ const wall: RecognitionWallCandidate = {
   conflict: null,
 };
 
-const structuralSegments: DetectedLineSegment[] = [
+const splitStructuralSegments: DetectedLineSegment[] = [
   { x1: 100, y1: 240, x2: 435, y2: 240 },
   { x1: 565, y1: 240, x2: 900, y2: 240 },
   { x1: 100, y1: 260, x2: 435, y2: 260 },
   { x1: 565, y1: 260, x2: 900, y2: 260 },
+];
+
+const continuousStructuralSegments: DetectedLineSegment[] = [
+  { x1: 100, y1: 240, x2: 900, y2: 240 },
+  { x1: 100, y1: 260, x2: 900, y2: 260 },
 ];
 
 const windowSymbols: DetectedLineSegment[] = [
@@ -46,7 +51,7 @@ describe("window evidence separation", () => {
       widthPx: 1000,
       heightPx: 500,
       wallCandidates: [wall],
-      wallSegments: structuralSegments,
+      wallSegments: splitStructuralSegments,
       symbolSegments: windowSymbols,
     }));
   });
@@ -56,7 +61,17 @@ describe("window evidence separation", () => {
       widthPx: 1000,
       heightPx: 500,
       wallCandidates: [wall],
-      segments: [...structuralSegments, ...windowSymbols],
+      segments: [...splitStructuralSegments, ...windowSymbols],
+    }));
+  });
+
+  it("recognizes paired bounded window rails when morphology closes the structural gap", () => {
+    expectWindow(buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: continuousStructuralSegments,
+      symbolSegments: windowSymbols,
     }));
   });
 });
