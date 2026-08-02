@@ -51,6 +51,9 @@ jobs:
       - name: Verify benchmark fixtures
         run: npm --prefix tools/recognition-benchmark run verify:fixtures
 
+      - name: Verify M7.8C gate contract
+        run: node --test tools/recognition-benchmark/m7-8c-opening-gate.test.mjs
+
       - name: Run Core Recognition Benchmark
         id: core_benchmark
         continue-on-error: true
@@ -83,6 +86,9 @@ jobs:
         env:
           RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm --prefix tools/recognition-benchmark run score:source
+
+      - name: Enforce M7.8C Core and Source opening gates
+        run: pnpm benchmark:recognition:m7-8c-gate tools/recognition-benchmark/artifacts/core/recognition-core-result.json tools/recognition-benchmark/artifacts/source/recognition-source-result.json
 
       - name: Assemble recognition benchmark evidence
         env:
