@@ -97,9 +97,7 @@ jobs:
           path: |
             tools/recognition-benchmark/artifacts/core
             tools/recognition-benchmark/artifacts/source
-            tools/recognition-benchmark/artifacts/evidence/recognition-benchmark-evidence.json
-            tools/recognition-benchmark/artifacts/evidence/recognition-benchmark-summary.md
-            tools/recognition-benchmark/artifacts/evidence/SHA256SUMS
+            tools/recognition-benchmark/artifacts/evidence
             tools/recognition-benchmark/test-results
             /tmp/vlezet-recognition-benchmark.log
           if-no-files-found: warn
