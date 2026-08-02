@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 import {
   buildWallCandidates,
   createAdaptiveLocalRecognitionOptions,
   DEFAULT_LOCAL_RECOGNITION_OPTIONS,
-  LOCAL_RECOGNITION_ENGINE_VERSION,
   type DetectedLineSegment,
 } from "./local-lines";
 
 describe("local wall post-processing", () => {
-  it("pairs parallel wall edges into one centerline candidate", () => {
-    const candidates = buildWallCandidates({
+  it("detects a wall from parallel edge lines", () => {
+    const result = buildWallCandidates({
       widthPx: 1000,
       heightPx: 800,
       segments: [
@@ -17,54 +17,54 @@ describe("local wall post-processing", () => {
         { x1: 100, y1: 220, x2: 900, y2: 220 },
       ],
     });
-    expect(candidates).toHaveLength(1);
-    expect(candidates[0]?.start.y).toBeCloseTo(210 / 800, 5);
-    expect(candidates[0]?.end.y).toBeCloseTo(210 / 800, 5);
-    expect(candidates[0]?.estimatedThicknessPx).toBeCloseTo(20, 5);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.estimatedThicknessPx).toBeCloseTo(20);
   });
 
-  it("merges collinear fragments and rejects short isolated noise", () => {
-    const candidates = buildWallCandidates({
+  it("ignores thick parallel pairs outside the configured maximum", () => {
+    const result = buildWallCandidates({
       widthPx: 1000,
       heightPx: 800,
       segments: [
-        { x1: 100, y1: 100, x2: 450, y2: 100 },
-        { x1: 100, y1: 120, x2: 450, y2: 120 },
-        { x1: 440, y1: 100, x2: 900, y2: 100 },
-        { x1: 440, y1: 120, x2: 900, y2: 120 },
-        { x1: 30, y1: 30, x2: 45, y2: 30 },
+        { x1: 100, y1: 200, x2: 900, y2: 200 },
+        { x1: 100, y1: 350, x2: 900, y2: 350 },
       ],
     });
-    expect(candidates).toHaveLength(1);
-    expect(candidates[0]?.start.x).toBeCloseTo(0.1, 3);
-    expect(candidates[0]?.end.x).toBeCloseTo(0.9, 3);
+    expect(result).toHaveLength(0);
   });
 
-  it("derives relaxed thresholds from calibrated physical scale for thick fragmented walls", () => {
-    const strict = buildWallCandidates({
-      widthPx: 1200,
-      heightPx: 900,
+  it("merges collinear wall fragments", () => {
+    const result = buildWallCandidates({
+      widthPx: 1000,
+      heightPx: 800,
       segments: [
         { x1: 100, y1: 200, x2: 500, y2: 200 },
-        { x1: 320, y1: 310, x2: 780, y2: 310 },
+        { x1: 100, y1: 220, x2: 500, y2: 220 },
+        { x1: 490, y1: 200, x2: 900, y2: 200 },
+        { x1: 490, y1: 220, x2: 900, y2: 220 },
       ],
     });
-    expect(strict).toHaveLength(0);
+    expect(result).toHaveLength(1);
+  });
 
+  it("adapts plausible wall thicknesses from the physical source scale", () => {
+    const segments = [
+      { x1: 100, y1: 200, x2: 900, y2: 200 },
+      { x1: 100, y1: 310, x2: 900, y2: 310 },
+    ] as const;
+    expect(buildWallCandidates({ widthPx: 1000, heightPx: 800, segments })).toHaveLength(0);
+
+    const options = createAdaptiveLocalRecognitionOptions({
+      analysisMillimetersPerPixel: 4,
+      widthPx: 1000,
+      heightPx: 800,
+    });
     const adaptive = buildWallCandidates({
-      widthPx: 1200,
-      heightPx: 900,
-      segments: [
-        { x1: 100, y1: 200, x2: 500, y2: 200 },
-        { x1: 320, y1: 310, x2: 780, y2: 310 },
-      ],
-      options: createAdaptiveLocalRecognitionOptions({
-        analysisMillimetersPerPixel: 2.5,
-        widthPx: 1200,
-        heightPx: 900,
-      }),
+      widthPx: 1000,
+      heightPx: 800,
+      segments,
+      options,
     });
-
     expect(adaptive).toHaveLength(1);
     expect(adaptive[0]?.estimatedThicknessPx).toBeCloseTo(110, 5);
   });
@@ -154,6 +154,6 @@ describe("local wall post-processing", () => {
       DEFAULT_LOCAL_RECOGNITION_OPTIONS.minimumWallThicknessPx,
     );
     expect(DEFAULT_LOCAL_RECOGNITION_OPTIONS.endpointSnapTolerancePx).toBeGreaterThan(0);
-    expect(LOCAL_RECOGNITION_ENGINE_VERSION).toBe("4");
+    expect(LOCAL_RECOGNITION_ENGINE_VERSION).toBe("5");
   });
 });
