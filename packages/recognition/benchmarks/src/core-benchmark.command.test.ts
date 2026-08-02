@@ -27,7 +27,7 @@ describe.skipIf(!commandEnabled)("Core Recognition Benchmark command", () => {
       expect(first.fixtures).toHaveLength(8);
       expect(first.aggregate.fixtureCount).toBe(8);
       expect(first.aggregate.failedFixtureCount).toBe(0);
-      expect(first.baselineComparison?.baselineSourceSha).toBe("bccf1e35ce4e01d55a7be11b220b8e5764524244");
+      expect(first.baselineComparison?.baselineSourceSha).toBe("5e73e9af193ea004a440c209d538aecebb5be54b");
       expect(first.baselineComparison?.metrics.every((metric) => metric.status !== "regression")).toBe(true);
       expect(second.aggregate).toEqual(first.aggregate);
       expect(second.baselineComparison).toEqual(first.baselineComparison);
