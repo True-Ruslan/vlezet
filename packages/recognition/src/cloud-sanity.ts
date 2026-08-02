@@ -15,6 +15,9 @@ export type CloudRecognitionSanityInput = Readonly<{
 
 type Bounds = Readonly<{ minX: number; minY: number; maxX: number; maxY: number }>;
 
+const MAX_REVIEWABLE_CLOUD_WALLS = 80;
+const MAX_UNSUPPORTED_CLOUD_WALL_LENGTH = 0.85;
+
 function wallLength(wall: RecognitionWallCandidate): number {
   return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
 }
@@ -51,14 +54,29 @@ function outsideSameSide(wall: RecognitionWallCandidate, bounds: Bounds): boolea
   );
 }
 
+function hasLocalSupport(
+  wall: RecognitionWallCandidate,
+  localWalls: readonly RecognitionWallCandidate[],
+): boolean {
+  return localWalls.some((local) => segmentNear(local, wall));
+}
+
 function isFrameLikeUnsupportedWall(
   wall: RecognitionWallCandidate,
   localWalls: readonly RecognitionWallCandidate[],
   localBounds: Bounds,
 ): boolean {
   if (wallLength(wall) < 0.25) return false;
-  if (localWalls.some((local) => segmentNear(local, wall))) return false;
+  if (hasLocalSupport(wall, localWalls)) return false;
   return outsideSameSide(wall, localBounds);
+}
+
+function isUnboundedUnsupportedWall(
+  wall: RecognitionWallCandidate,
+  localWalls: readonly RecognitionWallCandidate[],
+): boolean {
+  return wallLength(wall) >= MAX_UNSUPPORTED_CLOUD_WALL_LENGTH
+    && !hasLocalSupport(wall, localWalls);
 }
 
 export function sanitizeCloudRecognitionResult(input: CloudRecognitionSanityInput): RecognitionProviderResult {
@@ -67,13 +85,23 @@ export function sanitizeCloudRecognitionResult(input: CloudRecognitionSanityInpu
   const localBounds = localWalls.length >= 4 ? boundsOfWalls(localWalls) : null;
   const droppedWallIds = new Set<string>();
 
-  const walls = input.result.walls.filter((wall) => {
+  let walls = input.result.walls.filter((wall) => {
     if (wallLength(wall) < 0.005) {
       droppedWallIds.add(wall.id);
       diagnostics.push({
         code: "cloud-degenerate-wall",
         severity: "warning",
         message: "AI предложил вырожденную стену; она отброшена до review.",
+        candidateId: wall.id,
+      });
+      return false;
+    }
+    if (isUnboundedUnsupportedWall(wall, localWalls)) {
+      droppedWallIds.add(wall.id);
+      diagnostics.push({
+        code: "cloud-unbounded-wall",
+        severity: "warning",
+        message: "AI предложил почти сквозную линию без локального подтверждения; она отброшена до review.",
         candidateId: wall.id,
       });
       return false;
@@ -90,6 +118,18 @@ export function sanitizeCloudRecognitionResult(input: CloudRecognitionSanityInpu
     }
     return true;
   });
+
+  if (walls.length > MAX_REVIEWABLE_CLOUD_WALLS) {
+    const originalWallCount = walls.length;
+    for (const wall of walls) droppedWallIds.add(wall.id);
+    walls = [];
+    diagnostics.push({
+      code: "cloud-wall-candidate-overload",
+      severity: "warning",
+      message: `AI создал ${originalWallCount} кандидатов стен. Результат отклонён целиком как непроверяемый.`,
+      candidateId: null,
+    });
+  }
 
   const survivingWallIds = new Set(walls.map((wall) => wall.id));
   const openings = input.result.openings.filter((opening) => {
