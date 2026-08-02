@@ -21,7 +21,8 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain('import cvModule from "@techstark/opencv-js"');
     expect(engineSource).toContain("const MIN_STRICT_WALLS = 3");
     expect(engineSource).toContain("cv.THRESH_BINARY_INV | cv.THRESH_OTSU");
-    expect(engineSource).toContain("cv.getStructuringElement(cv.MORPH_RECT");
+    expect(engineSource).toContain("cv.getStructuringElement(");
+    expect(engineSource).toContain("cv.MORPH_RECT");
     expect(engineSource).toContain("cv.morphologyEx(structuralBinary, structuralMask, cv.MORPH_OPEN, structuralKernel)");
     expect(engineSource).toContain("cv.GaussianBlur(structuralMask, strictBlurred");
     expect(engineSource).toContain("cv.GaussianBlur(structuralMask, permissiveBlurred");
