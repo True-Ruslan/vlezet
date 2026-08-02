@@ -29,8 +29,13 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain("resolveOpenCvModule");
   });
 
-  it("supports deterministic draft IDs and the existing progress phases", () => {
+  it("supports deterministic draft IDs without detaching the browser Crypto method", () => {
     expect(engineSource).toContain("createDraftId?: () => string");
+    expect(engineSource).toContain("options.createDraftId?.() ?? crypto.randomUUID()");
+    expect(engineSource).not.toContain("(options.createDraftId ?? crypto.randomUUID)()");
+  });
+
+  it("preserves the existing progress phases", () => {
     expect(engineSource).toContain("onProgress?: (progress: LocalRecognitionProgress) => void");
     for (const progress of ["0.05", "0.25", "0.5", "0.72", "0.9", "1"]) {
       expect(engineSource).toContain(`progress: ${progress}`);
