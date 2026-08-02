@@ -8,6 +8,7 @@ import {
   topologyWallCandidates,
   type LocalWallCenterline,
   type LocalWallPoint,
+  type LocalWallTopology,
 } from "./wall-topology";
 
 export const LOCAL_RECOGNITION_ENGINE_VERSION = "4" as const;
@@ -72,6 +73,21 @@ type CanonicalSegment = Readonly<{
   sourceCount: number;
 }>;
 
+export type BuildWallCandidatesInput = Readonly<{
+  widthPx: number;
+  heightPx: number;
+  segments: readonly DetectedLineSegment[];
+  options?: Partial<LocalRecognitionOptions>;
+}>;
+
+export type LocalWallCandidateAnalysis = Readonly<{
+  inputSegmentCount: number;
+  normalisedSegmentCount: number;
+  pairedCenterlineCount: number;
+  topology: LocalWallTopology;
+  candidates: readonly RecognitionWallCandidate[];
+}>;
+
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
@@ -112,13 +128,6 @@ export function createAdaptiveLocalRecognitionOptions(
     minimumTopologyEdgeLengthPx: clamp(120 / millimetersPerPixel, 10, 40),
   };
 }
-
-export type BuildWallCandidatesInput = Readonly<{
-  widthPx: number;
-  heightPx: number;
-  segments: readonly DetectedLineSegment[];
-  options?: Partial<LocalRecognitionOptions>;
-}>;
 
 function lengthBetween(a: Vector, b: Vector): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
@@ -209,7 +218,7 @@ function pairCenterline(
   };
 }
 
-export function buildWallCandidates(input: BuildWallCandidatesInput): RecognitionWallCandidate[] {
+export function analyzeWallCandidates(input: BuildWallCandidatesInput): LocalWallCandidateAnalysis {
   const widthPx = finitePositive(input.widthPx, "Ширина изображения");
   const heightPx = finitePositive(input.heightPx, "Высота изображения");
   const options = { ...DEFAULT_LOCAL_RECOGNITION_OPTIONS, ...input.options };
@@ -243,5 +252,15 @@ export function buildWallCandidates(input: BuildWallCandidatesInput): Recognitio
     intersectionTolerancePx: options.intersectionTolerancePx,
     minimumEdgeLengthPx: options.minimumTopologyEdgeLengthPx,
   });
-  return topologyWallCandidates({ topology, widthPx, heightPx });
+  return {
+    inputSegmentCount: input.segments.length,
+    normalisedSegmentCount: normalised.length,
+    pairedCenterlineCount: centerlines.length,
+    topology,
+    candidates: topologyWallCandidates({ topology, widthPx, heightPx }),
+  };
+}
+
+export function buildWallCandidates(input: BuildWallCandidatesInput): RecognitionWallCandidate[] {
+  return [...analyzeWallCandidates(input).candidates];
 }
