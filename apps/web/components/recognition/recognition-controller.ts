@@ -1,4 +1,5 @@
 import {
+  enforceLocalWallReviewBudget,
   isRecognitionSessionStale,
   LOCAL_RECOGNITION_ENGINE_VERSION,
   validateRecognitionDraft,
@@ -37,6 +38,26 @@ function sessionFromDraft(draft: RecognitionDraft, previous?: RecognitionSession
     cloudMetadata: previous?.cloudMetadata ?? null,
     createdAt: previous?.createdAt ?? draft.createdAt,
     updatedAt: draft.updatedAt,
+  };
+}
+
+function enforceReviewableLocalDraft(draft: RecognitionDraft): RecognitionDraft {
+  const budget = enforceLocalWallReviewBudget({ walls: draft.walls });
+  if (!budget.overloaded) return draft;
+  return {
+    ...draft,
+    walls: [],
+    openings: [],
+    decisions: {},
+    diagnostics: [
+      ...draft.diagnostics,
+      {
+        code: "local-wall-candidate-overload",
+        severity: "warning",
+        message: `Локальный анализ создал ${budget.originalWallCount} кандидатов стен. Результат отклонён целиком, потому что такой набор нельзя надёжно проверить. Повторите распознавание после обрезки изображения или используйте ручную обводку.`,
+        candidateId: null,
+      },
+    ],
   };
 }
 
@@ -83,7 +104,8 @@ export class RecognitionController {
         onProgress: (progress) => this.#setState({ kind: "running-local", session: previous, progress }),
       });
       if (abortController.signal.aborted) return;
-      const session = { ...sessionFromDraft(validateRecognitionDraft(draft), previous), cloudMetadata: null };
+      const reviewableDraft = enforceReviewableLocalDraft(validateRecognitionDraft(draft));
+      const session = { ...sessionFromDraft(reviewableDraft, previous), cloudMetadata: null };
       await this.#repository.put(session);
       this.#setState({ kind: "review", session });
     } catch (cause) {
