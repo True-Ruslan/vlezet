@@ -121,6 +121,7 @@ describe("recognition opening matching", () => {
     expect(result.combined).toEqual({ truePositive: 1, falsePositive: 0, falseNegative: 0, precision: 1, recall: 1, f1: 1 });
     expect(result.doors.f1).toBe(1);
     expect(result.hostWallAccuracy).toEqual({ status: "measured", value: 1 });
+    expect(result.unknownHostOpeningCount).toBe(0);
   });
 
   it("treats a wrong type as false positive plus false negative", () => {
@@ -135,7 +136,7 @@ describe("recognition opening matching", () => {
     expect(result.windows.falsePositive).toBe(1);
   });
 
-  it("treats a correct geometric opening on the wrong host as FP plus FN", () => {
+  it("treats a correct geometric opening on the wrong surviving host as FP plus FN, not unknown", () => {
     const context = wallContext();
     const result = matchOpenings({
       fixture: fixture(),
@@ -144,6 +145,7 @@ describe("recognition opening matching", () => {
     });
     expect(result.combined).toMatchObject({ truePositive: 0, falsePositive: 1, falseNegative: 1 });
     expect(result.hostWallAccuracy).toEqual({ status: "measured", value: 0 });
+    expect(result.unknownHostOpeningCount).toBe(0);
   });
 
   it("counts a null host explicitly", () => {
@@ -154,6 +156,17 @@ describe("recognition opening matching", () => {
       ...context,
     });
     expect(result.unknownHostOpeningCount).toBe(1);
+  });
+
+  it("counts a reference to a missing wall candidate explicitly", () => {
+    const context = wallContext();
+    const result = matchOpenings({
+      fixture: fixture(),
+      predictions: [openingCandidate("p1", "door", "missing-wall")],
+      ...context,
+    });
+    expect(result.unknownHostOpeningCount).toBe(1);
+    expect(result.unknownHostOpenings).toEqual([{ openingId: "p1", hostWallCandidateId: "missing-wall" }]);
   });
 
   it("resolves host through matched wall index rather than ID similarity", () => {
