@@ -12,6 +12,11 @@ export type OpeningMatch = Readonly<{
   widthErrorMm: number;
 }>;
 
+export type UnknownHostOpeningDetail = Readonly<{
+  openingId: string;
+  hostWallCandidateId: string | null;
+}>;
+
 export type OpeningMatchResult = Readonly<{
   matches: readonly OpeningMatch[];
   combined: BenchmarkCountMetric;
@@ -19,6 +24,7 @@ export type OpeningMatchResult = Readonly<{
   windows: BenchmarkCountMetric;
   hostWallAccuracy: BenchmarkMetricValue;
   unknownHostOpeningCount: number;
+  unknownHostOpenings: readonly UnknownHostOpeningDetail[];
   duplicateOpeningCount: number;
 }>;
 
@@ -192,9 +198,13 @@ export function matchOpenings(input: Readonly<{
     ? { status: "not-applicable" }
     : { status: "measured", value: correctHostCount / geometryAssignments.length };
 
-  const unknownHostOpeningCount = input.predictions.filter((prediction) =>
-    prediction.hostWallCandidateId === null || !resolvedWalls.has(prediction.hostWallCandidateId),
-  ).length;
+  const unknownHostOpenings = input.predictions
+    .filter((prediction) =>
+      prediction.hostWallCandidateId === null || !resolvedWalls.has(prediction.hostWallCandidateId))
+    .map((prediction): UnknownHostOpeningDetail => ({
+      openingId: prediction.id,
+      hostWallCandidateId: prediction.hostWallCandidateId,
+    }));
   const combined = countMetric(
     matches.length,
     input.predictions.length - matches.length,
@@ -207,7 +217,8 @@ export function matchOpenings(input: Readonly<{
     doors: typedMetric("door", input.fixture, input.predictions, matches),
     windows: typedMetric("window", input.fixture, input.predictions, matches),
     hostWallAccuracy,
-    unknownHostOpeningCount,
+    unknownHostOpeningCount: unknownHostOpenings.length,
+    unknownHostOpenings,
     duplicateOpeningCount,
   };
 }
