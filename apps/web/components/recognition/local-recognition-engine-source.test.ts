@@ -48,17 +48,19 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain("analyzeWallCandidates");
     expect(engineSource).toContain("pairedCenterlineCount");
     expect(engineSource).toContain("topologyEdgeCount");
-    expect(engineSource).toContain("buildOpeningHypotheses");
+    expect(engineSource).toContain("analyzeOpeningHypotheses");
     expect(engineSource).toContain("rescaleRecognitionPixelEvidence");
     expect(engineSource).toContain("resolveOpenCvModule");
     expect(engineSource).toContain('code: "multi-pass-source-normalisation"');
   });
 
-  it("defers local opening candidates until M7.8C host-wall validation", () => {
-    expect(engineSource).toContain("const openingHypotheses = buildOpeningHypotheses({");
-    expect(engineSource).toContain("const analysisOpenings: ReturnType<typeof buildOpeningHypotheses> = []");
-    expect(engineSource).toContain('code: "opening-classification-deferred"');
-    expect(engineSource).not.toContain("unknown-host-openings-rejected");
+  it("enables only host-validated local opening candidates", () => {
+    expect(engineSource).toContain("const openingAnalysis = analyzeOpeningHypotheses({");
+    expect(engineSource).toContain("const analysisOpenings = [...openingAnalysis.candidates]");
+    expect(engineSource).toContain('code: "opening-host-validation"');
+    expect(engineSource).toContain('code: "opening-hypothesis-rejected"');
+    expect(engineSource).not.toContain("const analysisOpenings: ReturnType<typeof buildOpeningHypotheses> = []");
+    expect(engineSource).not.toContain('code: "opening-classification-deferred"');
   });
 
   it("deletes every temporary OpenCV matrix", () => {
