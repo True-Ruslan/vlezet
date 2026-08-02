@@ -15,6 +15,7 @@ export type {
   LocalWallCandidateAnalysis,
 } from "./local-lines";
 export * from "./model";
+export * from "./opening-analysis";
 export * from "./openings";
 export * from "./provider";
 export * from "./reconcile";
