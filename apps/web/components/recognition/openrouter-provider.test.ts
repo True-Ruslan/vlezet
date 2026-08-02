@@ -8,10 +8,14 @@ afterEach(() => {
   vi.stubGlobal("fetch", originalFetch);
 });
 
-function successfulRecognitionResponse(wallId = "w1"): Response {
+function successfulRecognitionResponse(
+  wallId = "w1",
+  openings: readonly Record<string, unknown>[] = [],
+): Response {
   return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
     walls: [{ id: wallId, start: { x: 1000, y: 2000 }, end: { x: 9000, y: 2000 }, estimatedThicknessPx: 20, confidence: "high", score: 0.95 }],
-    openings: [], roomLabels: [],
+    openings,
+    roomLabels: [],
   }) } }] }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
@@ -36,20 +40,31 @@ describe("OpenRouter direct recognition provider", () => {
     expect(fetcher).toHaveBeenCalledWith("https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ method: "POST", signal }));
   });
 
-  it("sends exact local candidates and restricts AI to verification-only geometry", async () => {
+  it("sends exact local walls and openings and restricts AI to verification-only geometry", async () => {
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       const prompt = String(body.messages[0].content[0].text);
       expect(prompt).toContain("Режим: только проверка локального Draft");
       expect(prompt).toContain("Не добавляй новые стены");
+      expect(prompt).toContain("Не добавляй новые проёмы");
       expect(prompt).toContain("Сохраняй исходный id и координаты без изменений");
+      expect(prompt).toContain("Сохраняй host wall, center, widthPx и orientationDeg без изменений");
       expect(prompt).toContain("local-wall-1: start=(1000,2000), end=(9000,2000)");
-      expect(prompt).toContain("Верни openings пустым списком");
-      return successfulRecognitionResponse("local-wall-1");
+      expect(prompt).toContain("local-opening-1: kind=unknown-opening, hostWallId=local-wall-1, center=(5000,2000), widthPx=90, orientationDeg=0");
+      return successfulRecognitionResponse("local-wall-1", [{
+        id: "local-opening-1",
+        kind: "door",
+        hostWallCandidateId: "local-wall-1",
+        center: { x: 5000, y: 2000 },
+        widthPx: 90,
+        orientationDeg: 0,
+        confidence: "medium",
+        score: 0.88,
+      }]);
     });
 
     const provider = new OpenRouterDirectProvider({ apiKey: "secret-key", modelId: "vision/model", fetcher: fetcher as unknown as typeof fetch });
-    await provider.recognize({
+    const result = await provider.recognize({
       imageDataUrl: "data:image/png;base64,AAAA",
       imageWidthPx: 1000,
       imageHeightPx: 800,
@@ -64,9 +79,29 @@ describe("OpenRouter direct recognition provider", () => {
           origin: "local",
           conflict: null,
         }],
-        openings: [],
+        openings: [{
+          id: "local-opening-1",
+          kind: "unknown-opening",
+          hostWallCandidateId: "local-wall-1",
+          center: { x: 0.5, y: 0.2 },
+          widthPx: 90,
+          orientationDeg: 0,
+          confidence: "low",
+          evidence: { localScore: 0.62, cloudScore: null, reasons: ["wall-gap"] },
+          origin: "local",
+          conflict: null,
+        }],
       },
     }, signal);
+
+    expect(result.openings[0]).toMatchObject({
+      id: "local-opening-1",
+      kind: "door",
+      hostWallCandidateId: "local-wall-1",
+      center: { x: 0.5, y: 0.2 },
+      widthPx: 90,
+      orientationDeg: 0,
+    });
   });
 
   it("preserves the browser receiver when using native global fetch", async () => {
