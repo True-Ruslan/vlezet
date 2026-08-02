@@ -3,6 +3,7 @@ import {
   analyzeWallCandidates,
   buildOpeningHypotheses,
   createAdaptiveLocalRecognitionOptions,
+  extractStructuralWallRegions,
   LOCAL_RECOGNITION_ENGINE_VERSION,
   rescaleRecognitionPixelEvidence,
   sourceRasterPixelScale,
@@ -17,6 +18,7 @@ import type { LocalRecognitionProgress, MaterializedLocalRecognitionInput } from
 import { resolveOpenCvModule } from "./opencv-loader";
 
 const MIN_STRICT_WALLS = 3;
+const MIN_STRUCTURAL_REGIONS = 3;
 
 export type LocalRecognitionWallStageDebug = Readonly<{
   normalisedSegmentCount: number;
@@ -27,12 +29,13 @@ export type LocalRecognitionWallStageDebug = Readonly<{
 }>;
 
 export type LocalRecognitionEngineDebug = Readonly<{
+  structuralRegionCount: number;
   rawSegmentCount: number;
   strictUniqueSegmentCount: number;
   uniqueSegmentCount: number;
   strict: LocalRecognitionWallStageDebug;
   adaptive: LocalRecognitionWallStageDebug | null;
-  selectedMode: "strict" | "adaptive";
+  selectedMode: "regions" | "strict" | "adaptive";
 }>;
 
 export type LocalRecognitionEngineOptions = Readonly<{
@@ -137,6 +140,18 @@ function markAdaptiveCandidates(candidates: readonly RecognitionWallCandidate[])
   }));
 }
 
+function markRegionCandidates(candidates: readonly RecognitionWallCandidate[]): RecognitionWallCandidate[] {
+  return candidates.map((candidate) => ({
+    ...candidate,
+    confidence: "medium",
+    evidence: {
+      ...candidate.evidence,
+      localScore: Math.min(candidate.evidence.localScore ?? 0.74, 0.74),
+      reasons: [...new Set([...candidate.evidence.reasons, "filled-wall-region-evidence"])],
+    },
+  }));
+}
+
 function wallStageDebug(analysis: ReturnType<typeof analyzeWallCandidates>): LocalRecognitionWallStageDebug {
   return {
     normalisedSegmentCount: analysis.normalisedSegmentCount,
@@ -201,67 +216,99 @@ export async function runLocalRecognitionEngine(
       new cv.Size(structuralKernelSize, structuralKernelSize),
     );
     cv.morphologyEx(structuralBinary, structuralMask, cv.MORPH_OPEN, structuralKernel);
-    cv.GaussianBlur(structuralMask, strictBlurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-    cv.GaussianBlur(structuralMask, permissiveBlurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
-    options.onProgress?.({ phase: "edges", progress: 0.25 });
-    cv.Canny(strictBlurred, strictEdges, 50, 150, 3, false);
-    cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false);
-    options.onProgress?.({ phase: "lines", progress: 0.5 });
 
-    const houghMinimumLength = Math.round(adaptiveOptions.minimumSegmentLengthPx);
-    const houghMaximumGap = Math.round(clamp(adaptiveOptions.collinearMergeGapPx / 3, 12, 36));
-    const rawSegments: DetectedLineSegment[] = [];
-    const appendHoughSegments = ({
-      edges,
-      lines,
-      threshold,
-    }: Readonly<{
-      edges: InstanceType<typeof cv.Mat>;
-      lines: InstanceType<typeof cv.Mat>;
-      threshold: number;
-    }>) => {
-      cv.HoughLinesP(
+    const structuralRegionEvidence = extractStructuralWallRegions({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      pixels: structuralMask.data,
+      options: {
+        minimumLengthPx: adaptiveOptions.minimumSegmentLengthPx,
+        minimumThicknessPx: Math.max(adaptiveOptions.minimumWallThicknessPx, structuralKernelSize + 1),
+        maximumThicknessPx: adaptiveOptions.maximumWallThicknessPx,
+        minimumRunOverlapRatio: 0.65,
+        minimumRunLengthSimilarityRatio: 0.55,
+        minimumAspectRatio: 2.5,
+      },
+    });
+    const useStructuralRegionEvidence = structuralRegionEvidence.regions.length >= MIN_STRUCTURAL_REGIONS;
+    const rawSegments: DetectedLineSegment[] = useStructuralRegionEvidence
+      ? [...structuralRegionEvidence.boundarySegments]
+      : [];
+    let strictUniqueCount = rawSegments.length;
+    let usedMultiPassEvidence = false;
+
+    if (!useStructuralRegionEvidence) {
+      cv.GaussianBlur(structuralMask, strictBlurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+      cv.GaussianBlur(structuralMask, permissiveBlurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
+      options.onProgress?.({ phase: "edges", progress: 0.25 });
+      cv.Canny(strictBlurred, strictEdges, 50, 150, 3, false);
+      cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false);
+      options.onProgress?.({ phase: "lines", progress: 0.5 });
+
+      const houghMinimumLength = Math.round(adaptiveOptions.minimumSegmentLengthPx);
+      const houghMaximumGap = Math.round(clamp(adaptiveOptions.collinearMergeGapPx / 3, 12, 36));
+      const appendHoughSegments = ({
         edges,
         lines,
-        1,
-        Math.PI / 180,
         threshold,
-        houghMinimumLength,
-        houghMaximumGap,
-      );
-      for (let offset = 0; offset + 3 < lines.data32S.length; offset += 4) {
-        rawSegments.push({
-          x1: lines.data32S[offset] ?? 0,
-          y1: lines.data32S[offset + 1] ?? 0,
-          x2: lines.data32S[offset + 2] ?? 0,
-          y2: lines.data32S[offset + 3] ?? 0,
-        });
-      }
-    };
+      }: Readonly<{
+        edges: InstanceType<typeof cv.Mat>;
+        lines: InstanceType<typeof cv.Mat>;
+        threshold: number;
+      }>) => {
+        cv.HoughLinesP(
+          edges,
+          lines,
+          1,
+          Math.PI / 180,
+          threshold,
+          houghMinimumLength,
+          houghMaximumGap,
+        );
+        for (let offset = 0; offset + 3 < lines.data32S.length; offset += 4) {
+          rawSegments.push({
+            x1: lines.data32S[offset] ?? 0,
+            y1: lines.data32S[offset + 1] ?? 0,
+            x2: lines.data32S[offset + 2] ?? 0,
+            y2: lines.data32S[offset + 3] ?? 0,
+          });
+        }
+      };
 
-    appendHoughSegments({ edges: strictEdges, lines: strictLines, threshold: 50 });
-    const strictUniqueCount = deduplicateDetectedSegments(
-      rawSegments,
-      adaptiveOptions.duplicateEndpointTolerancePx,
-    ).length;
-    appendHoughSegments({ edges: permissiveEdges, lines: permissiveLines, threshold: 32 });
+      appendHoughSegments({ edges: strictEdges, lines: strictLines, threshold: 50 });
+      strictUniqueCount = deduplicateDetectedSegments(
+        rawSegments,
+        adaptiveOptions.duplicateEndpointTolerancePx,
+      ).length;
+      appendHoughSegments({ edges: permissiveEdges, lines: permissiveLines, threshold: 32 });
+      usedMultiPassEvidence = deduplicateDetectedSegments(
+        rawSegments,
+        adaptiveOptions.duplicateEndpointTolerancePx,
+      ).length > strictUniqueCount;
+    } else {
+      options.onProgress?.({ phase: "edges", progress: 0.25 });
+      options.onProgress?.({ phase: "lines", progress: 0.5 });
+    }
+
     const segments = deduplicateDetectedSegments(
       rawSegments,
       adaptiveOptions.duplicateEndpointTolerancePx,
     );
-    const usedMultiPassEvidence = segments.length > strictUniqueCount;
 
     options.onProgress?.({ phase: "walls", progress: 0.72 });
     const strictAnalysis = analyzeWallCandidates({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       segments,
+      ...(useStructuralRegionEvidence ? { options: adaptiveOptions } : {}),
     });
-    const strictWalls = [...strictAnalysis.candidates];
+    const strictWalls = useStructuralRegionEvidence
+      ? markRegionCandidates(strictAnalysis.candidates)
+      : [...strictAnalysis.candidates];
     let adaptiveAnalysis: ReturnType<typeof analyzeWallCandidates> | null = null;
     let usedAdaptiveFallback = false;
     let analysisWalls = strictWalls;
-    if (strictWalls.length < MIN_STRICT_WALLS) {
+    if (!useStructuralRegionEvidence && strictWalls.length < MIN_STRICT_WALLS) {
       adaptiveAnalysis = analyzeWallCandidates({
         widthPx: input.imageData.width,
         heightPx: input.imageData.height,
@@ -273,13 +320,17 @@ export async function runLocalRecognitionEngine(
         usedAdaptiveFallback = true;
       }
     }
+    const debugSelection = useStructuralRegionEvidence
+      ? { selectedMode: "regions" as const }
+      : { selectedMode: usedAdaptiveFallback ? "adaptive" as const : "strict" as const };
     options.onDebug?.({
+      structuralRegionCount: structuralRegionEvidence.regions.length,
       rawSegmentCount: rawSegments.length,
       strictUniqueSegmentCount: strictUniqueCount,
       uniqueSegmentCount: segments.length,
       strict: wallStageDebug(strictAnalysis),
       adaptive: adaptiveAnalysis ? wallStageDebug(adaptiveAnalysis) : null,
-      selectedMode: usedAdaptiveFallback ? "adaptive" : "strict",
+      ...debugSelection,
     });
 
     options.onProgress?.({ phase: "openings", progress: 0.9 });
@@ -306,6 +357,14 @@ export async function runLocalRecognitionEngine(
       message: "Перед поиском стен тонкие подписи и контуры предметов подавлены структурным фильтром.",
       candidateId: null,
     });
+    if (useStructuralRegionEvidence) {
+      diagnostics.push({
+        code: "region-first-wall-evidence",
+        severity: "info" as const,
+        message: `Стены построены по ${structuralRegionEvidence.regions.length} заполненным структурным областям; линейный Hough-поиск не использовался.`,
+        candidateId: null,
+      });
+    }
     if (usedMultiPassEvidence) {
       diagnostics.push({
         code: "multi-pass-source-normalisation",
