@@ -1,167 +1,163 @@
 # M7.8B — Source Normalisation and Wall Topology Acceptance
 
-**Status:** AUTOMATED ACCEPTANCE PASS / PRODUCT OWNER REVIEW PENDING  
+**Status:** AUTOMATED REMEDIATION PASS / PRODUCT OWNER RE-REVIEW REQUIRED  
 **Date:** 2026-08-02  
 **PR:** #41  
 **Feature branch:** `feat/m7-8b-source-normalization-wall-topology`  
 **Base:** `d6e8668c5ad0780a0a28d9c1fef6e9d37e9bbe4d`  
-**Final product implementation head:** `4e1542e70749e02a6064b1f135dfd43fd28649cb`
+**Final product implementation head:** `adc07f536bc1f99f908575e7b036ad7ef29ae8ef`
 
-## Delivered scope
+## Product-owner failure that blocked the first implementation
 
-M7.8B turns the accepted M7.8A benchmark into the first measurable local-recognition quality improvement.
+The first M7.8B candidate was not accepted. A representative clear apartment plan produced:
 
-Delivered:
+- 417 local wall candidates;
+- 0 openings;
+- furniture, sanitary symbols, labels, digits and door arcs promoted into the wall graph;
+- no fully confident candidate;
+- AI review that retained the polluted network and added unsupported long lines.
 
-- deterministic architectural-line canonicalisation and deduplication;
-- image-frame and short-noise filtering;
-- conservative diagonal suppression for strongly orthogonal sources;
-- equalised strict and permissive browser edge passes;
-- complete OpenCV.js Hough output extraction;
-- paired-edge wall-centreline derivation;
-- bounded collinear gap bridging;
-- dominant wall-thickness evidence filtering;
-- deterministic transient wall topology;
-- endpoint snapping and bounded intersection extension;
-- T/cross-junction splitting;
-- stable geometry-derived junction and edge identities;
-- primary structural-component selection;
-- provisional local confidence capped at medium;
-- fail-closed deferral of local opening candidates to M7.8C;
-- engine version `4` with an explicitly reviewed benchmark baseline.
+This is recorded in `m7-8b-product-owner-fail-2026-08-02.md`. PR #41 remains Draft and must not be merged until the same real plan passes a new product-owner review.
 
-M7.8B intentionally does not implement final door/window classification, room faces, OCR, areas, cloud/local reconciliation or room-oriented review UX.
+The private source plan and screenshots were not committed.
 
-## Root-cause evidence
+## Confirmed root cause
 
-The original browser path iterated `HoughLinesP` through `lines.rows`. OpenCV.js exposes detected line coordinates through flat `lines.data32S` entries grouped as `x1, y1, x2, y2`. The old loop therefore processed one line per pass and discarded the remaining Hough output.
+The line-first path ran Hough evidence over the complete raster. On the representative source it produced roughly 1,000 line segments. Pairwise parallel-line matching then created more than 12,000 possible centrelines. Dense symbol and furniture networks could become larger and more connected than the actual apartment shell.
 
-The corrected path iterates every complete four-value record. A source-contract test rejects regressions back to row-based iteration.
+The earlier largest-component and dominant-thickness filters were therefore downstream symptom filters. They could not reliably recover architectural meaning once the candidate space had already been polluted.
 
-## Architecture and authority
+## Remediation delivered
 
-Confirmed unchanged from base:
+### Region-first wall evidence
 
-- `VlezetDocument`, schemas and migrations;
-- IndexedDB and project backup/import/export formats;
-- editor-core validation and semantic Undo/Redo;
-- explicit Draft → Apply authority;
-- M2 fit/collision/door-swing/clearance authority;
-- planner and 3D authority;
-- OpenRouter production request/response and runtime-only secrets;
-- non-authoritative treatment of all AI/CV candidates.
+The browser engine now treats filled thick wall regions as primary evidence:
 
-The topology graph is transient recognition evidence. Only ordinary reviewed candidates cross into the existing Draft contract.
+1. grayscale conversion;
+2. Otsu binary inversion;
+3. bounded morphological opening;
+4. deterministic horizontal and vertical thick-region scan;
+5. stable band grouping by overlap and run-length similarity;
+6. thickness, length and aspect-ratio validation;
+7. conversion of each accepted region into exactly two boundary segments;
+8. existing centreline and topology construction.
 
-## RED → GREEN evidence
+Canny/Hough is now a bounded fallback only when fewer than three structural regions are available. On all orthogonal benchmark plans the selected mode is `regions`; Hough is not executed.
 
-Representative slices:
+This directly prevents thin labels, dimensions, furniture outlines, sanitary symbols, hatching and door arcs from entering the wall-pair combinatorics.
 
-```text
-Architectural-line and topology contracts
-RED:   b4e57372e005ccbfec3616b12cea6b72d50a96c6
-       missing architectural-lines and wall-topology modules
-GREEN: ba7ab986335c78ac0dbf0b6330f7203418d83193
-       pure normalisation and topology modules implemented
+### Fail-closed product boundaries
 
-Browser source normalisation
-RED:   cf2bb7c3c8e48d8633b897a4f27b382b652b3365
-       strict/permissive equalised passes not present
-GREEN: 6cd08e32f8348fcd56de95b6364c38932f42f432
-       bounded two-pass extraction implemented
+- more than 80 local walls are rejected as an unreviewable Draft;
+- an overloaded Draft is not persisted or supplied to AI;
+- previously persisted overloaded sessions are sanitised on restore;
+- almost-full-frame unsupported AI walls are rejected;
+- cloud candidate explosions are rejected fail-closed;
+- local opening hypotheses remain deferred until M7.8C host-wall classification.
 
-Complete Hough output
-RED evidence: browser debug showed two total segments from two passes
-GREEN: 41ff39481e5dd565c96031ce4c58f1465a05b9dc
-       flat data32S extraction reads every detected line
+### Engine and corpus migration
 
-Source structural filtering
-GREEN progression:
-       58929a27a3709d62ab7d234a30b17de59069c356 — bounded gap bridge / primary component
-       b559b2e314ca7350f1adb52d69924a52a1ae4761 — dominant thickness filtering
-       55a85e25eccf1e09dfb60e324d7865db5c765cc3 — orthogonal-plan diagonal suppression
+- local recognition engine version: `5`;
+- one public engine-version source for Worker, controller and benchmark;
+- explicit reviewed baseline migration;
+- corpus expanded from eight to nine fixtures;
+- new `clutter-symbol-regression` fixture is repository-owned synthetic data with independently generated geometry and no user raster, dimensions or identifiers;
+- generator preserves the manually reviewed clutter fixture instead of overwriting it;
+- corpus verifier applies PNG metadata, size, schema, dimensions and SHA-256 checks to all nine fixtures.
 
-Fail-closed opening boundary
-GREEN: 5e73e9af193ea004a440c209d538aecebb5be54b
-       no local opening enters Draft before M7.8C classification and host validation
-```
-
-## Benchmark comparison
+## Measured result
 
 ### Aggregate
 
-| Metric | M7.8A | M7.8B Core | M7.8B Source |
+| Metric | Previous post-failure Source | Region-first Core | Region-first Source |
 | --- | ---: | ---: | ---: |
-| Wall geometry F1 | Core `0.131737`; Source `0` | `0.834355828221` | `0.518518518519` |
-| Wall topology F1 | Core `0.131737`; Source `0` | `0.809815950920` | `0.493827160494` |
-| Opening F1 | `0` | `0` | `0` |
-| Incorrect high-confidence rate | Core `1`; Source `0` | `0` | `0` |
+| Wall geometry F1 | `0.492537` | `0.855615` | `0.837989` |
+| Wall topology F1 | `0.462687` | `0.834225` | `0.837989` |
+| Incorrect high-confidence rate | `0` | `0` | `0` |
 | Unknown-host openings | `0` | `0` | `0` |
 | Stale decisions | `0` | `0` | `0` |
 
 ### Dense anonymised regression
 
 ```text
-wall geometry F1: 0.500000
-wall topology F1: 0.400000
-geometry evidence: TP 5 / FP 3 / FN 7
-result: non-empty local wall Draft
+Source wall geometry F1: 0.880000
+Source wall topology F1: 0.880000
+geometry evidence:       TP 11 / FP 2 / FN 1
 ```
 
-The result is materially better than the accepted zero-wall product failure, but it is not final recognition accuracy.
+### New clutter-symbol regression
+
+```text
+structural regions: 19
+selected mode:       regions
+source walls:        12
+wall geometry F1:    1.000000
+wall topology F1:    1.000000
+geometry evidence:   TP 12 / FP 0 / FN 0
+candidate overload:  false
+```
+
+The overlay confirms that the large digit, furniture, sanitary symbols, hatching, labels and door arcs are not promoted into wall candidates.
 
 ## Exact product-head verification
 
 ```text
-head:                    4e1542e70749e02a6064b1f135dfd43fd28649cb
-Standard CI:             30749905614 / #2682 — PASS
-Recognition Benchmark:  30749905562 / #89 — PASS
-M7 Browser Audit:        30749905580 / #542 — PASS
-benchmark artifact:      8834098293
-benchmark digest:        sha256:9d34c6cb8dbd9f58995d479cf1ab0e873961942c512687689839d075a55107ed
-browser artifact:        8834120926
-browser digest:          sha256:714715f449fcabcd85a571a4dd5edc2fb969af254daed47fa5227764946c99f3
+head:                    adc07f536bc1f99f908575e7b036ad7ef29ae8ef
+Standard CI:             30756866790 / #2752 — PASS
+Recognition Benchmark:  30756866802 / #124 — PASS
+M7 Browser Audit:        30756866789 / #577 — PASS
+benchmark artifact:      8836204545
+benchmark digest:        sha256:57f1627558ef171decf0ebc31f35063f8db282dcab84bf397709fddedd3582cb
 ```
 
-The product implementation head passed:
+Verified on the exact head:
 
-- complete unit regression suite, including 388 web tests;
-- architectural-line, wall-evidence and topology tests;
-- Core Benchmark baseline comparison for engine `4`;
-- TypeScript;
-- ESLint;
-- production build;
-- all eight Chromium/OpenCV source fixtures;
-- dense source non-empty wall assertion;
-- source scoring and all eight deterministic overlays;
-- portable `sha256sum -c SHA256SUMS` verification;
-- production Worker/shared-engine equality;
+- all unit tests;
+- Core benchmark and explicit engine-5 baseline comparison;
+- nine Chromium/OpenCV source fixtures;
+- nine deterministic source overlays;
+- clutter fixture constrained to 12 architectural walls;
+- production Worker/shared-engine equivalence;
+- TypeScript, ESLint and production build;
 - Chromium full M7 regression;
-- WebKit core smoke.
+- WebKit core smoke;
+- portable `sha256sum -c SHA256SUMS` for Core/Source reports, aggregate evidence and all nine overlays;
+- zero incorrect high-confidence candidates;
+- zero unknown-host openings;
+- zero stale decisions.
 
-## Privacy evidence
+## Preserved authority
 
-The product-owner source plan and screenshots were not committed. Measurement uses only the accepted public-safe corpus and the redrawn anonymised regression fixture.
+Unchanged:
+
+- `VlezetDocument`, schemas and migrations;
+- IndexedDB and project import/export formats;
+- editor-core validation and semantic Undo/Redo;
+- Draft → explicit Apply authority;
+- M2 containment, collision, door-swing, clearance and fit authority;
+- planner and 3D authority;
+- OpenRouter runtime-only secrets and provider contract.
+
+The wall topology remains transient recognition evidence. It is never persisted as a second document model.
 
 ## Known limitations
 
-- Source wall topology F1 `0.493827` remains below final M7.8 target `0.90`;
-- the perspective-photo fixture remains unresolved at `0/0`;
-- dense developer plans can still miss internal walls or retain several false-positive axes;
-- local openings are intentionally absent until M7.8C;
-- no room faces, labels or areas are produced;
-- cloud reconstruction can remain structurally wrong and is still non-authoritative.
+- final Source wall-topology target `≥ 0.90` is not yet reached globally;
+- the perspective-photo fixture remains `0/0` and needs perspective/source rectification;
+- doors and windows remain intentionally deferred to M7.8C;
+- room faces, OCR labels and areas are not produced;
+- AI output remains optional, non-authoritative and can still be structurally wrong;
+- the benchmark improvement does not substitute for repeating the exact real-plan product review.
 
-## Product-owner acceptance gate
+## Product-owner re-review gate
 
-The product owner must re-run the same representative clear plan on this branch and verify:
+On the same representative real plan, verify:
 
-1. local recognition produces at least one wall candidate;
-2. detected axes are visibly closer to exterior and principal internal walls than before M7.8B;
-3. false positives are visible and individually rejectable;
-4. the document does not mutate before explicit Apply;
-5. the opening-deferral diagnostic is understandable;
-6. optional AI review remains available;
-7. Apply remains one semantic operation and Undo restores the previous document.
+1. local recognition no longer produces hundreds of candidates;
+2. the Draft contains a reviewable set of exterior and principal internal walls;
+3. furniture, sanitary symbols, digits, labels and door arcs are not presented as walls;
+4. no document geometry changes before explicit Apply;
+5. AI review does not reintroduce a large unsupported wall network;
+6. Apply remains one semantic operation and Undo restores the prior document.
 
-PR #41 remains Draft until literal product-owner acceptance is recorded. After acceptance, canonical state will mark M7.8B DONE and select M7.8C Openings, Rooms, Labels and Area Constraints as NOW.
+Only literal product-owner acceptance may change this document to PASS, mark PR #41 Ready and permit merge.
