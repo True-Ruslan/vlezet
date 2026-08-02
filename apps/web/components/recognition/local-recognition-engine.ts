@@ -189,6 +189,9 @@ export async function runLocalRecognitionEngine(
   let permissiveEdges: InstanceType<typeof cv.Mat> | null = null;
   let strictLines: InstanceType<typeof cv.Mat> | null = null;
   let permissiveLines: InstanceType<typeof cv.Mat> | null = null;
+  let symbolBlurred: InstanceType<typeof cv.Mat> | null = null;
+  let symbolEdges: InstanceType<typeof cv.Mat> | null = null;
+  let symbolLines: InstanceType<typeof cv.Mat> | null = null;
   try {
     const rasterScale = sourceRasterPixelScale({
       analysisWidthPx: input.imageData.width,
@@ -217,8 +220,34 @@ export async function runLocalRecognitionEngine(
     permissiveEdges = new cv.Mat();
     strictLines = new cv.Mat();
     permissiveLines = new cv.Mat();
+    symbolBlurred = new cv.Mat();
+    symbolEdges = new cv.Mat();
+    symbolLines = new cv.Mat();
 
     cv.cvtColor(source, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, symbolBlurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
+    cv.Canny(symbolBlurred, symbolEdges, 45, 120, 3, false);
+    const symbolMinimumLengthPx = Math.round(clamp(adaptiveOptions.minimumSegmentLengthPx * 0.45, 10, 28));
+    const symbolMaximumGapPx = Math.round(clamp(adaptiveOptions.collinearMergeGapPx * 0.12, 3, 10));
+    cv.HoughLinesP(
+      symbolEdges,
+      symbolLines,
+      1,
+      Math.PI / 180,
+      18,
+      symbolMinimumLengthPx,
+      symbolMaximumGapPx,
+    );
+    const symbolSegments: DetectedLineSegment[] = [];
+    for (let offset = 0; offset + 3 < symbolLines.data32S.length; offset += 4) {
+      symbolSegments.push({
+        x1: symbolLines.data32S[offset] ?? 0,
+        y1: symbolLines.data32S[offset + 1] ?? 0,
+        x2: symbolLines.data32S[offset + 2] ?? 0,
+        y2: symbolLines.data32S[offset + 3] ?? 0,
+      });
+    }
+
     cv.threshold(gray, structuralBinary, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
     const structuralKernelSize = oddKernelSize(Math.min(input.imageData.width, input.imageData.height));
     structuralKernel = cv.getStructuringElement(
@@ -304,6 +333,10 @@ export async function runLocalRecognitionEngine(
       rawSegments,
       adaptiveOptions.duplicateEndpointTolerancePx,
     );
+    const openingEvidenceSegments = deduplicateDetectedSegments([
+      ...segments,
+      ...symbolSegments,
+    ], Math.max(1, adaptiveOptions.duplicateEndpointTolerancePx / 2));
 
     options.onProgress?.({ phase: "walls", progress: 0.72 });
     const strictAnalysis = analyzeWallCandidates({
@@ -400,7 +433,7 @@ export async function runLocalRecognitionEngine(
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       wallCandidates: analysisWalls,
-      segments,
+      segments: openingEvidenceSegments,
     });
     const analysisOpenings = [...openingAnalysis.candidates];
     const { walls, openings } = rescaleRecognitionPixelEvidence({
@@ -506,6 +539,9 @@ export async function runLocalRecognitionEngine(
     options.onProgress?.({ phase: "complete", progress: 1 });
     return draft;
   } finally {
+    symbolLines?.delete();
+    symbolEdges?.delete();
+    symbolBlurred?.delete();
     permissiveLines?.delete();
     strictLines?.delete();
     permissiveEdges?.delete();
