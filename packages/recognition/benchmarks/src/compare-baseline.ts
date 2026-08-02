@@ -33,7 +33,7 @@ function fixtureIds(result: RecognitionBenchmarkResultV1): readonly string[] {
 }
 
 function measured(value: BenchmarkMetricValue, metric: string, side: string): number {
-  if (value.status !== "measured") throw new Error(`${side} metric ${metric} is not measured; explicit baseline migration required.`);
+  if (value.status !== "measured") throw new Error(`${side} metric ${metric} is not measured.`);
   if (!Number.isFinite(value.value)) throw new Error(`${side} metric ${metric} is non-finite.`);
   return value.value;
 }
@@ -60,6 +60,22 @@ function comparison(
   };
 }
 
+function compareMetric(
+  metric: AggregateMetricName,
+  currentValue: BenchmarkMetricValue,
+  baselineValue: BenchmarkMetricValue,
+): RecognitionBaselineMetricComparisonV1 | null {
+  if (currentValue.status === "not-applicable" && baselineValue.status === "not-applicable") return null;
+  if (currentValue.status !== baselineValue.status) {
+    throw new Error(`Recognition benchmark metric applicability changed for ${metric}; explicit baseline migration required.`);
+  }
+  return comparison(
+    metric,
+    measured(currentValue, metric, "current"),
+    measured(baselineValue, metric, "baseline"),
+  );
+}
+
 export function compareRecognitionBaseline(
   current: RecognitionBenchmarkResultV1,
   baseline: RecognitionBenchmarkResultV1,
@@ -77,11 +93,9 @@ export function compareRecognitionBaseline(
     throw new Error("Benchmark fixture set changed; explicit corpus migration required.");
   }
 
-  const metrics = METRICS.map((metric) => comparison(
-    metric,
-    measured(current.aggregate.metrics[metric], metric, "current"),
-    measured(baseline.aggregate.metrics[metric], metric, "baseline"),
-  ));
+  const metrics = METRICS
+    .map((metric) => compareMetric(metric, current.aggregate.metrics[metric], baseline.aggregate.metrics[metric]))
+    .filter((entry): entry is RecognitionBaselineMetricComparisonV1 => entry !== null);
   const regressions = metrics.filter((entry) => entry.status === "regression");
   if (regressions.length > 0) {
     throw new Error(`Recognition benchmark regression: ${regressions.map((entry) => entry.metric).join(", ")}.`);
