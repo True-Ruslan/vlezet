@@ -1,0 +1,281 @@
+{
+  "schemaVersion": "recognition-benchmark-fixture-v1",
+  "id": "furniture-heavy",
+  "description": "Two-zone plan with strong furniture, sanitary, hatch and dimension noise.",
+  "provenance": {
+    "kind": "synthetic",
+    "note": "Generated from repository-owned vector primitives.",
+    "license": null
+  },
+  "tags": [
+    "furniture-heavy",
+    "calibrated",
+    "multi-room"
+  ],
+  "source": {
+    "fileName": "source.png",
+    "sha256": "279813070c55c6808429d88d8ab587919a4ea361eb490e4774a215fcb34389a2",
+    "cloudResponseFileName": null
+  },
+  "calibration": {
+    "sourceWidthPx": 820,
+    "sourceHeightPx": 580,
+    "millimetersPerPixel": 10,
+    "originPx": {
+      "x": 30,
+      "y": 30
+    }
+  },
+  "tolerances": {
+    "wallEndpointMm": 120,
+    "wallOrientationDeg": 5,
+    "wallMinimumOverlapRatio": 0.7,
+    "wallLengthRelativeError": 0.2,
+    "junctionMm": 120,
+    "openingCenterMm": 150,
+    "openingWidthMm": 150,
+    "roomMinimumIoU": 0.75,
+    "labelAnchorMm": 500
+  },
+  "expectedJunctions": [
+    {
+      "id": "j-0-0",
+      "positionMm": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-0-5200",
+      "positionMm": {
+        "x": 0,
+        "y": 5200
+      }
+    },
+    {
+      "id": "j-3800-0",
+      "positionMm": {
+        "x": 3800,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-3800-5200",
+      "positionMm": {
+        "x": 3800,
+        "y": 5200
+      }
+    },
+    {
+      "id": "j-7600-0",
+      "positionMm": {
+        "x": 7600,
+        "y": 0
+      }
+    },
+    {
+      "id": "j-7600-5200",
+      "positionMm": {
+        "x": 7600,
+        "y": 5200
+      }
+    }
+  ],
+  "expectedWalls": [
+    {
+      "id": "h-0-0-3800",
+      "startMm": {
+        "x": 0,
+        "y": 0
+      },
+      "endMm": {
+        "x": 3800,
+        "y": 0
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-0",
+      "endJunctionId": "j-3800-0"
+    },
+    {
+      "id": "h-0-3800-7600",
+      "startMm": {
+        "x": 3800,
+        "y": 0
+      },
+      "endMm": {
+        "x": 7600,
+        "y": 0
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-3800-0",
+      "endJunctionId": "j-7600-0"
+    },
+    {
+      "id": "h-5200-0-3800",
+      "startMm": {
+        "x": 0,
+        "y": 5200
+      },
+      "endMm": {
+        "x": 3800,
+        "y": 5200
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-5200",
+      "endJunctionId": "j-3800-5200"
+    },
+    {
+      "id": "h-5200-3800-7600",
+      "startMm": {
+        "x": 3800,
+        "y": 5200
+      },
+      "endMm": {
+        "x": 7600,
+        "y": 5200
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-3800-5200",
+      "endJunctionId": "j-7600-5200"
+    },
+    {
+      "id": "v-0-0-5200",
+      "startMm": {
+        "x": 0,
+        "y": 0
+      },
+      "endMm": {
+        "x": 0,
+        "y": 5200
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-0-0",
+      "endJunctionId": "j-0-5200"
+    },
+    {
+      "id": "v-3800-0-5200",
+      "startMm": {
+        "x": 3800,
+        "y": 0
+      },
+      "endMm": {
+        "x": 3800,
+        "y": 5200
+      },
+      "thicknessMm": 150,
+      "kind": "partition",
+      "startJunctionId": "j-3800-0",
+      "endJunctionId": "j-3800-5200"
+    },
+    {
+      "id": "v-7600-0-5200",
+      "startMm": {
+        "x": 7600,
+        "y": 0
+      },
+      "endMm": {
+        "x": 7600,
+        "y": 5200
+      },
+      "thicknessMm": 150,
+      "kind": "external",
+      "startJunctionId": "j-7600-0",
+      "endJunctionId": "j-7600-5200"
+    }
+  ],
+  "expectedOpenings": [
+    {
+      "id": "door-1",
+      "kind": "door",
+      "hostWallId": "v-3800-0-5200",
+      "centerMm": {
+        "x": 3800,
+        "y": 2600
+      },
+      "widthMm": 900,
+      "orientationDeg": 90,
+      "swing": null
+    },
+    {
+      "id": "window-1",
+      "kind": "window",
+      "hostWallId": "h-0-0-3800",
+      "centerMm": {
+        "x": 1900,
+        "y": 0
+      },
+      "widthMm": 1400,
+      "orientationDeg": 0,
+      "swing": null
+    }
+  ],
+  "expectedRooms": [
+    {
+      "id": "r-1-1",
+      "polygonMm": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 3800,
+          "y": 0
+        },
+        {
+          "x": 3800,
+          "y": 5200
+        },
+        {
+          "x": 0,
+          "y": 5200
+        }
+      ],
+      "name": "Жилая",
+      "classification": "living",
+      "statedAreaM2": 19.76,
+      "computedAreaM2": 19.76
+    },
+    {
+      "id": "r-1-2",
+      "polygonMm": [
+        {
+          "x": 3800,
+          "y": 0
+        },
+        {
+          "x": 7600,
+          "y": 0
+        },
+        {
+          "x": 7600,
+          "y": 5200
+        },
+        {
+          "x": 3800,
+          "y": 5200
+        }
+      ],
+      "name": "Кухня",
+      "classification": "kitchen",
+      "statedAreaM2": 19.76,
+      "computedAreaM2": 19.76
+    }
+  ],
+  "expectedLabels": [],
+  "statedTotalAreaM2": 39.52,
+  "metricApplicability": {
+    "wallGeometry": true,
+    "wallTopology": true,
+    "openings": true,
+    "rooms": true,
+    "roomLabels": false,
+    "roomAreas": true,
+    "totalArea": true,
+    "confidence": true
+  }
+}

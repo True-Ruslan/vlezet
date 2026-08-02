@@ -52,6 +52,44 @@ describe("reference-plan calibration", () => {
     expect(worldA.y).toBeCloseTo(worldB.y, 8);
   });
 
+  it("treats vertical calibration as an undirected axis", () => {
+    const upward = calibrateReferencePlan({
+      ...draft,
+      pointA: { x: 246, y: 758 },
+      pointB: { x: 247, y: 131 },
+      knownLengthMm: 6000,
+      alignment: "vertical",
+    });
+    const downward = calibrateReferencePlan({
+      ...draft,
+      pointA: { x: 247, y: 131 },
+      pointB: { x: 246, y: 758 },
+      knownLengthMm: 6000,
+      alignment: "vertical",
+    });
+
+    expect(Math.abs(upward.transform.rotationDeg)).toBeLessThan(1);
+    expect(upward.transform.rotationDeg).toBeCloseTo(downward.transform.rotationDeg, 10);
+  });
+
+  it("does not flip a reversed horizontal calibration line", () => {
+    const forward = calibrateReferencePlan({
+      ...draft,
+      pointA: { x: 100, y: 200 },
+      pointB: { x: 600, y: 200 },
+      alignment: "horizontal",
+    });
+    const reversed = calibrateReferencePlan({
+      ...draft,
+      pointA: { x: 600, y: 200 },
+      pointB: { x: 100, y: 200 },
+      alignment: "horizontal",
+    });
+
+    expect(forward.transform.rotationDeg).toBe(0);
+    expect(reversed.transform.rotationDeg).toBe(0);
+  });
+
   it("derives rotated world bounds", () => {
     const bounds = referencePlanBounds({
       widthPx: 100,

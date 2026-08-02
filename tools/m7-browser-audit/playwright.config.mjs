@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["m7-audit.spec.mjs", "m7-context-scroll.spec.mjs", "m7-design-system.spec.mjs", "m7-canvas-feedback.spec.mjs", "m7-geometry-inspector.spec.mjs", "m7-furniture-fit.spec.mjs"],
+  testMatch: ["m7-audit.spec.mjs", "m7-context-scroll.spec.mjs", "m7-design-system.spec.mjs", "m7-canvas-feedback.spec.mjs", "m7-geometry-inspector.spec.mjs", "m7-furniture-fit.spec.mjs", "m7-reference-calibration.spec.mjs"],
   fullyParallel: false,
   workers: 1,
   retries: 0,

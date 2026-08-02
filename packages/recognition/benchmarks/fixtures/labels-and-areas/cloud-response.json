@@ -1,0 +1,330 @@
+{
+  "walls": [
+    {
+      "id": "cloud-wall-1",
+      "start": {
+        "x": 0.03296703296703297,
+        "y": 0.04225352112676056
+      },
+      "end": {
+        "x": 0.3626373626373626,
+        "y": 0.04225352112676056
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "medium",
+      "score": 0.72
+    },
+    {
+      "id": "cloud-wall-2",
+      "start": {
+        "x": 0.3626373626373626,
+        "y": 0.04225352112676056
+      },
+      "end": {
+        "x": 0.6923076923076923,
+        "y": 0.04225352112676056
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-3",
+      "start": {
+        "x": 0.6923076923076923,
+        "y": 0.04225352112676056
+      },
+      "end": {
+        "x": 0.967032967032967,
+        "y": 0.04225352112676056
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-4",
+      "start": {
+        "x": 0.03296703296703297,
+        "y": 0.39436619718309857
+      },
+      "end": {
+        "x": 0.3626373626373626,
+        "y": 0.39436619718309857
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-5",
+      "start": {
+        "x": 0.3626373626373626,
+        "y": 0.39436619718309857
+      },
+      "end": {
+        "x": 0.6923076923076923,
+        "y": 0.39436619718309857
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-6",
+      "start": {
+        "x": 0.6923076923076923,
+        "y": 0.39436619718309857
+      },
+      "end": {
+        "x": 0.967032967032967,
+        "y": 0.39436619718309857
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "medium",
+      "score": 0.72
+    },
+    {
+      "id": "cloud-wall-7",
+      "start": {
+        "x": 0.03296703296703297,
+        "y": 0.9577464788732394
+      },
+      "end": {
+        "x": 0.3626373626373626,
+        "y": 0.9577464788732394
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-8",
+      "start": {
+        "x": 0.3626373626373626,
+        "y": 0.9577464788732394
+      },
+      "end": {
+        "x": 0.6923076923076923,
+        "y": 0.9577464788732394
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-9",
+      "start": {
+        "x": 0.6923076923076923,
+        "y": 0.9577464788732394
+      },
+      "end": {
+        "x": 0.967032967032967,
+        "y": 0.9577464788732394
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-10",
+      "start": {
+        "x": 0.03296703296703297,
+        "y": 0.04225352112676056
+      },
+      "end": {
+        "x": 0.03296703296703297,
+        "y": 0.39436619718309857
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-11",
+      "start": {
+        "x": 0.03296703296703297,
+        "y": 0.39436619718309857
+      },
+      "end": {
+        "x": 0.03296703296703297,
+        "y": 0.9577464788732394
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "medium",
+      "score": 0.72
+    },
+    {
+      "id": "cloud-wall-12",
+      "start": {
+        "x": 0.3626373626373626,
+        "y": 0.04225352112676056
+      },
+      "end": {
+        "x": 0.3626373626373626,
+        "y": 0.39436619718309857
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-13",
+      "start": {
+        "x": 0.3626373626373626,
+        "y": 0.39436619718309857
+      },
+      "end": {
+        "x": 0.3626373626373626,
+        "y": 0.9577464788732394
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-14",
+      "start": {
+        "x": 0.6923076923076923,
+        "y": 0.39436619718309857
+      },
+      "end": {
+        "x": 0.6923076923076923,
+        "y": 0.9577464788732394
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-15",
+      "start": {
+        "x": 0.967032967032967,
+        "y": 0.04225352112676056
+      },
+      "end": {
+        "x": 0.967032967032967,
+        "y": 0.39436619718309857
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-16",
+      "start": {
+        "x": 0.967032967032967,
+        "y": 0.39436619718309857
+      },
+      "end": {
+        "x": 0.967032967032967,
+        "y": 0.9577464788732394
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "medium",
+      "score": 0.72
+    }
+  ],
+  "openings": [
+    {
+      "id": "cloud-opening-1",
+      "kind": "door",
+      "hostWallCandidateId": "cloud-wall-12",
+      "center": {
+        "x": 0.3626373626373626,
+        "y": 0.2112676056338028
+      },
+      "widthPx": 90,
+      "orientationDeg": 90,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-2",
+      "kind": "door",
+      "hostWallCandidateId": "cloud-wall-13",
+      "center": {
+        "x": 0.3626373626373626,
+        "y": 0.5915492957746479
+      },
+      "widthPx": 90,
+      "orientationDeg": 90,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-3",
+      "kind": "door",
+      "hostWallCandidateId": "cloud-wall-14",
+      "center": {
+        "x": 0.6923076923076923,
+        "y": 0.647887323943662
+      },
+      "widthPx": 80,
+      "orientationDeg": 90,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-4",
+      "kind": "window",
+      "hostWallCandidateId": "cloud-wall-2",
+      "center": {
+        "x": 0.5274725274725275,
+        "y": 0.04225352112676056
+      },
+      "widthPx": 140,
+      "orientationDeg": 0,
+      "confidence": "medium",
+      "score": 0.76
+    }
+  ],
+  "roomLabels": [
+    {
+      "id": "cloud-label-1",
+      "text": "Кухня 7.5",
+      "anchor": {
+        "x": 0.1978021978021978,
+        "y": 0.21830985915492956
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "cloud-label-2",
+      "text": "Гостиная 13.8",
+      "anchor": {
+        "x": 0.6648351648351648,
+        "y": 0.21830985915492956
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "cloud-label-3",
+      "text": "Спальня 12.0",
+      "anchor": {
+        "x": 0.1978021978021978,
+        "y": 0.676056338028169
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "cloud-label-4",
+      "text": "Коридор 12.0",
+      "anchor": {
+        "x": 0.5274725274725275,
+        "y": 0.676056338028169
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "cloud-label-5",
+      "text": "Санузел 10.0",
+      "anchor": {
+        "x": 0.8296703296703297,
+        "y": 0.676056338028169
+      },
+      "confidence": "medium"
+    }
+  ],
+  "diagnostics": []
+}

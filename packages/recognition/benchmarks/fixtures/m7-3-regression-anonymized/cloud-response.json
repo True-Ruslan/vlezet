@@ -1,0 +1,291 @@
+{
+  "walls": [
+    {
+      "id": "cloud-wall-1",
+      "start": {
+        "x": 0.03571428571428571,
+        "y": 0.046875
+      },
+      "end": {
+        "x": 0.39285714285714285,
+        "y": 0.046875
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "medium",
+      "score": 0.72
+    },
+    {
+      "id": "cloud-wall-2",
+      "start": {
+        "x": 0.39285714285714285,
+        "y": 0.046875
+      },
+      "end": {
+        "x": 0.9642857142857143,
+        "y": 0.046875
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-3",
+      "start": {
+        "x": 0.03571428571428571,
+        "y": 0.5
+      },
+      "end": {
+        "x": 0.39285714285714285,
+        "y": 0.5
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-4",
+      "start": {
+        "x": 0.39285714285714285,
+        "y": 0.5
+      },
+      "end": {
+        "x": 0.9642857142857143,
+        "y": 0.5
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-5",
+      "start": {
+        "x": 0.03571428571428571,
+        "y": 0.953125
+      },
+      "end": {
+        "x": 0.39285714285714285,
+        "y": 0.953125
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-6",
+      "start": {
+        "x": 0.39285714285714285,
+        "y": 0.953125
+      },
+      "end": {
+        "x": 0.9642857142857143,
+        "y": 0.953125
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "medium",
+      "score": 0.72
+    },
+    {
+      "id": "cloud-wall-7",
+      "start": {
+        "x": 0.03571428571428571,
+        "y": 0.046875
+      },
+      "end": {
+        "x": 0.03571428571428571,
+        "y": 0.5
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-8",
+      "start": {
+        "x": 0.03571428571428571,
+        "y": 0.5
+      },
+      "end": {
+        "x": 0.03571428571428571,
+        "y": 0.953125
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-9",
+      "start": {
+        "x": 0.39285714285714285,
+        "y": 0.046875
+      },
+      "end": {
+        "x": 0.39285714285714285,
+        "y": 0.5
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-10",
+      "start": {
+        "x": 0.39285714285714285,
+        "y": 0.5
+      },
+      "end": {
+        "x": 0.39285714285714285,
+        "y": 0.953125
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    },
+    {
+      "id": "cloud-wall-11",
+      "start": {
+        "x": 0.9642857142857143,
+        "y": 0.046875
+      },
+      "end": {
+        "x": 0.9642857142857143,
+        "y": 0.5
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "medium",
+      "score": 0.72
+    },
+    {
+      "id": "cloud-wall-12",
+      "start": {
+        "x": 0.9642857142857143,
+        "y": 0.5
+      },
+      "end": {
+        "x": 0.9642857142857143,
+        "y": 0.953125
+      },
+      "estimatedThicknessPx": 15,
+      "confidence": "high",
+      "score": 0.9
+    }
+  ],
+  "openings": [
+    {
+      "id": "cloud-opening-1",
+      "kind": "door",
+      "hostWallCandidateId": "cloud-wall-9",
+      "center": {
+        "x": 0.39285714285714285,
+        "y": 0.2734375
+      },
+      "widthPx": 90,
+      "orientationDeg": 90,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-2",
+      "kind": "door",
+      "hostWallCandidateId": "cloud-wall-10",
+      "center": {
+        "x": 0.39285714285714285,
+        "y": 0.71875
+      },
+      "widthPx": 80,
+      "orientationDeg": 90,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-3",
+      "kind": "door",
+      "hostWallCandidateId": "cloud-wall-4",
+      "center": {
+        "x": 0.6547619047619048,
+        "y": 0.5
+      },
+      "widthPx": 90,
+      "orientationDeg": 0,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-4",
+      "kind": "window",
+      "hostWallCandidateId": "cloud-wall-1",
+      "center": {
+        "x": 0.21428571428571427,
+        "y": 0.046875
+      },
+      "widthPx": 120,
+      "orientationDeg": 0,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-5",
+      "kind": "window",
+      "hostWallCandidateId": "cloud-wall-2",
+      "center": {
+        "x": 0.7380952380952381,
+        "y": 0.046875
+      },
+      "widthPx": 150,
+      "orientationDeg": 0,
+      "confidence": "medium",
+      "score": 0.76
+    },
+    {
+      "id": "cloud-opening-6",
+      "kind": "window",
+      "hostWallCandidateId": "cloud-wall-12",
+      "center": {
+        "x": 0.9642857142857143,
+        "y": 0.71875
+      },
+      "widthPx": 110,
+      "orientationDeg": 90,
+      "confidence": "medium",
+      "score": 0.76
+    }
+  ],
+  "roomLabels": [
+    {
+      "id": "cloud-label-1",
+      "text": "Комната А 8.7",
+      "anchor": {
+        "x": 0.21428571428571427,
+        "y": 0.2734375
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "cloud-label-2",
+      "text": "Комната Б 13.9",
+      "anchor": {
+        "x": 0.6785714285714286,
+        "y": 0.2734375
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "cloud-label-3",
+      "text": "Кухня 8.7",
+      "anchor": {
+        "x": 0.21428571428571427,
+        "y": 0.7265625
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "cloud-label-4",
+      "text": "Санузел 13.9",
+      "anchor": {
+        "x": 0.6785714285714286,
+        "y": 0.7265625
+      },
+      "confidence": "medium"
+    }
+  ],
+  "diagnostics": []
+}
