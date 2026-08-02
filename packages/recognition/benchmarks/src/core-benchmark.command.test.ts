@@ -11,7 +11,7 @@ const commandOutput = process.env.RECOGNITION_BENCHMARK_OUTPUT_DIR;
 const commandEnabled = process.env.RECOGNITION_BENCHMARK_COMMAND === "1";
 
 describe.skipIf(!commandEnabled)("Core Recognition Benchmark command", () => {
-  it("scores all eight fixtures, compares the baseline and writes repeatable artifacts", async () => {
+  it("scores all nine fixtures, compares the region-first baseline and writes repeatable artifacts", async () => {
     const temporary = commandOutput ? null : await mkdtemp(join(tmpdir(), "vlezet-core-benchmark-"));
     const firstDirectory = commandOutput ?? temporary!;
     const secondDirectory = temporary ? join(temporary, "repeat") : join(commandOutput!, "repeatability-check");
@@ -24,10 +24,10 @@ describe.skipIf(!commandEnabled)("Core Recognition Benchmark command", () => {
       } as const;
       const first = await runCoreRecognitionBenchmark({ ...options, outputDirectory: firstDirectory });
       const second = await runCoreRecognitionBenchmark({ ...options, outputDirectory: secondDirectory });
-      expect(first.fixtures).toHaveLength(8);
-      expect(first.aggregate.fixtureCount).toBe(8);
+      expect(first.fixtures).toHaveLength(9);
+      expect(first.aggregate.fixtureCount).toBe(9);
       expect(first.aggregate.failedFixtureCount).toBe(0);
-      expect(first.baselineComparison?.baselineSourceSha).toBe("5e73e9af193ea004a440c209d538aecebb5be54b");
+      expect(first.baselineComparison?.baselineSourceSha).toBe("50e3ffdfd58a5562830b0805ebb589cf8b9684c4");
       expect(first.baselineComparison?.metrics.every((metric) => metric.status !== "regression")).toBe(true);
       expect(second.aggregate).toEqual(first.aggregate);
       expect(second.baselineComparison).toEqual(first.baselineComparison);
