@@ -33,4 +33,20 @@ describe("region-first local recognition", () => {
     expect(engineSource).toContain('selectedMode: "regions"');
     expect(engineSource).toContain('code: "region-first-wall-evidence"');
   });
+
+  it("runs evidence-gated completion only for region-first evidence", () => {
+    expect(engineSource).toContain("DEFAULT_WALL_COMPLETION_OPTIONS");
+    expect(engineSource).toContain("completion: useStructuralRegionEvidence");
+    expect(engineSource).toContain("? {");
+    expect(engineSource).toContain("mask: {");
+    expect(engineSource).toContain("isStructural: (x, y) => {");
+    expect(engineSource).toContain("if (x < 0 || y < 0 || x >= input.imageData.width || y >= input.imageData.height) return false");
+    expect(engineSource).toContain(": undefined");
+  });
+
+  it("exposes bounded completion debug evidence", () => {
+    expect(engineSource).toContain("completionAcceptedCount");
+    expect(engineSource).toContain("completionDiagnosticCodes");
+    expect(engineSource).toContain("analysis.completionDiagnostics.map((diagnostic) => diagnostic.code)");
+  });
 });
