@@ -22,6 +22,7 @@ describe("cloud recognition sanity filter", () => {
       wall("l2", [0.28, 0.22], [0.28, 0.72], "local"),
       wall("l3", [0.28, 0.72], [0.68, 0.72], "local"),
       wall("l4", [0.68, 0.22], [0.68, 0.72], "local"),
+      wall("useful", [0.29, 0.48], [0.67, 0.48], "local"),
     ];
     const result: RecognitionProviderResult = {
       walls: [
@@ -67,7 +68,7 @@ describe("cloud recognition sanity filter", () => {
 
     const sanitized = sanitizeCloudRecognitionResult({
       result,
-      localSummary: { walls: [wall("local", [0.4, 0.4], [0.6, 0.4], "local")], openings: [] },
+      localSummary: { walls: [wall("moderate", [0.2, 0.4], [0.72, 0.4], "local")], openings: [] },
     });
 
     expect(sanitized.walls.map((item) => item.id)).toEqual(["moderate"]);
@@ -75,6 +76,42 @@ describe("cloud recognition sanity filter", () => {
       code: "cloud-unbounded-wall",
       candidateId: "full-frame",
     }));
+  });
+
+  it("drops a cloud wall whose id is absent from the local verification set", () => {
+    const sanitized = sanitizeCloudRecognitionResult({
+      result: { walls: [wall("invented", [0.2, 0.4], [0.72, 0.4])], openings: [], roomLabels: [] },
+      localSummary: { walls: [wall("local-1", [0.2, 0.4], [0.72, 0.4], "local")], openings: [] },
+    });
+
+    expect(sanitized.walls).toEqual([]);
+    expect(sanitized.diagnostics).toContainEqual(expect.objectContaining({
+      code: "cloud-unknown-local-wall",
+      candidateId: "invented",
+    }));
+  });
+
+  it("drops a cloud wall that reuses a local id with different geometry", () => {
+    const sanitized = sanitizeCloudRecognitionResult({
+      result: { walls: [wall("local-1", [0.1, 0.75], [0.9, 0.75])], openings: [], roomLabels: [] },
+      localSummary: { walls: [wall("local-1", [0.2, 0.4], [0.72, 0.4], "local")], openings: [] },
+    });
+
+    expect(sanitized.walls).toEqual([]);
+    expect(sanitized.diagnostics).toContainEqual(expect.objectContaining({
+      code: "cloud-local-wall-mismatch",
+      candidateId: "local-1",
+    }));
+  });
+
+  it("keeps a same-id cloud verification with matching local geometry", () => {
+    const sanitized = sanitizeCloudRecognitionResult({
+      result: { walls: [wall("local-1", [0.2, 0.4], [0.72, 0.4])], openings: [], roomLabels: [] },
+      localSummary: { walls: [wall("local-1", [0.2, 0.4], [0.72, 0.4], "local")], openings: [] },
+    });
+
+    expect(sanitized.walls.map((item) => item.id)).toEqual(["local-1"]);
+    expect(sanitized.diagnostics).toEqual([]);
   });
 
   it("fails closed on an unreviewable cloud wall explosion", () => {
