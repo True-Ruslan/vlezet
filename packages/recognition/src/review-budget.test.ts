@@ -5,7 +5,6 @@ import type { RecognitionWallCandidate } from "./model";
 function wall(id: string): RecognitionWallCandidate {
   return {
     id,
-    kind: "wall",
     start: { x: 0.1, y: 0.1 },
     end: { x: 0.9, y: 0.1 },
     estimatedThicknessPx: 20,
