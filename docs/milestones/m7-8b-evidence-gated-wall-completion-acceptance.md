@@ -4,6 +4,7 @@
 **Date:** 2026-08-02  
 **PR:** #41  
 **Branch:** `feat/m7-8b-source-normalization-wall-topology`  
+**Final acceptance head:** `63a2a7dec375a3d9bd9b3cf6634540482ca17706`  
 **Accepted runtime decision:** keep recognition engine `5`; do not migrate the benchmark baseline  
 
 ## Product-owner evidence
@@ -135,12 +136,36 @@ The rollback followed RED → GREEN:
    - original centerlines remain unchanged;
    - the product-neutral diagnostic is emitted.
 
-At the production-gate head, the complete unit suites pass:
+At the final acceptance head, the complete unit suites pass:
 
 ```text
 recognition: 179 passed, 2 skipped
 web:         395 passed
 ```
+
+## Final exact-head verification
+
+```text
+head:                    63a2a7dec375a3d9bd9b3cf6634540482ca17706
+Standard CI:             30764117256 / #2824 — PASS
+Recognition Benchmark:  30764117243 / #160 — PASS
+M7 Browser Audit:        30764117257 / #613 — PASS
+benchmark artifact:      8838393240
+benchmark digest:        sha256:8cdf04f702955e564f0752acae5afed4e0fb73517e053f9a841a6c30c6e8f2b0
+```
+
+Verified on the same head:
+
+- documentation contract;
+- complete unit suites;
+- Core baseline comparison;
+- nine Chromium/OpenCV source fixtures;
+- TypeScript and ESLint;
+- production build;
+- Chromium M7 regression audit;
+- WebKit core smoke;
+- production Worker/shared-engine behavior;
+- no live provider calls.
 
 ## Architecture preserved
 
