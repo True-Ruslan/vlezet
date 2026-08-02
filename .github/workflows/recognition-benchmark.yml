@@ -48,6 +48,14 @@ jobs:
         working-directory: tools/recognition-benchmark
         run: npx playwright install --with-deps chromium
 
+      - name: Verify benchmark fixtures
+        run: npm --prefix tools/recognition-benchmark run verify:fixtures
+
+      - name: Run Core Recognition Benchmark
+        env:
+          RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: pnpm benchmark:recognition:core
+
       - name: Start benchmark-only Vlezet harness
         shell: bash
         run: |
@@ -69,13 +77,29 @@ jobs:
           RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
         run: npx playwright test --config=playwright.config.mjs
 
-      - name: Upload Source Benchmark evidence
+      - name: Score Source Recognition Benchmark
+        env:
+          RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm --prefix tools/recognition-benchmark run score:source
+
+      - name: Assemble recognition benchmark evidence
+        env:
+          RECOGNITION_CORE_RESULT_PATH: tools/recognition-benchmark/artifacts/core/recognition-core-result.json
+          RECOGNITION_SOURCE_RESULT_PATH: tools/recognition-benchmark/artifacts/source/recognition-source-result.json
+          RECOGNITION_EVIDENCE_OUTPUT_DIR: tools/recognition-benchmark/artifacts/evidence
+        run: pnpm benchmark:recognition:evidence
+
+      - name: Upload Recognition Benchmark evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: recognition-source-benchmark
+          name: recognition-benchmark-evidence
           path: |
+            tools/recognition-benchmark/artifacts/core
             tools/recognition-benchmark/artifacts/source
+            tools/recognition-benchmark/artifacts/evidence/recognition-benchmark-evidence.json
+            tools/recognition-benchmark/artifacts/evidence/recognition-benchmark-summary.md
+            tools/recognition-benchmark/artifacts/evidence/SHA256SUMS
             tools/recognition-benchmark/test-results
             /tmp/vlezet-recognition-benchmark.log
           if-no-files-found: warn
