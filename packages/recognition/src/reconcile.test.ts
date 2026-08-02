@@ -26,12 +26,14 @@ function localDraft(): RecognitionDraft {
 }
 
 describe("hybrid recognition reconciliation", () => {
-  it("merges agreeing local/cloud walls and preserves user decision", () => {
+  it("merges agreeing local/cloud walls without moving local geometry and preserves user decision", () => {
     const cloud: RecognitionProviderResult = { walls: [wall("cloud-1", 0.202, "cloud")], openings: [], roomLabels: [] };
     const result = reconcileRecognition({ localDraft: localDraft(), cloudResult: cloud, existingWalls: [], now });
     expect(result.walls).toHaveLength(1);
     expect(result.walls[0]?.origin).toBe("merged");
     expect(result.walls[0]?.confidence).toBe("high");
+    expect(result.walls[0]?.start).toEqual({ x: 0.1, y: 0.2 });
+    expect(result.walls[0]?.end).toEqual({ x: 0.9, y: 0.2 });
     expect(result.decisions["local-1"]).toBe("accepted");
   });
 
