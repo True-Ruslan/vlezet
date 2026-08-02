@@ -51,8 +51,8 @@ function positive(value: number, label: string): number {
   return valid;
 }
 
-function normalizeDegrees(value: number): number {
-  const normalized = ((value + 180) % 360 + 360) % 360 - 180;
+function normalizeAxisDegrees(value: number): number {
+  const normalized = ((value + 90) % 180 + 180) % 180 - 90;
   return Object.is(normalized, -0) ? 0 : normalized;
 }
 
@@ -73,8 +73,8 @@ function rotate(point: Point2, rotationDeg: number): Point2 {
 function calibrationRotation(pointA: Point2, pointB: Point2, alignment: ReferenceAlignment): number {
   if (alignment === "none") return 0;
   const imageAngle = Math.atan2(pointB.y - pointA.y, pointB.x - pointA.x) * 180 / Math.PI;
-  const target = alignment === "horizontal" ? 0 : 90;
-  return normalizeDegrees(target - imageAngle);
+  const targetAxis = alignment === "horizontal" ? 0 : 90;
+  return normalizeAxisDegrees(targetAxis - imageAngle);
 }
 
 export function imagePointToWorld(point: Point2, transform: ReferenceTransform): Point2 {
