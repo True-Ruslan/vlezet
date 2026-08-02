@@ -166,7 +166,7 @@ export async function runLocalRecognitionEngine(
 
     const decisions = Object.fromEntries([...walls, ...openings].map((candidate) => [candidate.id, "pending" as const]));
     const draft: RecognitionDraft = {
-      id: (options.createDraftId ?? crypto.randomUUID)(),
+      id: options.createDraftId?.() ?? crypto.randomUUID(),
       projectId: input.projectId,
       referenceAssetId: input.referenceAssetId,
       referenceRevision: input.referenceRevision,
