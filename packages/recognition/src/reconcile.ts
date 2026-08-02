@@ -29,19 +29,9 @@ function wallDistance(a: ExistingRecognitionWall, b: ExistingRecognitionWall): n
   return Math.min(direct, reversed);
 }
 
-function midpoint(a: NormalizedPoint, b: NormalizedPoint): NormalizedPoint {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-}
-
 function mergeWall(local: RecognitionWallCandidate, cloud: RecognitionWallCandidate): RecognitionWallCandidate {
-  const direct = distance(local.start, cloud.start) + distance(local.end, cloud.end);
-  const reversed = distance(local.start, cloud.end) + distance(local.end, cloud.start);
-  const cloudStart = direct <= reversed ? cloud.start : cloud.end;
-  const cloudEnd = direct <= reversed ? cloud.end : cloud.start;
   return {
     ...local,
-    start: midpoint(local.start, cloudStart),
-    end: midpoint(local.end, cloudEnd),
     estimatedThicknessPx: local.estimatedThicknessPx ?? cloud.estimatedThicknessPx,
     confidence: "high",
     origin: "merged",
