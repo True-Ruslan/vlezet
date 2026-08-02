@@ -44,6 +44,52 @@ function mergeIntervals(intervals: readonly Interval[]): Interval[] {
   return result;
 }
 
+function mergeProjectedRails(rails: readonly ProjectedRail[]): ProjectedRail[] {
+  const sorted = [...rails].sort((first, second) =>
+    first.across - second.across
+    || first.startAlong - second.startAlong
+    || first.endAlong - second.endAlong);
+  const merged: Array<{
+    startAlong: number;
+    endAlong: number;
+    acrossWeighted: number;
+    weight: number;
+  }> = [];
+
+  for (const rail of sorted) {
+    const existing = merged.find((candidate) => {
+      const candidateAcross = candidate.acrossWeighted / candidate.weight;
+      return Math.abs(candidateAcross - rail.across) <= 3
+        && rail.startAlong <= candidate.endAlong + 12
+        && rail.endAlong >= candidate.startAlong - 12;
+    });
+    if (!existing) {
+      merged.push({
+        startAlong: rail.startAlong,
+        endAlong: rail.endAlong,
+        acrossWeighted: rail.across * rail.lengthPx,
+        weight: rail.lengthPx,
+      });
+      continue;
+    }
+    existing.startAlong = Math.min(existing.startAlong, rail.startAlong);
+    existing.endAlong = Math.max(existing.endAlong, rail.endAlong);
+    existing.acrossWeighted += rail.across * rail.lengthPx;
+    existing.weight += rail.lengthPx;
+  }
+
+  return merged.map((rail): ProjectedRail => ({
+    startAlong: rail.startAlong,
+    endAlong: rail.endAlong,
+    centerAlong: (rail.startAlong + rail.endAlong) / 2,
+    across: rail.acrossWeighted / rail.weight,
+    lengthPx: rail.endAlong - rail.startAlong,
+  })).sort((first, second) =>
+    first.centerAlong - second.centerAlong
+    || first.across - second.across
+    || first.lengthPx - second.lengthPx);
+}
+
 function pixelPoint(point: NormalizedPoint, widthPx: number, heightPx: number): Point {
   return { x: point.x * widthPx, y: point.y * heightPx };
 }
@@ -144,12 +190,12 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
       });
     }
 
-    const rails = symbolSegments.flatMap((segment): ProjectedRail[] => {
+    const rawRails = symbolSegments.flatMap((segment): ProjectedRail[] => {
       if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
       const a = { x: segment.x1, y: segment.y1 };
       const b = { x: segment.x2, y: segment.y2 };
       const segmentLength = length(a, b);
-      if (segmentLength < 30 || segmentLength > 240) return [];
+      if (segmentLength < 18 || segmentLength > 240) return [];
       const pa = dot({ x: a.x - start.x, y: a.y - start.y }, tangent);
       const pb = dot({ x: b.x - start.x, y: b.y - start.y }, tangent);
       const startAlong = Math.min(pa, pb);
@@ -166,10 +212,8 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
         across,
         lengthPx: endAlong - startAlong,
       }];
-    }).sort((first, second) =>
-      first.centerAlong - second.centerAlong
-      || first.across - second.across
-      || first.lengthPx - second.lengthPx);
+    });
+    const rails = mergeProjectedRails(rawRails);
 
     const railWindows: Array<Readonly<{ centerAlong: number; widthPx: number }>> = [];
     for (let firstIndex = 0; firstIndex < rails.length; firstIndex += 1) {
@@ -193,6 +237,7 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
         const lengthRatio = Math.min(first.lengthPx, second.lengthPx) / Math.max(first.lengthPx, second.lengthPx);
         if (lengthRatio < 0.82) continue;
         const widthPx = (first.lengthPx + second.lengthPx) / 2;
+        if (widthPx < Math.max(50, expectedHalfThickness * 3)) continue;
         const centerAlong = (first.centerAlong + second.centerAlong) / 2;
         if (railWindows.some((candidate) =>
           Math.abs(candidate.centerAlong - centerAlong) <= Math.max(10, widthPx * 0.2))) continue;
