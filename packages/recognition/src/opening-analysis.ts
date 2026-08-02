@@ -50,7 +50,9 @@ export type AnalyzeOpeningHypothesesInput = Readonly<{
   widthPx: number;
   heightPx: number;
   wallCandidates: readonly RecognitionWallCandidate[];
-  segments: readonly DetectedLineSegment[];
+  segments?: readonly DetectedLineSegment[];
+  wallSegments?: readonly DetectedLineSegment[];
+  symbolSegments?: readonly DetectedLineSegment[];
   options?: Partial<OpeningAnalysisOptions>;
 }>;
 
@@ -237,6 +239,8 @@ export function analyzeOpeningHypotheses(
     heightPx: input.heightPx,
     wallCandidates: input.wallCandidates,
     segments: input.segments,
+    wallSegments: input.wallSegments,
+    symbolSegments: input.symbolSegments,
   });
   return validateOpeningHypotheses({
     widthPx: input.widthPx,
