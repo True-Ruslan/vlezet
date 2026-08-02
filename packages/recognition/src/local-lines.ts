@@ -3,6 +3,7 @@ import {
   type NormalisedLineSegment,
 } from "./architectural-lines";
 import type { RecognitionConfidence, RecognitionWallCandidate } from "./model";
+import { selectDominantWallThicknessCenterlines } from "./wall-evidence-filter";
 import {
   buildLocalWallTopology,
   topologyWallCandidates,
@@ -86,6 +87,7 @@ export type LocalWallCandidateAnalysis = Readonly<{
   normalisedSegmentCount: number;
   pairedCenterlineCount: number;
   consolidatedCenterlineCount: number;
+  thicknessFilteredCenterlineCount: number;
   topology: LocalWallTopology;
   candidates: readonly RecognitionWallCandidate[];
 }>;
@@ -461,8 +463,12 @@ export function analyzeWallCandidates(input: BuildWallCandidatesInput): LocalWal
     }
   }
   const centerlines = mergeCenterlineFragments(pairedCenterlines, options);
-  const fullTopology = buildLocalWallTopology({
+  const thicknessFilteredCenterlines = selectDominantWallThicknessCenterlines({
     centerlines,
+    binWidthPx: Math.max(2, options.collinearOffsetTolerancePx),
+  });
+  const fullTopology = buildLocalWallTopology({
+    centerlines: thicknessFilteredCenterlines,
     endpointSnapTolerancePx: options.endpointSnapTolerancePx,
     endpointExtensionTolerancePx: options.endpointExtensionTolerancePx,
     intersectionTolerancePx: options.intersectionTolerancePx,
@@ -474,6 +480,7 @@ export function analyzeWallCandidates(input: BuildWallCandidatesInput): LocalWal
     normalisedSegmentCount: normalised.length,
     pairedCenterlineCount: pairedCenterlines.length,
     consolidatedCenterlineCount: centerlines.length,
+    thicknessFilteredCenterlineCount: thicknessFilteredCenterlines.length,
     topology,
     candidates: provisionalCandidates(topology, widthPx, heightPx),
   };
