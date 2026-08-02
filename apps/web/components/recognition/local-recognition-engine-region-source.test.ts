@@ -34,19 +34,11 @@ describe("region-first local recognition", () => {
     expect(engineSource).toContain('code: "region-first-wall-evidence"');
   });
 
-  it("runs evidence-gated completion only for region-first evidence", () => {
-    expect(engineSource).toContain("DEFAULT_WALL_COMPLETION_OPTIONS");
-    expect(engineSource).toContain("const completion = useStructuralRegionEvidence");
-    expect(engineSource).toContain("? completeWallCenterlines({");
-    expect(engineSource).toContain("mask: {");
-    expect(engineSource).toContain("isStructural: (x, y) => {");
-    expect(engineSource).toContain("if (x < 0 || y < 0 || x >= input.imageData.width || y >= input.imageData.height) return false");
-    expect(engineSource).toContain(": null;");
-  });
-
-  it("exposes bounded completion debug evidence", () => {
-    expect(engineSource).toContain("completionAcceptedCount");
-    expect(engineSource).toContain("completionDiagnosticCodes");
-    expect(engineSource).toContain("analysis.completionDiagnostics.map((diagnostic) => diagnostic.code)");
+  it("keeps benchmark-neutral wall completion out of the production engine", () => {
+    expect(engineSource).not.toContain("completeWallCenterlines");
+    expect(engineSource).not.toContain("DEFAULT_WALL_COMPLETION_OPTIONS");
+    expect(engineSource).not.toContain("completionAcceptedCount");
+    expect(engineSource).not.toContain("completionDiagnosticCodes");
+    expect(engineSource).not.toContain('code: "evidence-gated-wall-completion"');
   });
 });
