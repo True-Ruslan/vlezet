@@ -85,24 +85,56 @@ export async function listCompatibleOpenRouterModels(
   }
 }
 
-function prompt(input: RecognitionProviderInput): string {
-  const localContext = input.localSummary
-    ? `Локальный детектор уже предложил ${input.localSummary.walls.length} стен и ${input.localSummary.openings.length} проёмов. Используй это как геометрическую подсказку, но проверяй по самому изображению.`
-    : "Локальных геометрических подсказок нет.";
+function schemaCoordinate(value: number): number {
+  return Math.round(Math.min(1, Math.max(0, value)) * 10_000);
+}
+
+function verificationPrompt(input: RecognitionProviderInput): string {
+  const localWalls = input.localSummary?.walls ?? [];
+  const wallLines = localWalls.map((wall) => [
+    `${wall.id}:`,
+    `start=(${schemaCoordinate(wall.start.x)},${schemaCoordinate(wall.start.y)}),`,
+    `end=(${schemaCoordinate(wall.end.x)},${schemaCoordinate(wall.end.y)}),`,
+    `thicknessPx=${wall.estimatedThicknessPx ?? "null"},`,
+    `localConfidence=${wall.confidence}`,
+  ].join(" "));
+
+  return [
+    "Режим: только проверка локального Draft, не повторное распознавание плана.",
+    `Размер исходного нормализованного растра: ${input.imageWidthPx} × ${input.imageHeightPx} px.`,
+    "Проверь каждый локальный кандидат стены по изображению.",
+    "Не добавляй новые стены и не создавай новые wall id.",
+    "Возвращай только те стены из списка ниже, которые действительно подтверждаются изображением.",
+    "Сохраняй исходный id и координаты без изменений; меняй только confidence и score.",
+    "Не возвращай мебель, сантехнику, цифры, подписи, дверные дуги, штриховку, рамку изображения или границы пустого поля как стены.",
+    "Если кандидат не подтверждается, полностью пропусти его в массиве walls.",
+    "Верни openings пустым списком: классификация дверей/окон и проверка host wall выполняются на следующем этапе.",
+    "Подписи комнат допускаются только при явном прочтении текста на изображении.",
+    "Локальные кандидаты стен в координатах 0..10000:",
+    ...wallLines,
+  ].join("\n");
+}
+
+function discoveryPrompt(input: RecognitionProviderInput): string {
   return [
     "Проанализируй архитектурный план квартиры.",
     `Размер исходного нормализованного растра: ${input.imageWidthPx} × ${input.imageHeightPx} px.`,
-    "Верни только структурированные стены, двери/окна и необязательные подписи комнат по заданной JSON Schema.",
-    "Координаты start/end/center/anchor используй в системе 0..10000 относительно всего изображения: x слева направо, y сверху вниз.",
+    "Верни только структурированные стены и необязательные подписи комнат по заданной JSON Schema.",
+    "Координаты start/end/anchor используй в системе 0..10000 относительно всего изображения: x слева направо, y сверху вниз.",
     "Каждая wall должна совпадать с видимой осевой линией реальной строительной стены на плане.",
     "НЕ возвращай границу изображения, рамку листа, crop/page boundary, bounding box квартиры, прямоугольник вокруг плана или границы пустого белого поля как стены.",
     "Не создавай enclosing rectangle только потому, что квартира визуально занимает прямоугольную область.",
     "Если стена не видна достаточно уверенно, лучше не возвращай её вовсе.",
-    "Проём должен находиться на реально возвращённой стене; не придумывай двери/окна в пустом поле.",
     "Не придумывай метрические размеры и не реконструируй элементы, которых не видно уверенно.",
+    "Верни openings пустым списком: классификация дверей/окон и проверка host wall выполняются на следующем этапе.",
     "Для сомнительных элементов снижай confidence.",
-    localContext,
   ].join("\n");
+}
+
+function prompt(input: RecognitionProviderInput): string {
+  return input.localSummary && input.localSummary.walls.length > 0
+    ? verificationPrompt(input)
+    : discoveryPrompt(input);
 }
 
 export class OpenRouterDirectProvider implements RecognitionProvider {

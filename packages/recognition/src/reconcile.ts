@@ -29,19 +29,9 @@ function wallDistance(a: ExistingRecognitionWall, b: ExistingRecognitionWall): n
   return Math.min(direct, reversed);
 }
 
-function midpoint(a: NormalizedPoint, b: NormalizedPoint): NormalizedPoint {
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-}
-
 function mergeWall(local: RecognitionWallCandidate, cloud: RecognitionWallCandidate): RecognitionWallCandidate {
-  const direct = distance(local.start, cloud.start) + distance(local.end, cloud.end);
-  const reversed = distance(local.start, cloud.end) + distance(local.end, cloud.start);
-  const cloudStart = direct <= reversed ? cloud.start : cloud.end;
-  const cloudEnd = direct <= reversed ? cloud.end : cloud.start;
   return {
     ...local,
-    start: midpoint(local.start, cloudStart),
-    end: midpoint(local.end, cloudEnd),
     estimatedThicknessPx: local.estimatedThicknessPx ?? cloud.estimatedThicknessPx,
     confidence: "high",
     origin: "merged",
@@ -53,23 +43,21 @@ function mergeWall(local: RecognitionWallCandidate, cloud: RecognitionWallCandid
   };
 }
 
-function downgradeCloudWall(wall: RecognitionWallCandidate): RecognitionWallCandidate {
-  return {
-    ...wall,
-    confidence: wall.confidence === "low" ? "low" : "medium",
-    evidence: { ...wall.evidence, reasons: [...new Set([...wall.evidence.reasons, "cloud-only-review"])] },
-  };
-}
-
 function reconcileOpenings(
   local: readonly RecognitionOpeningCandidate[],
   cloud: readonly RecognitionOpeningCandidate[],
+  diagnostics: RecognitionDiagnostic[],
 ): RecognitionOpeningCandidate[] {
   const result = [...local];
   for (const candidate of cloud) {
     const matchIndex = result.findIndex((existing) => distance(existing.center, candidate.center) <= WALL_MATCH_TOLERANCE);
     if (matchIndex < 0) {
-      result.push({ ...candidate, confidence: candidate.confidence === "high" ? "medium" : candidate.confidence });
+      diagnostics.push({
+        code: "cloud-only-opening-deferred",
+        severity: "warning",
+        message: "AI предложил новый проём без локального подтверждения. Добавление новых дверей и окон отложено до проверки несущей стены.",
+        candidateId: candidate.id,
+      });
       continue;
     }
     const existing = result[matchIndex]!;
@@ -110,10 +98,16 @@ export function reconcileRecognition(input: ReconcileRecognitionInput): Recognit
   });
 
   for (const cloud of input.cloudResult.walls) {
-    if (!consumedCloud.has(cloud.id)) walls.push(downgradeCloudWall(cloud));
+    if (consumedCloud.has(cloud.id)) continue;
+    diagnostics.push({
+      code: "cloud-only-wall-deferred",
+      severity: "warning",
+      message: "AI предложил новую стену без локального подтверждения. В этом этапе AI может только проверять существующие локальные кандидаты.",
+      candidateId: cloud.id,
+    });
   }
 
-  const openings = reconcileOpenings(input.localDraft.openings, input.cloudResult.openings);
+  const openings = reconcileOpenings(input.localDraft.openings, input.cloudResult.openings, diagnostics);
   const roomLabels = input.cloudResult.roomLabels;
   const survivingCandidateIds = new Set([...walls, ...openings, ...roomLabels].map((candidate) => candidate.id));
   const decisions: Record<string, RecognitionDecision> = Object.fromEntries(

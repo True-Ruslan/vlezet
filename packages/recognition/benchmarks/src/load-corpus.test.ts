@@ -12,11 +12,11 @@ afterEach(async () => {
 });
 
 describe("recognition benchmark corpus loader", () => {
-  it("loads exactly the eight approved committed fixtures in stable order", async () => {
+  it("loads exactly the nine approved committed fixtures in stable order", async () => {
     const root = fileURLToPath(new URL("../fixtures", import.meta.url));
     const corpus = await loadRecognitionBenchmarkCorpus(root);
     expect(corpus.map((fixture) => fixture.fixture.id)).toEqual(APPROVED_RECOGNITION_FIXTURE_IDS);
-    expect(corpus).toHaveLength(8);
+    expect(corpus).toHaveLength(9);
     for (const fixture of corpus) {
       expect(fixture.sourcePath.endsWith("source.png")).toBe(true);
       expect(fixture.segmentsPath.endsWith("segments.json")).toBe(true);

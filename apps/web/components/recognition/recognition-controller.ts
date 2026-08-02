@@ -1,4 +1,5 @@
 import {
+  enforceLocalWallReviewBudget,
   isRecognitionSessionStale,
   LOCAL_RECOGNITION_ENGINE_VERSION,
   validateRecognitionDraft,
@@ -40,6 +41,26 @@ function sessionFromDraft(draft: RecognitionDraft, previous?: RecognitionSession
   };
 }
 
+function enforceReviewableLocalDraft(draft: RecognitionDraft): RecognitionDraft {
+  const budget = enforceLocalWallReviewBudget({ walls: draft.walls });
+  if (!budget.overloaded) return draft;
+  return {
+    ...draft,
+    walls: [],
+    openings: [],
+    decisions: {},
+    diagnostics: [
+      ...draft.diagnostics,
+      {
+        code: "local-wall-candidate-overload",
+        severity: "warning",
+        message: `Локальный анализ создал ${budget.originalWallCount} кандидатов стен. Результат отклонён целиком, потому что такой набор нельзя надёжно проверить. Повторите распознавание после обрезки изображения или используйте ручную обводку.`,
+        candidateId: null,
+      },
+    ],
+  };
+}
+
 export class RecognitionController {
   readonly #repository: RecognitionSessionRepository;
   readonly #runLocal: RecognitionControllerOptions["runLocal"];
@@ -68,7 +89,19 @@ export class RecognitionController {
       this.#setState({ kind: "stale", session });
       return;
     }
-    this.#setState({ kind: "review", session });
+    const reviewableDraft = enforceReviewableLocalDraft(validateRecognitionDraft(session.draft));
+    if (reviewableDraft === session.draft) {
+      this.#setState({ kind: "review", session });
+      return;
+    }
+    const reviewableSession = {
+      ...session,
+      draft: reviewableDraft,
+      cloudMetadata: null,
+      updatedAt: reviewableDraft.updatedAt,
+    };
+    await this.#repository.put(reviewableSession);
+    this.#setState({ kind: "review", session: reviewableSession });
   }
 
   async startLocal(input: LocalRecognitionInput): Promise<void> {
@@ -83,7 +116,8 @@ export class RecognitionController {
         onProgress: (progress) => this.#setState({ kind: "running-local", session: previous, progress }),
       });
       if (abortController.signal.aborted) return;
-      const session = { ...sessionFromDraft(validateRecognitionDraft(draft), previous), cloudMetadata: null };
+      const reviewableDraft = enforceReviewableLocalDraft(validateRecognitionDraft(draft));
+      const session = { ...sessionFromDraft(reviewableDraft, previous), cloudMetadata: null };
       await this.#repository.put(session);
       this.#setState({ kind: "review", session });
     } catch (cause) {

@@ -9,12 +9,15 @@ const baselinePath = join(repositoryRoot, "packages/recognition/benchmarks/basel
 const workflowPath = join(repositoryRoot, ".github/workflows/recognition-benchmark.yml");
 const packagePath = join(repositoryRoot, "package.json");
 
-describe("M7.8A automated acceptance contract", () => {
-  it("commits an explicit current-product baseline", () => {
+describe("M7.8 recognition benchmark acceptance contract", () => {
+  it("commits an explicit region-first baseline derived from the accepted M7.8A product base", () => {
     expect(existsSync(baselinePath)).toBe(true);
     const baseline = validateRecognitionBenchmarkBaselineV1(JSON.parse(readFileSync(baselinePath, "utf8")) as unknown);
-    expect(baseline.productBaseSha).toBe("039ddba143cd03ddec0b090606dfdde752446014");
-    expect(baseline.result.fixtures).toHaveLength(8);
+    expect(baseline.productBaseSha).toBe("d6e8668c5ad0780a0a28d9c1fef6e9d37e9bbe4d");
+    expect(baseline.harnessSourceSha).toBe("50e3ffdfd58a5562830b0805ebb589cf8b9684c4");
+    expect(baseline.result.recognitionEngineVersion).toBe("5");
+    expect(baseline.result.fixtures).toHaveLength(9);
+    expect(baseline.result.fixtures.at(-1)?.fixtureId).toBe("clutter-symbol-regression");
   });
 
   it("scores both benchmark paths and uploads one checksummed evidence bundle", () => {

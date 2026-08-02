@@ -9,6 +9,7 @@
     "furniture-heavy",
     "low-resolution",
     "perspective-photo",
-    "m7-3-regression-anonymized"
+    "m7-3-regression-anonymized",
+    "clutter-symbol-regression"
   ]
 }

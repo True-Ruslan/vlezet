@@ -50,25 +50,43 @@ async function runHarness(page, fixtureId, mode) {
     };
     const harness = window.__vlezetRecognitionBenchmark;
     if (!harness) throw new Error("Recognition benchmark harness is unavailable.");
-    return currentMode === "worker" ? harness.runWorker(input) : harness.runEngine(input);
+    if (currentMode === "worker") return harness.runWorker(input);
+    if (currentMode === "debug") return harness.runEngineDebug(input);
+    return harness.runEngine(input);
   }, { fixtureId, fixture, sourceBase64, mode });
 }
 
 test.beforeAll(async () => {
   await mkdir(join(artifactsRoot, "predictions"), { recursive: true });
+  await mkdir(join(artifactsRoot, "debug"), { recursive: true });
 });
 
-test("shared engine processes all eight source fixtures", async ({ page }) => {
+test("shared engine processes all nine source fixtures", async ({ page }) => {
   await page.goto("/__recognition-benchmark");
   await expect(page.getByRole("heading", { name: "Recognition Benchmark Harness" })).toBeVisible();
-  expect(manifest.fixtureIds).toHaveLength(8);
+  expect(manifest.fixtureIds).toHaveLength(9);
 
   for (const fixtureId of manifest.fixtureIds) {
-    const draft = await runHarness(page, fixtureId, "engine");
-    expect(draft.engineVersion).toBe("3");
+    const result = await runHarness(page, fixtureId, "debug");
+    const { draft, debug } = result;
+    expect(draft.engineVersion).toBe("5");
+    if (fixtureId === "m7-3-regression-anonymized") {
+      expect(draft.walls.length, "dense anonymized regression must not return an empty wall draft").toBeGreaterThan(0);
+    }
+    if (fixtureId === "clutter-symbol-regression") {
+      expect(debug.selectedMode, "clutter regression must use filled structural regions").toBe("regions");
+      expect(draft.walls.length, "clutter regression must retain an architectural wall graph").toBeGreaterThan(0);
+      expect(draft.walls.length, "clutter regression must stay reviewable").toBeLessThanOrEqual(30);
+      expect(draft.diagnostics.some((diagnostic) => diagnostic.code === "local-wall-candidate-overload")).toBe(false);
+    }
     await writeFile(
       join(artifactsRoot, "predictions", `${fixtureId}.json`),
       `${JSON.stringify(draft, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(artifactsRoot, "debug", `${fixtureId}.json`),
+      `${JSON.stringify(debug, null, 2)}\n`,
       "utf8",
     );
   }

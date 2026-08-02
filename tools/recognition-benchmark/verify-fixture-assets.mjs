@@ -3,10 +3,13 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fixtureSourceDefinitions, fixtureSourceIds } from "../../packages/recognition/benchmarks/fixtures/source-definitions.mjs";
+import { manualFixtureDefinitions, manualFixtureIds } from "../../packages/recognition/benchmarks/fixtures/manual-fixtures.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
 const fixturesRoot = join(repositoryRoot, "packages/recognition/benchmarks/fixtures");
+const fixtureDefinitions = [...fixtureSourceDefinitions, ...manualFixtureDefinitions];
+const fixtureIds = [...fixtureSourceIds, ...manualFixtureIds];
 const REQUIRED_BASE_FILES = ["fixture.json", "segments.json", "source.png", "source.sha256"];
 const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_DIMENSION = 2400;
@@ -118,19 +121,21 @@ async function main() {
   if (manifest.schemaVersion !== "recognition-corpus-manifest-v1" || manifest.corpusVersion !== "recognition-corpus-v1") {
     throw new Error("Invalid corpus manifest version");
   }
-  if (JSON.stringify(manifest.fixtureIds) !== JSON.stringify(fixtureSourceIds)) {
+  if (JSON.stringify(manifest.fixtureIds) !== JSON.stringify(fixtureIds)) {
     throw new Error("Corpus manifest does not contain the canonical fixture order");
   }
   const directoryIds = (await readdir(fixturesRoot, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
-  if (JSON.stringify(directoryIds) !== JSON.stringify([...fixtureSourceIds].sort())) {
+  if (JSON.stringify(directoryIds) !== JSON.stringify([...fixtureIds].sort())) {
     throw new Error("Corpus contains missing or extra fixture directories");
   }
-  if (fixtureSourceDefinitions.length !== 8) throw new Error("Corpus v1 must contain exactly eight fixtures");
-  for (const definition of fixtureSourceDefinitions) await verifyFixture(definition);
-  process.stdout.write(`Recognition corpus verified: ${fixtureSourceDefinitions.length} fixtures.\n`);
+  if (fixtureDefinitions.length !== 9 || new Set(fixtureIds).size !== 9) {
+    throw new Error("Corpus v1 must contain exactly nine unique fixtures");
+  }
+  for (const definition of fixtureDefinitions) await verifyFixture(definition);
+  process.stdout.write(`Recognition corpus verified: ${fixtureDefinitions.length} fixtures.\n`);
 }
 
 await main();
