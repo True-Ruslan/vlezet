@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { buildOpeningHypotheses } from "../../src/openings";
 import { buildWallCandidates, LOCAL_RECOGNITION_ENGINE_VERSION, type DetectedLineSegment } from "../../src/local-lines";
 import type { RecognitionDraft } from "../../src/model";
+import { validateRecognitionBenchmarkBaselineV1 } from "../schema/baseline-v1";
 import { validateRecognitionBenchmarkResultV1, type RecognitionBenchmarkResultV1 } from "../schema/result-v1";
 import { aggregateRecognitionResults } from "./aggregate-report";
 import { canonicalBenchmarkJson } from "./canonical-json";
+import { compareRecognitionBaseline } from "./compare-baseline";
 import { loadRecognitionBenchmarkCorpus } from "./load-corpus";
 import { scoreRecognitionFixture } from "./score-fixture";
 import { renderRecognitionBenchmarkMarkdown } from "./write-report";
@@ -14,6 +16,7 @@ import { renderRecognitionBenchmarkMarkdown } from "./write-report";
 export type CoreBenchmarkOptions = Readonly<{
   corpusRoot: string;
   outputDirectory: string;
+  baselinePath?: string;
   commitSha?: string;
   generatedAt?: string;
 }>;
@@ -112,7 +115,7 @@ export async function runCoreRecognitionBenchmark(options: CoreBenchmarkOptions)
     }
   }
 
-  const result = validateRecognitionBenchmarkResultV1({
+  const rawResult = validateRecognitionBenchmarkResultV1({
     schemaVersion: "recognition-benchmark-result-v1",
     corpusVersion: "recognition-corpus-v1",
     recognitionEngineVersion: LOCAL_RECOGNITION_ENGINE_VERSION,
@@ -122,6 +125,15 @@ export async function runCoreRecognitionBenchmark(options: CoreBenchmarkOptions)
     aggregate: aggregateRecognitionResults(fixtureResults),
     baselineComparison: null,
   });
+  const baselineComparison = options.baselinePath
+    ? compareRecognitionBaseline(
+        rawResult,
+        validateRecognitionBenchmarkBaselineV1(
+          JSON.parse(await readFile(options.baselinePath, "utf8")) as unknown,
+        ).result,
+      )
+    : null;
+  const result = validateRecognitionBenchmarkResultV1({ ...rawResult, baselineComparison });
   await mkdir(options.outputDirectory, { recursive: true });
   await writeFile(join(options.outputDirectory, "recognition-core-result.json"), `${JSON.stringify(result, null, 2)}\n`, "utf8");
   await writeFile(join(options.outputDirectory, "recognition-core-canonical.json"), canonicalBenchmarkJson(result), "utf8");
