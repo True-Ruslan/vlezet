@@ -57,6 +57,9 @@ jobs:
           status=${PIPESTATUS[0]}
           exit "$status"
 
+      - name: M7.8C gate unit tests
+        run: node --test tools/recognition-benchmark/m7-8c-opening-gate.test.mjs
+
       - name: Upload test diagnostics
         if: failure() && steps.tests.outcome == 'failure'
         uses: actions/upload-artifact@v4
@@ -76,6 +79,9 @@ jobs:
           pnpm benchmark:recognition:core 2>&1 | tee recognition-core.log
           status=${PIPESTATUS[0]}
           exit "$status"
+
+      - name: Enforce M7.8C Core opening gate
+        run: pnpm benchmark:recognition:m7-8c-gate tools/recognition-benchmark/artifacts/core/recognition-core-result.json
 
       - name: Upload Core Recognition Benchmark evidence
         if: always() && steps.recognition_core.outcome != 'skipped'
