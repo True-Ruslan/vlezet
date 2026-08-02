@@ -37,7 +37,69 @@ function imageRelativeAdaptiveOptions(widthPx: number, heightPx: number): LocalR
     minimumParallelOverlapRatio: 0.22,
     collinearMergeGapPx: clamp(shortSide * 0.04, 24, 120),
     collinearOffsetTolerancePx: clamp(shortSide * 0.008, 4, 18),
+    axisToleranceDeg: 10,
+    duplicateEndpointTolerancePx: clamp(shortSide * 0.003, 1.5, 5),
+    borderMarginPx: clamp(shortSide * 0.008, 3, 12),
+    borderSpanRatio: 0.95,
+    endpointSnapTolerancePx: clamp(shortSide * 0.018, 6, 24),
+    endpointExtensionTolerancePx: clamp(shortSide * 0.032, 10, 42),
+    intersectionTolerancePx: clamp(shortSide * 0.008, 2, 12),
+    minimumTopologyEdgeLengthPx: clamp(shortSide * 0.015, 10, 40),
   };
+}
+
+function canonicalSegment(segment: DetectedLineSegment): DetectedLineSegment {
+  if (segment.x1 < segment.x2 || (segment.x1 === segment.x2 && segment.y1 <= segment.y2)) return segment;
+  return { x1: segment.x2, y1: segment.y2, x2: segment.x1, y2: segment.y1 };
+}
+
+function quantize(value: number, tolerancePx: number): number {
+  return Math.round(value / tolerancePx);
+}
+
+function deduplicateDetectedSegments(
+  segments: readonly DetectedLineSegment[],
+  tolerancePx: number,
+): DetectedLineSegment[] {
+  const grouped = new Map<string, {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    count: number;
+  }>();
+  for (const source of segments) {
+    if (![source.x1, source.y1, source.x2, source.y2].every(Number.isFinite)) continue;
+    const segment = canonicalSegment(source);
+    const key = [
+      quantize(segment.x1, tolerancePx),
+      quantize(segment.y1, tolerancePx),
+      quantize(segment.x2, tolerancePx),
+      quantize(segment.y2, tolerancePx),
+    ].join(":");
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.x1 += segment.x1;
+      existing.y1 += segment.y1;
+      existing.x2 += segment.x2;
+      existing.y2 += segment.y2;
+      existing.count += 1;
+    } else {
+      grouped.set(key, { ...segment, count: 1 });
+    }
+  }
+  return [...grouped.values()]
+    .map((entry): DetectedLineSegment => ({
+      x1: entry.x1 / entry.count,
+      y1: entry.y1 / entry.count,
+      x2: entry.x2 / entry.count,
+      y2: entry.y2 / entry.count,
+    }))
+    .sort((first, second) =>
+      first.x1 - second.x1
+      || first.y1 - second.y1
+      || first.x2 - second.x2
+      || first.y2 - second.y2);
 }
 
 function markAdaptiveCandidates(candidates: readonly RecognitionWallCandidate[]): RecognitionWallCandidate[] {
@@ -60,9 +122,13 @@ export async function runLocalRecognitionEngine(
   const { cv } = await resolveOpenCvModule(cvModule);
   let source: InstanceType<typeof cv.Mat> | null = null;
   let gray: InstanceType<typeof cv.Mat> | null = null;
-  let blurred: InstanceType<typeof cv.Mat> | null = null;
-  let edges: InstanceType<typeof cv.Mat> | null = null;
-  let lines: InstanceType<typeof cv.Mat> | null = null;
+  let equalized: InstanceType<typeof cv.Mat> | null = null;
+  let strictBlurred: InstanceType<typeof cv.Mat> | null = null;
+  let permissiveBlurred: InstanceType<typeof cv.Mat> | null = null;
+  let strictEdges: InstanceType<typeof cv.Mat> | null = null;
+  let permissiveEdges: InstanceType<typeof cv.Mat> | null = null;
+  let strictLines: InstanceType<typeof cv.Mat> | null = null;
+  let permissiveLines: InstanceType<typeof cv.Mat> | null = null;
   try {
     const rasterScale = sourceRasterPixelScale({
       analysisWidthPx: input.imageData.width,
@@ -83,29 +149,66 @@ export async function runLocalRecognitionEngine(
 
     source = cv.matFromImageData(input.imageData);
     gray = new cv.Mat();
-    blurred = new cv.Mat();
-    edges = new cv.Mat();
-    lines = new cv.Mat();
+    equalized = new cv.Mat();
+    strictBlurred = new cv.Mat();
+    permissiveBlurred = new cv.Mat();
+    strictEdges = new cv.Mat();
+    permissiveEdges = new cv.Mat();
+    strictLines = new cv.Mat();
+    permissiveLines = new cv.Mat();
 
     cv.cvtColor(source, gray, cv.COLOR_RGBA2GRAY);
-    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+    cv.equalizeHist(gray, equalized);
+    cv.GaussianBlur(equalized, strictBlurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+    cv.GaussianBlur(equalized, permissiveBlurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
     options.onProgress?.({ phase: "edges", progress: 0.25 });
-    cv.Canny(blurred, edges, 50, 150, 3, false);
+    cv.Canny(strictBlurred, strictEdges, 50, 150, 3, false);
+    cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false);
     options.onProgress?.({ phase: "lines", progress: 0.5 });
+
     const houghMinimumLength = Math.round(adaptiveOptions.minimumSegmentLengthPx);
     const houghMaximumGap = Math.round(clamp(adaptiveOptions.collinearMergeGapPx / 3, 12, 36));
-    cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 50, houghMinimumLength, houghMaximumGap);
+    const rawSegments: DetectedLineSegment[] = [];
+    const appendHoughSegments = ({
+      edges,
+      lines,
+      threshold,
+    }: Readonly<{
+      edges: InstanceType<typeof cv.Mat>;
+      lines: InstanceType<typeof cv.Mat>;
+      threshold: number;
+    }>) => {
+      cv.HoughLinesP(
+        edges,
+        lines,
+        1,
+        Math.PI / 180,
+        threshold,
+        houghMinimumLength,
+        houghMaximumGap,
+      );
+      for (let row = 0; row < lines.rows; row += 1) {
+        const offset = row * 4;
+        rawSegments.push({
+          x1: lines.data32S[offset] ?? 0,
+          y1: lines.data32S[offset + 1] ?? 0,
+          x2: lines.data32S[offset + 2] ?? 0,
+          y2: lines.data32S[offset + 3] ?? 0,
+        });
+      }
+    };
 
-    const segments: DetectedLineSegment[] = [];
-    for (let row = 0; row < lines.rows; row += 1) {
-      const offset = row * 4;
-      segments.push({
-        x1: lines.data32S[offset] ?? 0,
-        y1: lines.data32S[offset + 1] ?? 0,
-        x2: lines.data32S[offset + 2] ?? 0,
-        y2: lines.data32S[offset + 3] ?? 0,
-      });
-    }
+    appendHoughSegments({ edges: strictEdges, lines: strictLines, threshold: 50 });
+    const strictUniqueCount = deduplicateDetectedSegments(
+      rawSegments,
+      adaptiveOptions.duplicateEndpointTolerancePx,
+    ).length;
+    appendHoughSegments({ edges: permissiveEdges, lines: permissiveLines, threshold: 32 });
+    const segments = deduplicateDetectedSegments(
+      rawSegments,
+      adaptiveOptions.duplicateEndpointTolerancePx,
+    );
+    const usedMultiPassEvidence = segments.length > strictUniqueCount;
 
     options.onProgress?.({ phase: "walls", progress: 0.72 });
     const strictWalls = buildWallCandidates({
@@ -145,6 +248,14 @@ export async function runLocalRecognitionEngine(
     });
 
     const diagnostics = [];
+    if (usedMultiPassEvidence) {
+      diagnostics.push({
+        code: "multi-pass-source-normalisation",
+        severity: "info" as const,
+        message: "Для слабых и сжатых линий использован дополнительный локальный проход. Проверьте найденную геометрию перед применением.",
+        candidateId: null,
+      });
+    }
     if (usedAdaptiveFallback) {
       diagnostics.push({
         code: "adaptive-local-fallback",
@@ -184,9 +295,13 @@ export async function runLocalRecognitionEngine(
     options.onProgress?.({ phase: "complete", progress: 1 });
     return draft;
   } finally {
-    lines?.delete();
-    edges?.delete();
-    blurred?.delete();
+    permissiveLines?.delete();
+    strictLines?.delete();
+    permissiveEdges?.delete();
+    strictEdges?.delete();
+    permissiveBlurred?.delete();
+    strictBlurred?.delete();
+    equalized?.delete();
     gray?.delete();
     source?.delete();
   }
