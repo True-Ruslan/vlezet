@@ -71,7 +71,6 @@ test("shared engine processes all eight source fixtures", async ({ page }) => {
       `${JSON.stringify(draft, null, 2)}\n`,
       "utf8",
     );
-    await page.screenshot({ path: join(artifactsRoot, `${fixtureId}.png`), fullPage: true });
   }
 });
 
