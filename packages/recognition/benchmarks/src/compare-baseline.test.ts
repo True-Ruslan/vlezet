@@ -9,8 +9,10 @@ function measured(value: number): BenchmarkMetricValue {
 function result(overrides: Readonly<{
   commitSha?: string;
   corpusVersion?: string;
+  engineVersion?: string;
   wallGeometryF1?: number;
   totalAreaError?: number;
+  unknownHostOpenings?: number;
   fixtureIds?: readonly string[];
   roomAreaApplicable?: boolean;
 }> = {}): RecognitionBenchmarkResultV1 {
@@ -18,10 +20,11 @@ function result(overrides: Readonly<{
   const roomAreaMetric: BenchmarkMetricValue = overrides.roomAreaApplicable === false
     ? { status: "not-applicable" }
     : measured(0.3);
+  const unknownHostOpenings = overrides.unknownHostOpenings ?? 2;
   return {
     schemaVersion: "recognition-benchmark-result-v1",
     corpusVersion: (overrides.corpusVersion ?? "recognition-corpus-v1") as "recognition-corpus-v1",
-    recognitionEngineVersion: "3",
+    recognitionEngineVersion: overrides.engineVersion ?? "3",
     commitSha: overrides.commitSha ?? "a".repeat(40),
     generatedAt: "2026-08-01T20:00:00.000Z",
     fixtures: fixtureIds.map((fixtureId) => ({
@@ -36,7 +39,7 @@ function result(overrides: Readonly<{
         totalAreaAbsolutePercentageError: measured(overrides.totalAreaError ?? 0.2),
         roomAreaMedianAbsolutePercentageError: roomAreaMetric,
         incorrectHighConfidenceRate: measured(0.1),
-        unknownHostOpenings: measured(2),
+        unknownHostOpenings: measured(unknownHostOpenings),
         staleDecisions: measured(0),
       },
       evidence: {
@@ -49,7 +52,7 @@ function result(overrides: Readonly<{
         roomAreaAbsolutePercentageErrors: overrides.roomAreaApplicable === false ? [] : [0.3],
         highConfidencePredictionCount: 10,
         highConfidenceFalsePositiveCount: 1,
-        unknownHostOpenings: 2,
+        unknownHostOpenings,
         staleDecisions: 0,
       },
     })),
@@ -64,7 +67,7 @@ function result(overrides: Readonly<{
         totalAreaMedianAbsolutePercentageError: measured(overrides.totalAreaError ?? 0.2),
         roomAreaMedianAbsolutePercentageError: roomAreaMetric,
         incorrectHighConfidenceRate: measured(0.1),
-        unknownHostOpenings: measured(2),
+        unknownHostOpenings: measured(unknownHostOpenings),
         staleDecisions: measured(0),
       },
     },
@@ -82,6 +85,33 @@ describe("recognition baseline comparison", () => {
     expect(comparison.metrics.find((metric) => metric.metric === "totalAreaMedianAbsolutePercentageError")?.status).toBe("improvement");
   });
 
+  it("treats continuous metric drift inside the documented allowance as unchanged", () => {
+    const comparison = compareRecognitionBaseline(
+      result({ wallGeometryF1: 0.5 - 0.0000005, totalAreaError: 0.2 + 0.0000005, commitSha: "b".repeat(40) }),
+      result({ wallGeometryF1: 0.5, totalAreaError: 0.2 }),
+    );
+    expect(comparison.metrics.find((metric) => metric.metric === "wallGeometryF1")?.status).toBe("unchanged");
+    expect(comparison.metrics.find((metric) => metric.metric === "totalAreaMedianAbsolutePercentageError")?.status).toBe("unchanged");
+  });
+
+  it("rejects continuous metric drift beyond the documented allowance", () => {
+    expect(() => compareRecognitionBaseline(
+      result({ wallGeometryF1: 0.5 - 0.0000011, commitSha: "b".repeat(40) }),
+      result({ wallGeometryF1: 0.5 }),
+    )).toThrow(/wallGeometryF1/);
+    expect(() => compareRecognitionBaseline(
+      result({ totalAreaError: 0.2 + 0.0000011, commitSha: "b".repeat(40) }),
+      result({ totalAreaError: 0.2 }),
+    )).toThrow(/totalAreaMedianAbsolutePercentageError/);
+  });
+
+  it("allows no increase for defect counts", () => {
+    expect(() => compareRecognitionBaseline(
+      result({ unknownHostOpenings: 3, commitSha: "b".repeat(40) }),
+      result({ unknownHostOpenings: 2 }),
+    )).toThrow(/unknownHostOpenings/);
+  });
+
   it("omits a metric that is not applicable in both runs", () => {
     const comparison = compareRecognitionBaseline(
       result({ commitSha: "b".repeat(40), roomAreaApplicable: false }),
@@ -97,14 +127,14 @@ describe("recognition baseline comparison", () => {
     )).toThrow(/applicability/i);
   });
 
-  it("throws when an F1 metric regresses", () => {
+  it("throws when an F1 metric regresses materially", () => {
     expect(() => compareRecognitionBaseline(
       result({ wallGeometryF1: 0.49, commitSha: "b".repeat(40) }),
       result({ wallGeometryF1: 0.5 }),
     )).toThrow(/wallGeometryF1/);
   });
 
-  it("throws when a lower-is-better error metric increases", () => {
+  it("throws when a lower-is-better error metric increases materially", () => {
     expect(() => compareRecognitionBaseline(
       result({ totalAreaError: 0.21, commitSha: "b".repeat(40) }),
       result({ totalAreaError: 0.2 }),
@@ -118,10 +148,14 @@ describe("recognition baseline comparison", () => {
     )).toThrow(/fixture/i);
   });
 
-  it("throws on schema/corpus migration without an explicit migration", () => {
+  it("throws on schema/corpus/engine migration without an explicit migration", () => {
     const baseline = result();
     const current = { ...result({ commitSha: "b".repeat(40) }), schemaVersion: "future" };
     expect(() => compareRecognitionBaseline(current as unknown as RecognitionBenchmarkResultV1, baseline)).toThrow(/schema/i);
+    expect(() => compareRecognitionBaseline(
+      result({ engineVersion: "4", commitSha: "b".repeat(40) }),
+      baseline,
+    )).toThrow(/engine/i);
   });
 
   it("rejects an uncommitted all-zero baseline marker", () => {
