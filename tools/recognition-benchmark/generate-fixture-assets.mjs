@@ -7,10 +7,10 @@ import { manualFixtureIds } from "../../packages/recognition/benchmarks/fixtures
 import {
   buildCloudSnapshot,
   buildFixtureJson,
-  buildSegmentsSnapshot,
   renderFixtureSvg,
   sha256,
 } from "./fixture-renderer.mjs";
+import { buildOpeningAwareSegmentsSnapshot } from "./opening-segment-snapshot.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
@@ -58,7 +58,7 @@ async function main() {
       const sourceHash = sha256(sourceBuffer);
       await writeFile(join(fixtureDirectory, "source.sha256"), `${sourceHash}  source.png\n`);
       await writeFile(join(fixtureDirectory, "fixture.json"), stableJson(buildFixtureJson(definition, sourceHash)));
-      await writeFile(join(fixtureDirectory, "segments.json"), stableJson(buildSegmentsSnapshot(definition)));
+      await writeFile(join(fixtureDirectory, "segments.json"), stableJson(buildOpeningAwareSegmentsSnapshot(definition)));
       if (definition.includeCloudSnapshot) {
         await writeFile(join(fixtureDirectory, "cloud-response.json"), stableJson(buildCloudSnapshot(definition)));
       }
