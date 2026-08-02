@@ -54,7 +54,7 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
     const normal = { x: -tangent.y, y: tangent.x };
     const wallAngle = ((Math.atan2(tangent.y, tangent.x) * 180 / Math.PI) + 180) % 180;
     const expectedHalfThickness = Math.max(3, (wall.estimatedThicknessPx ?? 20) / 2);
-    const edgeTolerance = Math.max(8, expectedHalfThickness * 0.7);
+    const edgeTolerance = Math.max(2.5, expectedHalfThickness * 0.35);
 
     const intervals: Interval[] = [];
     for (const segment of wallSegments) {
