@@ -275,7 +275,7 @@ export async function runLocalRecognitionEngine(
       wallCandidates: analysisWalls,
       segments,
     });
-    const analysisOpenings = [];
+    const analysisOpenings: ReturnType<typeof buildOpeningHypotheses> = [];
     const { walls, openings } = rescaleRecognitionPixelEvidence({
       walls: analysisWalls,
       openings: analysisOpenings,
