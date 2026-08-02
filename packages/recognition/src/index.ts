@@ -8,5 +8,6 @@ export * from "./reconcile";
 export * from "./review-budget";
 export * from "./session";
 export * from "./source-scale";
+export * from "./structural-regions";
 export * from "./wall-evidence-filter";
 export * from "./wall-topology";
