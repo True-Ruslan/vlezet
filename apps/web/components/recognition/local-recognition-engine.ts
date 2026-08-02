@@ -1,16 +1,21 @@
 import cvModule from "@techstark/opencv-js";
 import {
   analyzeWallCandidates,
+  buildLocalWallTopology,
   buildOpeningHypotheses,
+  completeWallCenterlines,
   createAdaptiveLocalRecognitionOptions,
+  DEFAULT_WALL_COMPLETION_OPTIONS,
   extractStructuralWallRegions,
   LOCAL_RECOGNITION_ENGINE_VERSION,
   rescaleRecognitionPixelEvidence,
   sourceRasterPixelScale,
+  topologyWallCandidates,
 } from "@vlezet/recognition";
 import type {
   DetectedLineSegment,
   LocalRecognitionOptions,
+  LocalWallTopology,
   RecognitionDraft,
   RecognitionWallCandidate,
 } from "@vlezet/recognition";
@@ -36,6 +41,8 @@ export type LocalRecognitionEngineDebug = Readonly<{
   strict: LocalRecognitionWallStageDebug;
   adaptive: LocalRecognitionWallStageDebug | null;
   selectedMode: "regions" | "strict" | "adaptive";
+  completionAcceptedCount: number;
+  completionDiagnosticCodes: readonly string[];
 }>;
 
 export type LocalRecognitionEngineOptions = Readonly<{
@@ -143,7 +150,7 @@ function markAdaptiveCandidates(candidates: readonly RecognitionWallCandidate[])
 function markRegionCandidates(candidates: readonly RecognitionWallCandidate[]): RecognitionWallCandidate[] {
   return candidates.map((candidate) => ({
     ...candidate,
-    confidence: "medium",
+    confidence: candidate.confidence === "low" ? "low" : "medium",
     evidence: {
       ...candidate.evidence,
       localScore: Math.min(candidate.evidence.localScore ?? 0.74, 0.74),
@@ -152,13 +159,16 @@ function markRegionCandidates(candidates: readonly RecognitionWallCandidate[]): 
   }));
 }
 
-function wallStageDebug(analysis: ReturnType<typeof analyzeWallCandidates>): LocalRecognitionWallStageDebug {
+function wallStageDebug(
+  analysis: ReturnType<typeof analyzeWallCandidates>,
+  topology: LocalWallTopology = analysis.topology,
+): LocalRecognitionWallStageDebug {
   return {
     normalisedSegmentCount: analysis.normalisedSegmentCount,
     pairedCenterlineCount: analysis.pairedCenterlineCount,
-    topologyEdgeCount: analysis.topology.edges.length,
-    topologyJunctionCount: analysis.topology.junctions.length,
-    topologyDiagnostics: analysis.topology.diagnostics.map((diagnostic) => diagnostic.code),
+    topologyEdgeCount: topology.edges.length,
+    topologyJunctionCount: topology.junctions.length,
+    topologyDiagnostics: topology.diagnostics.map((diagnostic) => diagnostic.code),
   };
 }
 
@@ -302,9 +312,59 @@ export async function runLocalRecognitionEngine(
       segments,
       ...(useStructuralRegionEvidence ? { options: adaptiveOptions } : {}),
     });
+
+    const completion = useStructuralRegionEvidence
+      ? completeWallCenterlines({
+          centerlines: strictAnalysis.topology.edges.map((edge) => ({
+            startPx: edge.startPx,
+            endPx: edge.endPx,
+            thicknessPx: edge.thicknessPx,
+            evidenceCount: edge.evidenceCount,
+            confidence: edge.confidence,
+            reasons: edge.reasons,
+          })),
+          mask: {
+            widthPx: input.imageData.width,
+            heightPx: input.imageData.height,
+            isStructural: (x, y) => {
+              if (x < 0 || y < 0 || x >= input.imageData.width || y >= input.imageData.height) return false;
+              return (structuralMask?.data[Math.floor(y) * input.imageData.width + Math.floor(x)] ?? 0) > 0;
+            },
+          },
+          options: {
+            ...DEFAULT_WALL_COMPLETION_OPTIONS,
+            maximumAngleDeltaDeg: Math.min(
+              DEFAULT_WALL_COMPLETION_OPTIONS.maximumAngleDeltaDeg,
+              adaptiveOptions.maximumAngleDeltaDeg,
+            ),
+            maximumGapPx: Math.min(
+              DEFAULT_WALL_COMPLETION_OPTIONS.maximumGapPx,
+              adaptiveOptions.endpointExtensionTolerancePx,
+            ),
+          },
+        })
+      : null;
+    const analysis = {
+      completionAcceptedCount: completion?.acceptedCompletionCount ?? 0,
+      completionDiagnostics: completion?.diagnostics ?? [],
+    };
+    const strictTopology = completion
+      ? buildLocalWallTopology({
+          centerlines: completion.centerlines,
+          endpointSnapTolerancePx: adaptiveOptions.endpointSnapTolerancePx,
+          endpointExtensionTolerancePx: adaptiveOptions.endpointExtensionTolerancePx,
+          intersectionTolerancePx: adaptiveOptions.intersectionTolerancePx,
+          minimumEdgeLengthPx: adaptiveOptions.minimumTopologyEdgeLengthPx,
+        })
+      : strictAnalysis.topology;
     const strictWalls = useStructuralRegionEvidence
-      ? markRegionCandidates(strictAnalysis.candidates)
+      ? markRegionCandidates(topologyWallCandidates({
+          topology: strictTopology,
+          widthPx: input.imageData.width,
+          heightPx: input.imageData.height,
+        }))
       : [...strictAnalysis.candidates];
+
     let adaptiveAnalysis: ReturnType<typeof analyzeWallCandidates> | null = null;
     let usedAdaptiveFallback = false;
     let analysisWalls = strictWalls;
@@ -328,8 +388,10 @@ export async function runLocalRecognitionEngine(
       rawSegmentCount: rawSegments.length,
       strictUniqueSegmentCount: strictUniqueCount,
       uniqueSegmentCount: segments.length,
-      strict: wallStageDebug(strictAnalysis),
+      strict: wallStageDebug(strictAnalysis, strictTopology),
       adaptive: adaptiveAnalysis ? wallStageDebug(adaptiveAnalysis) : null,
+      completionAcceptedCount: analysis.completionAcceptedCount,
+      completionDiagnosticCodes: analysis.completionDiagnostics.map((diagnostic) => diagnostic.code),
       ...debugSelection,
     });
 
@@ -362,6 +424,22 @@ export async function runLocalRecognitionEngine(
         code: "region-first-wall-evidence",
         severity: "info" as const,
         message: `Стены построены по ${structuralRegionEvidence.regions.length} заполненным структурным областям; линейный Hough-поиск не использовался.`,
+        candidateId: null,
+      });
+    }
+    if (analysis.completionAcceptedCount > 0) {
+      diagnostics.push({
+        code: "evidence-gated-wall-completion",
+        severity: "info" as const,
+        message: `По непрерывному структурному растру восстановлено безопасных фрагментов стен: ${analysis.completionAcceptedCount}.`,
+        candidateId: null,
+      });
+    }
+    if (analysis.completionDiagnostics.some((item) => item.code === "completion-budget-exceeded")) {
+      diagnostics.push({
+        code: "wall-completion-budget-exceeded",
+        severity: "warning" as const,
+        message: "Восстановление разрывов пропущено из-за безопасного лимита сложности; исходные локальные стены сохранены без изменений.",
         candidateId: null,
       });
     }
