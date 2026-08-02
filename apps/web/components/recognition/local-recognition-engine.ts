@@ -1,7 +1,7 @@
 import cvModule from "@techstark/opencv-js";
 import {
+  analyzeWallCandidates,
   buildOpeningHypotheses,
-  buildWallCandidates,
   createAdaptiveLocalRecognitionOptions,
   LOCAL_RECOGNITION_ENGINE_VERSION,
   rescaleRecognitionPixelEvidence,
@@ -18,8 +18,26 @@ import { resolveOpenCvModule } from "./opencv-loader";
 
 const MIN_STRICT_WALLS = 3;
 
+export type LocalRecognitionWallStageDebug = Readonly<{
+  normalisedSegmentCount: number;
+  pairedCenterlineCount: number;
+  topologyEdgeCount: number;
+  topologyJunctionCount: number;
+  topologyDiagnostics: readonly string[];
+}>;
+
+export type LocalRecognitionEngineDebug = Readonly<{
+  rawSegmentCount: number;
+  strictUniqueSegmentCount: number;
+  uniqueSegmentCount: number;
+  strict: LocalRecognitionWallStageDebug;
+  adaptive: LocalRecognitionWallStageDebug | null;
+  selectedMode: "strict" | "adaptive";
+}>;
+
 export type LocalRecognitionEngineOptions = Readonly<{
   onProgress?: (progress: LocalRecognitionProgress) => void;
+  onDebug?: (debug: LocalRecognitionEngineDebug) => void;
   createDraftId?: () => string;
 }>;
 
@@ -112,6 +130,16 @@ function markAdaptiveCandidates(candidates: readonly RecognitionWallCandidate[])
       reasons: [...new Set([...candidate.evidence.reasons, "adaptive-thresholds"])],
     },
   }));
+}
+
+function wallStageDebug(analysis: ReturnType<typeof analyzeWallCandidates>): LocalRecognitionWallStageDebug {
+  return {
+    normalisedSegmentCount: analysis.normalisedSegmentCount,
+    pairedCenterlineCount: analysis.pairedCenterlineCount,
+    topologyEdgeCount: analysis.topology.edges.length,
+    topologyJunctionCount: analysis.topology.junctions.length,
+    topologyDiagnostics: analysis.topology.diagnostics.map((diagnostic) => diagnostic.code),
+  };
 }
 
 export async function runLocalRecognitionEngine(
@@ -211,25 +239,35 @@ export async function runLocalRecognitionEngine(
     const usedMultiPassEvidence = segments.length > strictUniqueCount;
 
     options.onProgress?.({ phase: "walls", progress: 0.72 });
-    const strictWalls = buildWallCandidates({
+    const strictAnalysis = analyzeWallCandidates({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       segments,
     });
+    const strictWalls = [...strictAnalysis.candidates];
+    let adaptiveAnalysis: ReturnType<typeof analyzeWallCandidates> | null = null;
     let usedAdaptiveFallback = false;
     let analysisWalls = strictWalls;
     if (strictWalls.length < MIN_STRICT_WALLS) {
-      const adaptiveWalls = buildWallCandidates({
+      adaptiveAnalysis = analyzeWallCandidates({
         widthPx: input.imageData.width,
         heightPx: input.imageData.height,
         segments,
         options: adaptiveOptions,
       });
-      if (adaptiveWalls.length > strictWalls.length) {
-        analysisWalls = markAdaptiveCandidates(adaptiveWalls);
+      if (adaptiveAnalysis.candidates.length > strictWalls.length) {
+        analysisWalls = markAdaptiveCandidates(adaptiveAnalysis.candidates);
         usedAdaptiveFallback = true;
       }
     }
+    options.onDebug?.({
+      rawSegmentCount: rawSegments.length,
+      strictUniqueSegmentCount: strictUniqueCount,
+      uniqueSegmentCount: segments.length,
+      strict: wallStageDebug(strictAnalysis),
+      adaptive: adaptiveAnalysis ? wallStageDebug(adaptiveAnalysis) : null,
+      selectedMode: usedAdaptiveFallback ? "adaptive" : "strict",
+    });
 
     options.onProgress?.({ phase: "openings", progress: 0.9 });
     const analysisOpenings = buildOpeningHypotheses({
