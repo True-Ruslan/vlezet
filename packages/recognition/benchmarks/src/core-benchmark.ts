@@ -1,13 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { buildOpeningHypotheses } from "../../src/openings";
+import { LOCAL_RECOGNITION_ENGINE_VERSION } from "../../src/engine-version";
 import {
   buildWallCandidates,
   createAdaptiveLocalRecognitionOptions,
-  LOCAL_RECOGNITION_ENGINE_VERSION,
   type DetectedLineSegment,
 } from "../../src/local-lines";
+import { buildOpeningHypotheses } from "../../src/openings";
 import type { RecognitionDraft } from "../../src/model";
 import { validateRecognitionBenchmarkBaselineV1 } from "../schema/baseline-v1";
 import { validateRecognitionBenchmarkResultV1, type RecognitionBenchmarkResultV1 } from "../schema/result-v1";
