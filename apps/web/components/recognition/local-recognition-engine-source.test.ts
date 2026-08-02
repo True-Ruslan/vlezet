@@ -45,11 +45,11 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain('code: "multi-pass-source-normalisation"');
   });
 
-  it("rejects opening hypotheses without a known wall host", () => {
-    expect(engineSource).toContain("const wallCandidateIds = new Set(analysisWalls.map((wall) => wall.id))");
-    expect(engineSource).toContain("opening.hostWallCandidateId !== null");
-    expect(engineSource).toContain("wallCandidateIds.has(opening.hostWallCandidateId)");
-    expect(engineSource).toContain('code: "unknown-host-openings-rejected"');
+  it("defers local opening candidates until M7.8C host-wall validation", () => {
+    expect(engineSource).toContain("const openingHypotheses = buildOpeningHypotheses({");
+    expect(engineSource).toContain("const analysisOpenings = []");
+    expect(engineSource).toContain('code: "opening-classification-deferred"');
+    expect(engineSource).not.toContain("unknown-host-openings-rejected");
   });
 
   it("deletes every temporary OpenCV matrix", () => {
