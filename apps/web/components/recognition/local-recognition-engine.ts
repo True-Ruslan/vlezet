@@ -215,8 +215,7 @@ export async function runLocalRecognitionEngine(
         houghMinimumLength,
         houghMaximumGap,
       );
-      for (let row = 0; row < lines.rows; row += 1) {
-        const offset = row * 4;
+      for (let offset = 0; offset + 3 < lines.data32S.length; offset += 4) {
         rawSegments.push({
           x1: lines.data32S[offset] ?? 0,
           y1: lines.data32S[offset + 1] ?? 0,
