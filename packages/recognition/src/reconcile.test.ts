@@ -68,6 +68,35 @@ describe("hybrid recognition reconciliation", () => {
     expect(result.diagnostics.filter((item) => item.code === "cloud-only-wall-deferred")).toHaveLength(2);
   });
 
+  it("defers cloud-only openings until host-wall classification is implemented", () => {
+    const cloud: RecognitionProviderResult = {
+      walls: [wall("cloud-match", 0.202, "cloud")],
+      openings: [{
+        id: "cloud-door",
+        kind: "door",
+        hostWallCandidateId: "cloud-match",
+        center: { x: 0.5, y: 0.2 },
+        widthPx: 72,
+        orientationDeg: 0,
+        confidence: "high",
+        evidence: { localScore: null, cloudScore: 0.95, reasons: ["cloud"] },
+        origin: "cloud",
+        conflict: null,
+      }],
+      roomLabels: [],
+    };
+
+    const result = reconcileRecognition({ localDraft: localDraft(), cloudResult: cloud, existingWalls: [], now });
+
+    expect(result.openings).toEqual([]);
+    expect(result.decisions).not.toHaveProperty("cloud-door");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "cloud-only-opening-deferred",
+      severity: "warning",
+      candidateId: "cloud-door",
+    }));
+  });
+
   it("flags candidates duplicating existing geometry", () => {
     const result = reconcileRecognition({ localDraft: localDraft(), cloudResult: { walls: [], openings: [], roomLabels: [] }, existingWalls: [{ start: { x: 0.1, y: 0.2 }, end: { x: 0.9, y: 0.2 } }], now });
     expect(result.walls[0]?.conflict).toBe("duplicate-existing");
