@@ -269,17 +269,13 @@ export async function runLocalRecognitionEngine(
     });
 
     options.onProgress?.({ phase: "openings", progress: 0.9 });
-    const wallCandidateIds = new Set(analysisWalls.map((wall) => wall.id));
     const openingHypotheses = buildOpeningHypotheses({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       wallCandidates: analysisWalls,
       segments,
     });
-    const analysisOpenings = openingHypotheses.filter((opening) =>
-      opening.hostWallCandidateId !== null
-      && wallCandidateIds.has(opening.hostWallCandidateId));
-    const rejectedUnknownHostOpeningCount = openingHypotheses.length - analysisOpenings.length;
+    const analysisOpenings = [];
     const { walls, openings } = rescaleRecognitionPixelEvidence({
       walls: analysisWalls,
       openings: analysisOpenings,
@@ -308,11 +304,11 @@ export async function runLocalRecognitionEngine(
         candidateId: null,
       });
     }
-    if (rejectedUnknownHostOpeningCount > 0) {
+    if (openingHypotheses.length > 0) {
       diagnostics.push({
-        code: "unknown-host-openings-rejected",
+        code: "opening-classification-deferred",
         severity: "info" as const,
-        message: `Отброшено проёмов без подтверждённой стены: ${rejectedUnknownHostOpeningCount}.`,
+        message: `Найдено гипотез проёмов: ${openingHypotheses.length}. Они не добавлены до проверки типа и несущей стены на следующем этапе.`,
         candidateId: null,
       });
     }
