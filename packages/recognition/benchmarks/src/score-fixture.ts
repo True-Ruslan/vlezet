@@ -116,6 +116,19 @@ export function scoreRecognitionFixture(input: RecognitionFixtureScoringInput): 
   if (reconciliation.duplicateCandidateIdCount > 0) diagnostics.push(`duplicate-candidate-ids:${reconciliation.duplicateCandidateIdCount}`);
   if (reconciliation.unknownDiagnosticReferenceCount > 0) diagnostics.push(`unknown-diagnostic-references:${reconciliation.unknownDiagnosticReferenceCount}`);
   if (reconciliation.malformedDecisionCount > 0) diagnostics.push(`malformed-decisions:${reconciliation.malformedDecisionCount}`);
+  for (const unknown of openingMatches?.unknownHostOpenings ?? []) {
+    const host = unknown.hostWallCandidateId === null
+      ? null
+      : input.wallPredictions.find((wall) => wall.id === unknown.hostWallCandidateId) ?? null;
+    diagnostics.push([
+      "unknown-host-opening",
+      unknown.openingId,
+      unknown.hostWallCandidateId ?? "null",
+      host ? `${host.start.x},${host.start.y}->${host.end.x},${host.end.y}` : "missing-host-candidate",
+      host?.confidence ?? "unknown-confidence",
+      host?.evidence.reasons.join("+") ?? "unknown-evidence",
+    ].join(":"));
+  }
 
   const evidence: RecognitionFixtureEvidenceV1 = {
     wallGeometry: input.fixture.metricApplicability.wallGeometry ? wallMatches.metrics : null,
