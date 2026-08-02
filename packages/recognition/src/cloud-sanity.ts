@@ -1,6 +1,7 @@
 import type {
   NormalizedPoint,
   RecognitionDiagnostic,
+  RecognitionOpeningCandidate,
   RecognitionProviderResult,
   RecognitionWallCandidate,
 } from "./index";
@@ -9,14 +10,18 @@ export type CloudRecognitionSanityInput = Readonly<{
   result: RecognitionProviderResult;
   localSummary: Readonly<{
     walls: readonly RecognitionWallCandidate[];
-    openings: readonly unknown[];
+    openings: readonly RecognitionOpeningCandidate[];
   }> | null;
 }>;
 
 type Bounds = Readonly<{ minX: number; minY: number; maxX: number; maxY: number }>;
 
 const MAX_REVIEWABLE_CLOUD_WALLS = 80;
+const MAX_REVIEWABLE_CLOUD_OPENINGS = 80;
 const MAX_UNSUPPORTED_CLOUD_WALL_LENGTH = 0.85;
+const LOCAL_OPENING_CENTER_TOLERANCE = 0.00015;
+const LOCAL_OPENING_WIDTH_TOLERANCE_PX = 0.5;
+const LOCAL_OPENING_ORIENTATION_TOLERANCE_DEG = 0.1;
 
 function wallLength(wall: RecognitionWallCandidate): number {
   return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
@@ -77,6 +82,50 @@ function isUnboundedUnsupportedWall(
 ): boolean {
   return wallLength(wall) >= MAX_UNSUPPORTED_CLOUD_WALL_LENGTH
     && !hasLocalSupport(wall, localWalls);
+}
+
+function close(first: number, second: number, tolerance: number): boolean {
+  return Math.abs(first - second) <= tolerance;
+}
+
+function normalizedAngleDelta(first: number, second: number): number {
+  return Math.abs((((first - second) % 360) + 540) % 360 - 180);
+}
+
+function openingGeometryMatches(
+  cloud: RecognitionOpeningCandidate,
+  local: RecognitionOpeningCandidate,
+): boolean {
+  const widthMatches = cloud.widthPx === null && local.widthPx === null
+    ? true
+    : cloud.widthPx !== null
+      && local.widthPx !== null
+      && close(cloud.widthPx, local.widthPx, LOCAL_OPENING_WIDTH_TOLERANCE_PX);
+  const orientationMatches = cloud.orientationDeg === null && local.orientationDeg === null
+    ? true
+    : cloud.orientationDeg !== null
+      && local.orientationDeg !== null
+      && normalizedAngleDelta(cloud.orientationDeg, local.orientationDeg) <= LOCAL_OPENING_ORIENTATION_TOLERANCE_DEG;
+  return (
+    close(cloud.center.x, local.center.x, LOCAL_OPENING_CENTER_TOLERANCE)
+    && close(cloud.center.y, local.center.y, LOCAL_OPENING_CENTER_TOLERANCE)
+    && widthMatches
+    && orientationMatches
+  );
+}
+
+function localAuthoritativeOpening(
+  cloud: RecognitionOpeningCandidate,
+  local: RecognitionOpeningCandidate,
+): RecognitionOpeningCandidate {
+  return {
+    ...cloud,
+    id: local.id,
+    hostWallCandidateId: local.hostWallCandidateId,
+    center: local.center,
+    widthPx: local.widthPx,
+    orientationDeg: local.orientationDeg,
+  };
 }
 
 export function sanitizeCloudRecognitionResult(input: CloudRecognitionSanityInput): RecognitionProviderResult {
@@ -156,18 +205,63 @@ export function sanitizeCloudRecognitionResult(input: CloudRecognitionSanityInpu
   }
 
   const survivingWallIds = new Set(walls.map((wall) => wall.id));
-  const openings = input.result.openings.filter((opening) => {
-    if (opening.hostWallCandidateId && (droppedWallIds.has(opening.hostWallCandidateId) || !survivingWallIds.has(opening.hostWallCandidateId))) {
-      diagnostics.push({
-        code: "cloud-invalid-opening-host",
-        severity: "warning",
-        message: "AI-проём ссылается на отброшенную или неизвестную стену и не будет показан.",
-        candidateId: opening.id,
-      });
-      return false;
+  const localOpenings = input.localSummary?.openings ?? [];
+  const localOpeningById = new Map(localOpenings.map((opening) => [opening.id, opening]));
+  const openings: RecognitionOpeningCandidate[] = [];
+
+  if (input.result.openings.length > MAX_REVIEWABLE_CLOUD_OPENINGS) {
+    diagnostics.push({
+      code: "cloud-opening-candidate-overload",
+      severity: "warning",
+      message: `AI создал ${input.result.openings.length} кандидатов проёмов. Результат по проёмам отклонён целиком как непроверяемый.`,
+      candidateId: null,
+    });
+  } else {
+    for (const opening of input.result.openings) {
+      const localOpening = localOpeningById.get(opening.id);
+      if (!localOpening) {
+        diagnostics.push({
+          code: "cloud-unknown-local-opening",
+          severity: "warning",
+          message: "AI вернул проём с неизвестным локальному Draft идентификатором; новая геометрия отброшена.",
+          candidateId: opening.id,
+        });
+        continue;
+      }
+      if (opening.hostWallCandidateId !== localOpening.hostWallCandidateId) {
+        diagnostics.push({
+          code: "cloud-local-opening-host-mismatch",
+          severity: "warning",
+          message: "AI попытался привязать локальный проём к другой стене; результат проверки отброшен.",
+          candidateId: opening.id,
+        });
+        continue;
+      }
+      if (!openingGeometryMatches(opening, localOpening)) {
+        diagnostics.push({
+          code: "cloud-local-opening-geometry-mismatch",
+          severity: "warning",
+          message: "AI изменил положение, ширину или направление локального проёма; результат проверки отброшен.",
+          candidateId: opening.id,
+        });
+        continue;
+      }
+      if (
+        !localOpening.hostWallCandidateId
+        || droppedWallIds.has(localOpening.hostWallCandidateId)
+        || !survivingWallIds.has(localOpening.hostWallCandidateId)
+      ) {
+        diagnostics.push({
+          code: "cloud-invalid-opening-host",
+          severity: "warning",
+          message: "AI-проём ссылается на отброшенную или неизвестную стену и не будет показан.",
+          candidateId: opening.id,
+        });
+        continue;
+      }
+      openings.push(localAuthoritativeOpening(opening, localOpening));
     }
-    return true;
-  });
+  }
 
   return {
     walls,
