@@ -84,10 +84,7 @@ function CalibrationStage({
   const [viewport, setViewport] = useState<CalibrationViewportLayout | null>(null);
 
   useEffect(() => {
-    if (!image) {
-      setViewport(null);
-      return;
-    }
+    if (!image) return;
     const stage = stageRef.current;
     const renderedImage = renderedImageRef.current;
     if (!stage || !renderedImage) return;
