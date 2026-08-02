@@ -22,6 +22,21 @@ function draft(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): Recogn
   };
 }
 
+function overloadedDraft(): RecognitionDraft {
+  const base = draft();
+  const walls = Array.from({ length: 81 }, (_, index) => ({
+    ...base.walls[0]!,
+    id: `w${index}`,
+    start: { x: 0.01, y: index / 100 },
+    end: { x: 0.99, y: index / 100 },
+  }));
+  return {
+    ...base,
+    walls,
+    decisions: Object.fromEntries(walls.map((wall) => [wall.id, "pending" as const])),
+  };
+}
+
 function session(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionSessionRecord {
   const value = draft(engineVersion);
   return { id: "session", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion, draft: value, cloudMetadata: null, createdAt: NOW, updatedAt: NOW };
@@ -41,6 +56,27 @@ describe("recognition controller", () => {
     expect(controller.state.kind).toBe("review");
     await controller.updateDecision("w1", "accepted");
     expect((await repository.getForProject("project"))?.draft.decisions.w1).toBe("accepted");
+  });
+
+  it("fails closed before persisting an unreviewable local candidate explosion", async () => {
+    const repository = new MemoryRecognitionSessionRepository();
+    const controller = new RecognitionController({
+      repository,
+      runLocal: async () => overloadedDraft(),
+      onState: vi.fn(),
+    });
+
+    await controller.startLocal({ imageData: fakeImageData(), projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", now: NOW });
+
+    const persisted = await repository.getForProject("project");
+    expect(controller.state.kind).toBe("review");
+    expect(persisted?.draft.walls).toEqual([]);
+    expect(persisted?.draft.openings).toEqual([]);
+    expect(persisted?.draft.decisions).toEqual({});
+    expect(persisted?.draft.diagnostics).toContainEqual(expect.objectContaining({
+      code: "local-wall-candidate-overload",
+      severity: "warning",
+    }));
   });
 
   it("persists endpoint edits only in the recognition draft", async () => {
