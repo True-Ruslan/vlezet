@@ -55,9 +55,41 @@ describe("cloud recognition sanity filter", () => {
     expect(sanitized.diagnostics?.filter((item) => item.code === "cloud-frame-artifact")).toHaveLength(4);
   });
 
-  it("does not aggressively filter cloud walls when local evidence is sparse", () => {
-    const result: RecognitionProviderResult = { walls: [wall("long", [0.05, 0.05], [0.95, 0.05])], openings: [], roomLabels: [] };
-    const sanitized = sanitizeCloudRecognitionResult({ result, localSummary: { walls: [wall("local", [0.4, 0.4], [0.6, 0.4], "local")], openings: [] } });
-    expect(sanitized.walls).toHaveLength(1);
+  it("drops an almost full-frame unsupported wall when local evidence is sparse", () => {
+    const result: RecognitionProviderResult = {
+      walls: [
+        wall("full-frame", [0.02, 0.14], [0.98, 0.14]),
+        wall("moderate", [0.2, 0.4], [0.72, 0.4]),
+      ],
+      openings: [],
+      roomLabels: [],
+    };
+
+    const sanitized = sanitizeCloudRecognitionResult({
+      result,
+      localSummary: { walls: [wall("local", [0.4, 0.4], [0.6, 0.4], "local")], openings: [] },
+    });
+
+    expect(sanitized.walls.map((item) => item.id)).toEqual(["moderate"]);
+    expect(sanitized.diagnostics).toContainEqual(expect.objectContaining({
+      code: "cloud-unbounded-wall",
+      candidateId: "full-frame",
+    }));
+  });
+
+  it("fails closed on an unreviewable cloud wall explosion", () => {
+    const result: RecognitionProviderResult = {
+      walls: Array.from({ length: 81 }, (_, index) => wall(`cloud-${index}`, [0.1, index / 100], [0.6, index / 100])),
+      openings: [],
+      roomLabels: [],
+    };
+
+    const sanitized = sanitizeCloudRecognitionResult({ result, localSummary: null });
+
+    expect(sanitized.walls).toEqual([]);
+    expect(sanitized.diagnostics).toContainEqual(expect.objectContaining({
+      code: "cloud-wall-candidate-overload",
+      severity: "warning",
+    }));
   });
 });
