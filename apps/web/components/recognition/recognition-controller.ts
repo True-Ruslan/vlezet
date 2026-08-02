@@ -89,7 +89,19 @@ export class RecognitionController {
       this.#setState({ kind: "stale", session });
       return;
     }
-    this.#setState({ kind: "review", session });
+    const reviewableDraft = enforceReviewableLocalDraft(validateRecognitionDraft(session.draft));
+    if (reviewableDraft === session.draft) {
+      this.#setState({ kind: "review", session });
+      return;
+    }
+    const reviewableSession = {
+      ...session,
+      draft: reviewableDraft,
+      cloudMetadata: null,
+      updatedAt: reviewableDraft.updatedAt,
+    };
+    await this.#repository.put(reviewableSession);
+    this.#setState({ kind: "review", session: reviewableSession });
   }
 
   async startLocal(input: LocalRecognitionInput): Promise<void> {
