@@ -43,37 +43,60 @@ function mergeWall(local: RecognitionWallCandidate, cloud: RecognitionWallCandid
   };
 }
 
+function mergeOpening(
+  local: RecognitionOpeningCandidate,
+  cloud: RecognitionOpeningCandidate,
+): RecognitionOpeningCandidate {
+  return {
+    ...local,
+    kind: cloud.kind,
+    confidence: cloud.kind === "unknown-opening" ? "low" : "medium",
+    origin: "merged",
+    conflict: null,
+    evidence: {
+      localScore: local.evidence.localScore,
+      cloudScore: cloud.evidence.cloudScore,
+      reasons: [...new Set([
+        ...local.evidence.reasons,
+        ...cloud.evidence.reasons,
+        "local-cloud-opening-agreement",
+      ])],
+    },
+  };
+}
+
 function reconcileOpenings(
   local: readonly RecognitionOpeningCandidate[],
   cloud: readonly RecognitionOpeningCandidate[],
   diagnostics: RecognitionDiagnostic[],
 ): RecognitionOpeningCandidate[] {
   const result = [...local];
+  const localIndexById = new Map(result.map((candidate, index) => [candidate.id, index]));
+
   for (const candidate of cloud) {
-    const matchIndex = result.findIndex((existing) => distance(existing.center, candidate.center) <= WALL_MATCH_TOLERANCE);
-    if (matchIndex < 0) {
+    const matchIndex = localIndexById.get(candidate.id);
+    if (matchIndex === undefined) {
       diagnostics.push({
         code: "cloud-only-opening-deferred",
         severity: "warning",
-        message: "AI предложил новый проём без локального подтверждения. Добавление новых дверей и окон отложено до проверки несущей стены.",
+        message: "AI предложил новый проём без локального подтверждения. В этом этапе AI может только проверять существующие локальные гипотезы.",
         candidateId: candidate.id,
       });
       continue;
     }
+
     const existing = result[matchIndex]!;
-    result[matchIndex] = existing.kind === candidate.kind
-      ? {
-          ...existing,
-          origin: "merged",
-          confidence: "high",
-          widthPx: existing.widthPx ?? candidate.widthPx,
-          evidence: {
-            localScore: existing.evidence.localScore,
-            cloudScore: candidate.evidence.cloudScore,
-            reasons: [...new Set([...existing.evidence.reasons, ...candidate.evidence.reasons, "local-cloud-agreement"])],
-          },
-        }
-      : { ...existing, conflict: "classification-conflict", confidence: "low" };
+    if (candidate.hostWallCandidateId !== existing.hostWallCandidateId) {
+      diagnostics.push({
+        code: "cloud-opening-host-mismatch",
+        severity: "warning",
+        message: "AI изменил стену-хозяина локального проёма. Результат проверки отброшен.",
+        candidateId: candidate.id,
+      });
+      continue;
+    }
+
+    result[matchIndex] = mergeOpening(existing, candidate);
   }
   return result;
 }
