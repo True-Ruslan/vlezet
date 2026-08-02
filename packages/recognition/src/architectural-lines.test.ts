@@ -65,6 +65,35 @@ describe("architectural line normalisation", () => {
     ]);
   });
 
+  it("suppresses diagonal symbol noise when a strong orthogonal plan grid exists", () => {
+    const result = run([
+      { x1: 100, y1: 100, x2: 900, y2: 100 },
+      { x1: 100, y1: 200, x2: 900, y2: 200 },
+      { x1: 100, y1: 300, x2: 900, y2: 300 },
+      { x1: 100, y1: 400, x2: 900, y2: 400 },
+      { x1: 100, y1: 100, x2: 100, y2: 700 },
+      { x1: 300, y1: 100, x2: 300, y2: 700 },
+      { x1: 500, y1: 100, x2: 500, y2: 700 },
+      { x1: 700, y1: 100, x2: 700, y2: 700 },
+      { x1: 200, y1: 600, x2: 400, y2: 450 },
+      { x1: 500, y1: 600, x2: 650, y2: 450 },
+    ]);
+
+    expect(result).toHaveLength(8);
+    expect(result.every((segment) => segment.orientation !== "diagonal")).toBe(true);
+  });
+
+  it("retains diagonals when the source lacks a complete orthogonal grid", () => {
+    const result = run([
+      { x1: 100, y1: 700, x2: 600, y2: 400 },
+      { x1: 200, y1: 650, x2: 700, y2: 350 },
+      { x1: 100, y1: 100, x2: 900, y2: 100 },
+      { x1: 200, y1: 50, x2: 200, y2: 700 },
+    ]);
+
+    expect(result.filter((segment) => segment.orientation === "diagonal")).toHaveLength(2);
+  });
+
   it("is stable under permutation and direction reversal", () => {
     const forward: DetectedLineSegment[] = [
       { x1: 100, y1: 200, x2: 900, y2: 200 },
