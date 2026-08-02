@@ -4,7 +4,7 @@
 **Date:** 2026-08-02  
 **PR:** #40  
 **Feature branch:** `feat/m7-8a-recognition-benchmark-foundation`  
-**Final product head:** `e338dcc97322eb16d9fb631fbcc1f3b141cf0ef5`  
+**Final product head:** `15d0066eab770e632382459e1795993d5c3213cb`  
 **Base:** `039ddba143cd03ddec0b090606dfdde752446014`
 
 ## Delivered scope
@@ -21,8 +21,10 @@ M7.8A establishes the deterministic measurement authority required before any M7
 - Source Benchmark through the real Chromium/OpenCV path;
 - shared browser recognition engine used by both the production Worker and benchmark harness;
 - benchmark-only guarded route absent from normal navigation;
-- baseline comparison that rejects regressions and applicability drift;
-- one self-contained evidence directory with Core result, Source result, aggregate summary and portable `SHA256SUMS` verification;
+- baseline comparison that rejects schema, corpus, engine-version and metric-applicability drift;
+- documented numerical non-regression allowances for deterministic continuous metrics and zero allowance for defect counts;
+- eight deterministic SVG overlays containing the source plan, expected and predicted geometry, and colour-independent TP/FP/FN evidence;
+- one self-contained evidence directory with Core result, Source result, aggregate summary, eight overlays and portable `SHA256SUMS` verification;
 - dedicated merge-blocking Recognition Benchmark workflow without live provider calls.
 
 M7.8A intentionally does not tune Canny, Hough, adaptive thresholds, wall reconstruction, opening classification, room derivation or OpenRouter prompts.
@@ -61,6 +63,8 @@ Fixtures:
 
 The original privately supplied regression plan was not committed. The regression fixture is a newly rendered redrawn analogue with changed geometry, labels and raster data. Fixture validation rejects undeclared assets, invalid provenance, metadata-bearing rasters, oversized files and source-hash mismatches.
 
+Each Source Benchmark fixture has a deterministic SVG evidence overlay. Expected walls use solid or dashed square-oriented evidence, predictions use dotted/dash-dot circular evidence, and explicit `FN`/`FP` labels preserve meaning without relying on colour.
+
 ## Baseline metrics
 
 The committed baseline deliberately records the current quality gap. It is below the final M7.8 product thresholds and must not be interpreted as recognition-quality completion.
@@ -95,17 +99,27 @@ GREEN: 8788c4db4b68000f4ac53412c9886d1b63f8bb1f — Recognition Benchmark #25 PA
 Portable evidence checksums
 RED:   8578fdfdeec2c574ea23f5f1c21ede352c0279e2 — CI #2554 FAIL on stale acceptance assertion
 GREEN: e338dcc97322eb16d9fb631fbcc1f3b141cf0ef5 — CI #2556 PASS
+
+Real overlays and regression allowances
+RED:   2472d54b72c5c4f5e445faabf83c8277781d05df — CI #2564 FAIL
+GREEN: 15d0066eab770e632382459e1795993d5c3213cb — CI #2578 / Recognition Benchmark #40 PASS
 ```
+
+The final RED slice proved three review findings before correction:
+
+- no real overlay renderer existed;
+- documented continuous-metric allowances were not implemented;
+- recognition-engine version drift did not require explicit baseline migration.
 
 ## Final product-head verification
 
 ```text
-head:                  e338dcc97322eb16d9fb631fbcc1f3b141cf0ef5
-standard CI:           30742272547 / #2556 — PASS
-recognition benchmark: 30742272559 / #29 — PASS
-M7 browser audit:      30742272562 / #482 — PASS
-artifact:              8831686500
-artifact digest:       sha256:df966c4dd02b7c8bec2a295ee45a44512dc9aa4065fc153fa75353e67ee2af1c
+head:                  15d0066eab770e632382459e1795993d5c3213cb
+standard CI:           30742709585 / #2578 — PASS
+recognition benchmark: 30742709587 / #40 — PASS
+M7 browser audit:      30742709579 / #493 — PASS
+artifact:              8831835746
+artifact digest:       sha256:a3ebe3bffedcb0a05446032b2cdadf781755ade4fe8b003aa69e6e63150a42f7
 ```
 
 The exact product head passed:
@@ -118,12 +132,14 @@ The exact product head passed:
 - production build;
 - fixture privacy/integrity validation;
 - Chromium Source Benchmark for all eight fixtures;
+- production Worker/shared-engine semantic equality;
 - Source scoring and aggregate report generation;
-- portable `sha256sum -c SHA256SUMS` verification;
+- generation of eight source-plan SVG overlays with TP/FP/FN semantics;
+- autonomous evidence-bundle verification through `sha256sum -c SHA256SUMS` for all reports and overlays;
 - Chromium full M7 browser regression;
 - WebKit core smoke.
 
-The benchmark workflow used no OpenRouter key and made no live AI/provider call.
+The benchmark workflow used no OpenRouter key and made no live AI/provider call. Manual artifact inspection confirmed that the overlays contain the actual synthetic/redrawn source plans and geometric evidence rather than screenshots of the benchmark harness.
 
 ## Product-owner acceptance gate
 
