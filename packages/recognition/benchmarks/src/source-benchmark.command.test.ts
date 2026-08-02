@@ -8,6 +8,7 @@ import { aggregateRecognitionResults } from "./aggregate-report";
 import { canonicalBenchmarkJson } from "./canonical-json";
 import { loadRecognitionBenchmarkCorpus } from "./load-corpus";
 import { scoreRecognitionFixture } from "./score-fixture";
+import { renderRecognitionSourceOverlaySvg } from "./source-overlay-svg";
 import { renderRecognitionBenchmarkMarkdown } from "./write-report";
 
 const commandEnabled = process.env.RECOGNITION_SOURCE_BENCHMARK_COMMAND === "1";
@@ -24,6 +25,7 @@ describe.skipIf(!commandEnabled)("Source Recognition Benchmark command", () => {
 
     const corpus = await loadRecognitionBenchmarkCorpus(corpusRoot);
     const fixtures = [];
+    await mkdir(outputDirectory, { recursive: true });
     for (const entry of corpus) {
       try {
         const draft = validateRecognitionDraft(JSON.parse(await readFile(join(predictionsDirectory, `${entry.fixture.id}.json`), "utf8")) as unknown);
@@ -35,6 +37,12 @@ describe.skipIf(!commandEnabled)("Source Recognition Benchmark command", () => {
           reconciliationSnapshot: draft,
           failure: null,
         }));
+        const sourceBase64 = (await readFile(entry.sourcePath)).toString("base64");
+        await writeFile(
+          join(outputDirectory, `${entry.fixture.id}.svg`),
+          renderRecognitionSourceOverlaySvg({ fixture: entry.fixture, draft, sourceBase64 }),
+          "utf8",
+        );
       } catch (cause) {
         fixtures.push(scoreRecognitionFixture({
           fixture: entry.fixture,
@@ -59,7 +67,9 @@ describe.skipIf(!commandEnabled)("Source Recognition Benchmark command", () => {
     });
     expect(result.fixtures).toHaveLength(8);
     expect(result.aggregate.failedFixtureCount).toBe(0);
-    await mkdir(outputDirectory, { recursive: true });
+    for (const entry of corpus) {
+      expect((await readFile(join(outputDirectory, `${entry.fixture.id}.svg`), "utf8"))).toContain("data-layer=\"expected-walls\"");
+    }
     await writeFile(join(outputDirectory, "recognition-source-result.json"), `${JSON.stringify(result, null, 2)}\n`, "utf8");
     await writeFile(join(outputDirectory, "recognition-source-canonical.json"), canonicalBenchmarkJson(result), "utf8");
     await writeFile(join(outputDirectory, "recognition-source-report.md"), renderRecognitionBenchmarkMarkdown(result), "utf8");
