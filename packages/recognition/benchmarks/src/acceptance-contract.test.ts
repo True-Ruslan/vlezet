@@ -9,11 +9,13 @@ const baselinePath = join(repositoryRoot, "packages/recognition/benchmarks/basel
 const workflowPath = join(repositoryRoot, ".github/workflows/recognition-benchmark.yml");
 const packagePath = join(repositoryRoot, "package.json");
 
-describe("M7.8A automated acceptance contract", () => {
-  it("commits an explicit current-product baseline", () => {
+describe("M7.8 recognition benchmark acceptance contract", () => {
+  it("commits an explicit current-product baseline derived from accepted M7.8A", () => {
     expect(existsSync(baselinePath)).toBe(true);
     const baseline = validateRecognitionBenchmarkBaselineV1(JSON.parse(readFileSync(baselinePath, "utf8")) as unknown);
-    expect(baseline.productBaseSha).toBe("039ddba143cd03ddec0b090606dfdde752446014");
+    expect(baseline.productBaseSha).toBe("d6e8668c5ad0780a0a28d9c1fef6e9d37e9bbe4d");
+    expect(baseline.harnessSourceSha).toBe("5e73e9af193ea004a440c209d538aecebb5be54b");
+    expect(baseline.result.recognitionEngineVersion).toBe("4");
     expect(baseline.result.fixtures).toHaveLength(8);
   });
 
