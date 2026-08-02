@@ -12,6 +12,7 @@ import "./m7-onboarding-status.css";
 import "./m7-geometry-inspector.css";
 import "./m7-furniture-fit.css";
 import "./design-system-migrations.css";
+import "./reference-calibration.css";
 import "./planning-exact-gap.css";
 
 export const metadata: Metadata = {
