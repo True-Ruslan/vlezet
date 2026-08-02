@@ -1,8 +1,8 @@
 import cvModule from "@techstark/opencv-js";
 import {
+  analyzeOpeningHypotheses,
   analyzeWallCandidates,
   buildLocalWallTopology,
-  buildOpeningHypotheses,
   completeWallCenterlines,
   createAdaptiveLocalRecognitionOptions,
   DEFAULT_WALL_COMPLETION_OPTIONS,
@@ -396,13 +396,13 @@ export async function runLocalRecognitionEngine(
     });
 
     options.onProgress?.({ phase: "openings", progress: 0.9 });
-    const openingHypotheses = buildOpeningHypotheses({
+    const openingAnalysis = analyzeOpeningHypotheses({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       wallCandidates: analysisWalls,
       segments,
     });
-    const analysisOpenings: ReturnType<typeof buildOpeningHypotheses> = [];
+    const analysisOpenings = [...openingAnalysis.candidates];
     const { walls, openings } = rescaleRecognitionPixelEvidence({
       walls: analysisWalls,
       openings: analysisOpenings,
@@ -461,11 +461,19 @@ export async function runLocalRecognitionEngine(
         candidateId: null,
       });
     }
-    if (openingHypotheses.length > 0) {
+    if (openingAnalysis.candidates.length > 0) {
       diagnostics.push({
-        code: "opening-classification-deferred",
+        code: "opening-host-validation",
         severity: "info" as const,
-        message: `Найдено гипотез проёмов: ${openingHypotheses.length}. Они не добавлены до проверки типа и несущей стены на следующем этапе.`,
+        message: `К известным стенам безопасно привязано проёмов: ${openingAnalysis.candidates.length}.`,
+        candidateId: null,
+      });
+    }
+    for (const rejected of openingAnalysis.rejections) {
+      diagnostics.push({
+        code: "opening-hypothesis-rejected",
+        severity: "warning" as const,
+        message: rejected.message,
         candidateId: null,
       });
     }
