@@ -52,6 +52,8 @@ jobs:
         run: npm --prefix tools/recognition-benchmark run verify:fixtures
 
       - name: Run Core Recognition Benchmark
+        id: core_benchmark
+        continue-on-error: true
         env:
           RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: pnpm benchmark:recognition:core
@@ -111,3 +113,9 @@ jobs:
           if [ -f /tmp/vlezet-recognition-benchmark.pid ]; then
             kill "$(cat /tmp/vlezet-recognition-benchmark.pid)" || true
           fi
+
+      - name: Enforce Core Recognition Benchmark gate
+        if: always() && steps.core_benchmark.outcome == 'failure'
+        run: |
+          echo "Core Recognition Benchmark failed. Evidence was preserved for explicit baseline review."
+          exit 1
