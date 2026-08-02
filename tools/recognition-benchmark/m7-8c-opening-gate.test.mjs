@@ -5,11 +5,13 @@ import { verifyM78COpeningGate } from "./m7-8c-opening-gate.mjs";
 function result(overrides = {}) {
   return {
     aggregate: {
-      openingF1: { status: "measured", value: 0.9 },
-      unknownHostOpenings: { status: "measured", value: 0 },
-      staleDecisions: { status: "measured", value: 0 },
-      incorrectHighConfidenceRate: { status: "measured", value: 0 },
-      ...overrides,
+      metrics: {
+        openingF1: { status: "measured", value: 0.9 },
+        unknownHostOpenings: { status: "measured", value: 0 },
+        staleDecisions: { status: "measured", value: 0 },
+        incorrectHighConfidenceRate: { status: "measured", value: 0 },
+        ...overrides,
+      },
     },
   };
 }
