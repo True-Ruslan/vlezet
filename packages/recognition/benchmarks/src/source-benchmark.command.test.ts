@@ -65,7 +65,7 @@ describe.skipIf(!commandEnabled)("Source Recognition Benchmark command", () => {
       aggregate: aggregateRecognitionResults(fixtures),
       baselineComparison: null,
     });
-    expect(result.fixtures).toHaveLength(8);
+    expect(result.fixtures).toHaveLength(9);
     expect(result.aggregate.failedFixtureCount).toBe(0);
     for (const entry of corpus) {
       expect((await readFile(join(outputDirectory, `${entry.fixture.id}.svg`), "utf8"))).toContain("data-layer=\"expected-walls\"");
