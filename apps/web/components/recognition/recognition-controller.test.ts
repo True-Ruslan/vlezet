@@ -79,6 +79,27 @@ describe("recognition controller", () => {
     }));
   });
 
+  it("sanitizes an already persisted overloaded session during restore", async () => {
+    const repository = new MemoryRecognitionSessionRepository();
+    const overloaded = overloadedDraft();
+    await repository.put({
+      ...session(),
+      draft: overloaded,
+      engineVersion: overloaded.engineVersion,
+    });
+    const controller = new RecognitionController({ repository, runLocal: vi.fn(), onState: vi.fn() });
+
+    await controller.restore("project", { assetId: "asset", referenceRevision: "revision" });
+
+    const persisted = await repository.getForProject("project");
+    expect(controller.state.kind).toBe("review");
+    expect(persisted?.draft.walls).toEqual([]);
+    expect(persisted?.draft.decisions).toEqual({});
+    expect(persisted?.draft.diagnostics).toContainEqual(expect.objectContaining({
+      code: "local-wall-candidate-overload",
+    }));
+  });
+
   it("persists endpoint edits only in the recognition draft", async () => {
     const repository = new MemoryRecognitionSessionRepository();
     await repository.put(session());
