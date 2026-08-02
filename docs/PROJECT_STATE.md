@@ -1,23 +1,8 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-01  
-**Status:** M0–M7.7 are merged and accepted in `main`. M7.7 Furniture and Fit Workflow was squash-merged through PR #35 as `4514950b35922e7a757c523baafd4c1287dfe2a6`. The only selected next implementation slice is M7.8 Reference and Recognition Workflow.  
+**Last updated:** 2026-08-03  
+**Status:** M0–M7.8B are implemented and product-accepted. M7.8A established the versioned recognition benchmark. M7.8B delivered region-first source normalisation, bounded wall topology and verification-only AI. PR #41 is in final exact-head verification before squash merge. The selected next implementation slice is M7.8C — opening classification and host-wall validation.  
 **Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
-
-## Repository visibility update — 2026-08-01
-
-The public README exposes the canonical author and engineering-portfolio origin `https://trueruslan.ru/`.
-
-```text
-feature PR:          #36
-accepted head:       5ac744cb2966e933375b217c0e250042355921ca
-CI:                  30714871143 / #2318 — PASS
-squash merge:        accbf57a9ef810217f7066d0e9a862b7e5a406a1
-changed file:        README.md only
-canonical sync:      1aa82a39b9f45e401c63e487f35b17a740200f59
-```
-
-This is repository-discovery maintenance only. It changes no product capability, architecture, persistence, geometry, recognition, planning, 3D or browser-acceptance claim. **M7.8 Reference and Recognition Workflow remains the only selected next implementation slice.**
 
 ## 1. Product
 
@@ -82,37 +67,16 @@ packages/planning        deterministic planning + reviewed intent
 
 ## 4. Accepted milestones
 
-| Milestone | Result | Merge |
-|---|---|---|
-| M0 | foundation, mm Canvas, walls, snapping, history | `099a202413459674d2b50c33d2c1fa125a0fef6f` |
-| M1 | topology, rooms/areas, openings, diagnostics | `3944c7f9d668a645e1dc05805f476d2f3290eb94` |
-| M2 | furniture and fit authority | `aa34f24572f2e67714604634587a1c41e4067cd8` |
-| M3 | local projects, autosave, backup/import/export | `6c32249acc8e333e62fceee2ea4e76ca83890c77` |
-| M4 | reference plan import and calibration | `12e9696e11572ad5ec055f3dfad98ad7826184e2` |
-| M4.5 | assisted editable recognition MVP | `b63bdd613db4e13c07d2a961981799bd360f256d` |
-| M4.6 | clear dimensions, area trust, annotations, tape | `a718bf605d8b3bde8dc87953c340b7b0e9565fdb` |
-| M5.1 | deterministic read-only 3D shell/viewer | `4acca82b04c87b3737eb87a03f9ee2ff360b5073` |
-| M5.2 | furniture in 3D | `7f7e8dfd9c875145bfa3d307638cd8cd27051a3a` |
-| M5.4 | semantic spatial inspection | `0bffe36d74d2ff0865d700b51b17ee08e7001094` |
-| M6.1 | bounded deterministic alternatives | `f2bbf1c4989ef4582ee86aba19c75a71679034be` |
-| M6.2 | lock/boundary/pair constraints | `db68d697540ddb9901fbddad0763d769e7d16851` |
-| M6.3 | exact contour gap and evidence | `724058fe57d769e7c1329f3536d6869405e6ac42` |
-| M6.4 | reviewed natural-language intent | `02f8b041341c86f0796011b0d2fd42cac56a4e02` |
-| M7.0 | product/UI/UX audit and browser evidence | `0d5b9c1555ef85a0e271a52832cc3fd3cca4963e` |
-| M7.1 | editor shell and responsive context | `6b6f8751b520722a54bb94a6947dae1135e07859` |
-| M7.2 | context inspector and workflow return | `66606356d69f96953f8afae7b914222a3f793777` |
-| M7.3 | design system and content components | `509dfc02e17c87a58da8356894564a8f27bc5a9b` |
-| M7.4 | Canvas selection and mode feedback | `399e1b439d478fb8b01cd39795213b42beece84f` |
-| M7.5 | onboarding, durable status and recovery | `62413d91ebc5cef335b772e46ebbc1dae18b1acc` |
-| M7.6 | geometry and opening inspector | `315828052edb483c34a68464acb70458bf4ff80d` |
-| M7.7 | furniture and fit workflow | `4514950b35922e7a757c523baafd4c1287dfe2a6` |
+| Milestone | Result |
+|---|---|
+| M0–M4.6 | trusted 2D shell, projects, reference import, editable recognition MVP and precision geometry UX |
+| M5.1–M5.4 | deterministic read-only 3D shell, furniture and spatial inspection |
+| M6.1–M6.4 | deterministic planning, exact constraints and reviewed language intent |
+| M7.0–M7.7 | editor shell, context inspector, design system, feedback, recovery, geometry and furniture workflows |
+| M7.8A | recognition benchmark foundation, deterministic corpus/scorer/evidence |
+| M7.8B | region-first source normalisation, wall topology, bounded Draft and verification-only AI |
 
-Accepted geometry regression:
-
-```text
-clear room: 3550 × 3300 mm
-area:       11.72 m²
-```
+Canonical merge SHAs through M7.7 remain recorded in repository history and milestone acceptance records.
 
 ## 5. Current capability
 
@@ -128,9 +92,14 @@ area:       11.72 m²
 ### Reference and recognition
 
 - local JPG/PNG/PDF calibration and tracing;
-- editable local and OpenRouter-assisted recognition candidates;
-- strict structured response handling and response healing;
-- stale candidate decisions discarded during repeated cloud checks;
+- corrected calibration magnifier and direction-independent orientation;
+- versioned nine-fixture recognition benchmark and evidence bundle;
+- region-first extraction of thick architectural wall regions;
+- bounded Canny/Hough fallback;
+- fail-closed candidate-overload protection;
+- editable local Draft candidates;
+- verification-only OpenRouter review bound to exact local IDs and coordinates;
+- rejection of cloud-only, moved, unbounded or overloaded geometry;
 - explicit Apply; AI output remains non-authoritative.
 
 ### 3D and planning
@@ -141,99 +110,72 @@ area:       11.72 m²
 - reviewed natural-language intent;
 - explicit Preview and revalidated atomic Apply.
 
-### UX foundation through M7.7
-
-- separate project/tool command layers and reachable Undo/Redo;
-- docked and compact side surfaces with preserved local state;
-- unified context anatomy and explicit workflow return;
-- semantic design tokens, shared controls and Russian unit formatting;
-- authoritative Canvas mode, next-action status and one-level `Escape` priority;
-- state-derived first-project guidance and durable runtime-only operation evidence;
-- explicit room dimensions, wall-axis/thickness separation and accessible opening controls;
-- searchable Russian-aware furniture catalogue with runtime-only filters;
-- M2-derived placement fit labels and prioritised fit diagnostics;
-- selected-object hierarchy for identity, dimensions, rotation, zones and exact position;
-- exact-angle local-side explanation including diagonal directions;
-- distinct Canvas meanings for dimensions, recommended zones and actual free distances;
-- one-step semantic Undo for accepted furniture edits;
-- no document-level horizontal overflow in the required browser matrix.
-
-## 6. M7.7 accepted evidence
-
-```text
-PR:                  #35
-final accepted head: 65c5fca7cbf75620e1411a7463811848009257a8
-standard CI:         30715144250 / #2324 — PASS
-browser CI:          30715144281 / #376 — PASS
-artifact:            8823120889
-digest:              sha256:a1e5e799679f5f4ea2aa9f52fe13576bfb3375f2c003874e94e6dc27d63a2656
-merge:               4514950b35922e7a757c523baafd4c1287dfe2a6
-```
+## 6. M7.8B accepted evidence
 
 Product-owner acceptance:
 
-> Все проверки прошли, все круто.
+> Все работает. Вот результат проверок. Все еще не идеально как видишь.
+
+Representative real-plan result:
+
+```text
+local wall candidates: 27
+confirmed after AI:     19
+remaining for review:   8
+openings:               0 (deferred)
+```
+
+Exact accepted product head before documentation sync:
+
+```text
+head:                    d510621958004211f82545c1479c18a42262f510
+Standard CI:             30764243357 / #2826 — PASS
+Recognition Benchmark:  30764243366 / #161 — PASS
+M7 Browser Audit:        30764243359 / #614 — PASS
+Source geometry F1:      0.837989
+Source topology F1:      0.837989
+```
 
 Canonical records:
 
-- `docs/milestones/m7-7-acceptance.md`;
-- `docs/changelog/2026-08-01-m7-7.md`.
+- `docs/milestones/m7-8b-acceptance.md`;
+- `docs/changelog/2026-08-02-m7-8b.md`.
 
 ## 7. Known limitations
 
-- Recognition quality varies and lacks an accepted versioned benchmark baseline.
-- Valid AI responses can still reconstruct wall topology, openings, rooms and areas incorrectly.
+- Recognition remains assistive and can miss or fragment true walls.
+- Confidence classification is not yet perfect.
+- Aggregate Source wall-topology F1 remains below the final M7.8 target of `0.90`.
+- Perspective-photo recognition remains unresolved.
+- Doors/windows, room faces, OCR labels and areas are not yet delivered by the M7.8 programme.
+- Stronger provider models improve verification but cannot create missing geometry.
 - Clear dimension editing remains limited to simple rectangular rooms.
 - Planning remains one rectangular room / 1–3 objects and lacks whole-apartment autonomy.
-- 3D is schematic, read-only and may initially hide interiors.
-- Spatial keyboard/focus coverage remains incomplete.
-- WebKit automation is an engine-level proxy, not a manual native-Safari claim.
+- 3D remains schematic and read-only.
 
-## 8. NOW — M7.8 Reference and Recognition Workflow
-
-Owned findings and issue:
-
-- `UX-REF-001`;
-- `UX-REC-001`;
-- `UX-REC-003`;
-- remaining `UX-REC-004`;
-- issue #27.
+## 8. NOW — M7.8C Opening Classification and Host-Wall Validation
 
 Goal:
 
-> Unify source-plan setup and recognition review, then measurably improve wall topology, openings, rooms and area accuracy with a versioned benchmark corpus while preserving editable Draft and explicit Apply authority.
+> Classify door/window hypotheses, bind every accepted opening to a known host wall, preserve real gaps and improve room-facing structural correctness without weakening Draft, Apply or deterministic authority.
 
-Required delivery order:
+Required next work:
 
-1. versioned anonymised benchmark corpus and scoring harness;
-2. source normalisation and architectural-line filtering;
-3. wall topology graph;
-4. door/window classification and host-wall validation;
-5. room-face derivation;
-6. OCR/room-label and area constraints;
-7. hybrid reconciliation and confidence calibration;
-8. room-oriented review UX;
-9. exact-head benchmark report plus Chromium/WebKit and product-owner acceptance.
-
-Initial measurable targets:
-
-- exact spatial-zone count on at least 90% of benchmark plans;
-- median total-area error no greater than 5%;
-- median room-area error no greater than 10% and no greater than 0.5 m² where practical;
-- wall topology F1 at least 0.90;
-- door/window detection F1 at least 0.85;
-- incorrect high-confidence candidates at most 2%;
-- zero unknown-host openings after post-processing;
-- zero stale decisions referencing removed candidates.
+1. classify local opening hypotheses as door/window/unknown;
+2. validate host-wall identity and bounded placement;
+3. keep ambiguous openings pending or rejected fail-closed;
+4. add opening-heavy and service-block regressions;
+5. preserve zero unknown-host openings and zero stale decisions;
+6. prepare room-face derivation for the following M7.8 slice;
+7. run exact-head Core/Source benchmark, Chromium/WebKit and product-owner acceptance.
 
 Non-goals:
 
-- making AI output authoritative;
-- silently replacing existing geometry;
-- weakening deterministic validation or explicit Apply;
-- unrelated accessibility work owned by M7.9;
-- 3D, planning, dashboard or visual-consolidation work.
+- authoritative AI geometry;
+- silent replacement of existing geometry;
+- room OCR/area reconciliation before host-wall correctness;
+- unrelated M7.9+ accessibility, 3D, planning or dashboard work.
 
 ## 9. Delivery workflow
 
-Every M7.x slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, Chromium/WebKit evidence, product-owner acceptance, exact-head squash merge and canonical documentation sync.
+Every M7.x slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, benchmark evidence where applicable, browser evidence, product-owner acceptance, exact-head squash merge and canonical documentation sync.
