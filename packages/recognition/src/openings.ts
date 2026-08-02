@@ -5,7 +5,9 @@ export type BuildOpeningHypothesesInput = Readonly<{
   widthPx: number;
   heightPx: number;
   wallCandidates: readonly RecognitionWallCandidate[];
-  segments: readonly DetectedLineSegment[];
+  segments?: readonly DetectedLineSegment[];
+  wallSegments?: readonly DetectedLineSegment[];
+  symbolSegments?: readonly DetectedLineSegment[];
 }>;
 
 type Point = { x: number; y: number };
@@ -40,6 +42,8 @@ function pixelPoint(point: NormalizedPoint, widthPx: number, heightPx: number): 
 }
 
 export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): RecognitionOpeningCandidate[] {
+  const wallSegments = input.wallSegments ?? input.segments ?? [];
+  const symbolSegments = input.symbolSegments ?? input.segments ?? [];
   const results: RecognitionOpeningCandidate[] = [];
   for (const wall of input.wallCandidates) {
     const start = pixelPoint(wall.start, input.widthPx, input.heightPx);
@@ -53,7 +57,7 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
     const edgeTolerance = Math.max(8, expectedHalfThickness * 0.7);
 
     const intervals: Interval[] = [];
-    for (const segment of input.segments) {
+    for (const segment of wallSegments) {
       if (angleDelta(segmentAngle(segment), wallAngle) > 8) continue;
       const a = { x: segment.x1, y: segment.y1 }, b = { x: segment.x2, y: segment.y2 };
       const center = midpoint(a, b);
@@ -76,7 +80,7 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
 
       let angledEvidence = 0;
       let perpendicularEvidence = 0;
-      for (const segment of input.segments) {
+      for (const segment of symbolSegments) {
         const a = { x: segment.x1, y: segment.y1 }, b = { x: segment.x2, y: segment.y2 };
         const segmentCenter = midpoint(a, b);
         if (length(segmentCenter, centerPx) > Math.max(widthPx * 1.1, 90)) continue;
