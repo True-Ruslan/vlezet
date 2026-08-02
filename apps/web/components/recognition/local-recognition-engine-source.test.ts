@@ -17,10 +17,14 @@ describe("shared local recognition engine extraction", () => {
     expect(workerSource).not.toContain("MIN_STRICT_WALLS");
   });
 
-  it("uses bounded equalised strict and permissive source passes", () => {
+  it("extracts Hough evidence from a thick-ink structural mask", () => {
     expect(engineSource).toContain('import cvModule from "@techstark/opencv-js"');
     expect(engineSource).toContain("const MIN_STRICT_WALLS = 3");
-    expect(engineSource).toContain("cv.equalizeHist(gray, equalized)");
+    expect(engineSource).toContain("cv.THRESH_BINARY_INV | cv.THRESH_OTSU");
+    expect(engineSource).toContain("cv.getStructuringElement(cv.MORPH_RECT");
+    expect(engineSource).toContain("cv.morphologyEx(structuralBinary, structuralMask, cv.MORPH_OPEN, structuralKernel)");
+    expect(engineSource).toContain("cv.GaussianBlur(structuralMask, strictBlurred");
+    expect(engineSource).toContain("cv.GaussianBlur(structuralMask, permissiveBlurred");
     expect(engineSource).toContain("new cv.Size(5, 5)");
     expect(engineSource).toContain("new cv.Size(3, 3)");
     expect(engineSource).toContain("cv.Canny(strictBlurred, strictEdges, 50, 150, 3, false)");
@@ -29,8 +33,12 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource.match(/appendHoughSegments\(\{/g)).toHaveLength(2);
     expect(engineSource).toContain("for (let offset = 0; offset + 3 < lines.data32S.length; offset += 4)");
     expect(engineSource).not.toContain("row < lines.rows");
+    const structuralMask = engineSource.indexOf("cv.morphologyEx(structuralBinary, structuralMask");
+    const firstCanny = engineSource.indexOf("cv.Canny(strictBlurred");
     const finalDeduplication = engineSource.lastIndexOf("deduplicateDetectedSegments(");
     const wallAnalysis = engineSource.indexOf("analyzeWallCandidates({");
+    expect(structuralMask).toBeGreaterThan(-1);
+    expect(structuralMask).toBeLessThan(firstCanny);
     expect(finalDeduplication).toBeGreaterThan(-1);
     expect(finalDeduplication).toBeLessThan(wallAnalysis);
   });
@@ -60,7 +68,9 @@ describe("shared local recognition engine extraction", () => {
       "strictEdges",
       "permissiveBlurred",
       "strictBlurred",
-      "equalized",
+      "structuralKernel",
+      "structuralMask",
+      "structuralBinary",
       "gray",
       "source",
     ]) {
