@@ -136,6 +136,7 @@ export function matchOpenings(input: Readonly<{
   wallPredictions: readonly RecognitionWallCandidate[];
   wallMatches: WallMatchResult;
 }>): OpeningMatchResult {
+  const predictedWallIds = new Set(input.wallPredictions.map((wall) => wall.id));
   const resolvedWalls = wallHostResolution(input);
   const measurements: PairMeasurement[] = [];
   for (let expectedIndex = 0; expectedIndex < input.fixture.expectedOpenings.length; expectedIndex += 1) {
@@ -200,7 +201,7 @@ export function matchOpenings(input: Readonly<{
 
   const unknownHostOpenings = input.predictions
     .filter((prediction) =>
-      prediction.hostWallCandidateId === null || !resolvedWalls.has(prediction.hostWallCandidateId))
+      prediction.hostWallCandidateId === null || !predictedWallIds.has(prediction.hostWallCandidateId))
     .map((prediction): UnknownHostOpeningDetail => ({
       openingId: prediction.id,
       hostWallCandidateId: prediction.hostWallCandidateId,
