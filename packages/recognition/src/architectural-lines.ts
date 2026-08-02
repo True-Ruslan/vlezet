@@ -29,6 +29,8 @@ type SegmentAccumulator = {
   sourceCount: number;
 };
 
+const MINIMUM_ORTHOGONAL_SUPPORT_PER_AXIS = 4;
+
 function finitePositive(value: number, label: string): number {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`${label} должен быть положительным конечным числом.`);
@@ -124,6 +126,18 @@ function compareNumber(first: number, second: number): number {
   return Math.abs(first - second) < 1e-9 ? 0 : first - second;
 }
 
+function selectStructurallySupportedDirections(
+  segments: readonly NormalisedLineSegment[],
+): readonly NormalisedLineSegment[] {
+  const horizontalCount = segments.filter((segment) => segment.orientation === "horizontal").length;
+  const verticalCount = segments.filter((segment) => segment.orientation === "vertical").length;
+  const hasStrongOrthogonalGrid = horizontalCount >= MINIMUM_ORTHOGONAL_SUPPORT_PER_AXIS
+    && verticalCount >= MINIMUM_ORTHOGONAL_SUPPORT_PER_AXIS;
+  return hasStrongOrthogonalGrid
+    ? segments.filter((segment) => segment.orientation !== "diagonal")
+    : segments;
+}
+
 export function normaliseArchitecturalLineSegments(input: Readonly<{
   widthPx: number;
   heightPx: number;
@@ -182,7 +196,7 @@ export function normaliseArchitecturalLineSegments(input: Readonly<{
     }
   }
 
-  return [...grouped.values()]
+  const sorted = [...grouped.values()]
     .map((group): NormalisedLineSegment => {
       const start = { x: group.startX / group.sourceCount, y: group.startY / group.sourceCount };
       const end = { x: group.endX / group.sourceCount, y: group.endY / group.sourceCount };
@@ -202,4 +216,6 @@ export function normaliseArchitecturalLineSegments(input: Readonly<{
       || compareNumber(first.start.y, second.start.y)
       || compareNumber(first.end.x, second.end.x)
       || compareNumber(first.end.y, second.end.y));
+
+  return selectStructurallySupportedDirections(sorted);
 }
