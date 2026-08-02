@@ -50,12 +50,15 @@ async function runHarness(page, fixtureId, mode) {
     };
     const harness = window.__vlezetRecognitionBenchmark;
     if (!harness) throw new Error("Recognition benchmark harness is unavailable.");
-    return currentMode === "worker" ? harness.runWorker(input) : harness.runEngine(input);
+    if (currentMode === "worker") return harness.runWorker(input);
+    if (currentMode === "debug") return harness.runEngineDebug(input);
+    return harness.runEngine(input);
   }, { fixtureId, fixture, sourceBase64, mode });
 }
 
 test.beforeAll(async () => {
   await mkdir(join(artifactsRoot, "predictions"), { recursive: true });
+  await mkdir(join(artifactsRoot, "debug"), { recursive: true });
 });
 
 test("shared engine processes all eight source fixtures", async ({ page }) => {
@@ -64,7 +67,8 @@ test("shared engine processes all eight source fixtures", async ({ page }) => {
   expect(manifest.fixtureIds).toHaveLength(8);
 
   for (const fixtureId of manifest.fixtureIds) {
-    const draft = await runHarness(page, fixtureId, "engine");
+    const result = await runHarness(page, fixtureId, "debug");
+    const { draft, debug } = result;
     expect(draft.engineVersion).toBe("4");
     if (fixtureId === "m7-3-regression-anonymized") {
       expect(draft.walls.length, "dense anonymized regression must not return an empty wall draft").toBeGreaterThan(0);
@@ -72,6 +76,11 @@ test("shared engine processes all eight source fixtures", async ({ page }) => {
     await writeFile(
       join(artifactsRoot, "predictions", `${fixtureId}.json`),
       `${JSON.stringify(draft, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(artifactsRoot, "debug", `${fixtureId}.json`),
+      `${JSON.stringify(debug, null, 2)}\n`,
       "utf8",
     );
   }
