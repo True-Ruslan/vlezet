@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
 function requiredEnvironment(name) {
@@ -96,12 +96,16 @@ const evidence = {
 };
 
 await mkdir(outputDirectory, { recursive: true });
+const copiedCorePath = join(outputDirectory, "recognition-core-result.json");
+const copiedSourcePath = join(outputDirectory, "recognition-source-result.json");
 const evidencePath = join(outputDirectory, "recognition-benchmark-evidence.json");
 const summaryPath = join(outputDirectory, "recognition-benchmark-summary.md");
+await copyFile(corePath, copiedCorePath);
+await copyFile(sourcePath, copiedSourcePath);
 await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
 await writeFile(summaryPath, renderSummary(evidence), "utf8");
 
-const checksumTargets = [corePath, sourcePath, evidencePath, summaryPath];
+const checksumTargets = [copiedCorePath, copiedSourcePath, evidencePath, summaryPath];
 const checksumLines = [];
 for (const path of checksumTargets) checksumLines.push(`${await digest(path)}  ${basename(path)}`);
 await writeFile(join(outputDirectory, "SHA256SUMS"), `${checksumLines.sort().join("\n")}\n`, "utf8");
