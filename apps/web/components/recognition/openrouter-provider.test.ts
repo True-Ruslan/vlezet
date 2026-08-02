@@ -8,9 +8,9 @@ afterEach(() => {
   vi.stubGlobal("fetch", originalFetch);
 });
 
-function successfulRecognitionResponse(): Response {
+function successfulRecognitionResponse(wallId = "w1"): Response {
   return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
-    walls: [{ id: "w1", start: { x: 1000, y: 2000 }, end: { x: 9000, y: 2000 }, estimatedThicknessPx: 20, confidence: "high", score: 0.95 }],
+    walls: [{ id: wallId, start: { x: 1000, y: 2000 }, end: { x: 9000, y: 2000 }, estimatedThicknessPx: 20, confidence: "high", score: 0.95 }],
     openings: [], roomLabels: [],
   }) } }] }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
@@ -34,6 +34,39 @@ describe("OpenRouter direct recognition provider", () => {
     const result = await provider.recognize({ imageDataUrl: "data:image/png;base64,AAAA", imageWidthPx: 1000, imageHeightPx: 800, localSummary: null }, signal);
     expect(result.walls[0]?.start).toEqual({ x: 0.1, y: 0.2 });
     expect(fetcher).toHaveBeenCalledWith("https://openrouter.ai/api/v1/chat/completions", expect.objectContaining({ method: "POST", signal }));
+  });
+
+  it("sends exact local candidates and restricts AI to verification-only geometry", async () => {
+    const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      const prompt = String(body.messages[0].content[0].text);
+      expect(prompt).toContain("Режим: только проверка локального Draft");
+      expect(prompt).toContain("Не добавляй новые стены");
+      expect(prompt).toContain("Сохраняй исходный id и координаты без изменений");
+      expect(prompt).toContain("local-wall-1: start=(1000,2000), end=(9000,2000)");
+      expect(prompt).toContain("Верни openings пустым списком");
+      return successfulRecognitionResponse("local-wall-1");
+    });
+
+    const provider = new OpenRouterDirectProvider({ apiKey: "secret-key", modelId: "vision/model", fetcher: fetcher as unknown as typeof fetch });
+    await provider.recognize({
+      imageDataUrl: "data:image/png;base64,AAAA",
+      imageWidthPx: 1000,
+      imageHeightPx: 800,
+      localSummary: {
+        walls: [{
+          id: "local-wall-1",
+          start: { x: 0.1, y: 0.2 },
+          end: { x: 0.9, y: 0.2 },
+          estimatedThicknessPx: 20,
+          confidence: "medium",
+          evidence: { localScore: 0.8, cloudScore: null, reasons: ["structural-region"] },
+          origin: "local",
+          conflict: null,
+        }],
+        openings: [],
+      },
+    }, signal);
   });
 
   it("preserves the browser receiver when using native global fetch", async () => {
