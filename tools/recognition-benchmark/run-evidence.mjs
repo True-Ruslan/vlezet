@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 
+const EXPECTED_FIXTURE_COUNT = 9;
+
 function requiredEnvironment(name) {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required.`);
@@ -14,8 +16,12 @@ function readResult(value, label) {
   if (value.corpusVersion !== "recognition-corpus-v1") throw new Error(`${label} has an unsupported corpus.`);
   if (typeof value.recognitionEngineVersion !== "string" || !value.recognitionEngineVersion) throw new Error(`${label} has no engine version.`);
   if (typeof value.commitSha !== "string" || !/^[a-f0-9]{40}$/i.test(value.commitSha)) throw new Error(`${label} has an invalid commit SHA.`);
-  if (!Array.isArray(value.fixtures) || value.fixtures.length !== 8) throw new Error(`${label} must contain exactly eight fixtures.`);
-  if (!value.aggregate || value.aggregate.fixtureCount !== 8) throw new Error(`${label} aggregate fixture count is invalid.`);
+  if (!Array.isArray(value.fixtures) || value.fixtures.length !== EXPECTED_FIXTURE_COUNT) {
+    throw new Error(`${label} must contain exactly ${EXPECTED_FIXTURE_COUNT} fixtures.`);
+  }
+  if (!value.aggregate || value.aggregate.fixtureCount !== EXPECTED_FIXTURE_COUNT) {
+    throw new Error(`${label} aggregate fixture count is invalid.`);
+  }
   if (value.aggregate.failedFixtureCount !== 0 || value.fixtures.some((fixture) => fixture.failed === true)) {
     throw new Error(`${label} contains failed fixtures.`);
   }
@@ -56,7 +62,7 @@ function renderSummary(evidence) {
     "| --- | ---: | ---: |",
     ...rows,
     "",
-    "M7.8A records the current quality gap; it does not claim the final M7.8 thresholds are met.",
+    "M7.8B measures region-first wall recognition; doors, windows, rooms, labels and areas remain outside this slice.",
     "",
   ].join("\n");
 }
