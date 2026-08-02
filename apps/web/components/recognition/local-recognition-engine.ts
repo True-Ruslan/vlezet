@@ -45,6 +45,11 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function oddKernelSize(shortSidePx: number): number {
+  const rounded = Math.round(clamp(shortSidePx * 0.006, 3, 9));
+  return rounded % 2 === 0 ? rounded + 1 : rounded;
+}
+
 function imageRelativeAdaptiveOptions(widthPx: number, heightPx: number): LocalRecognitionOptions {
   const shortSide = Math.min(widthPx, heightPx);
   return {
@@ -150,7 +155,9 @@ export async function runLocalRecognitionEngine(
   const { cv } = await resolveOpenCvModule(cvModule);
   let source: InstanceType<typeof cv.Mat> | null = null;
   let gray: InstanceType<typeof cv.Mat> | null = null;
-  let equalized: InstanceType<typeof cv.Mat> | null = null;
+  let structuralBinary: InstanceType<typeof cv.Mat> | null = null;
+  let structuralMask: InstanceType<typeof cv.Mat> | null = null;
+  let structuralKernel: InstanceType<typeof cv.Mat> | null = null;
   let strictBlurred: InstanceType<typeof cv.Mat> | null = null;
   let permissiveBlurred: InstanceType<typeof cv.Mat> | null = null;
   let strictEdges: InstanceType<typeof cv.Mat> | null = null;
@@ -177,7 +184,8 @@ export async function runLocalRecognitionEngine(
 
     source = cv.matFromImageData(input.imageData);
     gray = new cv.Mat();
-    equalized = new cv.Mat();
+    structuralBinary = new cv.Mat();
+    structuralMask = new cv.Mat();
     strictBlurred = new cv.Mat();
     permissiveBlurred = new cv.Mat();
     strictEdges = new cv.Mat();
@@ -186,9 +194,15 @@ export async function runLocalRecognitionEngine(
     permissiveLines = new cv.Mat();
 
     cv.cvtColor(source, gray, cv.COLOR_RGBA2GRAY);
-    cv.equalizeHist(gray, equalized);
-    cv.GaussianBlur(equalized, strictBlurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-    cv.GaussianBlur(equalized, permissiveBlurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
+    cv.threshold(gray, structuralBinary, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+    const structuralKernelSize = oddKernelSize(Math.min(input.imageData.width, input.imageData.height));
+    structuralKernel = cv.getStructuringElement(
+      cv.MORPH_RECT,
+      new cv.Size(structuralKernelSize, structuralKernelSize),
+    );
+    cv.morphologyEx(structuralBinary, structuralMask, cv.MORPH_OPEN, structuralKernel);
+    cv.GaussianBlur(structuralMask, strictBlurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+    cv.GaussianBlur(structuralMask, permissiveBlurred, new cv.Size(3, 3), 0, 0, cv.BORDER_DEFAULT);
     options.onProgress?.({ phase: "edges", progress: 0.25 });
     cv.Canny(strictBlurred, strictEdges, 50, 150, 3, false);
     cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false);
@@ -286,6 +300,12 @@ export async function runLocalRecognitionEngine(
     });
 
     const diagnostics = [];
+    diagnostics.push({
+      code: "thick-ink-structural-mask",
+      severity: "info" as const,
+      message: "Перед поиском стен тонкие подписи и контуры предметов подавлены структурным фильтром.",
+      candidateId: null,
+    });
     if (usedMultiPassEvidence) {
       diagnostics.push({
         code: "multi-pass-source-normalisation",
@@ -347,7 +367,9 @@ export async function runLocalRecognitionEngine(
     strictEdges?.delete();
     permissiveBlurred?.delete();
     strictBlurred?.delete();
-    equalized?.delete();
+    structuralKernel?.delete();
+    structuralMask?.delete();
+    structuralBinary?.delete();
     gray?.delete();
     source?.delete();
   }
