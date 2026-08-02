@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-03  
-**Status:** M0–M7.8B are implemented and product-accepted. M7.8A established the versioned recognition benchmark. M7.8B delivered region-first source normalisation, bounded wall topology and verification-only AI. PR #41 is in final exact-head verification before squash merge. The selected next implementation slice is M7.8C — opening classification and host-wall validation.  
+**Status:** M0–M7.8B are implemented, product-accepted and merged. M7.8A established the versioned recognition benchmark. M7.8B delivered region-first source normalisation, bounded wall topology and verification-only AI through PR #41, squash merge `08800dd66fa298ff31d1a7e6b33e91964cdb8d16`. The selected next implementation slice is M7.8C — opening classification and host-wall validation.  
 **Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
 
 ## 1. Product
@@ -76,8 +76,6 @@ packages/planning        deterministic planning + reviewed intent
 | M7.8A | recognition benchmark foundation, deterministic corpus/scorer/evidence |
 | M7.8B | region-first source normalisation, wall topology, bounded Draft and verification-only AI |
 
-Canonical merge SHAs through M7.7 remain recorded in repository history and milestone acceptance records.
-
 ## 5. Current capability
 
 ### Editing and projects
@@ -125,13 +123,14 @@ remaining for review:   8
 openings:               0 (deferred)
 ```
 
-Exact accepted product head before documentation sync:
+Final accepted documentation head and merge:
 
 ```text
-head:                    d510621958004211f82545c1479c18a42262f510
-Standard CI:             30764243357 / #2826 — PASS
-Recognition Benchmark:  30764243366 / #161 — PASS
-M7 Browser Audit:        30764243359 / #614 — PASS
+head:                    a5003371f2feb4fa37edbd2513b0b5312bc5dd07
+Standard CI:             30767495988 / #2834 — PASS
+Recognition Benchmark:  30767496002 / #165 — PASS
+M7 Browser Audit:        30767495992 / #618 — PASS
+squash merge:            08800dd66fa298ff31d1a7e6b33e91964cdb8d16
 Source geometry F1:      0.837989
 Source topology F1:      0.837989
 ```
