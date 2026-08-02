@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - "apps/web/components/recognition/**"
-      - "apps/web/app/__recognition-benchmark/**"
+      - "apps/web/app/%5F%5Frecognition-benchmark/**"
       - "packages/recognition/**"
       - "tools/recognition-benchmark/**"
       - ".github/workflows/recognition-benchmark.yml"
