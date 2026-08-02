@@ -44,7 +44,7 @@ function result(baselineComparison: unknown) {
 }
 
 describe("recognition benchmark evidence command", () => {
-  it("combines scored Core and Source results and writes checksums", async () => {
+  it("combines scored Core and Source results and writes self-contained checksums", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "vlezet-recognition-evidence-"));
     try {
       const corePath = join(temporary, "core.json");
@@ -75,8 +75,16 @@ describe("recognition benchmark evidence command", () => {
       });
       expect(await readFile(join(outputDirectory, "recognition-benchmark-summary.md"), "utf8")).toContain("Core baseline comparison");
       const checksums = await readFile(join(outputDirectory, "SHA256SUMS"), "utf8");
+      expect(checksums).toContain("recognition-core-result.json");
+      expect(checksums).toContain("recognition-source-result.json");
       expect(checksums).toContain("recognition-benchmark-evidence.json");
       expect(checksums).toContain("recognition-benchmark-summary.md");
+
+      const verification = spawnSync("sha256sum", ["-c", "SHA256SUMS"], {
+        cwd: outputDirectory,
+        encoding: "utf8",
+      });
+      expect(verification.status, `${verification.stdout}\n${verification.stderr}`).toBe(0);
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
