@@ -35,13 +35,37 @@ describe("hybrid recognition reconciliation", () => {
     expect(result.decisions["local-1"]).toBe("accepted");
   });
 
-  it("keeps unsupported cloud-only walls reviewable instead of authoritative", () => {
+  it("defers unsupported cloud-only walls instead of adding new topology", () => {
     const cloud: RecognitionProviderResult = { walls: [wall("cloud-only", 0.7, "cloud")], openings: [], roomLabels: [] };
     const result = reconcileRecognition({ localDraft: localDraft(), cloudResult: cloud, existingWalls: [], now });
-    const candidate = result.walls.find((item) => item.id === "cloud-only");
-    expect(candidate?.origin).toBe("cloud");
-    expect(candidate?.confidence).not.toBe("high");
-    expect(result.decisions["cloud-only"]).toBe("pending");
+
+    expect(result.walls.map((item) => item.id)).toEqual(["local-1"]);
+    expect(result.decisions).not.toHaveProperty("cloud-only");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "cloud-only-wall-deferred",
+      severity: "warning",
+      candidateId: "cloud-only",
+    }));
+  });
+
+  it("keeps the local wall count stable when cloud returns a mixed unsupported network", () => {
+    const cloud: RecognitionProviderResult = {
+      walls: [
+        wall("cloud-match", 0.202, "cloud"),
+        wall("cloud-horizontal-1", 0.45, "cloud"),
+        wall("cloud-horizontal-2", 0.65, "cloud"),
+      ],
+      openings: [],
+      roomLabels: [],
+    };
+
+    const result = reconcileRecognition({ localDraft: localDraft(), cloudResult: cloud, existingWalls: [], now });
+
+    expect(result.walls).toHaveLength(1);
+    expect(result.walls[0]?.origin).toBe("merged");
+    expect(result.decisions).not.toHaveProperty("cloud-horizontal-1");
+    expect(result.decisions).not.toHaveProperty("cloud-horizontal-2");
+    expect(result.diagnostics.filter((item) => item.code === "cloud-only-wall-deferred")).toHaveLength(2);
   });
 
   it("flags candidates duplicating existing geometry", () => {
