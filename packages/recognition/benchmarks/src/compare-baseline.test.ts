@@ -1,9 +1,9 @@
-import type { RecognitionBenchmarkResultV1 } from "../schema/result-v1";
+import type { BenchmarkMetricValue, RecognitionBenchmarkResultV1 } from "../schema/result-v1";
 import { describe, expect, it } from "vitest";
 import { compareRecognitionBaseline } from "./compare-baseline";
 
-function measured(value: number) {
-  return { status: "measured" as const, value };
+function measured(value: number): BenchmarkMetricValue {
+  return { status: "measured", value };
 }
 
 function result(overrides: Readonly<{
@@ -12,8 +12,12 @@ function result(overrides: Readonly<{
   wallGeometryF1?: number;
   totalAreaError?: number;
   fixtureIds?: readonly string[];
+  roomAreaApplicable?: boolean;
 }> = {}): RecognitionBenchmarkResultV1 {
   const fixtureIds = overrides.fixtureIds ?? ["a", "b"];
+  const roomAreaMetric: BenchmarkMetricValue = overrides.roomAreaApplicable === false
+    ? { status: "not-applicable" }
+    : measured(0.3);
   return {
     schemaVersion: "recognition-benchmark-result-v1",
     corpusVersion: (overrides.corpusVersion ?? "recognition-corpus-v1") as "recognition-corpus-v1",
@@ -30,7 +34,7 @@ function result(overrides: Readonly<{
         openingF1: measured(0.3),
         exactZoneCount: measured(0),
         totalAreaAbsolutePercentageError: measured(overrides.totalAreaError ?? 0.2),
-        roomAreaMedianAbsolutePercentageError: measured(0.3),
+        roomAreaMedianAbsolutePercentageError: roomAreaMetric,
         incorrectHighConfidenceRate: measured(0.1),
         unknownHostOpenings: measured(2),
         staleDecisions: measured(0),
@@ -42,7 +46,7 @@ function result(overrides: Readonly<{
         roomDetection: null,
         roomIous: [],
         totalAreaAbsolutePercentageErrors: [overrides.totalAreaError ?? 0.2],
-        roomAreaAbsolutePercentageErrors: [0.3],
+        roomAreaAbsolutePercentageErrors: overrides.roomAreaApplicable === false ? [] : [0.3],
         highConfidencePredictionCount: 10,
         highConfidenceFalsePositiveCount: 1,
         unknownHostOpenings: 2,
@@ -58,7 +62,7 @@ function result(overrides: Readonly<{
         openingF1: measured(0.3),
         exactZoneCountRate: measured(0),
         totalAreaMedianAbsolutePercentageError: measured(overrides.totalAreaError ?? 0.2),
-        roomAreaMedianAbsolutePercentageError: measured(0.3),
+        roomAreaMedianAbsolutePercentageError: roomAreaMetric,
         incorrectHighConfidenceRate: measured(0.1),
         unknownHostOpenings: measured(2),
         staleDecisions: measured(0),
@@ -76,6 +80,21 @@ describe("recognition baseline comparison", () => {
     );
     expect(comparison.metrics.find((metric) => metric.metric === "wallGeometryF1")?.status).toBe("improvement");
     expect(comparison.metrics.find((metric) => metric.metric === "totalAreaMedianAbsolutePercentageError")?.status).toBe("improvement");
+  });
+
+  it("omits a metric that is not applicable in both runs", () => {
+    const comparison = compareRecognitionBaseline(
+      result({ commitSha: "b".repeat(40), roomAreaApplicable: false }),
+      result({ roomAreaApplicable: false }),
+    );
+    expect(comparison.metrics.some((metric) => metric.metric === "roomAreaMedianAbsolutePercentageError")).toBe(false);
+  });
+
+  it("rejects a metric applicability change without an explicit migration", () => {
+    expect(() => compareRecognitionBaseline(
+      result({ commitSha: "b".repeat(40), roomAreaApplicable: false }),
+      result({ roomAreaApplicable: true }),
+    )).toThrow(/applicability/i);
   });
 
   it("throws when an F1 metric regresses", () => {
