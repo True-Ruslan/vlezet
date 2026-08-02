@@ -24,7 +24,7 @@ describe("M7.8A automated acceptance contract", () => {
     expect(workflow).toContain("score:source");
     expect(workflow).toContain("benchmark:recognition:evidence");
     expect(workflow).toContain("recognition-benchmark-evidence");
-    expect(workflow).toContain("SHA256SUMS");
+    expect(workflow).toContain("tools/recognition-benchmark/artifacts/evidence");
   });
 
   it("exposes explicit source and evidence commands", () => {
