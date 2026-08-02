@@ -76,9 +76,15 @@ export const DEFAULT_WALL_COMPLETION_OPTIONS: WallCompletionOptions = Object.fre
 });
 
 const EPSILON = 1e-9;
-const MAX_NEIGHBOURS_PER_LINE = 8;
 
 type AxisOrientation = "horizontal" | "vertical";
+type EndpointName = "start" | "end";
+
+type IndexedLine = Readonly<{
+  index: number;
+  line: LocalWallCenterline;
+  axis: AxisOrientation | null;
+}>;
 
 type CorridorEvidence = Readonly<{
   occupancyRatio: number;
@@ -93,6 +99,20 @@ type BridgeHypothesis = Readonly<{
   continuousRunRatio: number;
   merged: LocalWallCenterline;
 }>;
+
+type JunctionHypothesis = Readonly<{
+  sourceIndex: number;
+  targetIndex: number;
+  endpoint: EndpointName;
+  extensionPx: number;
+  occupancyRatio: number;
+  intersection: LocalWallPoint;
+}>;
+
+type Budget = {
+  comparisons: number;
+  hypotheses: number;
+};
 
 function finitePoint(point: LocalWallPoint): boolean {
   return Number.isFinite(point.x) && Number.isFinite(point.y);
@@ -172,6 +192,15 @@ function invalidDiagnostic(message: string): WallCompletionDiagnostic {
   };
 }
 
+function diagnostic(
+  code: WallCompletionDiagnosticCode,
+  firstIndex: number | null,
+  secondIndex: number | null,
+  message: string,
+): WallCompletionDiagnostic {
+  return { code, firstIndex, secondIndex, message };
+}
+
 function orientation(line: LocalWallCenterline, maximumAngleDeltaDeg: number): AxisOrientation | null {
   const dx = line.endPx.x - line.startPx.x;
   const dy = line.endPx.y - line.startPx.y;
@@ -195,7 +224,7 @@ function perpendicularCenter(line: LocalWallCenterline, axis: AxisOrientation): 
     : (line.startPx.x + line.endPx.x) / 2;
 }
 
-function compatibleThickness(first: LocalWallCenterline, second: LocalWallCenterline): number | null {
+function effectiveThickness(first: LocalWallCenterline, second: LocalWallCenterline): number | null {
   if (first.thicknessPx === null) return second.thicknessPx;
   if (second.thicknessPx === null) return first.thicknessPx;
   return (
@@ -203,35 +232,26 @@ function compatibleThickness(first: LocalWallCenterline, second: LocalWallCenter
   ) / (first.evidenceCount + second.evidenceCount);
 }
 
-function confidenceAfterBridge(first: RecognitionConfidence, second: RecognitionConfidence): RecognitionConfidence {
-  if (first === "low" || second === "low") return "low";
-  return "medium";
-}
-
-function mergedCenterline(
+function thicknessesCompatible(
   first: LocalWallCenterline,
   second: LocalWallCenterline,
-  axis: AxisOrientation,
-): LocalWallCenterline {
-  const evidenceCount = first.evidenceCount + second.evidenceCount;
-  const perpendicular = (
-    perpendicularCenter(first, axis) * first.evidenceCount
-    + perpendicularCenter(second, axis) * second.evidenceCount
-  ) / evidenceCount;
-  const start = Math.min(alongStart(first, axis), alongStart(second, axis));
-  const end = Math.max(alongEnd(first, axis), alongEnd(second, axis));
-  return {
-    startPx: axis === "horizontal" ? { x: start, y: perpendicular } : { x: perpendicular, y: start },
-    endPx: axis === "horizontal" ? { x: end, y: perpendicular } : { x: perpendicular, y: end },
-    thicknessPx: compatibleThickness(first, second),
-    evidenceCount,
-    confidence: confidenceAfterBridge(first.confidence, second.confidence),
-    reasons: [...new Set([
-      ...first.reasons,
-      ...second.reasons,
-      "completion-raster-bridge",
-    ])].sort(),
-  };
+  options: WallCompletionOptions,
+): boolean {
+  if (first.thicknessPx === null || second.thicknessPx === null) return true;
+  return Math.abs(first.thicknessPx - second.thicknessPx)
+    / Math.max(first.thicknessPx, second.thicknessPx) <= options.maximumThicknessDeltaRatio + EPSILON;
+}
+
+function cappedConfidence(
+  first: RecognitionConfidence,
+  second: RecognitionConfidence,
+  evidence: CorridorEvidence,
+  options: WallCompletionOptions,
+): RecognitionConfidence {
+  if (first === "low" || second === "low") return "low";
+  const occupancyMargin = evidence.occupancyRatio - options.minimumOccupancyRatio;
+  const continuityMargin = evidence.continuousRunRatio - options.minimumContinuousRunRatio;
+  return occupancyMargin >= 0.15 && continuityMargin >= 0.15 ? "medium" : "low";
 }
 
 function adaptiveMaximumGap(
@@ -246,45 +266,45 @@ function adaptiveMaximumGap(
   );
 }
 
-function corridorEvidence({
-  first,
-  second,
+function sampleAxisCorridor({
   axis,
-  mask,
+  startAlong,
+  endAlong,
+  perpendicular,
   thicknessPx,
-  options,
+  mask,
+  maximumSamples,
 }: Readonly<{
-  first: LocalWallCenterline;
-  second: LocalWallCenterline;
   axis: AxisOrientation;
-  mask: StructuralMaskView;
+  startAlong: number;
+  endAlong: number;
+  perpendicular: number;
   thicknessPx: number;
-  options: WallCompletionOptions;
+  mask: StructuralMaskView;
+  maximumSamples: number;
 }>): CorridorEvidence | null {
-  const gapStart = alongEnd(first, axis);
-  const gapEnd = alongStart(second, axis);
-  const alongSamples = Math.max(1, Math.ceil(gapEnd - gapStart) - 1);
+  const distance = Math.abs(endAlong - startAlong);
+  const alongSamples = Math.max(1, Math.ceil(distance) - 1);
   const acrossSamples = Math.max(3, Math.min(11, Math.round(thicknessPx)));
-  if (alongSamples * acrossSamples > options.maximumSamplesPerHypothesis) return null;
+  if (alongSamples * acrossSamples > maximumSamples) return null;
 
-  const center = (
-    perpendicularCenter(first, axis) * first.evidenceCount
-    + perpendicularCenter(second, axis) * second.evidenceCount
-  ) / (first.evidenceCount + second.evidenceCount);
+  const minimumAlong = Math.min(startAlong, endAlong);
+  const maximumAlong = Math.max(startAlong, endAlong);
   const half = thicknessPx / 2;
   let structuralSamples = 0;
-  let supportedColumns = 0;
   let longestSupportedRun = 0;
   let currentSupportedRun = 0;
 
   try {
     for (let alongIndex = 0; alongIndex < alongSamples; alongIndex += 1) {
-      const along = gapStart + ((alongIndex + 1) / (alongSamples + 1)) * (gapEnd - gapStart);
+      const along = minimumAlong
+        + ((alongIndex + 1) / (alongSamples + 1)) * (maximumAlong - minimumAlong);
       let structuralAcross = 0;
       for (let acrossIndex = 0; acrossIndex < acrossSamples; acrossIndex += 1) {
-        const perpendicular = center - half + ((acrossIndex + 0.5) / acrossSamples) * thicknessPx;
-        const x = axis === "horizontal" ? along : perpendicular;
-        const y = axis === "horizontal" ? perpendicular : along;
+        const cross = perpendicular - half
+          + ((acrossIndex + 0.5) / acrossSamples) * thicknessPx;
+        const x = axis === "horizontal" ? along : cross;
+        const y = axis === "horizontal" ? cross : along;
         const sampleX = Math.max(0, Math.min(mask.widthPx - 1, Math.round(x)));
         const sampleY = Math.max(0, Math.min(mask.heightPx - 1, Math.round(y)));
         if (mask.isStructural(sampleX, sampleY)) {
@@ -292,9 +312,7 @@ function corridorEvidence({
           structuralAcross += 1;
         }
       }
-      const supported = structuralAcross / acrossSamples >= 0.5;
-      if (supported) {
-        supportedColumns += 1;
+      if (structuralAcross / acrossSamples >= 0.5) {
         currentSupportedRun += 1;
         longestSupportedRun = Math.max(longestSupportedRun, currentSupportedRun);
       } else {
@@ -311,140 +329,155 @@ function corridorEvidence({
   };
 }
 
-function diagnostic(
-  code: WallCompletionDiagnosticCode,
-  firstIndex: number,
-  secondIndex: number,
-  message: string,
-): WallCompletionDiagnostic {
-  return { code, firstIndex, secondIndex, message };
+function mergedCenterline(
+  first: LocalWallCenterline,
+  second: LocalWallCenterline,
+  axis: AxisOrientation,
+  evidence: CorridorEvidence,
+  options: WallCompletionOptions,
+): LocalWallCenterline {
+  const evidenceCount = first.evidenceCount + second.evidenceCount;
+  const perpendicular = (
+    perpendicularCenter(first, axis) * first.evidenceCount
+    + perpendicularCenter(second, axis) * second.evidenceCount
+  ) / evidenceCount;
+  const start = Math.min(alongStart(first, axis), alongStart(second, axis));
+  const end = Math.max(alongEnd(first, axis), alongEnd(second, axis));
+  return {
+    startPx: axis === "horizontal" ? { x: start, y: perpendicular } : { x: perpendicular, y: start },
+    endPx: axis === "horizontal" ? { x: end, y: perpendicular } : { x: perpendicular, y: end },
+    thicknessPx: effectiveThickness(first, second),
+    evidenceCount,
+    confidence: cappedConfidence(first.confidence, second.confidence, evidence, options),
+    reasons: [...new Set([
+      ...first.reasons,
+      ...second.reasons,
+      "completion-raster-bridge",
+    ])].sort(),
+  };
 }
 
-function bridgeHypotheses(
+function buildIndexedLines(
   centerlines: readonly LocalWallCenterline[],
+  options: WallCompletionOptions,
+): IndexedLine[] {
+  return centerlines.map((line, index) => ({
+    index,
+    line,
+    axis: orientation(line, options.maximumAngleDeltaDeg),
+  }));
+}
+
+function evaluateBridgeHypotheses(
+  indexed: readonly IndexedLine[],
   mask: StructuralMaskView,
   options: WallCompletionOptions,
+  budget: Budget,
 ): Readonly<{
   hypotheses: readonly BridgeHypothesis[];
   diagnostics: readonly WallCompletionDiagnostic[];
   budgetExceeded: boolean;
 }> {
-  const diagnostics: WallCompletionDiagnostic[] = [];
   const hypotheses: BridgeHypothesis[] = [];
-  let comparisons = 0;
+  const diagnostics: WallCompletionDiagnostic[] = [];
 
-  const indexed = centerlines.map((line, index) => ({
-    line,
-    index,
-    axis: orientation(line, options.maximumAngleDeltaDeg),
-  }));
+  for (let firstPosition = 0; firstPosition < indexed.length; firstPosition += 1) {
+    const firstEntry = indexed[firstPosition]!;
+    if (firstEntry.axis === null) continue;
+    for (let secondPosition = firstPosition + 1; secondPosition < indexed.length; secondPosition += 1) {
+      const secondEntry = indexed[secondPosition]!;
+      if (secondEntry.axis !== firstEntry.axis) continue;
+      const axis = firstEntry.axis;
+      const thicknessPx = effectiveThickness(firstEntry.line, secondEntry.line);
+      if (thicknessPx === null) continue;
+      const offset = Math.abs(
+        perpendicularCenter(firstEntry.line, axis) - perpendicularCenter(secondEntry.line, axis),
+      );
+      if (offset > thicknessPx * options.maximumOffsetThicknessRatio + EPSILON) continue;
 
-  for (const axis of ["horizontal", "vertical"] as const) {
-    const candidates = indexed
-      .filter((entry): entry is typeof entry & { axis: AxisOrientation } => entry.axis === axis)
-      .sort((first, second) =>
-        perpendicularCenter(first.line, axis) - perpendicularCenter(second.line, axis)
-        || alongStart(first.line, axis) - alongStart(second.line, axis)
-        || alongEnd(first.line, axis) - alongEnd(second.line, axis)
-        || first.index - second.index);
-
-    for (let firstPosition = 0; firstPosition < candidates.length; firstPosition += 1) {
-      const firstEntry = candidates[firstPosition]!;
-      const neighbourLimit = Math.min(candidates.length, firstPosition + 1 + MAX_NEIGHBOURS_PER_LINE);
-      for (let secondPosition = firstPosition + 1; secondPosition < neighbourLimit; secondPosition += 1) {
-        comparisons += 1;
-        if (comparisons > options.maximumPairComparisons) {
-          return { hypotheses: [], diagnostics, budgetExceeded: true };
-        }
-        const secondEntry = candidates[secondPosition]!;
-        const first = firstEntry.line;
-        const second = secondEntry.line;
-        const thicknessPx = compatibleThickness(first, second);
-        if (thicknessPx === null) continue;
-
-        const offset = Math.abs(perpendicularCenter(first, axis) - perpendicularCenter(second, axis));
-        if (offset > thicknessPx * options.maximumOffsetThicknessRatio + EPSILON) {
-          continue;
-        }
-        if (first.thicknessPx !== null && second.thicknessPx !== null) {
-          const thicknessDelta = Math.abs(first.thicknessPx - second.thicknessPx)
-            / Math.max(first.thicknessPx, second.thicknessPx);
-          if (thicknessDelta > options.maximumThicknessDeltaRatio + EPSILON) {
-            diagnostics.push(diagnostic(
-              "bridge-thickness-mismatch",
-              firstEntry.index,
-              secondEntry.index,
-              "Фрагменты не объединены: толщина стен несовместима.",
-            ));
-            continue;
-          }
-        }
-
-        const ordered = alongStart(first, axis) <= alongStart(second, axis)
-          ? [firstEntry, secondEntry] as const
-          : [secondEntry, firstEntry] as const;
-        const left = ordered[0].line;
-        const right = ordered[1].line;
-        const gapPx = alongStart(right, axis) - alongEnd(left, axis);
-        if (gapPx <= EPSILON) continue;
-        if (gapPx > adaptiveMaximumGap(thicknessPx, mask, options) + EPSILON) {
-          diagnostics.push(diagnostic(
-            "bridge-gap-too-large",
-            ordered[0].index,
-            ordered[1].index,
-            "Фрагменты не объединены: разрыв превышает безопасный предел.",
-          ));
-          continue;
-        }
-
-        const evidence = corridorEvidence({
-          first: left,
-          second: right,
-          axis,
-          mask,
-          thicknessPx,
-          options,
-        });
-        if (!evidence) {
-          diagnostics.push(diagnostic(
-            "bridge-insufficient-raster-support",
-            ordered[0].index,
-            ordered[1].index,
-            "Фрагменты не объединены: структурный коридор нельзя безопасно оценить.",
-          ));
-          continue;
-        }
-        if (evidence.occupancyRatio <= options.likelyOpeningMaximumOccupancyRatio + EPSILON) {
-          diagnostics.push(diagnostic(
-            "bridge-likely-opening",
-            ordered[0].index,
-            ordered[1].index,
-            "Фрагменты не объединены: чистый разрыв сохранён как вероятный проём.",
-          ));
-          continue;
-        }
-        if (evidence.occupancyRatio + EPSILON < options.minimumOccupancyRatio
-          || evidence.continuousRunRatio + EPSILON < options.minimumContinuousRunRatio) {
-          diagnostics.push(diagnostic(
-            "bridge-insufficient-raster-support",
-            ordered[0].index,
-            ordered[1].index,
-            "Фрагменты не объединены: структурного заполнения недостаточно.",
-          ));
-          continue;
-        }
-        if (hypotheses.length >= options.maximumHypotheses) {
-          return { hypotheses: [], diagnostics, budgetExceeded: true };
-        }
-        hypotheses.push({
-          firstIndex: ordered[0].index,
-          secondIndex: ordered[1].index,
-          gapPx,
-          occupancyRatio: evidence.occupancyRatio,
-          continuousRunRatio: evidence.continuousRunRatio,
-          merged: mergedCenterline(left, right, axis),
-        });
+      budget.comparisons += 1;
+      if (budget.comparisons > options.maximumPairComparisons) {
+        return { hypotheses: [], diagnostics, budgetExceeded: true };
       }
+      if (!thicknessesCompatible(firstEntry.line, secondEntry.line, options)) {
+        diagnostics.push(diagnostic(
+          "bridge-thickness-mismatch",
+          firstEntry.index,
+          secondEntry.index,
+          "Фрагменты не объединены: толщина стен несовместима.",
+        ));
+        continue;
+      }
+
+      const ordered = alongStart(firstEntry.line, axis) <= alongStart(secondEntry.line, axis)
+        ? [firstEntry, secondEntry] as const
+        : [secondEntry, firstEntry] as const;
+      const gapPx = alongStart(ordered[1].line, axis) - alongEnd(ordered[0].line, axis);
+      if (gapPx <= EPSILON) continue;
+      if (gapPx > adaptiveMaximumGap(thicknessPx, mask, options) + EPSILON) {
+        diagnostics.push(diagnostic(
+          "bridge-gap-too-large",
+          ordered[0].index,
+          ordered[1].index,
+          "Фрагменты не объединены: разрыв превышает безопасный предел.",
+        ));
+        continue;
+      }
+
+      const perpendicular = (
+        perpendicularCenter(ordered[0].line, axis) * ordered[0].line.evidenceCount
+        + perpendicularCenter(ordered[1].line, axis) * ordered[1].line.evidenceCount
+      ) / (ordered[0].line.evidenceCount + ordered[1].line.evidenceCount);
+      const evidence = sampleAxisCorridor({
+        axis,
+        startAlong: alongEnd(ordered[0].line, axis),
+        endAlong: alongStart(ordered[1].line, axis),
+        perpendicular,
+        thicknessPx,
+        mask,
+        maximumSamples: options.maximumSamplesPerHypothesis,
+      });
+      if (!evidence) {
+        diagnostics.push(diagnostic(
+          "bridge-insufficient-raster-support",
+          ordered[0].index,
+          ordered[1].index,
+          "Фрагменты не объединены: структурный коридор нельзя безопасно оценить.",
+        ));
+        continue;
+      }
+      if (evidence.occupancyRatio <= options.likelyOpeningMaximumOccupancyRatio + EPSILON) {
+        diagnostics.push(diagnostic(
+          "bridge-likely-opening",
+          ordered[0].index,
+          ordered[1].index,
+          "Фрагменты не объединены: чистый разрыв сохранён как вероятный проём.",
+        ));
+        continue;
+      }
+      if (evidence.occupancyRatio + EPSILON < options.minimumOccupancyRatio
+        || evidence.continuousRunRatio + EPSILON < options.minimumContinuousRunRatio) {
+        diagnostics.push(diagnostic(
+          "bridge-insufficient-raster-support",
+          ordered[0].index,
+          ordered[1].index,
+          "Фрагменты не объединены: структурного заполнения недостаточно.",
+        ));
+        continue;
+      }
+
+      budget.hypotheses += 1;
+      if (budget.hypotheses > options.maximumHypotheses) {
+        return { hypotheses: [], diagnostics, budgetExceeded: true };
+      }
+      hypotheses.push({
+        firstIndex: ordered[0].index,
+        secondIndex: ordered[1].index,
+        gapPx,
+        occupancyRatio: evidence.occupancyRatio,
+        continuousRunRatio: evidence.continuousRunRatio,
+        merged: mergedCenterline(ordered[0].line, ordered[1].line, axis, evidence, options),
+      });
     }
   }
 
@@ -455,15 +488,12 @@ function bridgeHypotheses(
       || second.continuousRunRatio - first.continuousRunRatio
       || first.firstIndex - second.firstIndex
       || first.secondIndex - second.secondIndex),
-    diagnostics: diagnostics.sort((first, second) =>
-      (first.firstIndex ?? -1) - (second.firstIndex ?? -1)
-      || (first.secondIndex ?? -1) - (second.secondIndex ?? -1)
-      || first.code.localeCompare(second.code)),
+    diagnostics,
     budgetExceeded: false,
   };
 }
 
-function mutualBestHypotheses(hypotheses: readonly BridgeHypothesis[]): readonly BridgeHypothesis[] {
+function mutualBestBridges(hypotheses: readonly BridgeHypothesis[]): readonly BridgeHypothesis[] {
   const bestByLine = new Map<number, BridgeHypothesis>();
   for (const hypothesis of hypotheses) {
     for (const lineIndex of [hypothesis.firstIndex, hypothesis.secondIndex]) {
@@ -484,6 +514,195 @@ function mutualBestHypotheses(hypotheses: readonly BridgeHypothesis[]): readonly
     && bestByLine.get(hypothesis.secondIndex) === hypothesis);
 }
 
+function targetContainsIntersection(
+  target: LocalWallCenterline,
+  targetAxis: AxisOrientation,
+  intersectionAlong: number,
+): boolean {
+  const margin = (target.thicknessPx ?? 0) / 2;
+  return intersectionAlong >= alongStart(target, targetAxis) - margin - EPSILON
+    && intersectionAlong <= alongEnd(target, targetAxis) + margin + EPSILON;
+}
+
+function possibleJunctionExtension({
+  source,
+  target,
+  sourceIndex,
+  targetIndex,
+  sourceAxis,
+  targetAxis,
+  mask,
+  options,
+}: Readonly<{
+  source: LocalWallCenterline;
+  target: LocalWallCenterline;
+  sourceIndex: number;
+  targetIndex: number;
+  sourceAxis: AxisOrientation;
+  targetAxis: AxisOrientation;
+  mask: StructuralMaskView;
+  options: WallCompletionOptions;
+}>): JunctionHypothesis | null {
+  if (!thicknessesCompatible(source, target, options)) return null;
+  const thicknessPx = effectiveThickness(source, target);
+  if (thicknessPx === null) return null;
+
+  const targetCoordinate = perpendicularCenter(target, targetAxis);
+  const sourcePerpendicular = perpendicularCenter(source, sourceAxis);
+  if (!targetContainsIntersection(target, targetAxis, sourcePerpendicular)) return null;
+
+  const sourceStart = alongStart(source, sourceAxis);
+  const sourceEnd = alongEnd(source, sourceAxis);
+  let endpoint: EndpointName;
+  let sourceCoordinate: number;
+  if (targetCoordinate < sourceStart - EPSILON) {
+    endpoint = "start";
+    sourceCoordinate = sourceStart;
+  } else if (targetCoordinate > sourceEnd + EPSILON) {
+    endpoint = "end";
+    sourceCoordinate = sourceEnd;
+  } else {
+    return null;
+  }
+
+  const extensionPx = Math.abs(targetCoordinate - sourceCoordinate);
+  if (extensionPx > thicknessPx * options.junctionExtensionThicknessRatio + EPSILON) return null;
+  const evidence = sampleAxisCorridor({
+    axis: sourceAxis,
+    startAlong: sourceCoordinate,
+    endAlong: targetCoordinate,
+    perpendicular: sourcePerpendicular,
+    thicknessPx,
+    mask,
+    maximumSamples: options.maximumSamplesPerHypothesis,
+  });
+  if (!evidence) return null;
+  if (evidence.occupancyRatio + EPSILON < options.minimumOccupancyRatio
+    || evidence.continuousRunRatio + EPSILON < options.minimumContinuousRunRatio) return null;
+
+  return {
+    sourceIndex,
+    targetIndex,
+    endpoint,
+    extensionPx,
+    occupancyRatio: evidence.occupancyRatio,
+    intersection: sourceAxis === "horizontal"
+      ? { x: targetCoordinate, y: sourcePerpendicular }
+      : { x: sourcePerpendicular, y: targetCoordinate },
+  };
+}
+
+function evaluateJunctionHypotheses(
+  indexed: readonly IndexedLine[],
+  mask: StructuralMaskView,
+  options: WallCompletionOptions,
+  budget: Budget,
+): Readonly<{
+  hypotheses: readonly JunctionHypothesis[];
+  diagnostics: readonly WallCompletionDiagnostic[];
+  budgetExceeded: boolean;
+}> {
+  const byEndpoint = new Map<string, JunctionHypothesis[]>();
+  const diagnostics: WallCompletionDiagnostic[] = [];
+
+  for (let firstPosition = 0; firstPosition < indexed.length; firstPosition += 1) {
+    const first = indexed[firstPosition]!;
+    if (first.axis === null) continue;
+    for (let secondPosition = firstPosition + 1; secondPosition < indexed.length; secondPosition += 1) {
+      const second = indexed[secondPosition]!;
+      if (second.axis === null || second.axis === first.axis) continue;
+      budget.comparisons += 1;
+      if (budget.comparisons > options.maximumPairComparisons) {
+        return { hypotheses: [], diagnostics, budgetExceeded: true };
+      }
+
+      const candidates = [
+        possibleJunctionExtension({
+          source: first.line,
+          target: second.line,
+          sourceIndex: first.index,
+          targetIndex: second.index,
+          sourceAxis: first.axis,
+          targetAxis: second.axis,
+          mask,
+          options,
+        }),
+        possibleJunctionExtension({
+          source: second.line,
+          target: first.line,
+          sourceIndex: second.index,
+          targetIndex: first.index,
+          sourceAxis: second.axis,
+          targetAxis: first.axis,
+          mask,
+          options,
+        }),
+      ].filter((candidate): candidate is JunctionHypothesis => candidate !== null);
+
+      for (const candidate of candidates) {
+        const key = `${candidate.sourceIndex}:${candidate.endpoint}`;
+        const existing = byEndpoint.get(key) ?? [];
+        existing.push(candidate);
+        byEndpoint.set(key, existing);
+        budget.hypotheses += 1;
+        if (budget.hypotheses > options.maximumHypotheses) {
+          return { hypotheses: [], diagnostics, budgetExceeded: true };
+        }
+      }
+    }
+  }
+
+  const accepted: JunctionHypothesis[] = [];
+  for (const [key, candidates] of [...byEndpoint.entries()].sort(([first], [second]) => first.localeCompare(second))) {
+    const sorted = [...candidates].sort((first, second) =>
+      first.extensionPx - second.extensionPx
+      || second.occupancyRatio - first.occupancyRatio
+      || first.targetIndex - second.targetIndex);
+    if (sorted.length !== 1) {
+      const first = sorted[0]!;
+      diagnostics.push(diagnostic(
+        "junction-extension-ambiguous",
+        first.sourceIndex,
+        first.targetIndex,
+        `Продление ${key} отклонено: найдено несколько равноправных целей.`,
+      ));
+      continue;
+    }
+    accepted.push(sorted[0]!);
+  }
+
+  return {
+    hypotheses: accepted.sort((first, second) =>
+      first.sourceIndex - second.sourceIndex
+      || first.endpoint.localeCompare(second.endpoint)
+      || first.targetIndex - second.targetIndex),
+    diagnostics,
+    budgetExceeded: false,
+  };
+}
+
+function extendLine(
+  line: LocalWallCenterline,
+  hypothesis: JunctionHypothesis,
+): LocalWallCenterline {
+  const startPx = hypothesis.endpoint === "start" ? hypothesis.intersection : line.startPx;
+  const endPx = hypothesis.endpoint === "end" ? hypothesis.intersection : line.endPx;
+  return canonicalCenterline({
+    ...line,
+    startPx,
+    endPx,
+    confidence: line.confidence === "high" ? "medium" : line.confidence,
+    reasons: [...new Set([...line.reasons, "completion-junction-extension"])].sort(),
+  })!;
+}
+
+function sortedDiagnostics(diagnostics: readonly WallCompletionDiagnostic[]): WallCompletionDiagnostic[] {
+  return [...diagnostics].sort((first, second) =>
+    (first.firstIndex ?? -1) - (second.firstIndex ?? -1)
+    || (first.secondIndex ?? -1) - (second.secondIndex ?? -1)
+    || first.code.localeCompare(second.code));
+}
+
 export function completeWallCenterlines(input: CompleteWallCenterlinesInput): WallCompletionResult {
   const centerlines = canonicalCenterlines(input.centerlines);
   const hasInvalidGeometry = centerlines.length !== input.centerlines.length;
@@ -499,7 +718,6 @@ export function completeWallCenterlines(input: CompleteWallCenterlinesInput): Wa
       acceptedCompletionCount: 0,
     };
   }
-
   if (!optionsAreValid(input.options)) {
     return {
       centerlines,
@@ -507,20 +725,18 @@ export function completeWallCenterlines(input: CompleteWallCenterlinesInput): Wa
       acceptedCompletionCount: 0,
     };
   }
-
   if (input.centerlines.length > input.options.maximumInputCenterlines) {
     return {
       centerlines,
-      diagnostics: [{
-        code: "completion-budget-exceeded",
-        firstIndex: null,
-        secondIndex: null,
-        message: `Восстановление пропущено: получено ${input.centerlines.length} осей при лимите ${input.options.maximumInputCenterlines}.`,
-      }],
+      diagnostics: [diagnostic(
+        "completion-budget-exceeded",
+        null,
+        null,
+        `Восстановление пропущено: получено ${input.centerlines.length} осей при лимите ${input.options.maximumInputCenterlines}.`,
+      )],
       acceptedCompletionCount: 0,
     };
   }
-
   if (hasInvalidGeometry) {
     return {
       centerlines,
@@ -529,48 +745,82 @@ export function completeWallCenterlines(input: CompleteWallCenterlinesInput): Wa
     };
   }
 
-  const evaluated = bridgeHypotheses(centerlines, input.mask, input.options);
-  if (evaluated.budgetExceeded) {
+  const indexed = buildIndexedLines(centerlines, input.options);
+  const budget: Budget = { comparisons: 0, hypotheses: 0 };
+  const bridgeEvaluation = evaluateBridgeHypotheses(indexed, input.mask, input.options, budget);
+  if (bridgeEvaluation.budgetExceeded) {
     return {
       centerlines,
-      diagnostics: [{
-        code: "completion-budget-exceeded",
-        firstIndex: null,
-        secondIndex: null,
-        message: "Восстановление пропущено: превышен безопасный бюджет гипотез.",
-      }],
+      diagnostics: [diagnostic(
+        "completion-budget-exceeded",
+        null,
+        null,
+        "Восстановление пропущено: превышен безопасный бюджет мостов.",
+      )],
+      acceptedCompletionCount: 0,
+    };
+  }
+  const junctionEvaluation = evaluateJunctionHypotheses(indexed, input.mask, input.options, budget);
+  if (junctionEvaluation.budgetExceeded) {
+    return {
+      centerlines,
+      diagnostics: [diagnostic(
+        "completion-budget-exceeded",
+        null,
+        null,
+        "Восстановление пропущено: превышен безопасный бюджет примыканий.",
+      )],
       acceptedCompletionCount: 0,
     };
   }
 
-  const accepted = mutualBestHypotheses(evaluated.hypotheses)
+  const acceptedBridges = mutualBestBridges(bridgeEvaluation.hypotheses)
     .slice(0, input.options.maximumAcceptedCompletions);
-  const consumed = new Set<number>();
-  const completed: LocalWallCenterline[] = [];
-  const acceptedDiagnostics: WallCompletionDiagnostic[] = [];
+  const consumedByBridge = new Set<number>();
+  const output: LocalWallCenterline[] = [];
+  const diagnostics: WallCompletionDiagnostic[] = [
+    ...bridgeEvaluation.diagnostics,
+    ...junctionEvaluation.diagnostics,
+  ];
+  let acceptedCompletionCount = 0;
 
-  for (const hypothesis of accepted) {
-    if (consumed.has(hypothesis.firstIndex) || consumed.has(hypothesis.secondIndex)) continue;
-    consumed.add(hypothesis.firstIndex);
-    consumed.add(hypothesis.secondIndex);
-    completed.push(hypothesis.merged);
-    acceptedDiagnostics.push(diagnostic(
+  for (const hypothesis of acceptedBridges) {
+    if (consumedByBridge.has(hypothesis.firstIndex) || consumedByBridge.has(hypothesis.secondIndex)) continue;
+    consumedByBridge.add(hypothesis.firstIndex);
+    consumedByBridge.add(hypothesis.secondIndex);
+    output.push(hypothesis.merged);
+    acceptedCompletionCount += 1;
+    diagnostics.push(diagnostic(
       "bridge-accepted",
       hypothesis.firstIndex,
       hypothesis.secondIndex,
       "Малый разрыв стены восстановлен по непрерывному структурному растру.",
     ));
   }
+
+  const updatedByJunction = new Map<number, LocalWallCenterline>();
+  for (const hypothesis of junctionEvaluation.hypotheses) {
+    if (acceptedCompletionCount >= input.options.maximumAcceptedCompletions) break;
+    if (consumedByBridge.has(hypothesis.sourceIndex)) continue;
+    const current = updatedByJunction.get(hypothesis.sourceIndex) ?? centerlines[hypothesis.sourceIndex]!;
+    updatedByJunction.set(hypothesis.sourceIndex, extendLine(current, hypothesis));
+    acceptedCompletionCount += 1;
+    diagnostics.push(diagnostic(
+      "junction-extension-accepted",
+      hypothesis.sourceIndex,
+      hypothesis.targetIndex,
+      "Конец стены продлён до единственного подтверждённого перпендикулярного примыкания.",
+    ));
+  }
+
   for (let index = 0; index < centerlines.length; index += 1) {
-    if (!consumed.has(index)) completed.push(centerlines[index]!);
+    if (consumedByBridge.has(index)) continue;
+    output.push(updatedByJunction.get(index) ?? centerlines[index]!);
   }
 
   return {
-    centerlines: canonicalCenterlines(completed),
-    diagnostics: [...evaluated.diagnostics, ...acceptedDiagnostics].sort((first, second) =>
-      (first.firstIndex ?? -1) - (second.firstIndex ?? -1)
-      || (first.secondIndex ?? -1) - (second.secondIndex ?? -1)
-      || first.code.localeCompare(second.code)),
-    acceptedCompletionCount: acceptedDiagnostics.length,
+    centerlines: canonicalCenterlines(output),
+    diagnostics: sortedDiagnostics(diagnostics),
+    acceptedCompletionCount,
   };
 }
