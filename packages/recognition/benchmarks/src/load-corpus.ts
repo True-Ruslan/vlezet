@@ -11,6 +11,7 @@ export const APPROVED_RECOGNITION_FIXTURE_IDS = [
   "low-resolution",
   "perspective-photo",
   "m7-3-regression-anonymized",
+  "clutter-symbol-regression",
 ] as const;
 
 export type LoadedRecognitionBenchmarkFixture = Readonly<{
@@ -54,7 +55,7 @@ function validateManifest(value: unknown): CorpusManifestV1 {
   if (new Set(fixtureIds).size !== fixtureIds.length) throw new Error("manifest.json.fixtureIds содержит повторы.");
   if (fixtureIds.length !== APPROVED_RECOGNITION_FIXTURE_IDS.length
     || fixtureIds.some((id, index) => id !== APPROVED_RECOGNITION_FIXTURE_IDS[index])) {
-    throw new Error("manifest.json должен содержать ровно восемь утверждённых fixtures в каноническом порядке.");
+    throw new Error("manifest.json должен содержать ровно девять утверждённых fixtures в каноническом порядке.");
   }
   return { schemaVersion: "recognition-corpus-manifest-v1", corpusVersion: "recognition-corpus-v1", fixtureIds };
 }

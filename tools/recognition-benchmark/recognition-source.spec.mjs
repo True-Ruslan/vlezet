@@ -61,10 +61,10 @@ test.beforeAll(async () => {
   await mkdir(join(artifactsRoot, "debug"), { recursive: true });
 });
 
-test("shared engine processes all eight source fixtures", async ({ page }) => {
+test("shared engine processes all nine source fixtures", async ({ page }) => {
   await page.goto("/__recognition-benchmark");
   await expect(page.getByRole("heading", { name: "Recognition Benchmark Harness" })).toBeVisible();
-  expect(manifest.fixtureIds).toHaveLength(8);
+  expect(manifest.fixtureIds).toHaveLength(9);
 
   for (const fixtureId of manifest.fixtureIds) {
     const result = await runHarness(page, fixtureId, "debug");
@@ -72,6 +72,12 @@ test("shared engine processes all eight source fixtures", async ({ page }) => {
     expect(draft.engineVersion).toBe("4");
     if (fixtureId === "m7-3-regression-anonymized") {
       expect(draft.walls.length, "dense anonymized regression must not return an empty wall draft").toBeGreaterThan(0);
+    }
+    if (fixtureId === "clutter-symbol-regression") {
+      expect(debug.selectedMode, "clutter regression must use filled structural regions").toBe("regions");
+      expect(draft.walls.length, "clutter regression must retain an architectural wall graph").toBeGreaterThan(0);
+      expect(draft.walls.length, "clutter regression must stay reviewable").toBeLessThanOrEqual(30);
+      expect(draft.diagnostics.some((diagnostic) => diagnostic.code === "local-wall-candidate-overload")).toBe(false);
     }
     await writeFile(
       join(artifactsRoot, "predictions", `${fixtureId}.json`),
