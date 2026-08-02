@@ -33,6 +33,15 @@ const windowSymbols: DetectedLineSegment[] = [
   { x1: 565, y1: 247, x2: 565, y2: 253 },
 ];
 
+const fragmentedWindowSymbols: DetectedLineSegment[] = [
+  { x1: 435, y1: 247, x2: 497, y2: 247 },
+  { x1: 503, y1: 247, x2: 565, y2: 247 },
+  { x1: 435, y1: 253, x2: 496, y2: 253 },
+  { x1: 502, y1: 253, x2: 565, y2: 253 },
+  { x1: 435, y1: 247, x2: 435, y2: 253 },
+  { x1: 565, y1: 247, x2: 565, y2: 253 },
+];
+
 function expectWindow(openings: ReturnType<typeof buildOpeningHypotheses>): void {
   expect(openings).toHaveLength(1);
   expect(openings[0]).toMatchObject({
@@ -72,6 +81,16 @@ describe("window evidence separation", () => {
       wallCandidates: [wall],
       wallSegments: continuousStructuralSegments,
       symbolSegments: windowSymbols,
+    }));
+  });
+
+  it("merges collinear Hough fragments before pairing window rails", () => {
+    expectWindow(buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: continuousStructuralSegments,
+      symbolSegments: fragmentedWindowSymbols,
     }));
   });
 });
