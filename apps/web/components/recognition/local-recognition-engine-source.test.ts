@@ -27,6 +27,8 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain("cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false)");
     expect(engineSource).toContain("appendHoughSegments({");
     expect(engineSource.match(/appendHoughSegments\(\{/g)).toHaveLength(2);
+    expect(engineSource).toContain("for (let offset = 0; offset + 3 < lines.data32S.length; offset += 4)");
+    expect(engineSource).not.toContain("row < lines.rows");
     const finalDeduplication = engineSource.lastIndexOf("deduplicateDetectedSegments(");
     const wallAnalysis = engineSource.indexOf("analyzeWallCandidates({");
     expect(finalDeduplication).toBeGreaterThan(-1);
