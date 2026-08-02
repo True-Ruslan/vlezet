@@ -2,7 +2,12 @@ import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { buildOpeningHypotheses } from "../../src/openings";
-import { buildWallCandidates, LOCAL_RECOGNITION_ENGINE_VERSION, type DetectedLineSegment } from "../../src/local-lines";
+import {
+  buildWallCandidates,
+  createAdaptiveLocalRecognitionOptions,
+  LOCAL_RECOGNITION_ENGINE_VERSION,
+  type DetectedLineSegment,
+} from "../../src/local-lines";
 import type { RecognitionDraft } from "../../src/model";
 import { validateRecognitionBenchmarkBaselineV1 } from "../schema/baseline-v1";
 import { validateRecognitionBenchmarkResultV1, type RecognitionBenchmarkResultV1 } from "../schema/result-v1";
@@ -75,6 +80,16 @@ function localDraft(fixtureId: string, walls: ReturnType<typeof buildWallCandida
   };
 }
 
+async function writeCoreArtifacts(
+  outputDirectory: string,
+  result: RecognitionBenchmarkResultV1,
+): Promise<void> {
+  await mkdir(outputDirectory, { recursive: true });
+  await writeFile(join(outputDirectory, "recognition-core-result.json"), `${JSON.stringify(result, null, 2)}\n`, "utf8");
+  await writeFile(join(outputDirectory, "recognition-core-canonical.json"), canonicalBenchmarkJson(result), "utf8");
+  await writeFile(join(outputDirectory, "recognition-core-report.md"), renderRecognitionBenchmarkMarkdown(result), "utf8");
+}
+
 export async function runCoreRecognitionBenchmark(options: CoreBenchmarkOptions): Promise<RecognitionBenchmarkResultV1> {
   const loaded = await loadRecognitionBenchmarkCorpus(options.corpusRoot);
   const fixtureResults = [];
@@ -88,6 +103,11 @@ export async function runCoreRecognitionBenchmark(options: CoreBenchmarkOptions)
         widthPx: segments.widthPx,
         heightPx: segments.heightPx,
         segments: segments.segments,
+        options: createAdaptiveLocalRecognitionOptions({
+          analysisMillimetersPerPixel: entry.fixture.calibration.millimetersPerPixel,
+          widthPx: segments.widthPx,
+          heightPx: segments.heightPx,
+        }),
       });
       const openingPredictions = buildOpeningHypotheses({
         widthPx: segments.widthPx,
@@ -125,6 +145,10 @@ export async function runCoreRecognitionBenchmark(options: CoreBenchmarkOptions)
     aggregate: aggregateRecognitionResults(fixtureResults),
     baselineComparison: null,
   });
+
+  // Preserve measurement evidence even when the explicit baseline migration gate rejects the run.
+  await writeCoreArtifacts(options.outputDirectory, rawResult);
+
   const baselineComparison = options.baselinePath
     ? compareRecognitionBaseline(
         rawResult,
@@ -134,9 +158,6 @@ export async function runCoreRecognitionBenchmark(options: CoreBenchmarkOptions)
       )
     : null;
   const result = validateRecognitionBenchmarkResultV1({ ...rawResult, baselineComparison });
-  await mkdir(options.outputDirectory, { recursive: true });
-  await writeFile(join(options.outputDirectory, "recognition-core-result.json"), `${JSON.stringify(result, null, 2)}\n`, "utf8");
-  await writeFile(join(options.outputDirectory, "recognition-core-canonical.json"), canonicalBenchmarkJson(result), "utf8");
-  await writeFile(join(options.outputDirectory, "recognition-core-report.md"), renderRecognitionBenchmarkMarkdown(result), "utf8");
+  await writeCoreArtifacts(options.outputDirectory, result);
   return result;
 }
