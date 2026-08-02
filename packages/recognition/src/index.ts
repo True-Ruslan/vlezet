@@ -7,3 +7,4 @@ export * from "./provider";
 export * from "./reconcile";
 export * from "./session";
 export * from "./source-scale";
+export * from "./wall-topology";
