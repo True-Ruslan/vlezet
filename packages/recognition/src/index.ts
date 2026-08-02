@@ -22,6 +22,18 @@ export * from "./review-budget";
 export * from "./session";
 export * from "./source-scale";
 export * from "./structural-regions";
-export * from "./wall-completion";
+export {
+  DEFAULT_WALL_COMPLETION_OPTIONS,
+  completeWallCenterlines as experimentalCompleteWallCenterlines,
+} from "./wall-completion";
+export type {
+  CompleteWallCenterlinesInput,
+  StructuralMaskView,
+  WallCompletionDiagnostic,
+  WallCompletionDiagnosticCode,
+  WallCompletionOptions,
+  WallCompletionResult,
+} from "./wall-completion";
+export { completeWallCenterlines } from "./wall-completion-runtime";
 export * from "./wall-evidence-filter";
 export * from "./wall-topology";
