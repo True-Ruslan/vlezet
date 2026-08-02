@@ -91,6 +91,7 @@ function schemaCoordinate(value: number): number {
 
 function verificationPrompt(input: RecognitionProviderInput): string {
   const localWalls = input.localSummary?.walls ?? [];
+  const localOpenings = input.localSummary?.openings ?? [];
   const wallLines = localWalls.map((wall) => [
     `${wall.id}:`,
     `start=(${schemaCoordinate(wall.start.x)},${schemaCoordinate(wall.start.y)}),`,
@@ -98,20 +99,34 @@ function verificationPrompt(input: RecognitionProviderInput): string {
     `thicknessPx=${wall.estimatedThicknessPx ?? "null"},`,
     `localConfidence=${wall.confidence}`,
   ].join(" "));
+  const openingLines = localOpenings.map((opening) => [
+    `${opening.id}:`,
+    `kind=${opening.kind},`,
+    `hostWallId=${opening.hostWallCandidateId ?? "null"},`,
+    `center=(${schemaCoordinate(opening.center.x)},${schemaCoordinate(opening.center.y)}),`,
+    `widthPx=${opening.widthPx ?? "null"},`,
+    `orientationDeg=${opening.orientationDeg ?? "null"},`,
+    `localConfidence=${opening.confidence}`,
+  ].join(" "));
 
   return [
     "Режим: только проверка локального Draft, не повторное распознавание плана.",
     `Размер исходного нормализованного растра: ${input.imageWidthPx} × ${input.imageHeightPx} px.`,
-    "Проверь каждый локальный кандидат стены по изображению.",
+    "Проверь каждый локальный кандидат стены и проёма по изображению.",
     "Не добавляй новые стены и не создавай новые wall id.",
+    "Не добавляй новые проёмы и не создавай новые opening id.",
     "Возвращай только те стены из списка ниже, которые действительно подтверждаются изображением.",
     "Сохраняй исходный id и координаты без изменений; меняй только confidence и score.",
+    "Для проёмов сохраняй host wall, center, widthPx и orientationDeg без изменений; разрешено уточнить только kind, confidence и score.",
+    "Не переноси проём на другую стену, не двигай, не расширяй и не поворачивай его.",
+    "Если локальный проём не подтверждается, полностью пропусти его в массиве openings.",
     "Не возвращай мебель, сантехнику, цифры, подписи, дверные дуги, штриховку, рамку изображения или границы пустого поля как стены.",
-    "Если кандидат не подтверждается, полностью пропусти его в массиве walls.",
-    "Верни openings пустым списком: классификация дверей/окон и проверка host wall выполняются на следующем этапе.",
+    "Если кандидат стены не подтверждается, полностью пропусти его в массиве walls.",
     "Подписи комнат допускаются только при явном прочтении текста на изображении.",
     "Локальные кандидаты стен в координатах 0..10000:",
     ...wallLines,
+    "Локальные кандидаты проёмов в координатах 0..10000:",
+    ...openingLines,
   ].join("\n");
 }
 
@@ -126,13 +141,14 @@ function discoveryPrompt(input: RecognitionProviderInput): string {
     "Не создавай enclosing rectangle только потому, что квартира визуально занимает прямоугольную область.",
     "Если стена не видна достаточно уверенно, лучше не возвращай её вовсе.",
     "Не придумывай метрические размеры и не реконструируй элементы, которых не видно уверенно.",
-    "Верни openings пустым списком: классификация дверей/окон и проверка host wall выполняются на следующем этапе.",
+    "Верни openings пустым списком: без локальных host-validated гипотез AI не может создавать проёмы.",
     "Для сомнительных элементов снижай confidence.",
   ].join("\n");
 }
 
 function prompt(input: RecognitionProviderInput): string {
-  return input.localSummary && input.localSummary.walls.length > 0
+  return input.localSummary
+    && (input.localSummary.walls.length > 0 || input.localSummary.openings.length > 0)
     ? verificationPrompt(input)
     : discoveryPrompt(input);
 }
