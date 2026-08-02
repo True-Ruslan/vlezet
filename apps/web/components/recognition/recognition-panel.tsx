@@ -1,9 +1,10 @@
 "use client";
 
-import type {
-  RecognitionDecision,
-  RecognitionOpeningCandidate,
-  RecognitionSessionRecord,
+import {
+  isRecognitionCandidateBulkAcceptable,
+  type RecognitionDecision,
+  type RecognitionOpeningCandidate,
+  type RecognitionSessionRecord,
 } from "@vlezet/recognition";
 import { describeRecognitionContext } from "../editor/context-panel-contract";
 import {
@@ -93,6 +94,45 @@ function decisionLabel(decision: RecognitionDecision | undefined): string {
   return "Ожидает проверки";
 }
 
+function openingEvidenceLabel(reason: string): string | null {
+  switch (reason) {
+    case "wall-gap": return "Обнаружен разрыв в стене";
+    case "door-arc-like-line": return "Есть признак дверной дуги";
+    case "paired-cross-lines": return "Есть признаки оконных линий";
+    case "host-wall-validated": return "Привязка к стене проверена";
+    case "opening-span-validated": return "Проём находится внутри пролёта стены";
+    case "local-cloud-opening-agreement": return "Локальный анализ и AI согласны";
+    default: return null;
+  }
+}
+
+function OpeningEvidence({ opening }: Readonly<{ opening: RecognitionOpeningCandidate }>) {
+  const reasons = opening.evidence.reasons
+    .map(openingEvidenceLabel)
+    .filter((reason): reason is string => reason !== null);
+  return (
+    <div className="recognition-opening-evidence">
+      <UiNotice
+        tone={opening.hostWallCandidateId ? "success" : "warning"}
+        title={opening.hostWallCandidateId ? "Привязка к стене подтверждена" : "Стена-хозяин не определена"}
+      >
+        {opening.hostWallCandidateId
+          ? "Проём проверен относительно существующей локальной стены и не выходит за её допустимый пролёт."
+          : "Такой проём нельзя принять или применить до определения существующей стены-хозяина."}
+      </UiNotice>
+      <UiCard variant="evidence" className="recognition-opening-metrics">
+        <span>Ширина гипотезы в исходнике</span>
+        <strong>{opening.widthPx === null ? "Не определена" : `${Math.round(opening.widthPx)} px`}</strong>
+      </UiCard>
+      {reasons.length > 0 ? (
+        <ul className="recognition-evidence-list" aria-label="Основания классификации проёма">
+          {reasons.map((reason) => <li key={reason}>{reason}</li>)}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function RecognitionPanel(props: RecognitionPanelProps) {
   const session = sessionFromState(props.state);
   const draft = session?.draft ?? null;
@@ -102,8 +142,8 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
   const counts = draft ? {
     walls: draft.walls.length,
     openings: draft.openings.length,
-    high: candidates.filter((candidate) => candidate.confidence === "high" && !conflictOf(candidate)).length,
-    review: candidates.filter((candidate) => candidate.confidence !== "high" || Boolean(conflictOf(candidate))).length,
+    high: candidates.filter(isRecognitionCandidateBulkAcceptable).length,
+    review: candidates.filter((candidate) => !isRecognitionCandidateBulkAcceptable(candidate)).length,
     accepted: Object.values(draft.decisions).filter((decision) => decision === "accepted" || decision === "edited").length,
   } : null;
   const emptyDraft = Boolean(draft && candidates.length === 0);
@@ -226,7 +266,7 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
                 <span>Уверенность: {confidenceLabel(selected.confidence, conflictOf(selected))}</span>
                 {conflictOf(selected) ? <span className="recognition-conflict-label">Конфликт: {conflictOf(selected)}</span> : null}
               </div>
-              {selectedOpening ? (
+              {selectedOpening ? <>
                 <UiField id={`recognition-opening-${selectedOpening.id}`} label="Тип проёма">
                   <select value={selectedOpening.kind} onChange={(event) => props.onReclassifyOpening(selectedOpening.id, event.target.value as RecognitionOpeningCandidate["kind"])}>
                     <option value="unknown-opening">Неизвестный</option>
@@ -234,7 +274,8 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
                     <option value="window">Окно</option>
                   </select>
                 </UiField>
-              ) : null}
+                <OpeningEvidence opening={selectedOpening} />
+              </> : null}
               <div className="recognition-inline-actions">
                 <UiButton variant="primary" onClick={() => props.onDecision(selected.id, "accepted")}>Принять</UiButton>
                 <UiButton variant="secondary" onClick={() => props.onDecision(selected.id, "rejected")}>Отклонить</UiButton>
