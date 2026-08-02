@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { fixtureSourceDefinitions, fixtureSourceIds } from "../../packages/recognition/benchmarks/fixtures/source-definitions.mjs";
+import { manualFixtureIds } from "../../packages/recognition/benchmarks/fixtures/manual-fixtures.mjs";
 import {
   buildCloudSnapshot,
   buildFixtureJson,
@@ -15,6 +16,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
 const fixturesRoot = join(repositoryRoot, "packages/recognition/benchmarks/fixtures");
 const generatedIds = new Set(fixtureSourceIds);
+const canonicalFixtureIds = [...fixtureSourceIds, ...manualFixtureIds];
 
 function stableJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
@@ -38,8 +40,10 @@ async function renderPng(page, definition, path) {
 }
 
 async function main() {
-  if (fixtureSourceDefinitions.length !== 8 || new Set(fixtureSourceIds).size !== 8) {
-    throw new Error("Corpus v1 must contain exactly eight unique source definitions.");
+  if (fixtureSourceDefinitions.length !== 8
+    || manualFixtureIds.length !== 1
+    || new Set(canonicalFixtureIds).size !== 9) {
+    throw new Error("Corpus v1 must contain eight generated and one manual unique fixture.");
   }
   await clearGeneratedDirectories();
   const browser = await chromium.launch({ headless: true });
@@ -65,7 +69,7 @@ async function main() {
   await writeFile(join(fixturesRoot, "manifest.json"), stableJson({
     schemaVersion: "recognition-corpus-manifest-v1",
     corpusVersion: "recognition-corpus-v1",
-    fixtureIds: fixtureSourceIds,
+    fixtureIds: canonicalFixtureIds,
   }));
 }
 
