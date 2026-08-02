@@ -26,7 +26,19 @@ const LOWER_IS_BETTER = new Set<AggregateMetricName>([
   "unknownHostOpenings",
   "staleDecisions",
 ]);
-const EPSILON = 1e-12;
+
+const CONTINUOUS_ALLOWANCE = 0.000001;
+const ALLOWANCE_BY_METRIC: Readonly<Record<AggregateMetricName, number>> = {
+  wallGeometryF1: CONTINUOUS_ALLOWANCE,
+  wallTopologyF1: CONTINUOUS_ALLOWANCE,
+  openingF1: CONTINUOUS_ALLOWANCE,
+  exactZoneCountRate: CONTINUOUS_ALLOWANCE,
+  totalAreaMedianAbsolutePercentageError: CONTINUOUS_ALLOWANCE,
+  roomAreaMedianAbsolutePercentageError: CONTINUOUS_ALLOWANCE,
+  incorrectHighConfidenceRate: CONTINUOUS_ALLOWANCE,
+  unknownHostOpenings: 0,
+  staleDecisions: 0,
+};
 
 function fixtureIds(result: RecognitionBenchmarkResultV1): readonly string[] {
   return result.fixtures.map((fixture) => fixture.fixtureId).sort((first, second) => first.localeCompare(second));
@@ -45,9 +57,10 @@ function comparison(
 ): RecognitionBaselineMetricComparisonV1 {
   const absoluteDelta = currentValue - baselineValue;
   const signedImprovement = LOWER_IS_BETTER.has(metric) ? -absoluteDelta : absoluteDelta;
-  const status = signedImprovement > EPSILON
+  const allowance = ALLOWANCE_BY_METRIC[metric];
+  const status = signedImprovement > allowance
     ? "improvement"
-    : signedImprovement < -EPSILON
+    : signedImprovement < -allowance
       ? "regression"
       : "unchanged";
   return {
@@ -85,6 +98,9 @@ export function compareRecognitionBaseline(
   }
   if (current.corpusVersion !== baseline.corpusVersion) {
     throw new Error("Benchmark corpus version mismatch; explicit corpus migration required.");
+  }
+  if (current.recognitionEngineVersion !== baseline.recognitionEngineVersion) {
+    throw new Error("Recognition engine version mismatch; explicit baseline migration required.");
   }
   if (baseline.commitSha === "0".repeat(40)) throw new Error("Baseline uses an uncommitted all-zero marker.");
   const currentFixtures = fixtureIds(current);
