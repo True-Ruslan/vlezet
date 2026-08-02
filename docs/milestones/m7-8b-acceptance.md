@@ -1,19 +1,33 @@
 # M7.8B — Source Normalisation and Wall Topology Acceptance
 
-**Status:** AUTOMATED REMEDIATION PASS / PRODUCT OWNER RE-REVIEW REQUIRED  
+**Status:** PRODUCT OWNER PARTIAL PASS — AI SAFETY ACCEPTED / LOCAL CV REFINEMENT REQUIRED  
 **Date:** 2026-08-02  
 **PR:** #41  
 **Feature branch:** `feat/m7-8b-source-normalization-wall-topology`  
 **Base:** `d6e8668c5ad0780a0a28d9c1fef6e9d37e9bbe4d`  
 **Final product implementation head:** `f2694519fce95ac02a3f43e916f5b6c96d133c36`
 
-## Product-owner failures that block merge
+## Product-owner result after AI remediation
+
+The representative real plan was repeated after the verification-only AI changes.
+
+Product-owner result:
+
+- local CV now identifies the plan broadly correctly and produces a reviewable Draft;
+- GPT-4o confirms many valid local walls correctly;
+- AI no longer creates the previous long unsupported wall network;
+- AI no longer increases or moves local geometry;
+- the result is materially better but is not yet geometrically complete or fully accurate.
+
+This is a literal partial PASS for the AI safety and reconciliation remediation. The verification-only AI behaviour is accepted. PR #41 remains Draft because local CV still misses or fragments some architectural walls and confidence classification is not yet ideal.
+
+The private source plan and screenshots were not committed.
+
+## Product-owner failures that caused the remediation
 
 The first M7.8B candidate produced 417 local wall candidates from a representative clear plan. Furniture, sanitary symbols, labels, digits and door arcs entered the wall graph. That failure caused the line-first pipeline to be replaced with region-first structural recognition.
 
 After region-first remediation, the same real plan produced a materially better and reviewable local Draft: 35 walls, 3 provisional openings and no candidate explosion. One real wall remained missed. The optional GPT-4o review was then materially worse than the local Draft: it added long unsupported lines across the image and reconstructed unrelated topology.
-
-PR #41 remains Draft and must not be merged until the same real plan passes another product-owner review. The private source plan and screenshots were not committed.
 
 ## Confirmed local-recognition root cause
 
@@ -75,7 +89,7 @@ Reconciliation now:
 - preserves existing review decisions;
 - emits explicit diagnostics for deferred cloud-only geometry.
 
-This means GPT-4o can confirm or reject local candidates, but cannot repair a missed local wall by inventing one. The remaining missed wall is a local CV/topology issue and remains visible rather than being hidden by uncontrolled AI reconstruction.
+The product-owner re-review confirms that these controls now work on the representative real plan. GPT-4o can confirm local candidates but cannot conceal missing local geometry by inventing new topology.
 
 ## Fail-closed product boundaries
 
@@ -193,25 +207,26 @@ Unchanged:
 
 The wall topology remains transient recognition evidence and is never persisted as a second document model.
 
-## Known limitations
+## Remaining local-CV limitations
 
-- final Source wall-topology target `≥ 0.90` is not yet reached globally;
-- the representative real plan still misses one wall locally;
+The latest real-plan result is usable for review but still shows the next precision targets:
+
+- some true exterior or principal wall runs are still missed;
+- some correct wall runs remain fragmented into short candidates around junctions and service blocks;
+- confidence classification is uneven: several correct walls remain pending while nearby short segments are confirmed;
+- aggregate Source wall-topology F1 remains below the final `≥ 0.90` target;
 - the perspective-photo fixture remains `0/0`;
 - doors and windows remain intentionally deferred to M7.8C;
-- room faces, OCR labels and areas are not produced;
-- AI cannot add a missing wall in M7.8B because local geometry is deliberately authoritative.
+- room faces, OCR labels and areas are not produced.
 
-## Product-owner re-review gate
+## Remaining acceptance gate
 
-On the same representative real plan, verify:
+Before PR #41 becomes Ready, local CV must receive one bounded precision pass focused on:
 
-1. local recognition still produces the improved reviewable wall set rather than hundreds of candidates;
-2. after GPT-4o review, the wall count and coordinates do not increase or move;
-3. no long cloud-only lines appear;
-4. matching local walls may become more confident;
-5. AI does not add doors/windows in this slice;
-6. no document geometry changes before explicit Apply;
-7. Apply remains one semantic operation and Undo restores the prior document.
+1. continuity of long exterior/principal wall runs;
+2. deterministic junction completion across small raster gaps;
+3. merging collinear fragments without bridging doors or unrelated furniture;
+4. confidence derived from region continuity, thickness consistency and topology support;
+5. no regression on the nine-fixture benchmark or the accepted AI safety behaviour.
 
-Only literal product-owner acceptance may change this document to PASS, mark PR #41 Ready and permit merge.
+The AI verification-only portion is accepted. Final M7.8B acceptance remains blocked only by the local-CV precision work above.
