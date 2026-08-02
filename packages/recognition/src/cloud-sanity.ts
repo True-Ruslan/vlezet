@@ -82,6 +82,7 @@ function isUnboundedUnsupportedWall(
 export function sanitizeCloudRecognitionResult(input: CloudRecognitionSanityInput): RecognitionProviderResult {
   const diagnostics: RecognitionDiagnostic[] = [...(input.result.diagnostics ?? [])];
   const localWalls = input.localSummary?.walls ?? [];
+  const localWallById = new Map(localWalls.map((wall) => [wall.id, wall]));
   const localBounds = localWalls.length >= 4 ? boundsOfWalls(localWalls) : null;
   const droppedWallIds = new Set<string>();
 
@@ -115,6 +116,29 @@ export function sanitizeCloudRecognitionResult(input: CloudRecognitionSanityInpu
         candidateId: wall.id,
       });
       return false;
+    }
+    if (localWalls.length > 0) {
+      const localWall = localWallById.get(wall.id);
+      if (!localWall) {
+        droppedWallIds.add(wall.id);
+        diagnostics.push({
+          code: "cloud-unknown-local-wall",
+          severity: "warning",
+          message: "AI вернул стену с неизвестным локальному Draft идентификатором; новая геометрия отброшена.",
+          candidateId: wall.id,
+        });
+        return false;
+      }
+      if (!segmentNear(localWall, wall)) {
+        droppedWallIds.add(wall.id);
+        diagnostics.push({
+          code: "cloud-local-wall-mismatch",
+          severity: "warning",
+          message: "AI изменил геометрию локальной стены за пределами допустимого совпадения; результат проверки отброшен.",
+          candidateId: wall.id,
+        });
+        return false;
+      }
     }
     return true;
   });
