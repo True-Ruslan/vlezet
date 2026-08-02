@@ -34,11 +34,9 @@ describe("region-first local recognition", () => {
     expect(engineSource).toContain('code: "region-first-wall-evidence"');
   });
 
-  it("keeps benchmark-neutral wall completion out of the production engine", () => {
-    expect(engineSource).not.toContain("completeWallCenterlines");
-    expect(engineSource).not.toContain("DEFAULT_WALL_COMPLETION_OPTIONS");
-    expect(engineSource).not.toContain("completionAcceptedCount");
-    expect(engineSource).not.toContain("completionDiagnosticCodes");
-    expect(engineSource).not.toContain('code: "evidence-gated-wall-completion"');
+  it("does not bypass the recognition package runtime completion gate", () => {
+    expect(engineSource).toContain('from "@vlezet/recognition"');
+    expect(engineSource).not.toContain("experimentalCompleteWallCenterlines");
+    expect(engineSource).not.toContain('from "@vlezet/recognition/src/wall-completion"');
   });
 });
