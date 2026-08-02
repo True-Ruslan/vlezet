@@ -65,7 +65,10 @@ test("shared engine processes all eight source fixtures", async ({ page }) => {
 
   for (const fixtureId of manifest.fixtureIds) {
     const draft = await runHarness(page, fixtureId, "engine");
-    expect(draft.engineVersion).toBe("3");
+    expect(draft.engineVersion).toBe("4");
+    if (fixtureId === "m7-3-regression-anonymized") {
+      expect(draft.walls.length, "dense anonymized regression must not return an empty wall draft").toBeGreaterThan(0);
+    }
     await writeFile(
       join(artifactsRoot, "predictions", `${fixtureId}.json`),
       `${JSON.stringify(draft, null, 2)}\n`,
