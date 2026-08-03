@@ -1,8 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-
-// The benchmark schema is JavaScript because it is also consumed directly by Node tooling.
-// @ts-expect-error M7.9 RED: the module does not exist until the manifest contract is implemented.
 import { validatePrivateSourceManifest } from "../benchmarks/real-analogues/schema.mjs";
 
 const manifestUrl = new URL(
