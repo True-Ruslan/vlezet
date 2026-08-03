@@ -39,6 +39,9 @@ export type RecognitionApplyIdFactory = (kind: "wall" | "vertex" | "opening") =>
 
 const ENDPOINT_SNAP_TOLERANCE_MM = 60;
 const DUPLICATE_WALL_TOLERANCE_MM = 70;
+const DUPLICATE_OPENING_CENTER_TOLERANCE_MM = 70;
+const DUPLICATE_OPENING_WIDTH_TOLERANCE_MM = 100;
+const OPENING_CONFLICT_OVERLAP_RATIO = 0.8;
 const MIN_RECOGNIZED_WALL_LENGTH_MM = 120;
 const ORTHOGONAL_SNAP_TOLERANCE_DEG = 8;
 const AXIS_CLUSTER_TOLERANCE_PX = 10;
@@ -53,6 +56,7 @@ const THICKNESS_TARGET_MEDIAN_MM = 150;
 const THICKNESS_QUANTUM_MM = 10;
 
 type AxisOrientation = "horizontal" | "vertical" | "diagonal";
+type ExistingOpeningDisposition = "duplicate" | "conflict" | null;
 
 type PreparedImageWall = {
   candidateId: string;
@@ -424,6 +428,39 @@ function openingWidthMm(candidate: RecognitionOpeningCandidate, reference: Refer
   return candidate.widthPx * reference.transform.millimetersPerPixel;
 }
 
+function openingOverlapRatio(
+  firstOffset: number,
+  firstWidth: number,
+  secondOffset: number,
+  secondWidth: number,
+): number {
+  const overlap = Math.max(
+    0,
+    Math.min(firstOffset + firstWidth, secondOffset + secondWidth)
+      - Math.max(firstOffset, secondOffset),
+  );
+  return overlap / Math.max(1, Math.min(firstWidth, secondWidth));
+}
+
+function findExistingOpeningDisposition(
+  document: VlezetDocument,
+  proposed: Readonly<Pick<Opening, "wallId" | "kind" | "offset" | "width">>,
+): ExistingOpeningDisposition {
+  const proposedCenter = proposed.offset + proposed.width / 2;
+  for (const existing of document.openings) {
+    if (existing.wallId !== proposed.wallId) continue;
+    const existingCenter = existing.offset + existing.width / 2;
+    const equivalent = existing.kind === proposed.kind
+      && Math.abs(existingCenter - proposedCenter) <= DUPLICATE_OPENING_CENTER_TOLERANCE_MM
+      && Math.abs(existing.width - proposed.width) <= DUPLICATE_OPENING_WIDTH_TOLERANCE_MM;
+    if (equivalent) return "duplicate";
+    if (openingOverlapRatio(existing.offset, existing.width, proposed.offset, proposed.width) >= OPENING_CONFLICT_OVERLAP_RATIO) {
+      return "conflict";
+    }
+  }
+  return null;
+}
+
 function applyOpenings(
   draft: RecognitionDraft,
   reference: ReferencePlan,
@@ -458,11 +495,34 @@ function applyOpenings(
     try {
       const centerWorld = normalizedToWorld(candidate.center, reference);
       const centerOffset = projectPointToWallOffset(document, wallId, centerWorld);
+      const offset = centerOffset - width / 2;
+      const disposition = findExistingOpeningDisposition(document, {
+        wallId,
+        kind: candidate.kind,
+        offset,
+        width,
+      });
+      if (disposition === "duplicate") {
+        diagnostics.push({
+          candidateId: candidate.id,
+          severity: "info",
+          message: "Совпадающий существующий проём не добавлен повторно.",
+        });
+        continue;
+      }
+      if (disposition === "conflict") {
+        diagnostics.push({
+          candidateId: candidate.id,
+          severity: "warning",
+          message: "Кандидат перекрывает существующий проём на этой стене и оставлен без применения.",
+        });
+        continue;
+      }
       const opening: Opening = {
         id: idFactory("opening"),
         wallId,
         kind: candidate.kind,
-        offset: centerOffset - width / 2,
+        offset,
         width,
         ...(candidate.kind === "door" ? { doorSwing: { hinge: "start", side: "left" } } : {}),
       };
