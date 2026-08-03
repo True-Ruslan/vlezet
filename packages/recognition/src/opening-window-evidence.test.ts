@@ -42,6 +42,18 @@ const fragmentedWindowSymbols: DetectedLineSegment[] = [
   { x1: 565, y1: 247, x2: 565, y2: 253 },
 ];
 
+const rasterFragmentedWindowSymbols: DetectedLineSegment[] = [
+  { x1: 435, y1: 247, x2: 490, y2: 247 },
+  { x1: 508, y1: 247, x2: 565, y2: 247 },
+  { x1: 435, y1: 253, x2: 489, y2: 253 },
+  { x1: 507, y1: 253, x2: 565, y2: 253 },
+];
+
+const structuralEchoSymbols: DetectedLineSegment[] = [
+  { x1: 435, y1: 242, x2: 565, y2: 242 },
+  { x1: 435, y1: 258, x2: 565, y2: 258 },
+];
+
 function expectWindow(openings: ReturnType<typeof buildOpeningHypotheses>): void {
   expect(openings).toHaveLength(1);
   expect(openings[0]).toMatchObject({
@@ -92,5 +104,25 @@ describe("window evidence separation", () => {
       wallSegments: continuousStructuralSegments,
       symbolSegments: fragmentedWindowSymbols,
     }));
+  });
+
+  it("reconnects raster Hough fragments across a bounded 18 px gap into one window", () => {
+    expectWindow(buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: continuousStructuralSegments,
+      symbolSegments: rasterFragmentedWindowSymbols,
+    }));
+  });
+
+  it("does not reinterpret structural edge echoes as window rails", () => {
+    expect(buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: structuralEchoSymbols,
+      symbolSegments: structuralEchoSymbols,
+    })).toEqual([]);
   });
 });
