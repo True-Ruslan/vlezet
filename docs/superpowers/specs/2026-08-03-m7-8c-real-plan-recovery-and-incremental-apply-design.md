@@ -13,6 +13,28 @@ The latest product-owner retest exposed two independent defects on the same real
 
 Door-swing orientation is explicitly not part of this stabilization slice.
 
+## Confirmed root causes
+
+### Permanent applied-state lock
+
+Candidate decision and geometry mutations preserved `RecognitionDraft.status = applied`. The UI therefore treated an earlier Apply as a permanent lock even when the current accepted set had changed.
+
+### Region-first became region-only
+
+When at least three filled wall regions existed, strict Hough wall extraction was skipped entirely. Missing walls interrupted by openings or complex raster junctions therefore had no independent recovery path.
+
+### Single-component topology loss
+
+After topology construction, the wall analyzer retained only one largest connected component whenever that component had at least three edges. Real apartment plans are frequently split into several substantial components by door gaps, window rails and incomplete junctions. Every other component was discarded regardless of its architectural size.
+
+The revised selector therefore preserves:
+
+- the primary structural component;
+- additional multi-edge components with substantial length/span and structural proximity or boundary evidence;
+- long single-edge partitions near the primary network or image boundary;
+
+while continuing to reject short isolated furniture and sanitary-symbol contours. Component proximity is measured from endpoints to full opposing segments, not endpoint-to-endpoint only.
+
 ## Goals
 
 - allow safe additive Apply after recognition decisions change;
@@ -21,6 +43,7 @@ Door-swing orientation is explicitly not part of this stabilization slice.
 - keep filled structural regions as the primary local wall authority;
 - add a bounded Hough supplement when region-first evidence is incomplete;
 - admit supplemental walls only when they are anchored to the primary wall network;
+- retain multiple significant structural topology components without accepting small isolated clutter;
 - keep AI verification geometry-immutable and unable to raise topology-warning candidates to high confidence;
 - preserve existing benchmark and safety gates.
 
@@ -66,12 +89,14 @@ The current engine stops wall Hough processing whenever at least three structura
    - it has no pre-existing conflict.
 6. Accepted supplemental candidates are capped at medium confidence and receive explicit `supplemental-hough-topology-anchor` evidence.
 7. Isolated text, furniture and sanitary-symbol lines remain rejected because they are not anchored to the structural network.
-8. The existing topology sanitizer remains the final authority before opening analysis and again before Apply.
+8. Multiple substantial disconnected topology components are retained using deterministic size, span, boundary and network-distance evidence.
+9. The existing topology sanitizer remains the final authority before opening analysis and again before Apply.
 
 ## Failure handling
 
 - candidate or comparison budget overflow fails closed and keeps the primary region result unchanged;
 - ambiguous supplemental candidates remain absent rather than guessed;
+- small disconnected topology components remain excluded;
 - repeated Apply that contains no new geometry does not create an empty history entry;
 - persisted older Drafts remain readable; no project or recognition-session schema migration is required.
 
@@ -93,6 +118,9 @@ The current engine stops wall Hough processing whenever at least three structura
 - a one-anchor short furniture segment is rejected;
 - a collinear bounded missing fragment is accepted;
 - physical duplicates are rejected;
+- multiple substantial disconnected structural components are retained;
+- a long partition near the primary wall network is retained;
+- a small disconnected furniture-like enclosure remains rejected;
 - input ordering is deterministic;
 - overflow preserves the primary result unchanged.
 
