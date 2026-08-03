@@ -18,6 +18,8 @@ function wallAt(id: string, yPx: number): RecognitionWallCandidate {
 
 const wall = wallAt("wall-1", 250);
 const boundaryWall = wallAt("boundary-wall", 20);
+const lowResolutionBoundaryWall = wallAt("low-resolution-boundary-wall", 28);
+const nearInteriorWall = wallAt("near-interior-wall", 40);
 
 function edgesAt(yPx: number): DetectedLineSegment[] {
   return [
@@ -30,6 +32,8 @@ function edgesAt(yPx: number): DetectedLineSegment[] {
 
 const baseEdges = edgesAt(250);
 const boundaryEdges = edgesAt(20);
+const lowResolutionBoundaryEdges = edgesAt(28);
+const nearInteriorEdges = edgesAt(40);
 
 function run(segments: DetectedLineSegment[], wallCandidate = wall) {
   return buildOpeningHypotheses({
@@ -57,6 +61,20 @@ describe("local opening hypotheses", () => {
     expect(result[0]?.confidence).toBe("medium");
     expect(result[0]?.hostWallCandidateId).toBe("boundary-wall");
     expect(result[0]?.evidence.reasons).toContain("exterior-boundary-gap");
+  });
+
+  it("keeps the generated low-resolution 30 px source margin inside the exterior boundary band", () => {
+    const result = run(lowResolutionBoundaryEdges, lowResolutionBoundaryWall);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.kind).toBe("window");
+    expect(result[0]?.evidence.reasons).toContain("exterior-boundary-gap");
+  });
+
+  it("does not extend exterior inference to a wall 40 px inside the image", () => {
+    const result = run(nearInteriorEdges, nearInteriorWall);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.kind).toBe("unknown-opening");
+    expect(result[0]?.evidence.reasons).not.toContain("exterior-boundary-gap");
   });
 
   it("keeps an anchored exterior entrance leaf authoritative over boundary-window inference", () => {
