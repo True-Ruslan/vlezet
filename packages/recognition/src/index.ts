@@ -23,6 +23,7 @@ export * from "./review-budget";
 export * from "./review-selection";
 export * from "./session";
 export * from "./source-scale";
+export * from "./structural-clutter-veto";
 export * from "./structural-regions";
 export * from "./thick-wall-consolidation";
 export * from "./topology-sanity";
