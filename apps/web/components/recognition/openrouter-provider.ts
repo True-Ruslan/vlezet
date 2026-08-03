@@ -1,5 +1,6 @@
 import {
   sanitizeCloudRecognitionResult,
+  type RecognitionDiagnostic,
   type RecognitionProvider,
   type RecognitionProviderInput,
   type RecognitionProviderResult,
@@ -16,6 +17,8 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_RECOGNITION_TIMEOUT_MS = 90_000;
 const VERIFICATION_MAX_TOKENS = 2048;
 const DISCOVERY_MAX_TOKENS = 4096;
+const MIN_LOCAL_HIGH_CONFIDENCE_FOR_PROFILE_WARNING = 3;
+const MIN_ACCEPTABLE_CONFIRMED_HIGH_RATIO = 0.4;
 
 const defaultBrowserFetch: typeof fetch = (input, init) => globalThis.fetch(input, init);
 
@@ -24,6 +27,21 @@ export type OpenRouterModelOption = Readonly<{
   name: string;
   contextLength: number | null;
 }>;
+
+export type OpenRouterVerificationModelProfile =
+  | "unqualified-for-floor-plan-verification"
+  | "unreviewed";
+
+export function classifyOpenRouterVerificationModel(
+  modelId: string,
+): OpenRouterVerificationModelProfile {
+  const canonical = modelId.trim().toLowerCase().split(":", 1)[0] ?? "";
+  const modelName = canonical.includes("/") ? canonical.slice(canonical.lastIndexOf("/") + 1) : canonical;
+  if (/^gemini-2\.5-flash(?:-preview(?:-\d{2}-\d{2})?)?$/.test(modelName)) {
+    return "unqualified-for-floor-plan-verification";
+  }
+  return "unreviewed";
+}
 
 export class OpenRouterRecognitionError extends Error {
   readonly code: "invalid-key" | "insufficient-funds" | "rate-limit" | "unsupported-model" | "invalid-response" | "request-failed" | "timeout";
@@ -159,6 +177,28 @@ function prompt(input: RecognitionProviderInput): string {
   return isVerification(input) ? verificationPrompt(input) : discoveryPrompt(input);
 }
 
+function weakVerificationDiagnostic(input: Readonly<{
+  modelId: string;
+  localSummary: NonNullable<RecognitionProviderInput["localSummary"]>;
+  result: RecognitionProviderResult;
+}>): RecognitionDiagnostic | null {
+  if (classifyOpenRouterVerificationModel(input.modelId) !== "unqualified-for-floor-plan-verification") return null;
+  const localHighCount = [...input.localSummary.walls, ...input.localSummary.openings]
+    .filter((candidate) => candidate.confidence === "high" && candidate.conflict === null)
+    .length;
+  if (localHighCount < MIN_LOCAL_HIGH_CONFIDENCE_FOR_PROFILE_WARNING) return null;
+  const confirmedHighCount = [...input.result.walls, ...input.result.openings]
+    .filter((candidate) => candidate.confidence === "high" && candidate.conflict === null)
+    .length;
+  if (confirmedHighCount / localHighCount >= MIN_ACCEPTABLE_CONFIRMED_HIGH_RATIO) return null;
+  return {
+    code: "weak-ai-verification-profile",
+    severity: "warning",
+    message: "Модель резко снизила уверенность локального черновика. Это не исправляет геометрию; сравните результат с локальным слоем или выберите другую vision-модель.",
+    candidateId: null,
+  };
+}
+
 function boundedSignal(externalSignal: AbortSignal, timeoutMs: number): Readonly<{
   signal: AbortSignal;
   timedOut: () => boolean;
@@ -270,7 +310,13 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
         throw new OpenRouterRecognitionError("invalid-response", "Ответ OpenRouter не прошёл проверку структуры ответа.", { cause });
       }
 
-      const result = sanitizeCloudRecognitionResult({ result: normalized, localSummary: input.localSummary });
+      const sanitized = sanitizeCloudRecognitionResult({ result: normalized, localSummary: input.localSummary });
+      const profileDiagnostic = verification
+        ? weakVerificationDiagnostic({ modelId: this.#modelId, localSummary: input.localSummary, result: sanitized })
+        : null;
+      const result: RecognitionProviderResult = profileDiagnostic
+        ? { ...sanitized, diagnostics: [...(sanitized.diagnostics ?? []), profileDiagnostic] }
+        : sanitized;
       recognitionInfo("openrouter.request.complete", {
         modelId: this.#modelId,
         walls: result.walls.length,
