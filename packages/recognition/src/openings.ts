@@ -222,7 +222,7 @@ function railWindowsForWall(
       if (Math.abs(first.startAlong - second.startAlong) > 12) continue;
       if (Math.abs(first.endAlong - second.endAlong) > 12) continue;
       const separation = Math.abs(first.across - second.across);
-      const minimumRailSeparation = Math.max(3, expectedHalfThickness * 0.35);
+      const minimumRailSeparation = Math.max(1.5, expectedHalfThickness * 0.18);
       const maximumRailSeparation = Math.max(16, expectedHalfThickness * 1.8);
       if (separation < minimumRailSeparation || separation > maximumRailSeparation) continue;
       const averageAcross = (first.across + second.across) / 2;
