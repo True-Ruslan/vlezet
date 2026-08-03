@@ -10,6 +10,7 @@ import {
   extractStructuralWallRegions,
   LOCAL_RECOGNITION_ENGINE_VERSION,
   rescaleRecognitionPixelEvidence,
+  sanitizeRecognitionWallTopology,
   sourceRasterPixelScale,
   topologyWallCandidates,
 } from "@vlezet/recognition";
@@ -421,6 +422,15 @@ export async function runLocalRecognitionEngine(
     });
     analysisWalls = [...windowHostConsolidation.walls];
 
+    const topologySanity = sanitizeRecognitionWallTopology({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      millimetersPerPixel: analysisMillimetersPerPixel,
+      wallCandidates: analysisWalls,
+    });
+    analysisWalls = [...topologySanity.walls];
+    const openingHostWalls = analysisWalls.filter((candidate) => candidate.conflict === null);
+
     const debugSelection = useStructuralRegionEvidence
       ? { selectedMode: "regions" as const }
       : { selectedMode: usedAdaptiveFallback ? "adaptive" as const : "strict" as const };
@@ -440,7 +450,7 @@ export async function runLocalRecognitionEngine(
     const openingAnalysis = analyzeOpeningHypotheses({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
-      wallCandidates: analysisWalls,
+      wallCandidates: openingHostWalls,
       wallSegments: segments,
       symbolSegments,
     });
@@ -455,6 +465,7 @@ export async function runLocalRecognitionEngine(
     });
 
     const diagnostics = [];
+    diagnostics.push(...topologySanity.diagnostics);
     diagnostics.push({
       code: "thick-ink-structural-mask",
       severity: "info" as const,
@@ -547,7 +558,10 @@ export async function runLocalRecognitionEngine(
       });
     }
 
-    const decisions = Object.fromEntries([...walls, ...openings].map((candidate) => [candidate.id, "pending" as const]));
+    const decisions = Object.fromEntries([...walls, ...openings].map((candidate) => [
+      candidate.id,
+      candidate.conflict === null ? "pending" as const : "rejected" as const,
+    ]));
     const draft: RecognitionDraft = {
       id: options.createDraftId?.() ?? crypto.randomUUID(),
       projectId: input.projectId,
