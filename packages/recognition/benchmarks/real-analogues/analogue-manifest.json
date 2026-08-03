@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "recognition-real-analogue-manifest-v1",
+  "corpusVersion": "recognition-real-analogue-corpus-v1",
+  "fixtures": [
+    {
+      "fixtureId": "real-plan-001-anonymized",
+      "privateSourceId": "real-plan-001",
+      "privateSourceSha256": "c9ed200640c13770821947a5d3628e357e7400679dd6bb174e2a52a6c0f2f9ef"
+    },
+    {
+      "fixtureId": "real-plan-002-anonymized",
+      "privateSourceId": "real-plan-002",
+      "privateSourceSha256": "bd89ecb927d9c7d8bea0273c3124cbd30a7a62a156b8ff4903aca10aad753527"
+    },
+    {
+      "fixtureId": "real-plan-003-anonymized",
+      "privateSourceId": "real-plan-003",
+      "privateSourceSha256": "39e5b58fbf0e980e85f1e45f80376bdfa548c05c0a45e0d40a92721fb4f2d950"
+    },
+    {
+      "fixtureId": "real-plan-004-anonymized",
+      "privateSourceId": "real-plan-004",
+      "privateSourceSha256": "ddead2d9bcde29d4ad5b858327f0578ab5257fa2485aa031062ec60721d0d83f"
+    },
+    {
+      "fixtureId": "real-plan-005-anonymized",
+      "privateSourceId": "real-plan-005",
+      "privateSourceSha256": "7d73b9995b1fed6080e83b125c19c641bbb2da31b5fb3754ce773126509c202a"
+    },
+    {
+      "fixtureId": "real-plan-006-anonymized",
+      "privateSourceId": "real-plan-006",
+      "privateSourceSha256": "6f275e4c9ac2264287988d7528fb43960ed676ba7e0f1a979f246a06436314b2"
+    },
+    {
+      "fixtureId": "real-plan-007-anonymized",
+      "privateSourceId": "real-plan-007",
+      "privateSourceSha256": "b84719058cbd82b02ac7b223789158b8ba956d9b530bba8d2a85e26037f61ec5"
+    },
+    {
+      "fixtureId": "real-plan-008-anonymized",
+      "privateSourceId": "real-plan-008",
+      "privateSourceSha256": "5cf1f7e6368c5ec5ccd6fe1955d8c6e1e5f00166158e4e6e4a03f29233f4499e"
+    },
+    {
+      "fixtureId": "real-plan-009-anonymized",
+      "privateSourceId": "real-plan-009",
+      "privateSourceSha256": "15f9a6e6c9e27f17b3928fb27d3bbda9e424ce2a4640668f6d5f4521680b3d17"
+    },
+    {
+      "fixtureId": "real-plan-010-anonymized",
+      "privateSourceId": "real-plan-010",
+      "privateSourceSha256": "d4b53a310d8d2be1822d1ba3e0320e3b915cb504caa93cd88f9fdcf4acb91b19"
+    },
+    {
+      "fixtureId": "real-plan-011-anonymized",
+      "privateSourceId": "real-plan-011",
+      "privateSourceSha256": "66f9f51a331384574ac5cabf77d98c3a9a0e302c006c4f31961f9cc610b9d968"
+    },
+    {
+      "fixtureId": "real-plan-012-anonymized",
+      "privateSourceId": "real-plan-012",
+      "privateSourceSha256": "54ef43f094dd54eb1947e21a4623b11ff104812f87653c160c34849df9733203"
+    }
+  ]
+}
