@@ -24,6 +24,7 @@ export * from "./review-selection";
 export * from "./session";
 export * from "./source-scale";
 export * from "./structural-regions";
+export * from "./thick-wall-consolidation";
 export * from "./topology-sanity";
 export {
   DEFAULT_WALL_COMPLETION_OPTIONS,
