@@ -43,3 +43,4 @@ export * from "./wall-evidence-filter";
 export * from "./wall-evidence-fusion";
 export * from "./wall-topology";
 export * from "./window-host-consolidation";
+export * from "./window-mask-analysis";
