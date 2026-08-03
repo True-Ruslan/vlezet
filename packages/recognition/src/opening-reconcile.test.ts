@@ -91,7 +91,26 @@ describe("opening reconciliation identity and authority", () => {
     }));
   });
 
-  it("preserves exact local geometry and decision while accepting cloud classification evidence", () => {
+  it("promotes an exact local and AI opening classification agreement to high confidence", () => {
+    const reconciled = reconcileRecognition({
+      localDraft: draft(),
+      cloudResult: result([opening("opening-1", "cloud", { kind: "door", confidence: "high" })]),
+      existingWalls: [],
+      now,
+    });
+
+    expect(reconciled.openings[0]).toMatchObject({
+      id: "opening-1",
+      kind: "door",
+      hostWallCandidateId: "wall-1",
+      confidence: "high",
+      origin: "merged",
+      conflict: null,
+    });
+    expect(reconciled.openings[0]?.evidence.reasons).toContain("local-cloud-opening-agreement");
+  });
+
+  it("preserves exact local geometry and decision while accepting cloud reclassification evidence", () => {
     const reconciled = reconcileRecognition({
       localDraft: draft(),
       cloudResult: result([
@@ -113,6 +132,7 @@ describe("opening reconciliation identity and authority", () => {
       center: { x: 0.5, y: 0.5 },
       widthPx: 100,
       orientationDeg: 0,
+      confidence: "medium",
       origin: "merged",
     });
     expect(reconciled.decisions["opening-1"]).toBe("accepted");
