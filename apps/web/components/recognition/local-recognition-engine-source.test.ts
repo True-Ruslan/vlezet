@@ -24,15 +24,18 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain("cv.getStructuringElement(");
     expect(engineSource).toContain("cv.MORPH_RECT");
     expect(engineSource).toContain("cv.morphologyEx(structuralBinary, structuralMask, cv.MORPH_OPEN, structuralKernel)");
+    expect(engineSource).toContain("const structuralMaskView");
     expect(engineSource).toContain("cv.GaussianBlur(structuralMask, strictBlurred");
     expect(engineSource).toContain("cv.GaussianBlur(structuralMask, permissiveBlurred");
     expect(engineSource).toContain("cv.Canny(strictBlurred, strictEdges, 50, 150, 3, false)");
     expect(engineSource).toContain("cv.Canny(permissiveBlurred, permissiveEdges, 25, 90, 3, false)");
     const structuralMask = engineSource.indexOf("cv.morphologyEx(structuralBinary, structuralMask");
+    const maskView = engineSource.indexOf("const structuralMaskView");
     const firstWallCanny = engineSource.indexOf("cv.Canny(strictBlurred");
     const wallAnalysis = engineSource.indexOf("analyzeWallCandidates({");
     expect(structuralMask).toBeGreaterThan(-1);
-    expect(structuralMask).toBeLessThan(firstWallCanny);
+    expect(maskView).toBeGreaterThan(structuralMask);
+    expect(maskView).toBeLessThan(firstWallCanny);
     expect(firstWallCanny).toBeLessThan(wallAnalysis);
   });
 
@@ -71,38 +74,51 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain('code: "multi-pass-source-normalisation"');
   });
 
-  it("fuses strict supplemental Hough after primary region walls and before window-host consolidation", () => {
+  it("fuses strict supplemental Hough before deterministic wall stabilization", () => {
     expect(engineSource).toContain("fuseRecognitionWallEvidence");
     expect(engineSource).toContain("const wallEvidenceFusion = useStructuralRegionEvidence");
     expect(engineSource).toContain("analysisWalls = [...wallEvidenceFusion.walls]");
+    expect(engineSource).toContain("consolidateThickWallSiblings");
+    expect(engineSource).toContain("applyStructuralClutterVeto");
 
     const strictWalls = engineSource.indexOf("const strictWalls = useStructuralRegionEvidence");
     const fusion = engineSource.indexOf("const wallEvidenceFusion = useStructuralRegionEvidence");
+    const thickWalls = engineSource.indexOf("const thickWallConsolidation = consolidateThickWallSiblings({");
+    const clutter = engineSource.indexOf("const structuralClutterVeto = applyStructuralClutterVeto({");
     const consolidation = engineSource.indexOf("const windowHostConsolidation = consolidateWindowHostWalls({");
     expect(strictWalls).toBeGreaterThan(-1);
     expect(fusion).toBeGreaterThan(strictWalls);
-    expect(consolidation).toBeGreaterThan(fusion);
+    expect(thickWalls).toBeGreaterThan(fusion);
+    expect(clutter).toBeGreaterThan(thickWalls);
+    expect(consolidation).toBeGreaterThan(clutter);
   });
 
-  it("consolidates symbol-confirmed window hosts after wall selection and before opening analysis", () => {
+  it("keeps blocked clutter in the Draft but removes it from host-wall authority", () => {
+    expect(engineSource).toContain("const blockedAnalysisWalls = analysisWalls.filter((candidate) => candidate.conflict !== null)");
+    expect(engineSource).toContain("const activeAnalysisWalls = analysisWalls.filter((candidate) => candidate.conflict === null)");
+    expect(engineSource).toContain("wallCandidates: activeAnalysisWalls");
+    expect(engineSource).toContain("analysisWalls = [...topologySanity.walls, ...blockedAnalysisWalls]");
+  });
+
+  it("consolidates symbol-confirmed window hosts after wall stabilization and before opening analysis", () => {
     expect(engineSource).toContain("consolidateWindowHostWalls");
     expect(engineSource).toContain("const windowHostConsolidation = consolidateWindowHostWalls({");
-    expect(engineSource).toContain("analysisWalls = [...windowHostConsolidation.walls]");
+    expect(engineSource).toContain("analysisWalls = [...topologySanity.walls, ...blockedAnalysisWalls]");
     expect(engineSource).toContain('code: "window-symbol-host-consolidation"');
     expect(engineSource).toContain('code: "window-host-consolidation-budget"');
 
-    const wallSelection = engineSource.indexOf("const wallEvidenceFusion = useStructuralRegionEvidence");
+    const clutter = engineSource.indexOf("const structuralClutterVeto = applyStructuralClutterVeto({");
     const consolidation = engineSource.indexOf("const windowHostConsolidation = consolidateWindowHostWalls({");
     const openingAnalysis = engineSource.indexOf("const openingAnalysis = analyzeOpeningHypotheses({");
-    expect(wallSelection).toBeGreaterThan(-1);
-    expect(consolidation).toBeGreaterThan(wallSelection);
+    expect(consolidation).toBeGreaterThan(clutter);
     expect(openingAnalysis).toBeGreaterThan(consolidation);
   });
 
-  it("sanitizes local topology before opening analysis and rejects blocked wall candidates", () => {
+  it("sanitizes active topology before mask-supported opening analysis", () => {
     expect(engineSource).toContain("sanitizeRecognitionWallTopology");
     expect(engineSource).toContain("const topologySanity = sanitizeRecognitionWallTopology({");
-    expect(engineSource).toContain("analysisWalls = [...topologySanity.walls]");
+    expect(engineSource).toContain("wallCandidates: windowHostConsolidation.walls");
+    expect(engineSource).toContain("structuralMask: structuralMaskView");
     expect(engineSource).toContain("diagnostics.push(...topologySanity.diagnostics)");
     expect(engineSource).toContain('candidate.conflict === null ? "pending" as const : "rejected" as const');
 
@@ -116,8 +132,11 @@ describe("shared local recognition engine extraction", () => {
   it("enables only host-validated local opening candidates", () => {
     expect(engineSource).toContain("const openingAnalysis = analyzeOpeningHypotheses({");
     expect(engineSource).toContain("const analysisOpenings = [...openingAnalysis.candidates]");
+    expect(engineSource).toContain("const maskSupportedWindowCount");
+    expect(engineSource).toContain('candidate.evidence.reasons.includes("mask-supported-window-gap")');
     expect(engineSource).toContain('code: "opening-host-validation"');
     expect(engineSource).toContain('code: "opening-hypothesis-rejected"');
+    expect(engineSource).toContain('code: "mask-supported-window-recovery"');
     expect(engineSource).not.toContain("const analysisOpenings: ReturnType<typeof buildOpeningHypotheses> = []");
     expect(engineSource).not.toContain('code: "opening-classification-deferred"');
   });
