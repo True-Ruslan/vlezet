@@ -37,7 +37,7 @@ describe("recognition apply history synchronization", () => {
     const after = { ...before, schemaVersion: before.schemaVersion };
     const normal = executeCommand(createHistoryState(before), {
       type: "document/replace",
-      label: "project/load",
+      label: "object/add",
       before,
       after,
     });
