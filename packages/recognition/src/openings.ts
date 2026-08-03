@@ -44,7 +44,11 @@ function mergeIntervals(intervals: readonly Interval[]): Interval[] {
   return result;
 }
 
-function mergeProjectedRails(rails: readonly ProjectedRail[]): ProjectedRail[] {
+function mergeProjectedRails(
+  rails: readonly ProjectedRail[],
+  acrossTolerancePx: number,
+  gapTolerancePx: number,
+): ProjectedRail[] {
   const sorted = [...rails].sort((first, second) =>
     first.across - second.across
     || first.startAlong - second.startAlong
@@ -59,9 +63,9 @@ function mergeProjectedRails(rails: readonly ProjectedRail[]): ProjectedRail[] {
   for (const rail of sorted) {
     const existing = merged.find((candidate) => {
       const candidateAcross = candidate.acrossWeighted / candidate.weight;
-      return Math.abs(candidateAcross - rail.across) <= 3
-        && rail.startAlong <= candidate.endAlong + 12
-        && rail.endAlong >= candidate.startAlong - 12;
+      return Math.abs(candidateAcross - rail.across) <= acrossTolerancePx
+        && rail.startAlong <= candidate.endAlong + gapTolerancePx
+        && rail.endAlong >= candidate.startAlong - gapTolerancePx;
     });
     if (!existing) {
       merged.push({
@@ -190,6 +194,26 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
       });
     }
 
+    const structuralRails = wallSegments.flatMap((segment): ProjectedRail[] => {
+      if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
+      const a = { x: segment.x1, y: segment.y1 };
+      const b = { x: segment.x2, y: segment.y2 };
+      const pa = dot({ x: a.x - start.x, y: a.y - start.y }, tangent);
+      const pb = dot({ x: b.x - start.x, y: b.y - start.y }, tangent);
+      const startAlong = Math.max(0, Math.min(pa, pb));
+      const endAlong = Math.min(wallLength, Math.max(pa, pb));
+      if (endAlong - startAlong < 10) return [];
+      const center = midpoint(a, b);
+      const relative = { x: center.x - start.x, y: center.y - start.y };
+      return [{
+        startAlong,
+        endAlong,
+        centerAlong: (startAlong + endAlong) / 2,
+        across: dot(relative, normal),
+        lengthPx: endAlong - startAlong,
+      }];
+    });
+
     const rawRails = symbolSegments.flatMap((segment): ProjectedRail[] => {
       if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
       const a = { x: segment.x1, y: segment.y1 };
@@ -205,15 +229,26 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
       const relative = { x: center.x - start.x, y: center.y - start.y };
       const across = dot(relative, normal);
       if (Math.abs(across) > expectedHalfThickness + 6) return [];
-      return [{
+      const projected = {
         startAlong,
         endAlong,
         centerAlong: (startAlong + endAlong) / 2,
         across,
         lengthPx: endAlong - startAlong,
-      }];
+      };
+      const structuralEcho = Math.abs(Math.abs(across) - expectedHalfThickness) <= edgeTolerance
+        && structuralRails.some((edge) => {
+          if (Math.abs(edge.across - across) > Math.max(2, expectedHalfThickness * 0.18)) return false;
+          const overlap = Math.max(0, Math.min(edge.endAlong, endAlong) - Math.max(edge.startAlong, startAlong));
+          return overlap / Math.max(1, Math.min(edge.lengthPx, projected.lengthPx)) >= 0.55;
+        });
+      return structuralEcho ? [] : [projected];
     });
-    const rails = mergeProjectedRails(rawRails);
+    const rails = mergeProjectedRails(
+      rawRails,
+      Math.max(1.5, expectedHalfThickness * 0.12),
+      Math.max(20, Math.min(32, expectedHalfThickness * 2.5)),
+    );
 
     const railWindows: Array<Readonly<{ centerAlong: number; widthPx: number }>> = [];
     for (let firstIndex = 0; firstIndex < rails.length; firstIndex += 1) {
