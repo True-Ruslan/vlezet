@@ -5,17 +5,16 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseRecognitionBenchmarkFixtureV1 } from "../benchmarks/schema/fixture-v1";
 import { realAnalogueDefinitions } from "../benchmarks/real-analogues/source-definitions.mjs";
-
-// @ts-expect-error M7.9 RED: renderer and verifier are introduced after this contract fails.
 import {
   buildRealFixtureJson,
   buildRealSegmentsSnapshot,
   renderRealFixtureSvg,
 } from "../../../tools/recognition-benchmark/real-fixture-renderer.mjs";
-// @ts-expect-error M7.9 RED: verifier is introduced after this contract fails.
 import { verifyRealFixtureDirectory } from "../../../tools/recognition-benchmark/verify-real-fixtures.mjs";
 
 const temporaryRoots: string[] = [];
+const firstDefinition = realAnalogueDefinitions[0];
+if (!firstDefinition) throw new Error("The real analogue corpus must contain at least one fixture.");
 
 async function temporaryDirectory(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "vlezet-real-fixture-"));
@@ -27,7 +26,7 @@ function sha256(buffer: Buffer): string {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
-async function writeFixture(root: string, definition = realAnalogueDefinitions[0]) {
+async function writeFixture(root: string, definition = firstDefinition) {
   const fixtureDirectory = join(root, definition.id);
   await mkdir(fixtureDirectory, { recursive: true });
   const sourceBuffer = Buffer.from("deterministic-public-redrawn-png");
@@ -52,7 +51,7 @@ afterEach(async () => {
 
 describe("M7.9 immutable public real-fixture assets", () => {
   it("renders repository-owned geometry and recognition clutter without embedding private hashes", () => {
-    const definition = realAnalogueDefinitions[0];
+    const definition = firstDefinition;
     const svg = renderRealFixtureSvg(definition);
 
     expect(svg).toContain(`<svg`);
@@ -67,7 +66,7 @@ describe("M7.9 immutable public real-fixture assets", () => {
   });
 
   it("builds the canonical benchmark fixture schema with host-valid openings", () => {
-    const definition = realAnalogueDefinitions[0];
+    const definition = firstDefinition;
     const fixture = parseRecognitionBenchmarkFixtureV1(
       buildRealFixtureJson(definition, "a".repeat(64)),
     );
@@ -83,7 +82,7 @@ describe("M7.9 immutable public real-fixture assets", () => {
   });
 
   it("builds deterministic structural and clutter line evidence", () => {
-    const definition = realAnalogueDefinitions[0];
+    const definition = firstDefinition;
     const first = buildRealSegmentsSnapshot(definition);
     const second = buildRealSegmentsSnapshot(definition);
 
@@ -100,7 +99,7 @@ describe("M7.9 immutable public real-fixture assets", () => {
 
     await expect(verifyRealFixtureDirectory({
       root,
-      definitions: [realAnalogueDefinitions[0]],
+      definitions: [firstDefinition],
     })).resolves.toEqual({
       fixtureCount: 1,
       hashMismatches: [],
@@ -117,19 +116,19 @@ describe("M7.9 immutable public real-fixture assets", () => {
 
     await expect(verifyRealFixtureDirectory({
       root,
-      definitions: [realAnalogueDefinitions[0]],
+      definitions: [firstDefinition],
     })).rejects.toThrow(/hash mismatch/i);
   });
 
   it("rejects a fixture that claims the private source digest", async () => {
     const root = await temporaryDirectory();
     const { fixtureDirectory } = await writeFixture(root);
-    const privateDigest = realAnalogueDefinitions[0].privateSourceSha256;
+    const privateDigest = firstDefinition.privateSourceSha256;
     await writeFile(join(fixtureDirectory, "source.sha256"), `${privateDigest}  source.png\n`);
 
     await expect(verifyRealFixtureDirectory({
       root,
-      definitions: [realAnalogueDefinitions[0]],
+      definitions: [firstDefinition],
     })).rejects.toThrow(/private.*digest/i);
   });
 
@@ -145,7 +144,7 @@ describe("M7.9 immutable public real-fixture assets", () => {
 
     await expect(verifyRealFixtureDirectory({
       root,
-      definitions: [realAnalogueDefinitions[0]],
+      definitions: [firstDefinition],
     })).rejects.toThrow(/failure expectations/i);
   });
 });
