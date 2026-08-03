@@ -5,6 +5,8 @@ import type {
   RecognitionWallCandidate,
 } from "./model";
 import { buildOpeningHypotheses } from "./openings";
+import type { StructuralMaskView } from "./wall-completion";
+import { detectMaskSupportedWindows } from "./window-mask-analysis";
 
 export type OpeningHypothesisRejectionCode =
   | "unknown-host-wall"
@@ -53,6 +55,7 @@ export type AnalyzeOpeningHypothesesInput = Readonly<{
   segments?: readonly DetectedLineSegment[];
   wallSegments?: readonly DetectedLineSegment[];
   symbolSegments?: readonly DetectedLineSegment[];
+  structuralMask?: StructuralMaskView;
   options?: Partial<OpeningAnalysisOptions>;
 }>;
 
@@ -178,6 +181,75 @@ function acceptedCandidate(candidate: RecognitionOpeningCandidate): RecognitionO
   };
 }
 
+function hypothesisRank(candidate: RecognitionOpeningCandidate): readonly [number, number, string] {
+  const kindRank = candidate.kind === "unknown-opening" ? 0 : 1;
+  return [kindRank, candidate.evidence.localScore ?? 0, candidate.id];
+}
+
+function strongerHypothesis(
+  first: RecognitionOpeningCandidate,
+  second: RecognitionOpeningCandidate,
+): RecognitionOpeningCandidate {
+  const firstRank = hypothesisRank(first);
+  const secondRank = hypothesisRank(second);
+  if (firstRank[0] !== secondRank[0]) return firstRank[0] > secondRank[0] ? first : second;
+  if (firstRank[1] !== secondRank[1]) return firstRank[1] > secondRank[1] ? first : second;
+  return firstRank[2].localeCompare(secondRank[2]) <= 0 ? first : second;
+}
+
+function equivalentHypotheses(
+  first: RecognitionOpeningCandidate,
+  second: RecognitionOpeningCandidate,
+  widthPx: number,
+  heightPx: number,
+): boolean {
+  if (first.hostWallCandidateId !== second.hostWallCandidateId) return false;
+  if (first.kind !== second.kind && first.kind !== "unknown-opening" && second.kind !== "unknown-opening") return false;
+  const centerDistancePx = Math.hypot(
+    (first.center.x - second.center.x) * widthPx,
+    (first.center.y - second.center.y) * heightPx,
+  );
+  const firstWidth = first.widthPx ?? 0;
+  const secondWidth = second.widthPx ?? 0;
+  return centerDistancePx <= Math.max(12, Math.min(firstWidth, secondWidth) * 0.2)
+    && Math.abs(firstWidth - secondWidth) <= Math.max(12, Math.min(firstWidth, secondWidth) * 0.25);
+}
+
+function deduplicateHypotheses(
+  hypotheses: readonly RecognitionOpeningCandidate[],
+  widthPx: number,
+  heightPx: number,
+): RecognitionOpeningCandidate[] {
+  const result: RecognitionOpeningCandidate[] = [];
+  for (const candidate of [...hypotheses].sort((first, second) => first.id.localeCompare(second.id))) {
+    const index = result.findIndex((existing) => equivalentHypotheses(
+      existing,
+      candidate,
+      widthPx,
+      heightPx,
+    ));
+    if (index < 0) {
+      result.push(candidate);
+      continue;
+    }
+    const preferred = strongerHypothesis(result[index]!, candidate);
+    const other = preferred === result[index] ? candidate : result[index]!;
+    result[index] = {
+      ...preferred,
+      evidence: {
+        localScore: Math.max(preferred.evidence.localScore ?? 0, other.evidence.localScore ?? 0),
+        cloudScore: preferred.evidence.cloudScore ?? other.evidence.cloudScore,
+        reasons: [...new Set([
+          ...preferred.evidence.reasons,
+          ...other.evidence.reasons,
+          "opening-hypothesis-deduplicated",
+        ])].sort(),
+      },
+    };
+  }
+  return result.sort((first, second) => first.id.localeCompare(second.id));
+}
+
 export function validateOpeningHypotheses(
   input: ValidateOpeningHypothesesInput,
 ): OpeningAnalysisResult {
@@ -234,14 +306,29 @@ export function validateOpeningHypotheses(
 export function analyzeOpeningHypotheses(
   input: AnalyzeOpeningHypothesesInput,
 ): OpeningAnalysisResult {
-  const hypotheses = buildOpeningHypotheses({
+  const symbolSegments = input.symbolSegments ?? input.segments ?? [];
+  const existingHypotheses = buildOpeningHypotheses({
     widthPx: input.widthPx,
     heightPx: input.heightPx,
     wallCandidates: input.wallCandidates,
     segments: input.segments,
     wallSegments: input.wallSegments,
-    symbolSegments: input.symbolSegments,
+    symbolSegments,
   });
+  const maskSupportedWindows = input.structuralMask
+    ? detectMaskSupportedWindows({
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        wallCandidates: input.wallCandidates,
+        symbolSegments,
+        mask: input.structuralMask,
+      })
+    : [];
+  const hypotheses = deduplicateHypotheses(
+    [...existingHypotheses, ...maskSupportedWindows],
+    input.widthPx,
+    input.heightPx,
+  );
   return validateOpeningHypotheses({
     widthPx: input.widthPx,
     heightPx: input.heightPx,
