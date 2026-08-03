@@ -28,6 +28,8 @@ function wall(
 
 const left = wall("left", 100, 300, 430, 300);
 const right = wall("right", 570, 300, 900, 300);
+const boundaryLeft = wall("boundary-left", 100, 20, 430, 20);
+const boundaryRight = wall("boundary-right", 570, 20, 900, 20);
 const rails: DetectedLineSegment[] = [
   { x1: 430, y1: 296, x2: 570, y2: 296 },
   { x1: 430, y1: 304, x2: 570, y2: 304 },
@@ -58,7 +60,22 @@ describe("symbol-confirmed window host consolidation", () => {
     expect(result.walls[0]?.confidence).toBe("medium");
   });
 
-  it("does not bridge without two independent rails", () => {
+  it("bridges a bounded gap on the exterior image boundary without symbol rails", () => {
+    const result = consolidateWindowHostWalls({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [boundaryLeft, boundaryRight],
+      symbolSegments: [],
+    });
+
+    expect(result.acceptedBridgeCount).toBe(1);
+    expect(result.walls).toHaveLength(1);
+    expect(coordinates(result.walls[0]!)).toEqual([100, 20, 900, 20]);
+    expect(result.walls[0]?.evidence.reasons).toContain("exterior-boundary-host-bridge");
+    expect(result.walls[0]?.confidence).toBe("medium");
+  });
+
+  it("does not bridge an unsupported interior gap without two independent rails", () => {
     for (const symbolSegments of [[], rails.slice(0, 1)]) {
       const result = consolidateWindowHostWalls({
         widthPx: WIDTH,
@@ -69,6 +86,21 @@ describe("symbol-confirmed window host consolidation", () => {
       expect(result.acceptedBridgeCount).toBe(0);
       expect(result.walls.map(coordinates)).toEqual([[100, 300, 430, 300], [570, 300, 900, 300]]);
     }
+  });
+
+  it("does not bridge boundary fragments across a perpendicular wall junction inside the gap", () => {
+    const result = consolidateWindowHostWalls({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [
+        boundaryLeft,
+        boundaryRight,
+        wall("gap-junction", 500, 20, 500, 300),
+      ],
+      symbolSegments: [],
+    });
+    expect(result.acceptedBridgeCount).toBe(0);
+    expect(result.walls).toHaveLength(3);
   });
 
   it("rejects parallel dimension lines outside the wall thickness", () => {
