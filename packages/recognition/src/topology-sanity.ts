@@ -34,6 +34,7 @@ const AXIS_TOLERANCE_DEG = 8;
 const INTERSECTION_COVERAGE_TOLERANCE_PX = 8;
 const MAX_ENDPOINT_TRIM_PX = 64;
 const MIN_ENDPOINT_TRIM_PX = 48;
+const MIN_SANITIZED_WALL_LENGTH_PX = 12;
 const DUPLICATE_MIN_OVERLAP_RATIO = 0.75;
 const DUPLICATE_BAND_OVERLAP_RATIO = 0.9;
 const MAX_DUPLICATE_AXIS_DISTANCE_PX = 32;
@@ -49,12 +50,8 @@ function length(first: Point, second: Point): number {
   return Math.hypot(second.x - first.x, second.y - first.y);
 }
 
-function angleDeg(start: Point, end: Point): number {
-  return ((Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI) + 180) % 180;
-}
-
 function axisOrientation(start: Point, end: Point): AxisOrientation {
-  const angle = angleDeg(start, end);
+  const angle = ((Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI) + 180) % 180;
   const horizontalDelta = Math.min(angle, 180 - angle);
   const verticalDelta = Math.abs(angle - 90);
   if (horizontalDelta <= AXIS_TOLERANCE_DEG) return "horizontal";
@@ -123,6 +120,24 @@ function pointWithin(value: number, minimum: number, maximum: number, tolerance:
   return value >= minimum - tolerance && value <= maximum + tolerance;
 }
 
+function addReason(candidate: RecognitionWallCandidate, reason: string): RecognitionWallCandidate {
+  return {
+    ...candidate,
+    evidence: {
+      ...candidate.evidence,
+      reasons: [...new Set([...candidate.evidence.reasons, reason])].sort(),
+    },
+  };
+}
+
+function blockCandidate(candidate: RecognitionWallCandidate, reason: string): RecognitionWallCandidate {
+  return addReason({
+    ...candidate,
+    confidence: "low",
+    conflict: "unsupported",
+  }, reason);
+}
+
 function trimEndpoint(
   endpoint: Point,
   opposite: Point,
@@ -141,15 +156,14 @@ function trimEndpoint(
     if (perpendicular.orientation === wall.orientation) continue;
     if (perpendicular.candidate.id === wall.candidate.id) continue;
 
-    const intersectionCoordinate = perpendicular.axis;
-    const crossCoordinate = wall.axis;
     if (!pointWithin(
-      crossCoordinate,
+      wall.axis,
       perpendicular.minimum,
       perpendicular.maximum,
       INTERSECTION_COVERAGE_TOLERANCE_PX,
     )) continue;
 
+    const intersectionCoordinate = perpendicular.axis;
     const between = direction > 0
       ? intersectionCoordinate >= oppositeCoordinate && intersectionCoordinate <= endpointCoordinate
       : intersectionCoordinate <= oppositeCoordinate && intersectionCoordinate >= endpointCoordinate;
@@ -174,16 +188,6 @@ function trimEndpoint(
       ? { x: best.coordinate, y: wall.axis }
       : { x: wall.axis, y: best.coordinate },
     trimmed: true,
-  };
-}
-
-function addReason(candidate: RecognitionWallCandidate, reason: string): RecognitionWallCandidate {
-  return {
-    ...candidate,
-    evidence: {
-      ...candidate.evidence,
-      reasons: [...new Set([...candidate.evidence.reasons, reason])].sort(),
-    },
   };
 }
 
@@ -212,6 +216,17 @@ function trimOvershoots(
     const trimmedStart = trimEndpoint(wall.start, wall.end, wall, pixelWalls);
     const trimmedEnd = trimEndpoint(wall.end, wall.start, wall, pixelWalls);
     if (!trimmedStart.trimmed && !trimmedEnd.trimmed) return wall.candidate;
+
+    if (length(trimmedStart.point, trimmedEnd.point) < MIN_SANITIZED_WALL_LENGTH_PX) {
+      diagnostics.push({
+        code: "topology-degenerate-after-trim",
+        severity: "warning",
+        message: "Обрезка схлопнула короткий фрагмент стены; исходный кандидат сохранён для проверки и отклонён.",
+        candidateId: wall.candidate.id,
+      });
+      return blockCandidate(wall.candidate, "topology-degenerate-after-trim");
+    }
+
     diagnostics.push({
       code: "topology-endpoint-overshoot-trimmed",
       severity: "info",
@@ -247,16 +262,18 @@ function detectParallelDuplicates(
   widthPx: number,
   heightPx: number,
 ): ReadonlySet<string> {
-  const walls = candidates.map((candidate) => toPixelWall(candidate, widthPx, heightPx));
+  const walls = candidates
+    .filter((candidate) => candidate.conflict === null)
+    .map((candidate) => toPixelWall(candidate, widthPx, heightPx));
   const blocked = new Set<string>();
+
   for (let firstIndex = 0; firstIndex < walls.length; firstIndex += 1) {
     const first = walls[firstIndex]!;
     if (first.orientation === "diagonal" || first.axis === null || blocked.has(first.candidate.id)) continue;
     for (let secondIndex = firstIndex + 1; secondIndex < walls.length; secondIndex += 1) {
       const second = walls[secondIndex]!;
       if (second.orientation !== first.orientation || second.axis === null || blocked.has(second.candidate.id)) continue;
-      const overlap = intervalOverlap(first, second);
-      const overlapRatio = overlap / Math.max(1, Math.min(first.lengthPx, second.lengthPx));
+      const overlapRatio = intervalOverlap(first, second) / Math.max(1, Math.min(first.lengthPx, second.lengthPx));
       if (overlapRatio < DUPLICATE_MIN_OVERLAP_RATIO) continue;
       const bandOverlapLimit = Math.min(
         MAX_DUPLICATE_AXIS_DISTANCE_PX,
@@ -293,8 +310,9 @@ function detectSmallEnclosures(
   if (millimetersPerPixel === null || !Number.isFinite(millimetersPerPixel) || millimetersPerPixel <= 0) {
     return blocked;
   }
+
   const walls = candidates
-    .filter((candidate) => !alreadyBlocked.has(candidate.id))
+    .filter((candidate) => candidate.conflict === null && !alreadyBlocked.has(candidate.id))
     .map((candidate) => toPixelWall(candidate, widthPx, heightPx));
   const horizontals = walls.filter((wall) => wall.orientation === "horizontal" && wall.axis !== null);
   const verticals = walls.filter((wall) => wall.orientation === "vertical" && wall.axis !== null);
@@ -303,24 +321,25 @@ function detectSmallEnclosures(
     const top = horizontals[topIndex]!;
     for (let bottomIndex = topIndex + 1; bottomIndex < horizontals.length; bottomIndex += 1) {
       const bottom = horizontals[bottomIndex]!;
-      const topAxis = top.axis!;
-      const bottomAxis = bottom.axis!;
-      const minimumY = Math.min(topAxis, bottomAxis);
-      const maximumY = Math.max(topAxis, bottomAxis);
-      const height = maximumY - minimumY;
-      if (height < MIN_ENCLOSURE_SIDE_PX) continue;
+      const minimumY = Math.min(top.axis!, bottom.axis!);
+      const maximumY = Math.max(top.axis!, bottom.axis!);
+      const enclosureHeight = maximumY - minimumY;
+      if (enclosureHeight < MIN_ENCLOSURE_SIDE_PX) continue;
 
       for (let leftIndex = 0; leftIndex < verticals.length; leftIndex += 1) {
         const left = verticals[leftIndex]!;
         for (let rightIndex = leftIndex + 1; rightIndex < verticals.length; rightIndex += 1) {
           const right = verticals[rightIndex]!;
-          const leftAxis = left.axis!;
-          const rightAxis = right.axis!;
-          const minimumX = Math.min(leftAxis, rightAxis);
-          const maximumX = Math.max(leftAxis, rightAxis);
-          const width = maximumX - minimumX;
-          if (width < MIN_ENCLOSURE_SIDE_PX) continue;
-          const areaM2 = width * height * millimetersPerPixel * millimetersPerPixel / 1_000_000;
+          const minimumX = Math.min(left.axis!, right.axis!);
+          const maximumX = Math.max(left.axis!, right.axis!);
+          const enclosureWidth = maximumX - minimumX;
+          if (enclosureWidth < MIN_ENCLOSURE_SIDE_PX) continue;
+
+          const areaM2 = enclosureWidth
+            * enclosureHeight
+            * millimetersPerPixel
+            * millimetersPerPixel
+            / 1_000_000;
           if (areaM2 >= SMALL_ENCLOSURE_MAX_AREA_M2) continue;
 
           const topWall = horizontals.find((wall) => wallCovers(wall, "horizontal", minimumY, minimumX, maximumX));
@@ -330,9 +349,8 @@ function detectSmallEnclosures(
           if (!topWall || !bottomWall || !leftWall || !rightWall) continue;
 
           for (const side of [topWall, bottomWall, leftWall, rightWall]) {
-            const expectedLength = side.orientation === "horizontal" ? width : height;
-            const enclosureShare = expectedLength / Math.max(1, side.lengthPx);
-            if (enclosureShare >= 0.75) blocked.add(side.candidate.id);
+            const expectedLength = side.orientation === "horizontal" ? enclosureWidth : enclosureHeight;
+            if (expectedLength / Math.max(1, side.lengthPx) >= 0.75) blocked.add(side.candidate.id);
           }
         }
       }
@@ -341,23 +359,13 @@ function detectSmallEnclosures(
   return blocked;
 }
 
-function blockCandidate(
-  candidate: RecognitionWallCandidate,
-  reason: "topology-parallel-duplicate" | "topology-small-enclosure",
-): RecognitionWallCandidate {
-  return addReason({
-    ...candidate,
-    confidence: "low",
-    conflict: "unsupported",
-  }, reason);
-}
-
 export function sanitizeRecognitionWallTopology(
   input: RecognitionTopologySanityInput,
 ): RecognitionTopologySanityResult {
   if (!Number.isFinite(input.widthPx) || input.widthPx <= 0 || !Number.isFinite(input.heightPx) || input.heightPx <= 0) {
     throw new Error("Размер изображения должен быть положительным и конечным.");
   }
+
   const canonicalCandidates = [...input.wallCandidates].sort((first, second) => first.id.localeCompare(second.id));
   if (canonicalCandidates.length > MAX_WALL_CANDIDATES) {
     return {
@@ -381,7 +389,9 @@ export function sanitizeRecognitionWallTopology(
     duplicateIds,
   );
   const diagnostics: RecognitionDiagnostic[] = [...trimmed.diagnostics];
+
   const walls = trimmed.walls.map((candidate) => {
+    if (candidate.conflict !== null) return candidate;
     if (duplicateIds.has(candidate.id)) {
       diagnostics.push({
         code: "topology-parallel-duplicate",
