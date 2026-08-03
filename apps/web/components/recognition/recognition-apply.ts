@@ -41,16 +41,51 @@ export type RecognitionApplyIdFactory = (kind: "wall" | "vertex" | "opening") =>
 const ENDPOINT_SNAP_TOLERANCE_MM = 60;
 const DUPLICATE_WALL_TOLERANCE_MM = 70;
 const MIN_RECOGNIZED_WALL_LENGTH_MM = 120;
+const ORTHOGONAL_SNAP_TOLERANCE_DEG = 8;
 
 function distance(a: Point2, b: Point2): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function normalizedToImage(point: NormalizedPoint, reference: ReferencePlan): Point2 {
+  return { x: point.x * reference.widthPx, y: point.y * reference.heightPx };
+}
+
 function normalizedToWorld(point: NormalizedPoint, reference: ReferencePlan): Point2 {
-  return imagePointToWorld({
-    x: point.x * reference.widthPx,
-    y: point.y * reference.heightPx,
-  }, reference.transform);
+  return imagePointToWorld(normalizedToImage(point, reference), reference.transform);
+}
+
+function orthogonalizedImageEndpoints(
+  candidate: RecognitionWallCandidate,
+  reference: ReferencePlan,
+): Readonly<{ start: Point2; end: Point2 }> {
+  const start = normalizedToImage(candidate.start, reference);
+  const end = normalizedToImage(candidate.end, reference);
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const angle = ((Math.atan2(dy, dx) * 180 / Math.PI) + 180) % 180;
+  const horizontalDelta = Math.min(angle, 180 - angle);
+  const verticalDelta = Math.abs(angle - 90);
+  if (horizontalDelta <= ORTHOGONAL_SNAP_TOLERANCE_DEG) {
+    const y = (start.y + end.y) / 2;
+    return { start: { x: start.x, y }, end: { x: end.x, y } };
+  }
+  if (verticalDelta <= ORTHOGONAL_SNAP_TOLERANCE_DEG) {
+    const x = (start.x + end.x) / 2;
+    return { start: { x, y: start.y }, end: { x, y: end.y } };
+  }
+  return { start, end };
+}
+
+function candidateWorldEndpoints(
+  candidate: RecognitionWallCandidate,
+  reference: ReferencePlan,
+): Readonly<{ start: Point2; end: Point2 }> {
+  const image = orthogonalizedImageEndpoints(candidate, reference);
+  return {
+    start: imagePointToWorld(image.start, reference.transform),
+    end: imagePointToWorld(image.end, reference.transform),
+  };
 }
 
 function wallEndpointDistance(
@@ -140,8 +175,7 @@ function applyWalls(
       diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Кандидат стены содержит конфликт и не был применён." });
       continue;
     }
-    const start = normalizedToWorld(candidate.start, reference);
-    const end = normalizedToWorld(candidate.end, reference);
+    const { start, end } = candidateWorldEndpoints(candidate, reference);
     if (distance(start, end) < MIN_RECOGNIZED_WALL_LENGTH_MM) {
       diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Слишком короткая стена пропущена." });
       continue;
