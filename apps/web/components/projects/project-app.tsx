@@ -40,6 +40,7 @@ import { OpenRouterDirectProvider } from "../recognition/openrouter-provider";
 import { planRecognitionApply } from "../recognition/recognition-apply";
 import { RecognitionController, type RecognitionControllerState } from "../recognition/recognition-controller";
 import { commitRecognitionDocument } from "../recognition/recognition-editor-apply";
+import { recognitionApplyHistoryTransition } from "../recognition/recognition-history-sync";
 import { blobToDataUrl, referenceBlobToAnalysisImageData } from "../recognition/recognition-image";
 import { IndexedDbRecognitionSessionRepository } from "../recognition/session-repository";
 import type { ReferenceInstallDraft } from "../reference/reference-panel";
@@ -173,6 +174,12 @@ export function ProjectApp() {
     setSaveStatus({ kind: "saved", savedAt: project.updatedAt });
     unsubscribeEditorRef.current = editorStore.subscribe((state, previous) => {
       if (state.history.document === previous.history.document) return;
+      const transition = recognitionApplyHistoryTransition(previous.history, state.history);
+      if (transition) {
+        void ensureRecognitionController()
+          .setAppliedState(transition === "applied")
+          .catch((cause) => console.error("Не удалось синхронизировать Undo/Redo распознавания.", cause));
+      }
       const current = activeProjectRef.current;
       if (current) queueProject(replaceProjectDocument(current, state.history.document, new Date().toISOString()));
     });
