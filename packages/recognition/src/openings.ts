@@ -19,6 +19,7 @@ type ProjectedRail = Readonly<{
   across: number;
   lengthPx: number;
 }>;
+type RailWindow = Readonly<{ centerAlong: number; widthPx: number }>;
 
 function length(a: Point, b: Point): number { return Math.hypot(b.x - a.x, b.y - a.y); }
 function dot(a: Point, b: Point): number { return a.x * b.x + a.y * b.y; }
@@ -28,6 +29,7 @@ function clamp01(value: number): number { return Math.max(0, Math.min(1, value))
 function segmentAngle(segment: DetectedLineSegment): number {
   return ((Math.atan2(segment.y2 - segment.y1, segment.x2 - segment.x1) * 180 / Math.PI) + 180) % 180;
 }
+
 function angleDelta(a: number, b: number): number {
   const raw = Math.abs(a - b) % 180;
   return Math.min(raw, 180 - raw);
@@ -125,10 +127,137 @@ function hasNearbyOpening(
       <= Math.max(12, widthPx * 0.25));
 }
 
+function structuralRailsForWall(input: Readonly<{
+  wallSegments: readonly DetectedLineSegment[];
+  wallAngle: number;
+  start: Point;
+  tangent: Point;
+  normal: Point;
+  wallLength: number;
+}>): ProjectedRail[] {
+  return input.wallSegments.flatMap((segment): ProjectedRail[] => {
+    if (angleDelta(segmentAngle(segment), input.wallAngle) > 8) return [];
+    const a = { x: segment.x1, y: segment.y1 };
+    const b = { x: segment.x2, y: segment.y2 };
+    const pa = dot({ x: a.x - input.start.x, y: a.y - input.start.y }, input.tangent);
+    const pb = dot({ x: b.x - input.start.x, y: b.y - input.start.y }, input.tangent);
+    const startAlong = Math.max(0, Math.min(pa, pb));
+    const endAlong = Math.min(input.wallLength, Math.max(pa, pb));
+    if (endAlong - startAlong < 10) return [];
+    const center = midpoint(a, b);
+    const relative = { x: center.x - input.start.x, y: center.y - input.start.y };
+    return [{
+      startAlong,
+      endAlong,
+      centerAlong: (startAlong + endAlong) / 2,
+      across: dot(relative, input.normal),
+      lengthPx: endAlong - startAlong,
+    }];
+  });
+}
+
+function symbolRailsForWall(input: Readonly<{
+  symbolSegments: readonly DetectedLineSegment[];
+  structuralRails: readonly ProjectedRail[];
+  wallAngle: number;
+  start: Point;
+  tangent: Point;
+  normal: Point;
+  wallLength: number;
+  expectedHalfThickness: number;
+  edgeTolerance: number;
+}>): ProjectedRail[] {
+  const rawRails = input.symbolSegments.flatMap((segment): ProjectedRail[] => {
+    if (angleDelta(segmentAngle(segment), input.wallAngle) > 8) return [];
+    const a = { x: segment.x1, y: segment.y1 };
+    const b = { x: segment.x2, y: segment.y2 };
+    const segmentLength = length(a, b);
+    if (segmentLength < 18 || segmentLength > 240) return [];
+    const pa = dot({ x: a.x - input.start.x, y: a.y - input.start.y }, input.tangent);
+    const pb = dot({ x: b.x - input.start.x, y: b.y - input.start.y }, input.tangent);
+    const startAlong = Math.min(pa, pb);
+    const endAlong = Math.max(pa, pb);
+    if (startAlong < 12 || input.wallLength - endAlong < 12) return [];
+    const center = midpoint(a, b);
+    const relative = { x: center.x - input.start.x, y: center.y - input.start.y };
+    const across = dot(relative, input.normal);
+    if (Math.abs(across) > input.expectedHalfThickness + 6) return [];
+    const projected: ProjectedRail = {
+      startAlong,
+      endAlong,
+      centerAlong: (startAlong + endAlong) / 2,
+      across,
+      lengthPx: endAlong - startAlong,
+    };
+    const structuralEcho = Math.abs(Math.abs(across) - input.expectedHalfThickness) <= input.edgeTolerance
+      && input.structuralRails.some((edge) => {
+        if (Math.abs(edge.across - across) > Math.max(2, input.expectedHalfThickness * 0.18)) return false;
+        const overlap = Math.max(0, Math.min(edge.endAlong, endAlong) - Math.max(edge.startAlong, startAlong));
+        return overlap / Math.max(1, Math.min(edge.lengthPx, projected.lengthPx)) >= 0.55;
+      });
+    return structuralEcho ? [] : [projected];
+  });
+
+  return mergeProjectedRails(
+    rawRails,
+    Math.max(1.5, input.expectedHalfThickness * 0.12),
+    Math.max(20, Math.min(32, input.expectedHalfThickness * 2.5)),
+  );
+}
+
+function railWindowsForWall(
+  rails: readonly ProjectedRail[],
+  expectedHalfThickness: number,
+): RailWindow[] {
+  const railWindows: RailWindow[] = [];
+  for (let firstIndex = 0; firstIndex < rails.length; firstIndex += 1) {
+    const first = rails[firstIndex]!;
+    for (let secondIndex = firstIndex + 1; secondIndex < rails.length; secondIndex += 1) {
+      const second = rails[secondIndex]!;
+      const centerDelta = Math.abs(first.centerAlong - second.centerAlong);
+      if (centerDelta > 12) {
+        if (second.centerAlong > first.centerAlong) break;
+        continue;
+      }
+      if (Math.abs(first.startAlong - second.startAlong) > 12) continue;
+      if (Math.abs(first.endAlong - second.endAlong) > 12) continue;
+      const separation = Math.abs(first.across - second.across);
+      const minimumRailSeparation = Math.max(3, expectedHalfThickness * 0.35);
+      const maximumRailSeparation = Math.max(16, expectedHalfThickness * 1.8);
+      if (separation < minimumRailSeparation || separation > maximumRailSeparation) continue;
+      const averageAcross = (first.across + second.across) / 2;
+      if (Math.abs(averageAcross) > Math.max(4, expectedHalfThickness * 0.55)) continue;
+      const lengthRatio = Math.min(first.lengthPx, second.lengthPx) / Math.max(first.lengthPx, second.lengthPx);
+      if (lengthRatio < 0.82) continue;
+      const widthPx = (first.lengthPx + second.lengthPx) / 2;
+      if (widthPx < Math.max(50, expectedHalfThickness * 3)) continue;
+      const centerAlong = (first.centerAlong + second.centerAlong) / 2;
+      if (railWindows.some((candidate) =>
+        Math.abs(candidate.centerAlong - centerAlong) <= Math.max(10, widthPx * 0.2))) continue;
+      railWindows.push({ centerAlong, widthPx });
+    }
+  }
+  return railWindows;
+}
+
+function matchingRailWindow(
+  railWindows: readonly RailWindow[],
+  centerAlong: number,
+  widthPx: number,
+): RailWindow | null {
+  return railWindows.find((railWindow) => {
+    const centerTolerance = Math.max(14, Math.min(widthPx, railWindow.widthPx) * 0.25);
+    if (Math.abs(railWindow.centerAlong - centerAlong) > centerTolerance) return false;
+    const widthRatio = Math.min(widthPx, railWindow.widthPx) / Math.max(widthPx, railWindow.widthPx);
+    return widthRatio >= 0.65;
+  }) ?? null;
+}
+
 export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): RecognitionOpeningCandidate[] {
   const wallSegments = input.wallSegments ?? input.segments ?? [];
   const symbolSegments = input.symbolSegments ?? input.segments ?? [];
   const results: RecognitionOpeningCandidate[] = [];
+
   for (const wall of input.wallCandidates) {
     const start = pixelPoint(wall.start, input.widthPx, input.heightPx);
     const end = pixelPoint(wall.end, input.widthPx, input.heightPx);
@@ -140,10 +269,32 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
     const expectedHalfThickness = Math.max(3, (wall.estimatedThicknessPx ?? 20) / 2);
     const edgeTolerance = Math.max(2.5, expectedHalfThickness * 0.35);
 
+    const structuralRails = structuralRailsForWall({
+      wallSegments,
+      wallAngle,
+      start,
+      tangent,
+      normal,
+      wallLength,
+    });
+    const rails = symbolRailsForWall({
+      symbolSegments,
+      structuralRails,
+      wallAngle,
+      start,
+      tangent,
+      normal,
+      wallLength,
+      expectedHalfThickness,
+      edgeTolerance,
+    });
+    const railWindows = railWindowsForWall(rails, expectedHalfThickness);
+
     const intervals: Interval[] = [];
     for (const segment of wallSegments) {
       if (angleDelta(segmentAngle(segment), wallAngle) > 8) continue;
-      const a = { x: segment.x1, y: segment.y1 }, b = { x: segment.x2, y: segment.y2 };
+      const a = { x: segment.x1, y: segment.y1 };
+      const b = { x: segment.x2, y: segment.y2 };
       const center = midpoint(a, b);
       const relative = { x: center.x - start.x, y: center.y - start.y };
       const across = Math.abs(dot(relative, normal));
@@ -153,6 +304,7 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
       const interval = { start: Math.max(0, Math.min(pa, pb)), end: Math.min(wallLength, Math.max(pa, pb)) };
       if (interval.end - interval.start >= 20) intervals.push(interval);
     }
+
     const merged = mergeIntervals(intervals);
     for (let index = 0; index < merged.length - 1; index += 1) {
       const gapStart = merged[index]!.end;
@@ -160,12 +312,16 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
       const widthPx = gapEnd - gapStart;
       if (widthPx < 30 || widthPx > 240 || gapStart < 12 || wallLength - gapEnd < 12) continue;
       const gapCenterAlong = (gapStart + gapEnd) / 2;
-      const centerPx = { x: start.x + tangent.x * gapCenterAlong, y: start.y + tangent.y * gapCenterAlong };
+      const centerPx = {
+        x: start.x + tangent.x * gapCenterAlong,
+        y: start.y + tangent.y * gapCenterAlong,
+      };
 
       let angledEvidence = 0;
       let perpendicularEvidence = 0;
       for (const segment of symbolSegments) {
-        const a = { x: segment.x1, y: segment.y1 }, b = { x: segment.x2, y: segment.y2 };
+        const a = { x: segment.x1, y: segment.y1 };
+        const b = { x: segment.x2, y: segment.y2 };
         const segmentCenter = midpoint(a, b);
         if (length(segmentCenter, centerPx) > Math.max(widthPx * 1.1, 90)) continue;
         const delta = angleDelta(segmentAngle(segment), wallAngle);
@@ -174,8 +330,20 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
         if (delta >= 75 && delta <= 90 && segmentLength <= Math.max(80, expectedHalfThickness * 5)) perpendicularEvidence += 1;
       }
 
-      const kind = angledEvidence > 0 ? "door" : perpendicularEvidence >= 2 ? "window" : "unknown-opening";
+      const pairedRailEvidence = matchingRailWindow(railWindows, gapCenterAlong, widthPx);
+      const kind = angledEvidence > 0
+        ? "door"
+        : pairedRailEvidence || perpendicularEvidence >= 2
+          ? "window"
+          : "unknown-opening";
       const confidence = kind === "unknown-opening" ? "low" : "medium";
+      const reasons = kind === "door"
+        ? ["wall-gap", "door-arc-like-line"]
+        : kind === "window"
+          ? pairedRailEvidence
+            ? ["wall-gap", "paired-window-rails", "paired-cross-lines"]
+            : ["wall-gap", "paired-cross-lines"]
+          : ["wall-gap"];
       results.push({
         id: `local-opening-${results.length + 1}`,
         kind,
@@ -187,97 +355,11 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
         evidence: {
           localScore: kind === "unknown-opening" ? 0.45 : 0.72,
           cloudScore: null,
-          reasons: kind === "door" ? ["wall-gap", "door-arc-like-line"] : kind === "window" ? ["wall-gap", "paired-cross-lines"] : ["wall-gap"],
+          reasons,
         },
         origin: "local",
         conflict: null,
       });
-    }
-
-    const structuralRails = wallSegments.flatMap((segment): ProjectedRail[] => {
-      if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
-      const a = { x: segment.x1, y: segment.y1 };
-      const b = { x: segment.x2, y: segment.y2 };
-      const pa = dot({ x: a.x - start.x, y: a.y - start.y }, tangent);
-      const pb = dot({ x: b.x - start.x, y: b.y - start.y }, tangent);
-      const startAlong = Math.max(0, Math.min(pa, pb));
-      const endAlong = Math.min(wallLength, Math.max(pa, pb));
-      if (endAlong - startAlong < 10) return [];
-      const center = midpoint(a, b);
-      const relative = { x: center.x - start.x, y: center.y - start.y };
-      return [{
-        startAlong,
-        endAlong,
-        centerAlong: (startAlong + endAlong) / 2,
-        across: dot(relative, normal),
-        lengthPx: endAlong - startAlong,
-      }];
-    });
-
-    const rawRails = symbolSegments.flatMap((segment): ProjectedRail[] => {
-      if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
-      const a = { x: segment.x1, y: segment.y1 };
-      const b = { x: segment.x2, y: segment.y2 };
-      const segmentLength = length(a, b);
-      if (segmentLength < 18 || segmentLength > 240) return [];
-      const pa = dot({ x: a.x - start.x, y: a.y - start.y }, tangent);
-      const pb = dot({ x: b.x - start.x, y: b.y - start.y }, tangent);
-      const startAlong = Math.min(pa, pb);
-      const endAlong = Math.max(pa, pb);
-      if (startAlong < 12 || wallLength - endAlong < 12) return [];
-      const center = midpoint(a, b);
-      const relative = { x: center.x - start.x, y: center.y - start.y };
-      const across = dot(relative, normal);
-      if (Math.abs(across) > expectedHalfThickness + 6) return [];
-      const projected = {
-        startAlong,
-        endAlong,
-        centerAlong: (startAlong + endAlong) / 2,
-        across,
-        lengthPx: endAlong - startAlong,
-      };
-      const structuralEcho = Math.abs(Math.abs(across) - expectedHalfThickness) <= edgeTolerance
-        && structuralRails.some((edge) => {
-          if (Math.abs(edge.across - across) > Math.max(2, expectedHalfThickness * 0.18)) return false;
-          const overlap = Math.max(0, Math.min(edge.endAlong, endAlong) - Math.max(edge.startAlong, startAlong));
-          return overlap / Math.max(1, Math.min(edge.lengthPx, projected.lengthPx)) >= 0.55;
-        });
-      return structuralEcho ? [] : [projected];
-    });
-    const rails = mergeProjectedRails(
-      rawRails,
-      Math.max(1.5, expectedHalfThickness * 0.12),
-      Math.max(20, Math.min(32, expectedHalfThickness * 2.5)),
-    );
-
-    const railWindows: Array<Readonly<{ centerAlong: number; widthPx: number }>> = [];
-    for (let firstIndex = 0; firstIndex < rails.length; firstIndex += 1) {
-      const first = rails[firstIndex]!;
-      for (let secondIndex = firstIndex + 1; secondIndex < rails.length; secondIndex += 1) {
-        const second = rails[secondIndex]!;
-        const centerDelta = Math.abs(first.centerAlong - second.centerAlong);
-        if (centerDelta > 12) {
-          if (second.centerAlong > first.centerAlong) break;
-          continue;
-        }
-        const startDelta = Math.abs(first.startAlong - second.startAlong);
-        const endDelta = Math.abs(first.endAlong - second.endAlong);
-        if (startDelta > 12 || endDelta > 12) continue;
-        const separation = Math.abs(first.across - second.across);
-        const minimumRailSeparation = Math.max(3, expectedHalfThickness * 0.35);
-        const maximumRailSeparation = Math.max(16, expectedHalfThickness * 1.8);
-        if (separation < minimumRailSeparation || separation > maximumRailSeparation) continue;
-        const averageAcross = (first.across + second.across) / 2;
-        if (Math.abs(averageAcross) > Math.max(4, expectedHalfThickness * 0.55)) continue;
-        const lengthRatio = Math.min(first.lengthPx, second.lengthPx) / Math.max(first.lengthPx, second.lengthPx);
-        if (lengthRatio < 0.82) continue;
-        const widthPx = (first.lengthPx + second.lengthPx) / 2;
-        if (widthPx < Math.max(50, expectedHalfThickness * 3)) continue;
-        const centerAlong = (first.centerAlong + second.centerAlong) / 2;
-        if (railWindows.some((candidate) =>
-          Math.abs(candidate.centerAlong - centerAlong) <= Math.max(10, widthPx * 0.2))) continue;
-        railWindows.push({ centerAlong, widthPx });
-      }
     }
 
     for (const railWindow of railWindows) {
