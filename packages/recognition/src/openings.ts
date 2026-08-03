@@ -288,6 +288,23 @@ function isAnchoredDoorLeaf(input: Readonly<{
   return anchored(first, second) || anchored(second, first);
 }
 
+function isExteriorBoundaryWall(input: Readonly<{
+  start: Point;
+  end: Point;
+  widthPx: number;
+  heightPx: number;
+  thicknessPx: number;
+}>): boolean {
+  const margin = Math.max(24, input.thicknessPx * 2.5);
+  const horizontal = Math.abs(input.end.x - input.start.x) >= Math.abs(input.end.y - input.start.y);
+  if (horizontal) {
+    return Math.max(input.start.y, input.end.y) <= margin
+      || Math.min(input.start.y, input.end.y) >= input.heightPx - margin;
+  }
+  return Math.max(input.start.x, input.end.x) <= margin
+    || Math.min(input.start.x, input.end.x) >= input.widthPx - margin;
+}
+
 export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): RecognitionOpeningCandidate[] {
   const wallSegments = input.wallSegments ?? input.segments ?? [];
   const symbolSegments = input.symbolSegments ?? input.segments ?? [];
@@ -303,6 +320,13 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
     const wallAngle = ((Math.atan2(tangent.y, tangent.x) * 180 / Math.PI) + 180) % 180;
     const expectedHalfThickness = Math.max(3, (wall.estimatedThicknessPx ?? 20) / 2);
     const edgeTolerance = Math.max(2.5, expectedHalfThickness * 0.35);
+    const exteriorBoundaryWall = isExteriorBoundaryWall({
+      start,
+      end,
+      widthPx: input.widthPx,
+      heightPx: input.heightPx,
+      thicknessPx: expectedHalfThickness * 2,
+    });
 
     const structuralRails = structuralRailsForWall({
       wallSegments,
@@ -377,9 +401,10 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
       }
 
       const pairedRailEvidence = matchingRailWindow(railWindows, gapCenterAlong, widthPx);
+      const boundaryWindowEvidence = exteriorBoundaryWall && !anchoredDoorEvidence;
       const kind = anchoredDoorEvidence
         ? "door"
-        : pairedRailEvidence || perpendicularEvidence >= 2
+        : pairedRailEvidence || perpendicularEvidence >= 2 || boundaryWindowEvidence
           ? "window"
           : "unknown-opening";
       const confidence = kind === "unknown-opening" ? "low" : "medium";
@@ -388,7 +413,9 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
         : kind === "window"
           ? pairedRailEvidence
             ? ["wall-gap", "paired-window-rails", "paired-cross-lines"]
-            : ["wall-gap", "paired-cross-lines"]
+            : boundaryWindowEvidence
+              ? ["wall-gap", "exterior-boundary-gap"]
+              : ["wall-gap", "paired-cross-lines"]
           : ["wall-gap"];
       results.push({
         id: `local-opening-${results.length + 1}`,
