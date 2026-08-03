@@ -86,6 +86,20 @@ describe("shared local recognition engine extraction", () => {
     expect(openingAnalysis).toBeGreaterThan(consolidation);
   });
 
+  it("sanitizes local topology before opening analysis and rejects blocked wall candidates", () => {
+    expect(engineSource).toContain("sanitizeRecognitionWallTopology");
+    expect(engineSource).toContain("const topologySanity = sanitizeRecognitionWallTopology({");
+    expect(engineSource).toContain("analysisWalls = [...topologySanity.walls]");
+    expect(engineSource).toContain("diagnostics.push(...topologySanity.diagnostics)");
+    expect(engineSource).toContain('candidate.conflict === null ? "pending" as const : "rejected" as const');
+
+    const consolidation = engineSource.indexOf("const windowHostConsolidation = consolidateWindowHostWalls({");
+    const sanitation = engineSource.indexOf("const topologySanity = sanitizeRecognitionWallTopology({");
+    const openingAnalysis = engineSource.indexOf("const openingAnalysis = analyzeOpeningHypotheses({");
+    expect(sanitation).toBeGreaterThan(consolidation);
+    expect(openingAnalysis).toBeGreaterThan(sanitation);
+  });
+
   it("enables only host-validated local opening candidates", () => {
     expect(engineSource).toContain("const openingAnalysis = analyzeOpeningHypotheses({");
     expect(engineSource).toContain("const analysisOpenings = [...openingAnalysis.candidates]");
