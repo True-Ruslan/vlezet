@@ -7,8 +7,6 @@ import {
 import {
   addOpening,
   addTopologicalWall,
-  MAX_WALL_THICKNESS_MM,
-  MIN_WALL_THICKNESS_MM,
   type WallEndpointIntent,
 } from "@vlezet/editor-core";
 import {
@@ -42,6 +40,29 @@ const ENDPOINT_SNAP_TOLERANCE_MM = 60;
 const DUPLICATE_WALL_TOLERANCE_MM = 70;
 const MIN_RECOGNIZED_WALL_LENGTH_MM = 120;
 const ORTHOGONAL_SNAP_TOLERANCE_DEG = 8;
+const AXIS_CLUSTER_TOLERANCE_PX = 10;
+const AXIS_CLUSTER_LINK_GAP_PX = 16;
+const INTERSECTION_SNAP_TOLERANCE_PX = 16;
+
+const DEFAULT_RECOGNIZED_WALL_THICKNESS_MM = 150;
+const MIN_RECOGNIZED_WALL_THICKNESS_MM = 80;
+const MAX_RECOGNIZED_WALL_THICKNESS_MM = 400;
+const THICKNESS_NORMALIZATION_THRESHOLD_MM = 300;
+const THICKNESS_TARGET_MEDIAN_MM = 150;
+const THICKNESS_QUANTUM_MM = 10;
+
+type AxisOrientation = "horizontal" | "vertical" | "diagonal";
+
+type PreparedImageWall = {
+  candidateId: string;
+  orientation: AxisOrientation;
+  start: Point2;
+  end: Point2;
+  axis: number | null;
+  minimum: number;
+  maximum: number;
+  length: number;
+};
 
 function distance(a: Point2, b: Point2): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -55,33 +76,183 @@ function normalizedToWorld(point: NormalizedPoint, reference: ReferencePlan): Po
   return imagePointToWorld(normalizedToImage(point, reference), reference.transform);
 }
 
-function orthogonalizedImageEndpoints(
+function preparedImageWall(
   candidate: RecognitionWallCandidate,
   reference: ReferencePlan,
-): Readonly<{ start: Point2; end: Point2 }> {
-  const start = normalizedToImage(candidate.start, reference);
-  const end = normalizedToImage(candidate.end, reference);
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
+): PreparedImageWall {
+  const sourceStart = normalizedToImage(candidate.start, reference);
+  const sourceEnd = normalizedToImage(candidate.end, reference);
+  const dx = sourceEnd.x - sourceStart.x;
+  const dy = sourceEnd.y - sourceStart.y;
   const angle = ((Math.atan2(dy, dx) * 180 / Math.PI) + 180) % 180;
   const horizontalDelta = Math.min(angle, 180 - angle);
   const verticalDelta = Math.abs(angle - 90);
+
   if (horizontalDelta <= ORTHOGONAL_SNAP_TOLERANCE_DEG) {
-    const y = (start.y + end.y) / 2;
-    return { start: { x: start.x, y }, end: { x: end.x, y } };
+    const axis = (sourceStart.y + sourceEnd.y) / 2;
+    const start = { x: sourceStart.x, y: axis };
+    const end = { x: sourceEnd.x, y: axis };
+    return {
+      candidateId: candidate.id,
+      orientation: "horizontal",
+      start,
+      end,
+      axis,
+      minimum: Math.min(start.x, end.x),
+      maximum: Math.max(start.x, end.x),
+      length: Math.abs(end.x - start.x),
+    };
   }
+
   if (verticalDelta <= ORTHOGONAL_SNAP_TOLERANCE_DEG) {
-    const x = (start.x + end.x) / 2;
-    return { start: { x, y: start.y }, end: { x, y: end.y } };
+    const axis = (sourceStart.x + sourceEnd.x) / 2;
+    const start = { x: axis, y: sourceStart.y };
+    const end = { x: axis, y: sourceEnd.y };
+    return {
+      candidateId: candidate.id,
+      orientation: "vertical",
+      start,
+      end,
+      axis,
+      minimum: Math.min(start.y, end.y),
+      maximum: Math.max(start.y, end.y),
+      length: Math.abs(end.y - start.y),
+    };
   }
-  return { start, end };
+
+  return {
+    candidateId: candidate.id,
+    orientation: "diagonal",
+    start: sourceStart,
+    end: sourceEnd,
+    axis: null,
+    minimum: 0,
+    maximum: 0,
+    length: distance(sourceStart, sourceEnd),
+  };
+}
+
+function intervalsLinked(first: PreparedImageWall, second: PreparedImageWall): boolean {
+  return Math.max(first.minimum, second.minimum)
+    <= Math.min(first.maximum, second.maximum) + AXIS_CLUSTER_LINK_GAP_PX;
+}
+
+function canonicalizeAxisClusters(walls: PreparedImageWall[]): void {
+  const parents = walls.map((_, index) => index);
+  const find = (index: number): number => {
+    let root = index;
+    while (parents[root] !== root) root = parents[root]!;
+    while (parents[index] !== index) {
+      const parent = parents[index]!;
+      parents[index] = root;
+      index = parent;
+    }
+    return root;
+  };
+  const union = (first: number, second: number) => {
+    const firstRoot = find(first);
+    const secondRoot = find(second);
+    if (firstRoot !== secondRoot) parents[secondRoot] = firstRoot;
+  };
+
+  for (let first = 0; first < walls.length; first += 1) {
+    const firstWall = walls[first]!;
+    if (firstWall.orientation === "diagonal" || firstWall.axis === null) continue;
+    for (let second = first + 1; second < walls.length; second += 1) {
+      const secondWall = walls[second]!;
+      if (secondWall.orientation !== firstWall.orientation || secondWall.axis === null) continue;
+      if (Math.abs(firstWall.axis - secondWall.axis) > AXIS_CLUSTER_TOLERANCE_PX) continue;
+      if (!intervalsLinked(firstWall, secondWall)) continue;
+      union(first, second);
+    }
+  }
+
+  const clusters = new Map<number, number[]>();
+  for (let index = 0; index < walls.length; index += 1) {
+    const wall = walls[index]!;
+    if (wall.orientation === "diagonal") continue;
+    const root = find(index);
+    const cluster = clusters.get(root) ?? [];
+    cluster.push(index);
+    clusters.set(root, cluster);
+  }
+
+  for (const indexes of clusters.values()) {
+    const totalLength = indexes.reduce((sum, index) => sum + Math.max(1, walls[index]!.length), 0);
+    const axis = indexes.reduce(
+      (sum, index) => sum + (walls[index]!.axis ?? 0) * Math.max(1, walls[index]!.length),
+      0,
+    ) / totalLength;
+    for (const index of indexes) {
+      const wall = walls[index]!;
+      wall.axis = axis;
+      if (wall.orientation === "horizontal") {
+        wall.start = { x: wall.start.x, y: axis };
+        wall.end = { x: wall.end.x, y: axis };
+      } else {
+        wall.start = { x: axis, y: wall.start.y };
+        wall.end = { x: axis, y: wall.end.y };
+      }
+    }
+  }
+}
+
+function pointWithinInterval(value: number, wall: PreparedImageWall): boolean {
+  return value >= wall.minimum - INTERSECTION_SNAP_TOLERANCE_PX
+    && value <= wall.maximum + INTERSECTION_SNAP_TOLERANCE_PX;
+}
+
+function snapEndpointToPerpendicularIntersection(
+  endpoint: Point2,
+  wall: PreparedImageWall,
+  walls: readonly PreparedImageWall[],
+): Point2 {
+  if (wall.orientation === "diagonal" || wall.axis === null) return endpoint;
+  let best: Readonly<{ point: Point2; distance: number }> | null = null;
+
+  for (const perpendicular of walls) {
+    if (perpendicular.axis === null || perpendicular.orientation === "diagonal") continue;
+    if (perpendicular.orientation === wall.orientation) continue;
+    const intersection = wall.orientation === "horizontal"
+      ? { x: perpendicular.axis, y: wall.axis }
+      : { x: wall.axis, y: perpendicular.axis };
+    const longitudinalCoordinate = wall.orientation === "horizontal" ? intersection.x : intersection.y;
+    const perpendicularCoordinate = wall.orientation === "horizontal" ? intersection.y : intersection.x;
+    if (!pointWithinInterval(longitudinalCoordinate, wall)) continue;
+    if (!pointWithinInterval(perpendicularCoordinate, perpendicular)) continue;
+    const endpointDistance = distance(endpoint, intersection);
+    if (endpointDistance > INTERSECTION_SNAP_TOLERANCE_PX) continue;
+    if (!best || endpointDistance < best.distance) best = { point: intersection, distance: endpointDistance };
+  }
+
+  return best?.point ?? endpoint;
+}
+
+function canonicalImageEndpoints(
+  draft: RecognitionDraft,
+  reference: ReferencePlan,
+): ReadonlyMap<string, Readonly<{ start: Point2; end: Point2 }>> {
+  const walls = draft.walls
+    .filter((candidate) => accepted(draft, candidate.id))
+    .filter((candidate) => !candidate.conflict || candidate.conflict === "duplicate-existing")
+    .map((candidate) => preparedImageWall(candidate, reference));
+
+  canonicalizeAxisClusters(walls);
+  const result = new Map<string, Readonly<{ start: Point2; end: Point2 }>>();
+  for (const wall of walls) {
+    const start = snapEndpointToPerpendicularIntersection(wall.start, wall, walls);
+    const end = snapEndpointToPerpendicularIntersection(wall.end, wall, walls);
+    result.set(wall.candidateId, { start, end });
+  }
+  return result;
 }
 
 function candidateWorldEndpoints(
   candidate: RecognitionWallCandidate,
   reference: ReferencePlan,
+  canonicalEndpoints: ReadonlyMap<string, Readonly<{ start: Point2; end: Point2 }>>,
 ): Readonly<{ start: Point2; end: Point2 }> {
-  const image = orthogonalizedImageEndpoints(candidate, reference);
+  const image = canonicalEndpoints.get(candidate.id) ?? preparedImageWall(candidate, reference);
   return {
     start: imagePointToWorld(image.start, reference.transform),
     end: imagePointToWorld(image.end, reference.transform),
@@ -141,11 +312,44 @@ function endpointIntent(
   return { kind: "new-vertex", vertexId: idFactory("vertex"), position: point };
 }
 
-function thicknessMm(candidate: RecognitionWallCandidate, reference: ReferencePlan): number {
-  const estimated = candidate.estimatedThicknessPx == null
-    ? 150
-    : candidate.estimatedThicknessPx * reference.transform.millimetersPerPixel;
-  return Math.min(MAX_WALL_THICKNESS_MM, Math.max(MIN_WALL_THICKNESS_MM, estimated));
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((first, second) => first - second);
+  if (sorted.length === 0) return DEFAULT_RECOGNIZED_WALL_THICKNESS_MM;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[middle]!
+    : (sorted[middle - 1]! + sorted[middle]!) / 2;
+}
+
+function rawThicknessMm(candidate: RecognitionWallCandidate, reference: ReferencePlan): number | null {
+  if (candidate.estimatedThicknessPx == null || !Number.isFinite(candidate.estimatedThicknessPx) || candidate.estimatedThicknessPx <= 0) return null;
+  const value = candidate.estimatedThicknessPx * reference.transform.millimetersPerPixel;
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function createThicknessCalibration(
+  draft: RecognitionDraft,
+  reference: ReferencePlan,
+): (candidate: RecognitionWallCandidate) => number {
+  const rawValues = draft.walls
+    .filter((candidate) => accepted(draft, candidate.id))
+    .filter((candidate) => !candidate.conflict || candidate.conflict === "duplicate-existing")
+    .map((candidate) => rawThicknessMm(candidate, reference))
+    .filter((value): value is number => value !== null);
+  const rawMedian = median(rawValues);
+  const scale = rawMedian > THICKNESS_NORMALIZATION_THRESHOLD_MM
+    ? THICKNESS_TARGET_MEDIAN_MM / rawMedian
+    : 1;
+
+  return (candidate) => {
+    const raw = rawThicknessMm(candidate, reference) ?? DEFAULT_RECOGNIZED_WALL_THICKNESS_MM;
+    const normalized = raw * scale;
+    const clamped = Math.min(
+      MAX_RECOGNIZED_WALL_THICKNESS_MM,
+      Math.max(MIN_RECOGNIZED_WALL_THICKNESS_MM, normalized),
+    );
+    return Math.round(clamped / THICKNESS_QUANTUM_MM) * THICKNESS_QUANTUM_MM;
+  };
 }
 
 function accepted(draft: RecognitionDraft, candidateId: string): boolean {
@@ -168,6 +372,8 @@ function applyWalls(
   const candidateToWallId = new Map<string, string>();
   const appliedCandidateIds: string[] = [];
   const diagnostics: RecognitionApplyDiagnostic[] = [];
+  const canonicalEndpoints = canonicalImageEndpoints(draft, reference);
+  const calibratedThickness = createThicknessCalibration(draft, reference);
 
   for (const candidate of draft.walls) {
     if (!accepted(draft, candidate.id)) continue;
@@ -175,7 +381,7 @@ function applyWalls(
       diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Кандидат стены содержит конфликт и не был применён." });
       continue;
     }
-    const { start, end } = candidateWorldEndpoints(candidate, reference);
+    const { start, end } = candidateWorldEndpoints(candidate, reference, canonicalEndpoints);
     if (distance(start, end) < MIN_RECOGNIZED_WALL_LENGTH_MM) {
       diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Слишком короткая стена пропущена." });
       continue;
@@ -195,7 +401,7 @@ function applyWalls(
         wallId,
         start: startIntent,
         end: endIntent,
-        thickness: thicknessMm(candidate, reference),
+        thickness: calibratedThickness(candidate),
       });
       document = edit.document;
       candidateToWallId.set(candidate.id, wallId);
