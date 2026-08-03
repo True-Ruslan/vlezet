@@ -377,15 +377,13 @@ function topologyComponents(topology: LocalWallTopology): TopologyComponent[] {
     || [...first.edgeIds][0]!.localeCompare([...second.edgeIds][0]!));
 }
 
-function componentPoints(
-  component: TopologyComponent,
-  edgesById: ReadonlyMap<string, LocalWallTopologyEdge>,
-): LocalWallPoint[] {
-  return [...component.edgeIds]
-    .flatMap((edgeId) => {
-      const edge = edgesById.get(edgeId);
-      return edge ? [edge.startPx, edge.endPx] : [];
-    });
+function pointToSegmentDistance(point: LocalWallPoint, start: LocalWallPoint, end: LocalWallPoint): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared <= EPSILON) return lengthBetween(point, start);
+  const t = clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
+  return lengthBetween(point, { x: start.x + dx * t, y: start.y + dy * t });
 }
 
 function componentDistance(
@@ -394,11 +392,19 @@ function componentDistance(
   edgesById: ReadonlyMap<string, LocalWallTopologyEdge>,
 ): number {
   let minimum = Number.POSITIVE_INFINITY;
-  const firstPoints = componentPoints(first, edgesById);
-  const secondPoints = componentPoints(second, edgesById);
-  for (const firstPoint of firstPoints) {
-    for (const secondPoint of secondPoints) {
-      minimum = Math.min(minimum, lengthBetween(firstPoint, secondPoint));
+  for (const firstEdgeId of first.edgeIds) {
+    const firstEdge = edgesById.get(firstEdgeId);
+    if (!firstEdge) continue;
+    for (const secondEdgeId of second.edgeIds) {
+      const secondEdge = edgesById.get(secondEdgeId);
+      if (!secondEdge) continue;
+      minimum = Math.min(
+        minimum,
+        pointToSegmentDistance(firstEdge.startPx, secondEdge.startPx, secondEdge.endPx),
+        pointToSegmentDistance(firstEdge.endPx, secondEdge.startPx, secondEdge.endPx),
+        pointToSegmentDistance(secondEdge.startPx, firstEdge.startPx, firstEdge.endPx),
+        pointToSegmentDistance(secondEdge.endPx, firstEdge.startPx, firstEdge.endPx),
+      );
     }
   }
   return minimum;
