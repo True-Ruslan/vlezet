@@ -6,6 +6,7 @@ import {
   type NormalizedPoint,
   type RecognitionDecision,
   type RecognitionDraft,
+  type RecognitionDraftStatus,
   type RecognitionSessionRecord,
   type RecognitionSessionRepository,
 } from "@vlezet/recognition";
@@ -59,6 +60,11 @@ function enforceReviewableLocalDraft(draft: RecognitionDraft): RecognitionDraft 
       },
     ],
   };
+}
+
+function reviewStatus(session: RecognitionSessionRecord): RecognitionDraftStatus {
+  if (session.cloudMetadata || session.draft.source.cloud) return "reconciled";
+  return "local-complete";
 }
 
 export class RecognitionController {
@@ -165,13 +171,20 @@ export class RecognitionController {
     this.#setState({ kind: "idle", session: null });
   }
 
-  async markApplied(): Promise<void> {
+  async setAppliedState(applied: boolean): Promise<void> {
     const session = this.#state.session;
     if (!session) return;
-    const draft: RecognitionDraft = { ...session.draft, status: "applied", updatedAt: new Date().toISOString() };
-    const updated = { ...session, draft, updatedAt: draft.updatedAt };
+    const status: RecognitionDraftStatus = applied ? "applied" : reviewStatus(session);
+    if (session.draft.status === status) return;
+    const updatedAt = new Date().toISOString();
+    const draft: RecognitionDraft = { ...session.draft, status, updatedAt };
+    const updated = { ...session, draft, updatedAt };
     await this.#repository.put(updated);
     this.#setState({ kind: "review", session: updated });
+  }
+
+  async markApplied(): Promise<void> {
+    await this.setAppliedState(true);
   }
 
   cancelRunning(): void {
