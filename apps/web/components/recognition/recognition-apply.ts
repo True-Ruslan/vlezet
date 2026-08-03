@@ -15,11 +15,12 @@ import {
   projectPointToWallOffset,
 } from "@vlezet/geometry";
 import type { ReferencePlan } from "@vlezet/projects";
-import type {
-  NormalizedPoint,
-  RecognitionDraft,
-  RecognitionOpeningCandidate,
-  RecognitionWallCandidate,
+import {
+  sanitizeRecognitionWallTopology,
+  type NormalizedPoint,
+  type RecognitionDraft,
+  type RecognitionOpeningCandidate,
+  type RecognitionWallCandidate,
 } from "@vlezet/recognition";
 
 export type RecognitionApplyDiagnostic = Readonly<{
@@ -487,11 +488,29 @@ export function planRecognitionApply(input: Readonly<{
   if (input.draft.referenceAssetId !== input.referencePlan.assetId || input.draft.referenceRevision !== input.referencePlan.referenceRevision) {
     throw new Error("Черновик распознавания относится к другой версии подложки.");
   }
-  const walls = applyWalls(input.draft, input.referencePlan, input.document, input.idFactory);
-  const openings = applyOpenings(input.draft, input.referencePlan, walls.document, walls.candidateToWallId, input.idFactory);
+
+  const topologySanity = sanitizeRecognitionWallTopology({
+    widthPx: input.referencePlan.widthPx,
+    heightPx: input.referencePlan.heightPx,
+    millimetersPerPixel: input.referencePlan.transform.millimetersPerPixel,
+    wallCandidates: input.draft.walls,
+  });
+  const sanitizedById = new Map(topologySanity.walls.map((candidate) => [candidate.id, candidate]));
+  const sanitizedDraft: RecognitionDraft = {
+    ...input.draft,
+    walls: input.draft.walls.map((candidate) => sanitizedById.get(candidate.id) ?? candidate),
+  };
+  const topologyDiagnostics: RecognitionApplyDiagnostic[] = topologySanity.diagnostics.map((diagnostic) => ({
+    candidateId: diagnostic.candidateId ?? "topology",
+    severity: diagnostic.severity,
+    message: diagnostic.message,
+  }));
+
+  const walls = applyWalls(sanitizedDraft, input.referencePlan, input.document, input.idFactory);
+  const openings = applyOpenings(sanitizedDraft, input.referencePlan, walls.document, walls.candidateToWallId, input.idFactory);
   return {
     document: openings.document,
     appliedCandidateIds: [...walls.appliedCandidateIds, ...openings.appliedCandidateIds],
-    diagnostics: [...walls.diagnostics, ...openings.diagnostics],
+    diagnostics: [...topologyDiagnostics, ...walls.diagnostics, ...openings.diagnostics],
   };
 }
