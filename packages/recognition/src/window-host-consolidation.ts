@@ -49,6 +49,7 @@ type BridgeProposal = Readonly<{
   confidence: RecognitionConfidence;
   evidenceReasons: readonly string[];
   localScore: number;
+  boundaryBridge: boolean;
   key: string;
 }>;
 
@@ -140,6 +141,24 @@ function projectInterval(geometry: WallGeometry, origin: Point, tangent: Point):
   const first = dot(subtract(geometry.start, origin), tangent);
   const second = dot(subtract(geometry.end, origin), tangent);
   return { start: Math.min(first, second), end: Math.max(first, second) };
+}
+
+function isExteriorBoundaryPair(
+  first: WallGeometry,
+  second: WallGeometry,
+  widthPx: number,
+  heightPx: number,
+): boolean {
+  const margin = Math.max(24, ((first.thicknessPx + second.thicknessPx) / 2) * 2.5);
+  const horizontal = Math.abs(first.tangent.x) >= Math.abs(first.tangent.y);
+  if (horizontal) {
+    const bothTop = Math.max(first.start.y, first.end.y, second.start.y, second.end.y) <= margin;
+    const bothBottom = Math.min(first.start.y, first.end.y, second.start.y, second.end.y) >= heightPx - margin;
+    return bothTop || bothBottom;
+  }
+  const bothLeft = Math.max(first.start.x, first.end.x, second.start.x, second.end.x) <= margin;
+  const bothRight = Math.min(first.start.x, first.end.x, second.start.x, second.end.x) >= widthPx - margin;
+  return bothLeft || bothRight;
 }
 
 function mergeRails(
@@ -245,6 +264,8 @@ function proposalForPair(
   firstIndex: number,
   secondIndex: number,
   symbolSegments: readonly DetectedLineSegment[],
+  widthPx: number,
+  heightPx: number,
 ): BridgeProposal | null {
   if (angleDelta(first.angleDeg, second.angleDeg) > 8) return null;
   const tangent = first.tangent;
@@ -266,10 +287,12 @@ function proposalForPair(
   if (gap < MIN_WINDOW_GAP_PX || gap > MAX_WINDOW_GAP_PX) return null;
   const lineOffset = (firstOffset * first.length + secondOffset * second.length) / (first.length + second.length);
   const sourceIds = [first.candidate.id, second.candidate.id].sort();
+  const boundaryBridge = isExteriorBoundaryPair(first, second, widthPx, heightPx);
+  const bridgeReason = boundaryBridge ? "exterior-boundary-host-bridge" : "window-symbol-host-bridge";
   const reasons = [...new Set([
     ...first.candidate.evidence.reasons,
     ...second.candidate.evidence.reasons,
-    "window-symbol-host-bridge",
+    bridgeReason,
   ])].sort();
   const localScore = Math.min(0.74, Math.max(
     first.candidate.evidence.localScore ?? 0.68,
@@ -293,11 +316,12 @@ function proposalForPair(
     confidence: "medium",
     evidenceReasons: reasons,
     localScore,
+    boundaryBridge,
   };
-  if (!hasWindowRailPair(partial, symbolSegments)) return null;
+  if (!boundaryBridge && !hasWindowRailPair(partial, symbolSegments)) return null;
   return {
     ...partial,
-    key: `${gapStart.toFixed(4)}|${gapEnd.toFixed(4)}|${sourceIds.join("|")}`,
+    key: `${boundaryBridge ? "boundary" : "symbol"}|${gapStart.toFixed(4)}|${gapEnd.toFixed(4)}|${sourceIds.join("|")}`,
   };
 }
 
@@ -450,8 +474,27 @@ function nextProposal(
     for (let secondIndex = firstIndex + 1; secondIndex < geometries.length; secondIndex += 1) {
       const second = geometries[secondIndex];
       if (!second) continue;
-      const proposal = proposalForPair(first, second, firstIndex, secondIndex, symbolSegments);
-      if (proposal) proposals.push(proposal);
+      const proposal = proposalForPair(
+        first,
+        second,
+        firstIndex,
+        secondIndex,
+        symbolSegments,
+        widthPx,
+        heightPx,
+      );
+      if (!proposal) continue;
+      if (proposal.boundaryBridge) {
+        const blocked = walls.some((wall, index) => {
+          if (index === firstIndex || index === secondIndex) return false;
+          const along = intersectionAlong(proposal, wall, widthPx, heightPx);
+          return along !== null
+            && along > proposal.gapStart + EPSILON
+            && along < proposal.gapEnd - EPSILON;
+        });
+        if (blocked) continue;
+      }
+      proposals.push(proposal);
     }
   }
   return proposals.sort((first, second) => first.key.localeCompare(second.key))[0] ?? null;
