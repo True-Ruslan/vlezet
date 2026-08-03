@@ -43,11 +43,10 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain("cv.GaussianBlur(gray, symbolBlurred");
     expect(engineSource).toContain("cv.Canny(symbolBlurred, symbolEdges");
     expect(engineSource).toContain("const symbolSegments: DetectedLineSegment[] = []");
-    expect(engineSource).toContain("const openingEvidenceSegments = deduplicateDetectedSegments([");
-    expect(engineSource).toContain("...segments,");
-    expect(engineSource).toContain("...symbolSegments,");
-    expect(engineSource).toContain("segments: openingEvidenceSegments");
-    expect(engineSource).not.toContain("segments: symbolSegments");
+    expect(engineSource).toContain("wallSegments: segments");
+    expect(engineSource).toContain("symbolSegments");
+    expect(engineSource).not.toContain("const openingEvidenceSegments = deduplicateDetectedSegments([");
+    expect(engineSource).not.toContain("segments: openingEvidenceSegments");
 
     const symbolCanny = engineSource.indexOf("cv.Canny(symbolBlurred");
     const symbolHough = engineSource.indexOf("cv.HoughLinesP(", symbolCanny);
