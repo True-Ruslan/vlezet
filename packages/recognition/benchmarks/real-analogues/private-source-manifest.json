@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "recognition-private-source-manifest-v1",
+  "batchId": "product-owner-real-plans-2026-08-04",
+  "sources": [
+    {
+      "sourceId": "real-plan-001",
+      "sha256": "c9ed200640c13770821947a5d3628e357e7400679dd6bb174e2a52a6c0f2f9ef",
+      "widthPx": 1177,
+      "heightPx": 884,
+      "mediaType": "image/jpeg",
+      "tags": ["landscape", "one-room", "loggia", "service-block", "windows", "doors", "current-regression"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-002",
+      "sha256": "bd89ecb927d9c7d8bea0273c3124cbd30a7a62a156b8ff4903aca10aad753527",
+      "widthPx": 818,
+      "heightPx": 1270,
+      "mediaType": "image/png",
+      "tags": ["portrait", "studio", "balcony", "sanitary-heavy", "entrance-door"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-003",
+      "sha256": "39e5b58fbf0e980e85f1e45f80376bdfa548c05c0a45e0d40a92721fb4f2d950",
+      "widthPx": 936,
+      "heightPx": 646,
+      "mediaType": "image/png",
+      "tags": ["landscape", "studio", "exterior-window", "sanitary-block", "label-heavy"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-004",
+      "sha256": "ddead2d9bcde29d4ad5b858327f0578ab5257fa2485aa031062ec60721d0d83f",
+      "widthPx": 1026,
+      "heightPx": 1174,
+      "mediaType": "image/png",
+      "tags": ["portrait", "one-room", "multiple-doors", "balcony", "mixed-wall-thickness"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-005",
+      "sha256": "7d73b9995b1fed6080e83b125c19c641bbb2da31b5fb3754ce773126509c202a",
+      "widthPx": 1108,
+      "heightPx": 888,
+      "mediaType": "image/png",
+      "tags": ["landscape", "one-room", "loggia", "thick-walls", "sanitary-heavy"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-006",
+      "sha256": "6f275e4c9ac2264287988d7528fb43960ed676ba7e0f1a979f246a06436314b2",
+      "widthPx": 1148,
+      "heightPx": 848,
+      "mediaType": "image/png",
+      "tags": ["landscape", "one-room", "loggia", "openings-heavy", "wet-zone"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-007",
+      "sha256": "b84719058cbd82b02ac7b223789158b8ba956d9b530bba8d2a85e26037f61ec5",
+      "widthPx": 940,
+      "heightPx": 710,
+      "mediaType": "image/png",
+      "tags": ["landscape", "two-room", "balcony", "service-block", "windows"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-008",
+      "sha256": "5cf1f7e6368c5ec5ccd6fe1955d8c6e1e5f00166158e4e6e4a03f29233f4499e",
+      "widthPx": 1502,
+      "heightPx": 1488,
+      "mediaType": "image/png",
+      "tags": ["diagonal", "two-room", "rotation-invariance", "balcony", "multiple-wet-zones"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-009",
+      "sha256": "15f9a6e6c9e27f17b3928fb27d3bbda9e424ce2a4640668f6d5f4521680b3d17",
+      "widthPx": 1002,
+      "heightPx": 838,
+      "mediaType": "image/png",
+      "tags": ["landscape", "two-room", "balcony", "two-service-blocks", "openings-heavy"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-010",
+      "sha256": "d4b53a310d8d2be1822d1ba3e0320e3b915cb504caa93cd88f9fdcf4acb91b19",
+      "widthPx": 1084,
+      "heightPx": 1316,
+      "mediaType": "image/png",
+      "tags": ["portrait", "two-room", "multiple-balconies", "windows-heavy", "irregular-footprint"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-011",
+      "sha256": "66f9f51a331384574ac5cabf77d98c3a9a0e302c006c4f31961f9cc610b9d968",
+      "widthPx": 1578,
+      "heightPx": 1340,
+      "mediaType": "image/png",
+      "tags": ["landscape", "two-room", "irregular-footprint", "multiple-wet-zones", "window-heavy"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    },
+    {
+      "sourceId": "real-plan-012",
+      "sha256": "54ef43f094dd54eb1947e21a4623b11ff104812f87653c160c34849df9733203",
+      "widthPx": 1424,
+      "heightPx": 990,
+      "mediaType": "image/png",
+      "tags": ["landscape", "two-room", "openings-heavy", "windows-heavy", "two-wet-zones"],
+      "annotationStatus": "registered",
+      "redistribution": "not-committed"
+    }
+  ]
+}
