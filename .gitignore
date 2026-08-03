@@ -32,6 +32,10 @@ pnpm-debug.log*
 .env*
 !.env.example
 
+# private recognition sources and annotation workspaces
+.local/recognition-private-sources/
+.local/recognition-annotations/
+
 # vercel
 .vercel/
 
