@@ -147,6 +147,8 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
     accepted: Object.values(draft.decisions).filter((decision) => decision === "accepted" || decision === "edited").length,
   } : null;
   const emptyDraft = Boolean(draft && candidates.length === 0);
+  const aiVerificationWarning = draft?.diagnostics.find((diagnostic) =>
+    diagnostic.code === "weak-ai-verification-profile") ?? null;
   const descriptor = describeRecognitionContext({
     phase: recognitionWorkflowPhase(props.state),
     returnLabel: props.navigation.label,
@@ -212,6 +214,11 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
             <UiCard variant="result"><span>Уверенно</span><strong>{counts?.high}</strong></UiCard>
             <UiCard variant="result"><span>Проверить</span><strong>{counts?.review}</strong></UiCard>
           </div>
+          {aiVerificationWarning ? (
+            <UiNotice tone="warning" title="AI-проверка требует сравнения">
+              {aiVerificationWarning.message}
+            </UiNotice>
+          ) : null}
           {emptyDraft ? (
             <UiEmptyState
               className="recognition-empty-state"
