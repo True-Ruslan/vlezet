@@ -77,6 +77,32 @@ describe("window evidence separation", () => {
     }));
   });
 
+  it("classifies a structural wall gap from paired parallel rails without perpendicular caps", () => {
+    expectWindow(buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: splitStructuralSegments,
+      symbolSegments: rasterFragmentedWindowSymbols,
+    }));
+  });
+
+  it("keeps door evidence authoritative when an angled swing line overlaps paired rails", () => {
+    const openings = buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: splitStructuralSegments,
+      symbolSegments: [
+        ...rasterFragmentedWindowSymbols,
+        { x1: 435, y1: 250, x2: 500, y2: 185 },
+      ],
+    });
+    expect(openings).toHaveLength(1);
+    expect(openings[0]?.kind).toBe("door");
+    expect(openings[0]?.evidence.reasons).toContain("door-arc-like-line");
+  });
+
   it("does not let thin window rails bridge the wall gap in the legacy combined stream", () => {
     expectWindow(buildOpeningHypotheses({
       widthPx: 1000,
