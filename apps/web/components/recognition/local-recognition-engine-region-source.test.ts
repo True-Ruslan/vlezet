@@ -11,11 +11,11 @@ describe("region-first local recognition", () => {
 
     const regionExtraction = engineSource.indexOf("extractStructuralWallRegions({");
     const wallCanny = engineSource.indexOf("cv.Canny(strictBlurred");
-    const wallHough = engineSource.indexOf("appendHoughSegments({ edges: strictEdges");
+    const wallHough = engineSource.indexOf("edges: strictEdges");
 
     expect(regionExtraction).toBeGreaterThan(-1);
-    expect(regionExtraction).toBeLessThan(wallCanny);
-    expect(regionExtraction).toBeLessThan(wallHough);
+    expect(wallCanny).toBeGreaterThan(regionExtraction);
+    expect(wallHough).toBeGreaterThan(wallCanny);
   });
 
   it("runs strict Hough as bounded supplemental evidence even when regions exist", () => {
@@ -23,11 +23,11 @@ describe("region-first local recognition", () => {
     expect(engineSource).toContain("strictSupplementalSegments");
     expect(engineSource).toContain("const wallEvidenceFusion = useStructuralRegionEvidence");
     expect(engineSource).toContain("primaryWalls: strictWalls");
-    expect(engineSource).toContain("supplementalWalls:");
+    expect(engineSource).toContain("supplementalWalls,");
 
     const fallbackBranch = engineSource.indexOf("if (!useStructuralRegionEvidence)");
     const strictCanny = engineSource.indexOf("cv.Canny(strictBlurred");
-    const strictHough = engineSource.indexOf("appendHoughSegments({ edges: strictEdges");
+    const strictHough = engineSource.indexOf("edges: strictEdges");
     const permissiveCanny = engineSource.indexOf("cv.Canny(permissiveBlurred");
 
     expect(strictCanny).toBeGreaterThan(-1);
@@ -41,7 +41,7 @@ describe("region-first local recognition", () => {
     expect(engineSource).toContain("supplementalCandidateCount");
     expect(engineSource).toContain("acceptedSupplementalCount");
     expect(engineSource).toContain("wallEvidenceFusionDiagnosticCodes");
-    expect(engineSource).toContain('selectedMode: "regions+supplemental"');
+    expect(engineSource).toContain('"regions+supplemental" as const');
     expect(engineSource).toContain('code: "topology-anchored-hough-supplement"');
   });
 
