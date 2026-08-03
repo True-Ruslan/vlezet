@@ -1,0 +1,499 @@
+import type { DetectedLineSegment } from "./local-lines";
+import type { RecognitionConfidence, RecognitionWallCandidate } from "./model";
+
+export type WindowHostConsolidationInput = Readonly<{
+  widthPx: number;
+  heightPx: number;
+  wallCandidates: readonly RecognitionWallCandidate[];
+  symbolSegments: readonly DetectedLineSegment[];
+}>;
+
+export type WindowHostConsolidationResult = Readonly<{
+  walls: readonly RecognitionWallCandidate[];
+  acceptedBridgeCount: number;
+  diagnostics: readonly string[];
+}>;
+
+type Point = Readonly<{ x: number; y: number }>;
+type Interval = Readonly<{ start: number; end: number }>;
+type ProjectedRail = Readonly<{
+  start: number;
+  end: number;
+  across: number;
+  length: number;
+}>;
+type WallGeometry = Readonly<{
+  candidate: RecognitionWallCandidate;
+  start: Point;
+  end: Point;
+  tangent: Point;
+  normal: Point;
+  length: number;
+  angleDeg: number;
+  thicknessPx: number;
+}>;
+type BridgeProposal = Readonly<{
+  firstId: string;
+  secondId: string;
+  firstIndex: number;
+  secondIndex: number;
+  tangent: Point;
+  normal: Point;
+  origin: Point;
+  lineOffset: number;
+  unionStart: number;
+  unionEnd: number;
+  gapStart: number;
+  gapEnd: number;
+  thicknessPx: number;
+  confidence: RecognitionConfidence;
+  evidenceReasons: readonly string[];
+  localScore: number;
+  key: string;
+}>;
+
+const MAX_WALL_CANDIDATES = 64;
+const MAX_SYMBOL_SEGMENTS = 512;
+const MAX_ACCEPTED_BRIDGES = 16;
+const MIN_FRAGMENT_LENGTH_PX = 20;
+const MIN_WINDOW_GAP_PX = 30;
+const MAX_WINDOW_GAP_PX = 240;
+const EPSILON = 1e-7;
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function dot(first: Point, second: Point): number {
+  return first.x * second.x + first.y * second.y;
+}
+
+function subtract(first: Point, second: Point): Point {
+  return { x: first.x - second.x, y: first.y - second.y };
+}
+
+function add(first: Point, second: Point): Point {
+  return { x: first.x + second.x, y: first.y + second.y };
+}
+
+function scale(point: Point, amount: number): Point {
+  return { x: point.x * amount, y: point.y * amount };
+}
+
+function length(first: Point, second: Point): number {
+  return Math.hypot(second.x - first.x, second.y - first.y);
+}
+
+function segmentAngle(start: Point, end: Point): number {
+  return ((Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI) + 180) % 180;
+}
+
+function angleDelta(first: number, second: number): number {
+  const raw = Math.abs(first - second) % 180;
+  return Math.min(raw, 180 - raw);
+}
+
+function pointOnLine(origin: Point, tangent: Point, normal: Point, along: number, across: number): Point {
+  return add(origin, add(scale(tangent, along), scale(normal, across)));
+}
+
+function pixelPoint(
+  candidate: RecognitionWallCandidate,
+  endpoint: "start" | "end",
+  widthPx: number,
+  heightPx: number,
+): Point {
+  const point = candidate[endpoint];
+  return { x: point.x * widthPx, y: point.y * heightPx };
+}
+
+function canonicalGeometry(
+  candidate: RecognitionWallCandidate,
+  widthPx: number,
+  heightPx: number,
+): WallGeometry | null {
+  let start = pixelPoint(candidate, "start", widthPx, heightPx);
+  let end = pixelPoint(candidate, "end", widthPx, heightPx);
+  const segmentLength = length(start, end);
+  if (!Number.isFinite(segmentLength) || segmentLength < EPSILON) return null;
+  if (start.x > end.x || (Math.abs(start.x - end.x) <= EPSILON && start.y > end.y)) {
+    [start, end] = [end, start];
+  }
+  const currentLength = length(start, end);
+  const tangent = {
+    x: (end.x - start.x) / currentLength,
+    y: (end.y - start.y) / currentLength,
+  };
+  return {
+    candidate,
+    start,
+    end,
+    tangent,
+    normal: { x: -tangent.y, y: tangent.x },
+    length: currentLength,
+    angleDeg: segmentAngle(start, end),
+    thicknessPx: clamp(candidate.estimatedThicknessPx ?? 20, 3, 160),
+  };
+}
+
+function projectInterval(geometry: WallGeometry, origin: Point, tangent: Point): Interval {
+  const first = dot(subtract(geometry.start, origin), tangent);
+  const second = dot(subtract(geometry.end, origin), tangent);
+  return { start: Math.min(first, second), end: Math.max(first, second) };
+}
+
+function mergeRails(
+  rails: readonly ProjectedRail[],
+  acrossTolerancePx: number,
+  gapTolerancePx: number,
+): ProjectedRail[] {
+  const pending = [...rails].sort((first, second) =>
+    first.across - second.across || first.start - second.start || first.end - second.end);
+  const merged: Array<{ start: number; end: number; weightedAcross: number; weight: number }> = [];
+  for (const rail of pending) {
+    const target = merged.find((candidate) => {
+      const across = candidate.weightedAcross / candidate.weight;
+      return Math.abs(across - rail.across) <= acrossTolerancePx
+        && rail.start <= candidate.end + gapTolerancePx
+        && rail.end >= candidate.start - gapTolerancePx;
+    });
+    if (!target) {
+      merged.push({
+        start: rail.start,
+        end: rail.end,
+        weightedAcross: rail.across * rail.length,
+        weight: rail.length,
+      });
+      continue;
+    }
+    target.start = Math.min(target.start, rail.start);
+    target.end = Math.max(target.end, rail.end);
+    target.weightedAcross += rail.across * rail.length;
+    target.weight += rail.length;
+  }
+  return merged.map((rail) => ({
+    start: rail.start,
+    end: rail.end,
+    across: rail.weightedAcross / rail.weight,
+    length: rail.end - rail.start,
+  })).sort((first, second) =>
+    (first.start + first.end) / 2 - (second.start + second.end) / 2
+    || first.across - second.across);
+}
+
+function hasWindowRailPair(
+  proposal: Omit<BridgeProposal, "key">,
+  symbolSegments: readonly DetectedLineSegment[],
+): boolean {
+  const halfThickness = proposal.thicknessPx / 2;
+  const rawRails: ProjectedRail[] = [];
+  for (const segment of symbolSegments) {
+    const start = { x: segment.x1, y: segment.y1 };
+    const end = { x: segment.x2, y: segment.y2 };
+    const segmentLength = length(start, end);
+    if (!Number.isFinite(segmentLength) || segmentLength < 10 || segmentLength > MAX_WINDOW_GAP_PX + 80) continue;
+    if (angleDelta(segmentAngle(start, end), segmentAngle(
+      proposal.origin,
+      add(proposal.origin, proposal.tangent),
+    )) > 8) continue;
+
+    const startAlong = dot(subtract(start, proposal.origin), proposal.tangent);
+    const endAlong = dot(subtract(end, proposal.origin), proposal.tangent);
+    const interval = { start: Math.min(startAlong, endAlong), end: Math.max(startAlong, endAlong) };
+    if (interval.end < proposal.gapStart - 36 || interval.start > proposal.gapEnd + 36) continue;
+    const midpoint = scale(add(start, end), 0.5);
+    const across = dot(subtract(midpoint, proposal.origin), proposal.normal) - proposal.lineOffset;
+    if (Math.abs(across) > Math.max(4, halfThickness * 0.8)) continue;
+    rawRails.push({ ...interval, across, length: interval.end - interval.start });
+  }
+
+  const rails = mergeRails(
+    rawRails,
+    Math.max(1.5, halfThickness * 0.12),
+    Math.max(20, Math.min(32, halfThickness * 2.5)),
+  );
+  const gapWidth = proposal.gapEnd - proposal.gapStart;
+  for (let firstIndex = 0; firstIndex < rails.length; firstIndex += 1) {
+    const first = rails[firstIndex]!;
+    for (let secondIndex = firstIndex + 1; secondIndex < rails.length; secondIndex += 1) {
+      const second = rails[secondIndex]!;
+      const firstCenter = (first.start + first.end) / 2;
+      const secondCenter = (second.start + second.end) / 2;
+      if (Math.abs(firstCenter - secondCenter) > 14) continue;
+      if (Math.abs(first.start - second.start) > 18 || Math.abs(first.end - second.end) > 18) continue;
+      const separation = Math.abs(first.across - second.across);
+      if (separation < Math.max(3, halfThickness * 0.3)) continue;
+      if (separation > Math.max(14, halfThickness * 1.6)) continue;
+      if (Math.abs((first.across + second.across) / 2) > Math.max(3, halfThickness * 0.35)) continue;
+      const lengthRatio = Math.min(first.length, second.length) / Math.max(first.length, second.length);
+      if (lengthRatio < 0.75) continue;
+      const overlapStart = Math.max(first.start, second.start, proposal.gapStart);
+      const overlapEnd = Math.min(first.end, second.end, proposal.gapEnd);
+      const overlap = Math.max(0, overlapEnd - overlapStart);
+      if (overlap / Math.max(1, gapWidth) < 0.55) continue;
+      if (Math.min(first.start, second.start) > proposal.gapStart + 36) continue;
+      if (Math.max(first.end, second.end) < proposal.gapEnd - 36) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+function proposalForPair(
+  first: WallGeometry,
+  second: WallGeometry,
+  firstIndex: number,
+  secondIndex: number,
+  symbolSegments: readonly DetectedLineSegment[],
+): BridgeProposal | null {
+  if (angleDelta(first.angleDeg, second.angleDeg) > 8) return null;
+  const tangent = first.tangent;
+  const normal = first.normal;
+  const origin = first.start;
+  const firstInterval = projectInterval(first, origin, tangent);
+  const secondInterval = projectInterval(second, origin, tangent);
+  const firstOffset = dot(subtract(first.start, origin), normal);
+  const secondOffset = dot(subtract(second.start, origin), normal);
+  const averageThickness = (first.thicknessPx + second.thicknessPx) / 2;
+  if (Math.max(first.thicknessPx, second.thicknessPx) / Math.min(first.thicknessPx, second.thicknessPx) > 1.8) return null;
+  if (Math.abs(firstOffset - secondOffset) > Math.max(4, averageThickness * 0.35)) return null;
+
+  const left = firstInterval.start <= secondInterval.start ? firstInterval : secondInterval;
+  const right = left === firstInterval ? secondInterval : firstInterval;
+  const gapStart = left.end;
+  const gapEnd = right.start;
+  const gap = gapEnd - gapStart;
+  if (gap < MIN_WINDOW_GAP_PX || gap > MAX_WINDOW_GAP_PX) return null;
+  const lineOffset = (firstOffset * first.length + secondOffset * second.length) / (first.length + second.length);
+  const sourceIds = [first.candidate.id, second.candidate.id].sort();
+  const reasons = [...new Set([
+    ...first.candidate.evidence.reasons,
+    ...second.candidate.evidence.reasons,
+    "window-symbol-host-bridge",
+  ])].sort();
+  const localScore = Math.min(0.74, Math.max(
+    first.candidate.evidence.localScore ?? 0.68,
+    second.candidate.evidence.localScore ?? 0.68,
+    0.72,
+  ));
+  const partial: Omit<BridgeProposal, "key"> = {
+    firstId: sourceIds[0]!,
+    secondId: sourceIds[1]!,
+    firstIndex,
+    secondIndex,
+    tangent,
+    normal,
+    origin,
+    lineOffset,
+    unionStart: Math.min(firstInterval.start, secondInterval.start),
+    unionEnd: Math.max(firstInterval.end, secondInterval.end),
+    gapStart,
+    gapEnd,
+    thicknessPx: averageThickness,
+    confidence: "medium",
+    evidenceReasons: reasons,
+    localScore,
+  };
+  if (!hasWindowRailPair(partial, symbolSegments)) return null;
+  return {
+    ...partial,
+    key: `${gapStart.toFixed(4)}|${gapEnd.toFixed(4)}|${sourceIds.join("|")}`,
+  };
+}
+
+function intersectionAlong(
+  proposal: BridgeProposal,
+  wall: RecognitionWallCandidate,
+  widthPx: number,
+  heightPx: number,
+): number | null {
+  const geometry = canonicalGeometry(wall, widthPx, heightPx);
+  if (!geometry || angleDelta(geometry.angleDeg, segmentAngle(
+    proposal.origin,
+    add(proposal.origin, proposal.tangent),
+  )) < 70) return null;
+  const firstAcross = dot(subtract(geometry.start, proposal.origin), proposal.normal) - proposal.lineOffset;
+  const secondAcross = dot(subtract(geometry.end, proposal.origin), proposal.normal) - proposal.lineOffset;
+  const tolerance = Math.max(3, proposal.thicknessPx * 0.35);
+  if (Math.min(Math.abs(firstAcross), Math.abs(secondAcross)) > tolerance && firstAcross * secondAcross > 0) return null;
+  const denominator = firstAcross - secondAcross;
+  const ratio = Math.abs(denominator) <= EPSILON ? 0.5 : firstAcross / denominator;
+  if (ratio < -0.05 || ratio > 1.05) return null;
+  const point = add(geometry.start, scale(subtract(geometry.end, geometry.start), ratio));
+  return dot(subtract(point, proposal.origin), proposal.tangent);
+}
+
+function createWallCandidate(
+  id: string,
+  proposal: BridgeProposal,
+  startAlong: number,
+  endAlong: number,
+  widthPx: number,
+  heightPx: number,
+  residual: boolean,
+): RecognitionWallCandidate {
+  const start = pointOnLine(proposal.origin, proposal.tangent, proposal.normal, startAlong, proposal.lineOffset);
+  const end = pointOnLine(proposal.origin, proposal.tangent, proposal.normal, endAlong, proposal.lineOffset);
+  return {
+    id,
+    start: { x: clamp(start.x / widthPx, 0, 1), y: clamp(start.y / heightPx, 0, 1) },
+    end: { x: clamp(end.x / widthPx, 0, 1), y: clamp(end.y / heightPx, 0, 1) },
+    estimatedThicknessPx: proposal.thicknessPx,
+    confidence: proposal.confidence,
+    evidence: {
+      localScore: proposal.localScore,
+      cloudScore: null,
+      reasons: residual
+        ? [...new Set([...proposal.evidenceReasons, "window-host-residual"])].sort()
+        : proposal.evidenceReasons,
+    },
+    origin: "local",
+    conflict: null,
+  };
+}
+
+function sortWalls(
+  walls: readonly RecognitionWallCandidate[],
+  widthPx: number,
+  heightPx: number,
+): RecognitionWallCandidate[] {
+  return [...walls].sort((first, second) => {
+    const aStart = pixelPoint(first, "start", widthPx, heightPx);
+    const aEnd = pixelPoint(first, "end", widthPx, heightPx);
+    const bStart = pixelPoint(second, "start", widthPx, heightPx);
+    const bEnd = pixelPoint(second, "end", widthPx, heightPx);
+    const aHorizontal = Math.abs(aEnd.x - aStart.x) >= Math.abs(aEnd.y - aStart.y);
+    const bHorizontal = Math.abs(bEnd.x - bStart.x) >= Math.abs(bEnd.y - bStart.y);
+    if (aHorizontal !== bHorizontal) return aHorizontal ? -1 : 1;
+    if (aHorizontal) {
+      return Math.min(aStart.y, aEnd.y) - Math.min(bStart.y, bEnd.y)
+        || Math.min(aStart.x, aEnd.x) - Math.min(bStart.x, bEnd.x)
+        || first.id.localeCompare(second.id);
+    }
+    return Math.min(aStart.x, aEnd.x) - Math.min(bStart.x, bEnd.x)
+      || Math.min(aStart.y, aEnd.y) - Math.min(bStart.y, bEnd.y)
+      || first.id.localeCompare(second.id);
+  });
+}
+
+function applyProposal(
+  walls: readonly RecognitionWallCandidate[],
+  proposal: BridgeProposal,
+  widthPx: number,
+  heightPx: number,
+): RecognitionWallCandidate[] {
+  const otherWalls = walls.filter((_wall, index) => index !== proposal.firstIndex && index !== proposal.secondIndex);
+  const intersections = otherWalls
+    .map((wall) => intersectionAlong(proposal, wall, widthPx, heightPx))
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+  const leftJunctions = intersections.filter((value) => value <= proposal.gapStart + EPSILON);
+  const rightJunctions = intersections.filter((value) => value >= proposal.gapEnd - EPSILON);
+  const hostStart = clamp(
+    leftJunctions.length > 0 ? Math.max(...leftJunctions) : proposal.unionStart,
+    proposal.unionStart,
+    proposal.gapStart,
+  );
+  const hostEnd = clamp(
+    rightJunctions.length > 0 ? Math.min(...rightJunctions) : proposal.unionEnd,
+    proposal.gapEnd,
+    proposal.unionEnd,
+  );
+  if (hostEnd - hostStart < MIN_WINDOW_GAP_PX) return [...walls];
+
+  const baseId = `local-window-host-${proposal.firstId}--${proposal.secondId}`;
+  const replacements: RecognitionWallCandidate[] = [];
+  if (hostStart - proposal.unionStart >= MIN_FRAGMENT_LENGTH_PX) {
+    replacements.push(createWallCandidate(
+      `${baseId}-residual-before`,
+      proposal,
+      proposal.unionStart,
+      hostStart,
+      widthPx,
+      heightPx,
+      true,
+    ));
+  }
+  replacements.push(createWallCandidate(
+    baseId,
+    proposal,
+    hostStart,
+    hostEnd,
+    widthPx,
+    heightPx,
+    false,
+  ));
+  if (proposal.unionEnd - hostEnd >= MIN_FRAGMENT_LENGTH_PX) {
+    replacements.push(createWallCandidate(
+      `${baseId}-residual-after`,
+      proposal,
+      hostEnd,
+      proposal.unionEnd,
+      widthPx,
+      heightPx,
+      true,
+    ));
+  }
+  return sortWalls([...otherWalls, ...replacements], widthPx, heightPx);
+}
+
+function nextProposal(
+  walls: readonly RecognitionWallCandidate[],
+  symbolSegments: readonly DetectedLineSegment[],
+  widthPx: number,
+  heightPx: number,
+): BridgeProposal | null {
+  const geometries = walls.map((wall) => canonicalGeometry(wall, widthPx, heightPx));
+  const proposals: BridgeProposal[] = [];
+  for (let firstIndex = 0; firstIndex < geometries.length; firstIndex += 1) {
+    const first = geometries[firstIndex];
+    if (!first) continue;
+    for (let secondIndex = firstIndex + 1; secondIndex < geometries.length; secondIndex += 1) {
+      const second = geometries[secondIndex];
+      if (!second) continue;
+      const proposal = proposalForPair(first, second, firstIndex, secondIndex, symbolSegments);
+      if (proposal) proposals.push(proposal);
+    }
+  }
+  return proposals.sort((first, second) => first.key.localeCompare(second.key))[0] ?? null;
+}
+
+export function consolidateWindowHostWalls(
+  input: WindowHostConsolidationInput,
+): WindowHostConsolidationResult {
+  if (!Number.isFinite(input.widthPx) || input.widthPx <= 0 || !Number.isFinite(input.heightPx) || input.heightPx <= 0) {
+    throw new Error("Размер изображения должен быть положительным и конечным.");
+  }
+  if (input.wallCandidates.length > MAX_WALL_CANDIDATES) {
+    return {
+      walls: input.wallCandidates,
+      acceptedBridgeCount: 0,
+      diagnostics: ["window-host-budget-exceeded"],
+    };
+  }
+  if (input.symbolSegments.length > MAX_SYMBOL_SEGMENTS) {
+    return {
+      walls: input.wallCandidates,
+      acceptedBridgeCount: 0,
+      diagnostics: ["window-symbol-budget-exceeded"],
+    };
+  }
+
+  let walls: readonly RecognitionWallCandidate[] = input.wallCandidates;
+  let acceptedBridgeCount = 0;
+  while (acceptedBridgeCount < MAX_ACCEPTED_BRIDGES) {
+    const proposal = nextProposal(walls, input.symbolSegments, input.widthPx, input.heightPx);
+    if (!proposal) break;
+    const updated = applyProposal(walls, proposal, input.widthPx, input.heightPx);
+    if (updated.length === walls.length && updated.every((wall, index) => wall === walls[index])) break;
+    walls = updated;
+    acceptedBridgeCount += 1;
+  }
+
+  return {
+    walls,
+    acceptedBridgeCount,
+    diagnostics: acceptedBridgeCount === MAX_ACCEPTED_BRIDGES
+      ? ["window-host-bridge-budget-reached"]
+      : [],
+  };
+}
