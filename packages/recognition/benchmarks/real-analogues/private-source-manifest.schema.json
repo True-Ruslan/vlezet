@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vlezet.local/schemas/recognition-private-source-manifest-v1.json",
+  "title": "Recognition private source manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "batchId", "sources"],
+  "properties": {
+    "schemaVersion": {
+      "const": "recognition-private-source-manifest-v1"
+    },
+    "batchId": {
+      "const": "product-owner-real-plans-2026-08-04"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceId",
+          "sha256",
+          "widthPx",
+          "heightPx",
+          "mediaType",
+          "tags",
+          "annotationStatus",
+          "redistribution"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "pattern": "^real-plan-(00[1-9]|01[0-2])$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "widthPx": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "heightPx": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "mediaType": {
+            "enum": ["image/jpeg", "image/png"]
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          },
+          "annotationStatus": {
+            "enum": ["registered", "analogue-in-progress", "analogue-reviewed"]
+          },
+          "redistribution": {
+            "const": "not-committed"
+          }
+        }
+      }
+    }
+  }
+}
