@@ -3,36 +3,70 @@ import { buildOpeningHypotheses } from "./openings";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 
-const wall: RecognitionWallCandidate = {
-  id: "wall-1",
-  start: { x: 0.1, y: 0.5 },
-  end: { x: 0.9, y: 0.5 },
-  estimatedThicknessPx: 20,
-  confidence: "high",
-  evidence: { localScore: 0.9, cloudScore: null, reasons: ["parallel-edges"] },
-  origin: "local",
-  conflict: null,
-};
+function wallAt(id: string, yPx: number): RecognitionWallCandidate {
+  return {
+    id,
+    start: { x: 0.1, y: yPx / 500 },
+    end: { x: 0.9, y: yPx / 500 },
+    estimatedThicknessPx: 20,
+    confidence: "high",
+    evidence: { localScore: 0.9, cloudScore: null, reasons: ["parallel-edges"] },
+    origin: "local",
+    conflict: null,
+  };
+}
 
-const baseEdges: DetectedLineSegment[] = [
-  { x1: 100, y1: 240, x2: 450, y2: 240 },
-  { x1: 100, y1: 260, x2: 450, y2: 260 },
-  { x1: 550, y1: 240, x2: 900, y2: 240 },
-  { x1: 550, y1: 260, x2: 900, y2: 260 },
-];
+const wall = wallAt("wall-1", 250);
+const boundaryWall = wallAt("boundary-wall", 20);
 
-function run(segments: DetectedLineSegment[]) {
-  return buildOpeningHypotheses({ widthPx: 1000, heightPx: 500, wallCandidates: [wall], segments });
+function edgesAt(yPx: number): DetectedLineSegment[] {
+  return [
+    { x1: 100, y1: yPx - 10, x2: 450, y2: yPx - 10 },
+    { x1: 100, y1: yPx + 10, x2: 450, y2: yPx + 10 },
+    { x1: 550, y1: yPx - 10, x2: 900, y2: yPx - 10 },
+    { x1: 550, y1: yPx + 10, x2: 900, y2: yPx + 10 },
+  ];
+}
+
+const baseEdges = edgesAt(250);
+const boundaryEdges = edgesAt(20);
+
+function run(segments: DetectedLineSegment[], wallCandidate = wall) {
+  return buildOpeningHypotheses({
+    widthPx: 1000,
+    heightPx: 500,
+    wallCandidates: [wallCandidate],
+    segments,
+  });
 }
 
 describe("local opening hypotheses", () => {
-  it("keeps an unsupported wall gap as a low-confidence unknown opening", () => {
+  it("keeps an unsupported interior wall gap as a low-confidence unknown opening", () => {
     const result = run(baseEdges);
     expect(result).toHaveLength(1);
     expect(result[0]?.kind).toBe("unknown-opening");
     expect(result[0]?.confidence).toBe("low");
     expect(result[0]?.hostWallCandidateId).toBe("wall-1");
     expect(result[0]?.center.x).toBeCloseTo(0.5, 2);
+  });
+
+  it("classifies an unsupported gap on the exterior image boundary as a reviewable window", () => {
+    const result = run(boundaryEdges, boundaryWall);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.kind).toBe("window");
+    expect(result[0]?.confidence).toBe("medium");
+    expect(result[0]?.hostWallCandidateId).toBe("boundary-wall");
+    expect(result[0]?.evidence.reasons).toContain("exterior-boundary-gap");
+  });
+
+  it("keeps an anchored exterior entrance leaf authoritative over boundary-window inference", () => {
+    const result = run([
+      ...boundaryEdges,
+      { x1: 450, y1: 20, x2: 450, y2: 120 },
+    ], boundaryWall);
+    expect(result[0]?.kind).toBe("door");
+    expect(result[0]?.evidence.reasons).toContain("door-leaf-anchored");
+    expect(result[0]?.evidence.reasons).not.toContain("exterior-boundary-gap");
   });
 
   it("upgrades a line anchored at a gap edge and leaving the wall axis to a door", () => {
