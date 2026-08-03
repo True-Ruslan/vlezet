@@ -35,10 +35,28 @@ describe("local opening hypotheses", () => {
     expect(result[0]?.center.x).toBeCloseTo(0.5, 2);
   });
 
-  it("upgrades a nearby angled leaf/arc-like line to a door hypothesis", () => {
+  it("upgrades a line anchored at a gap edge and leaving the wall axis to a door", () => {
     const result = run([...baseEdges, { x1: 450, y1: 250, x2: 520, y2: 185 }]);
     expect(result[0]?.kind).toBe("door");
     expect(result[0]?.confidence).toBe("medium");
+    expect(result[0]?.evidence.reasons).toContain("door-leaf-anchored");
+  });
+
+  it("recognizes a long perpendicular leaf anchored at the gap edge", () => {
+    const result = run([...baseEdges, { x1: 450, y1: 250, x2: 450, y2: 150 }]);
+    expect(result[0]?.kind).toBe("door");
+    expect(result[0]?.evidence.reasons).toContain("door-leaf-anchored");
+  });
+
+  it("does not turn a window into a door from an unanchored nearby diagonal", () => {
+    const result = run([
+      ...baseEdges,
+      { x1: 455, y1: 235, x2: 455, y2: 265 },
+      { x1: 545, y1: 235, x2: 545, y2: 265 },
+      { x1: 470, y1: 205, x2: 530, y2: 165 },
+    ]);
+    expect(result[0]?.kind).toBe("window");
+    expect(result[0]?.evidence.reasons).not.toContain("door-leaf-anchored");
   });
 
   it("uses paired short perpendicular marks as a conservative window hint", () => {
