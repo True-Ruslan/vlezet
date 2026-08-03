@@ -3,8 +3,6 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-
-// @ts-ignore JavaScript CLI module is covered by runtime contract tests.
 import { assertNoPrivateSourceBytes, verifyPrivateSourceDirectory } from "../../../tools/recognition-benchmark/private-source-check.mjs";
 
 const temporaryRoots: string[] = [];
