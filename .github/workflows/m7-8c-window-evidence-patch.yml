@@ -1,9 +1,9 @@
 name: M7.8C Window Evidence Patch
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/m7-8c-opening-classification-host-wall-validation
+      - main
     paths:
       - ".github/workflows/m7-8c-window-evidence-patch.yml"
 
