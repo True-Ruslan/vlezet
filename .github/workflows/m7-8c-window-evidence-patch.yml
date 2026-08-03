@@ -26,30 +26,29 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
-          def replace_once(path: Path, pattern: str, replacement: str, flags: int = 0) -> None:
+          def replace_once(path: Path, old: str, new: str) -> None:
               text = path.read_text()
-              updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)
+              count = text.count(old)
               if count != 1:
-                  raise SystemExit(f"{path}: expected one match for {pattern!r}, found {count}")
-              path.write_text(updated)
+                  raise SystemExit(f"{path}: expected one match, found {count}: {old[:80]!r}")
+              path.write_text(text.replace(old, new, 1))
 
           openings = Path("packages/recognition/src/openings.ts")
           replace_once(
               openings,
-              r"function mergeProjectedRails\(rails: readonly ProjectedRail\[\]\): ProjectedRail\[\] \{",
+              "function mergeProjectedRails(rails: readonly ProjectedRail[]): ProjectedRail[] {",
               "function mergeProjectedRails(\n  rails: readonly ProjectedRail[],\n  acrossTolerancePx: number,\n  gapTolerancePx: number,\n): ProjectedRail[] {",
           )
           replace_once(
               openings,
-              r"return Math\.abs\(candidateAcross - rail\.across\) <= 3\s+&& rail\.startAlong <= candidate\.endAlong \+ 12\s+&& rail\.endAlong >= candidate\.startAlong - 12;",
+              "return Math.abs(candidateAcross - rail.across) <= 3\n        && rail.startAlong <= candidate.endAlong + 12\n        && rail.endAlong >= candidate.startAlong - 12;",
               "return Math.abs(candidateAcross - rail.across) <= acrossTolerancePx\n        && rail.startAlong <= candidate.endAlong + gapTolerancePx\n        && rail.endAlong >= candidate.startAlong - gapTolerancePx;",
           )
-          replace_once(
-              openings,
-              r"    const rawRails = symbolSegments\.flatMap\(\(segment\): ProjectedRail\[\] => \{",
-              '''    const structuralRails = wallSegments.flatMap((segment): ProjectedRail[] => {
+          text = openings.read_text()
+          block_start = text.index("    const rawRails = symbolSegments.flatMap((segment): ProjectedRail[] => {")
+          block_end = text.index("\n\n    const railWindows:", block_start)
+          replacement = '''    const structuralRails = wallSegments.flatMap((segment): ProjectedRail[] => {
               if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
               const a = { x: segment.x1, y: segment.y1 };
               const b = { x: segment.x2, y: segment.y2 };
@@ -69,22 +68,20 @@ jobs:
               }];
             });
 
-            const rawRails = symbolSegments.flatMap((segment): ProjectedRail[] => {''',
-          )
-          replace_once(
-              openings,
-              r'''      const across = dot\(relative, normal\);
-              if \(Math\.abs\(across\) > expectedHalfThickness \+ 6\) return \[\];
-              return \[\{
-                startAlong,
-                endAlong,
-                centerAlong: \(startAlong \+ endAlong\) / 2,
-                across,
-                lengthPx: endAlong - startAlong,
-              \}\];
-            \}\);
-            const rails = mergeProjectedRails\(rawRails\);''',
-              '''      const across = dot(relative, normal);
+            const rawRails = symbolSegments.flatMap((segment): ProjectedRail[] => {
+              if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
+              const a = { x: segment.x1, y: segment.y1 };
+              const b = { x: segment.x2, y: segment.y2 };
+              const segmentLength = length(a, b);
+              if (segmentLength < 18 || segmentLength > 240) return [];
+              const pa = dot({ x: a.x - start.x, y: a.y - start.y }, tangent);
+              const pb = dot({ x: b.x - start.x, y: b.y - start.y }, tangent);
+              const startAlong = Math.min(pa, pb);
+              const endAlong = Math.max(pa, pb);
+              if (startAlong < 12 || wallLength - endAlong < 12) return [];
+              const center = midpoint(a, b);
+              const relative = { x: center.x - start.x, y: center.y - start.y };
+              const across = dot(relative, normal);
               if (Math.abs(across) > expectedHalfThickness + 6) return [];
               const projected = {
                 startAlong,
@@ -105,23 +102,24 @@ jobs:
               rawRails,
               Math.max(1.5, expectedHalfThickness * 0.12),
               Math.max(20, Math.min(32, expectedHalfThickness * 2.5)),
-            );''',
-          )
+            );'''
+          openings.write_text(text[:block_start] + replacement + text[block_end:])
 
           engine = Path("apps/web/components/recognition/local-recognition-engine.ts")
-          replace_once(
-              engine,
-              r'''\n    const openingEvidenceSegments = deduplicateDetectedSegments\(\[\n      \.\.\.segments,\n      \.\.\.symbolSegments,\n    \], Math\.max\(1, adaptiveOptions\.duplicateEndpointTolerancePx / 2\)\);\n''',
-              "\n",
-          )
-          replace_once(
-              engine,
-              r'''      wallCandidates: analysisWalls,\n      segments: openingEvidenceSegments,\n    \}\);''',
-              '''      wallCandidates: analysisWalls,
+          text = engine.read_text()
+          evidence_start = text.index("    const openingEvidenceSegments = deduplicateDetectedSegments([")
+          evidence_end = text.index("\n\n    options.onProgress?.({ phase: \"walls\"", evidence_start)
+          text = text[:evidence_start] + text[evidence_end + 2:]
+          old_call = '''      wallCandidates: analysisWalls,
+              segments: openingEvidenceSegments,
+            });'''
+          new_call = '''      wallCandidates: analysisWalls,
               wallSegments: segments,
               symbolSegments,
-            });''',
-          )
+            });'''
+          if text.count(old_call) != 1:
+              raise SystemExit(f"engine opening call matches: {text.count(old_call)}")
+          engine.write_text(text.replace(old_call, new_call, 1))
           PY
 
       - name: Commit bounded evidence patch
