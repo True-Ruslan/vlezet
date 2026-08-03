@@ -160,6 +160,54 @@ describe("recognition apply planning", () => {
     expect(horizontal.end).toEqual(lower.start);
   });
 
+  it("trims a persisted accepted endpoint overshoot before adding document topology", () => {
+    const source = draft();
+    const walls = [
+      wallCandidate({ id: "horizontal", start: { x: 0.1, y: 0.4 }, end: { x: 0.86, y: 0.4 }, estimatedThicknessPx: 10 }),
+      wallCandidate({ id: "vertical", start: { x: 0.82, y: 0.2 }, end: { x: 0.82, y: 0.8 }, estimatedThicknessPx: 10 }),
+    ];
+    const plan = planRecognitionApply({
+      draft: {
+        ...source,
+        walls,
+        decisions: { horizontal: "accepted", vertical: "accepted" },
+      },
+      referencePlan,
+      document: createEmptyDocument(),
+      idFactory: ids(),
+    });
+
+    expect(wallEndpointsAt(plan, 0).end).toEqual({ x: 1740, y: 600 });
+    expect(plan.diagnostics).toContainEqual(expect.objectContaining({
+      candidateId: "horizontal",
+      message: expect.stringMatching(/обрезан/i),
+    }));
+  });
+
+  it("blocks a persisted accepted service-symbol enclosure before it can create tiny rooms", () => {
+    const source = draft();
+    const walls = [
+      wallCandidate({ id: "top", start: { x: 0.5, y: 0.6 }, end: { x: 0.55, y: 0.6 }, estimatedThicknessPx: 10 }),
+      wallCandidate({ id: "right", start: { x: 0.55, y: 0.6 }, end: { x: 0.55, y: 0.7 }, estimatedThicknessPx: 10 }),
+      wallCandidate({ id: "bottom", start: { x: 0.55, y: 0.7 }, end: { x: 0.5, y: 0.7 }, estimatedThicknessPx: 10 }),
+      wallCandidate({ id: "left", start: { x: 0.5, y: 0.7 }, end: { x: 0.5, y: 0.6 }, estimatedThicknessPx: 10 }),
+    ];
+    const plan = planRecognitionApply({
+      draft: {
+        ...source,
+        walls,
+        decisions: { top: "accepted", right: "accepted", bottom: "accepted", left: "accepted" },
+      },
+      referencePlan,
+      document: createEmptyDocument(),
+      idFactory: ids(),
+    });
+
+    expect(plan.document.walls).toHaveLength(0);
+    expect(plan.appliedCandidateIds).toEqual([]);
+    expect(plan.diagnostics.filter((item) => /менее 0,5 м²/i.test(item.message))).toHaveLength(4);
+  });
+
   it("refuses drafts from another reference revision", () => {
     expect(() => planRecognitionApply({ draft: { ...draft(), referenceRevision: "old" }, referencePlan, document: createEmptyDocument(), idFactory: ids() })).toThrow(/другой версии/i);
   });
