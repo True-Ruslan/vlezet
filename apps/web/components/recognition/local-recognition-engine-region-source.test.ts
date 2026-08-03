@@ -34,6 +34,12 @@ describe("region-first local recognition", () => {
     expect(engineSource).toContain('code: "region-first-wall-evidence"');
   });
 
+  it("preserves topology-calibrated high confidence instead of forcing every region wall to medium", () => {
+    expect(engineSource).toContain("confidence: candidate.confidence");
+    expect(engineSource).toContain('candidate.confidence === "high" ? 0.88');
+    expect(engineSource).not.toContain('confidence: candidate.confidence === "low" ? "low" : "medium"');
+  });
+
   it("does not bypass the recognition package runtime completion gate", () => {
     expect(engineSource).toContain('from "@vlezet/recognition"');
     expect(engineSource).not.toContain("experimentalCompleteWallCenterlines");
