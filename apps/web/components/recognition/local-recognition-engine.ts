@@ -149,15 +149,18 @@ function markAdaptiveCandidates(candidates: readonly RecognitionWallCandidate[])
 }
 
 function markRegionCandidates(candidates: readonly RecognitionWallCandidate[]): RecognitionWallCandidate[] {
-  return candidates.map((candidate) => ({
-    ...candidate,
-    confidence: candidate.confidence === "low" ? "low" : "medium",
-    evidence: {
-      ...candidate.evidence,
-      localScore: Math.min(candidate.evidence.localScore ?? 0.74, 0.74),
-      reasons: [...new Set([...candidate.evidence.reasons, "filled-wall-region-evidence"])],
-    },
-  }));
+  return candidates.map((candidate) => {
+    const calibratedScore = candidate.confidence === "high" ? 0.88 : candidate.confidence === "medium" ? 0.74 : 0.55;
+    return {
+      ...candidate,
+      confidence: candidate.confidence,
+      evidence: {
+        ...candidate.evidence,
+        localScore: Math.min(candidate.evidence.localScore ?? calibratedScore, calibratedScore),
+        reasons: [...new Set([...candidate.evidence.reasons, "filled-wall-region-evidence"])],
+      },
+    };
+  });
 }
 
 function wallStageDebug(
