@@ -9,7 +9,10 @@ import type {
 
 const now = "2026-08-03T00:00:00.000Z";
 
-function wall(origin: "local" | "cloud" = "local"): RecognitionWallCandidate {
+function wall(
+  origin: "local" | "cloud" = "local",
+  overrides: Partial<RecognitionWallCandidate> = {},
+): RecognitionWallCandidate {
   return {
     id: "wall-1",
     start: { x: 0.1, y: 0.5 },
@@ -23,6 +26,7 @@ function wall(origin: "local" | "cloud" = "local"): RecognitionWallCandidate {
     },
     origin,
     conflict: null,
+    ...overrides,
   };
 }
 
@@ -50,7 +54,7 @@ function opening(
   };
 }
 
-function draft(): RecognitionDraft {
+function draft(overrides: Partial<RecognitionDraft> = {}): RecognitionDraft {
   return {
     id: "draft",
     projectId: "project",
@@ -66,11 +70,15 @@ function draft(): RecognitionDraft {
     source: { local: true, cloud: false },
     createdAt: now,
     updatedAt: now,
+    ...overrides,
   };
 }
 
-function result(openings: readonly RecognitionOpeningCandidate[]): RecognitionProviderResult {
-  return { walls: [wall("cloud")], openings, roomLabels: [] };
+function result(
+  openings: readonly RecognitionOpeningCandidate[],
+  walls: readonly RecognitionWallCandidate[] = [wall("cloud")],
+): RecognitionProviderResult {
+  return { walls, openings, roomLabels: [] };
 }
 
 describe("opening reconciliation identity and authority", () => {
@@ -153,5 +161,49 @@ describe("opening reconciliation identity and authority", () => {
       code: "cloud-opening-host-mismatch",
       candidateId: "opening-1",
     }));
+  });
+
+  it("does not promote a topology-warning wall to high confidence after AI agreement", () => {
+    const localWall = wall("local", {
+      evidence: {
+        localScore: 0.72,
+        cloudScore: null,
+        reasons: ["filled-wall-region-evidence", "topology-small-enclosure"],
+      },
+      confidence: "medium",
+    });
+    const reconciled = reconcileRecognition({
+      localDraft: draft({ walls: [localWall] }),
+      cloudResult: result([opening("opening-1", "cloud")], [wall("cloud", { confidence: "high" })]),
+      existingWalls: [],
+      now,
+    });
+
+    expect(reconciled.walls[0]?.confidence).toBe("medium");
+    expect(reconciled.walls[0]?.evidence.reasons).toContain("local-cloud-agreement-topology-gated");
+  });
+
+  it("keeps an unsupported local wall low and rejected even when AI confirms it", () => {
+    const localWall = wall("local", {
+      confidence: "low",
+      conflict: "unsupported",
+      evidence: {
+        localScore: 0.45,
+        cloudScore: null,
+        reasons: ["filled-wall-region-evidence", "topology-parallel-duplicate"],
+      },
+    });
+    const reconciled = reconcileRecognition({
+      localDraft: draft({
+        walls: [localWall],
+        decisions: { "wall-1": "rejected", "opening-1": "accepted" },
+      }),
+      cloudResult: result([opening("opening-1", "cloud")], [wall("cloud", { confidence: "high" })]),
+      existingWalls: [],
+      now,
+    });
+
+    expect(reconciled.walls[0]).toMatchObject({ confidence: "low", conflict: "unsupported" });
+    expect(reconciled.decisions["wall-1"]).toBe("rejected");
   });
 });
