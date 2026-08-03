@@ -2,6 +2,7 @@ import {
   validateRecognitionProviderResult,
   type RecognitionDiagnostic,
   type RecognitionOpeningCandidate,
+  type RecognitionProviderInput,
   type RecognitionProviderResult,
   type RecognitionRoomLabelCandidate,
   type RecognitionWallCandidate,
@@ -17,6 +18,9 @@ const pointSchema = {
   required: ["x", "y"],
 } as const;
 
+const confidenceSchema = { type: "string", enum: ["high", "medium", "low"] } as const;
+const scoreSchema = { type: "number", minimum: 0, maximum: 1 } as const;
+
 export const OPENROUTER_RECOGNITION_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -31,8 +35,8 @@ export const OPENROUTER_RECOGNITION_JSON_SCHEMA = {
           start: pointSchema,
           end: pointSchema,
           estimatedThicknessPx: { type: ["number", "null"], minimum: 0 },
-          confidence: { type: "string", enum: ["high", "medium", "low"] },
-          score: { type: "number", minimum: 0, maximum: 1 },
+          confidence: confidenceSchema,
+          score: scoreSchema,
         },
         required: ["id", "start", "end", "estimatedThicknessPx", "confidence", "score"],
       },
@@ -49,8 +53,8 @@ export const OPENROUTER_RECOGNITION_JSON_SCHEMA = {
           center: pointSchema,
           widthPx: { type: ["number", "null"], minimum: 0 },
           orientationDeg: { type: ["number", "null"] },
-          confidence: { type: "string", enum: ["high", "medium", "low"] },
-          score: { type: "number", minimum: 0, maximum: 1 },
+          confidence: confidenceSchema,
+          score: scoreSchema,
         },
         required: ["id", "kind", "hostWallCandidateId", "center", "widthPx", "orientationDeg", "confidence", "score"],
       },
@@ -64,13 +68,48 @@ export const OPENROUTER_RECOGNITION_JSON_SCHEMA = {
           id: { type: "string", minLength: 1 },
           text: { type: "string", minLength: 1 },
           anchor: pointSchema,
-          confidence: { type: "string", enum: ["high", "medium", "low"] },
+          confidence: confidenceSchema,
         },
         required: ["id", "text", "anchor", "confidence"],
       },
     },
   },
   required: ["walls", "openings", "roomLabels"],
+} as const;
+
+export const OPENROUTER_VERIFICATION_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    walls: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          id: { type: "string", minLength: 1 },
+          confidence: confidenceSchema,
+          score: scoreSchema,
+        },
+        required: ["id", "confidence", "score"],
+      },
+    },
+    openings: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          id: { type: "string", minLength: 1 },
+          kind: { type: "string", enum: ["door", "window", "unknown-opening"] },
+          confidence: confidenceSchema,
+          score: scoreSchema,
+        },
+        required: ["id", "kind", "confidence", "score"],
+      },
+    },
+  },
+  required: ["walls", "openings"],
 } as const;
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -81,6 +120,28 @@ function record(value: unknown, label: string): Record<string, unknown> {
 function array(value: unknown, label: string): unknown[] {
   if (!Array.isArray(value)) throw new Error(`${label} должен быть списком.`);
   return value;
+}
+
+function requiredString(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${label} должен быть непустой строкой.`);
+  return value.trim();
+}
+
+function confidence(value: unknown, label: string): "high" | "medium" | "low" {
+  if (value === "high" || value === "medium" || value === "low") return value;
+  throw new Error(`${label} должен быть high, medium или low.`);
+}
+
+function score(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`${label} должен быть числом от 0 до 1.`);
+  }
+  return value;
+}
+
+function openingKind(value: unknown, label: string): RecognitionOpeningCandidate["kind"] {
+  if (value === "door" || value === "window" || value === "unknown-opening") return value;
+  throw new Error(`${label} содержит неподдерживаемый тип проёма.`);
 }
 
 function normalizePoint(value: unknown): { x: number; y: number } {
@@ -106,6 +167,15 @@ function invalidDiagnostic(kind: "wall" | "opening" | "room-label", entry: unkno
     severity: "warning",
     message: `AI вернул некорректную ${labels[kind]}; элемент отброшен. ${reason}`,
     candidateId: rawCandidateId(entry),
+  };
+}
+
+function unknownCandidateDiagnostic(kind: "wall" | "opening", candidateId: string): RecognitionDiagnostic {
+  return {
+    code: `cloud-unknown-${kind}`,
+    severity: "warning",
+    message: `AI сослался на неизвестный локальный ${kind === "wall" ? "кандидат стены" : "кандидат проёма"}; решение отброшено.`,
+    candidateId,
   };
 }
 
@@ -159,4 +229,75 @@ export function normalizeOpenRouterRecognitionPayload(value: unknown): Recogniti
   }
 
   return { walls, openings, roomLabels, diagnostics };
+}
+
+export function normalizeOpenRouterVerificationPayload(
+  value: unknown,
+  localSummary: NonNullable<RecognitionProviderInput["localSummary"]>,
+): RecognitionProviderResult {
+  const input = record(value, "Ответ AI-проверки");
+  const diagnostics: RecognitionDiagnostic[] = [];
+  const walls: RecognitionWallCandidate[] = [];
+  const openings: RecognitionOpeningCandidate[] = [];
+  const localWalls = new Map(localSummary.walls.map((wall) => [wall.id, wall]));
+  const localOpenings = new Map(localSummary.openings.map((opening) => [opening.id, opening]));
+  const seenWalls = new Set<string>();
+  const seenOpenings = new Set<string>();
+
+  for (const entry of array(input.walls, "Решения по стенам AI")) {
+    try {
+      const result = record(entry, "Решение по стене AI");
+      const id = requiredString(result.id, "Решение по стене AI.id");
+      const local = localWalls.get(id);
+      if (!local) {
+        diagnostics.push(unknownCandidateDiagnostic("wall", id));
+        continue;
+      }
+      if (seenWalls.has(id)) throw new Error("AI повторил решение для одной стены.");
+      seenWalls.add(id);
+      walls.push({
+        ...local,
+        confidence: confidence(result.confidence, "Решение по стене AI.confidence"),
+        evidence: {
+          localScore: null,
+          cloudScore: score(result.score, "Решение по стене AI.score"),
+          reasons: ["cloud-vision"],
+        },
+        origin: "cloud",
+        conflict: null,
+      });
+    } catch (error) {
+      diagnostics.push(invalidDiagnostic("wall", entry, error));
+    }
+  }
+
+  for (const entry of array(input.openings, "Решения по проёмам AI")) {
+    try {
+      const result = record(entry, "Решение по проёму AI");
+      const id = requiredString(result.id, "Решение по проёму AI.id");
+      const local = localOpenings.get(id);
+      if (!local) {
+        diagnostics.push(unknownCandidateDiagnostic("opening", id));
+        continue;
+      }
+      if (seenOpenings.has(id)) throw new Error("AI повторил решение для одного проёма.");
+      seenOpenings.add(id);
+      openings.push({
+        ...local,
+        kind: openingKind(result.kind, "Решение по проёму AI.kind"),
+        confidence: confidence(result.confidence, "Решение по проёму AI.confidence"),
+        evidence: {
+          localScore: null,
+          cloudScore: score(result.score, "Решение по проёму AI.score"),
+          reasons: ["cloud-vision"],
+        },
+        origin: "cloud",
+        conflict: null,
+      });
+    } catch (error) {
+      diagnostics.push(invalidDiagnostic("opening", entry, error));
+    }
+  }
+
+  return { walls, openings, roomLabels: [], diagnostics };
 }
