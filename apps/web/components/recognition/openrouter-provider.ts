@@ -5,9 +5,17 @@ import {
   type RecognitionProviderResult,
 } from "@vlezet/recognition";
 import { recognitionError, recognitionInfo } from "./recognition-debug";
-import { OPENROUTER_RECOGNITION_JSON_SCHEMA, normalizeOpenRouterRecognitionPayload } from "./openrouter-schema";
+import {
+  OPENROUTER_RECOGNITION_JSON_SCHEMA,
+  OPENROUTER_VERIFICATION_JSON_SCHEMA,
+  normalizeOpenRouterRecognitionPayload,
+  normalizeOpenRouterVerificationPayload,
+} from "./openrouter-schema";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_RECOGNITION_TIMEOUT_MS = 90_000;
+const VERIFICATION_MAX_TOKENS = 2048;
+const DISCOVERY_MAX_TOKENS = 4096;
 
 const defaultBrowserFetch: typeof fetch = (input, init) => globalThis.fetch(input, init);
 
@@ -18,7 +26,7 @@ export type OpenRouterModelOption = Readonly<{
 }>;
 
 export class OpenRouterRecognitionError extends Error {
-  readonly code: "invalid-key" | "insufficient-funds" | "rate-limit" | "unsupported-model" | "invalid-response" | "request-failed";
+  readonly code: "invalid-key" | "insufficient-funds" | "rate-limit" | "unsupported-model" | "invalid-response" | "request-failed" | "timeout";
 
   constructor(code: OpenRouterRecognitionError["code"], message: string, options?: ErrorOptions) {
     super(message, options);
@@ -96,7 +104,6 @@ function verificationPrompt(input: RecognitionProviderInput): string {
     `${wall.id}:`,
     `start=(${schemaCoordinate(wall.start.x)},${schemaCoordinate(wall.start.y)}),`,
     `end=(${schemaCoordinate(wall.end.x)},${schemaCoordinate(wall.end.y)}),`,
-    `thicknessPx=${wall.estimatedThicknessPx ?? "null"},`,
     `localConfidence=${wall.confidence}`,
   ].join(" "));
   const openingLines = localOpenings.map((opening) => [
@@ -104,8 +111,6 @@ function verificationPrompt(input: RecognitionProviderInput): string {
     `kind=${opening.kind},`,
     `hostWallId=${opening.hostWallCandidateId ?? "null"},`,
     `center=(${schemaCoordinate(opening.center.x)},${schemaCoordinate(opening.center.y)}),`,
-    `widthPx=${opening.widthPx ?? "null"},`,
-    `orientationDeg=${opening.orientationDeg ?? "null"},`,
     `localConfidence=${opening.confidence}`,
   ].join(" "));
 
@@ -115,14 +120,12 @@ function verificationPrompt(input: RecognitionProviderInput): string {
     "Проверь каждый локальный кандидат стены и проёма по изображению.",
     "Не добавляй новые стены и не создавай новые wall id.",
     "Не добавляй новые проёмы и не создавай новые opening id.",
-    "Возвращай только те стены из списка ниже, которые действительно подтверждаются изображением.",
-    "Сохраняй исходный id и координаты без изменений; меняй только confidence и score.",
-    "Сохраняй host wall, center, widthPx и orientationDeg без изменений; разрешено уточнить только kind, confidence и score.",
-    "Не переноси проём на другую стену, не двигай, не расширяй и не поворачивай его.",
-    "Если локальный проём не подтверждается, полностью пропусти его в массиве openings.",
+    "Возвращай только подтверждённые локальные id; неподтверждённые полностью пропускай.",
+    "Для стены возвращай только id, confidence и score.",
+    "Для проёма возвращай только id, kind, confidence и score.",
+    "Геометрия, толщина, host wall, центр, ширина и ориентация принадлежат локальному движку и не передаются обратно AI.",
     "Не возвращай мебель, сантехнику, цифры, подписи, дверные дуги, штриховку, рамку изображения или границы пустого поля как стены.",
-    "Если кандидат стены не подтверждается, полностью пропусти его в массиве walls.",
-    "Подписи комнат допускаются только при явном прочтении текста на изображении.",
+    "Не выполняй OCR и не возвращай названия комнат в режиме проверки.",
     "Локальные кандидаты стен в координатах 0..10000:",
     ...wallLines,
     "Локальные кандидаты проёмов в координатах 0..10000:",
@@ -146,11 +149,38 @@ function discoveryPrompt(input: RecognitionProviderInput): string {
   ].join("\n");
 }
 
+function isVerification(input: RecognitionProviderInput): input is RecognitionProviderInput & {
+  localSummary: NonNullable<RecognitionProviderInput["localSummary"]>;
+} {
+  return Boolean(input.localSummary && (input.localSummary.walls.length > 0 || input.localSummary.openings.length > 0));
+}
+
 function prompt(input: RecognitionProviderInput): string {
-  return input.localSummary
-    && (input.localSummary.walls.length > 0 || input.localSummary.openings.length > 0)
-    ? verificationPrompt(input)
-    : discoveryPrompt(input);
+  return isVerification(input) ? verificationPrompt(input) : discoveryPrompt(input);
+}
+
+function boundedSignal(externalSignal: AbortSignal, timeoutMs: number): Readonly<{
+  signal: AbortSignal;
+  timedOut: () => boolean;
+  dispose: () => void;
+}> {
+  const controller = new AbortController();
+  let timeoutReached = false;
+  const relayAbort = () => controller.abort(externalSignal.reason);
+  if (externalSignal.aborted) relayAbort();
+  else externalSignal.addEventListener("abort", relayAbort, { once: true });
+  const timer = setTimeout(() => {
+    timeoutReached = true;
+    controller.abort(new DOMException("AI recognition timed out", "TimeoutError"));
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    timedOut: () => timeoutReached,
+    dispose: () => {
+      clearTimeout(timer);
+      externalSignal.removeEventListener("abort", relayAbort);
+    },
+  };
 }
 
 export class OpenRouterDirectProvider implements RecognitionProvider {
@@ -159,30 +189,39 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
   readonly #apiKey: string;
   readonly #modelId: string;
   readonly #fetcher: typeof fetch;
+  readonly #timeoutMs: number;
 
-  constructor(input: Readonly<{ apiKey: string; modelId: string; fetcher?: typeof fetch }>) {
+  constructor(input: Readonly<{ apiKey: string; modelId: string; fetcher?: typeof fetch; timeoutMs?: number }>) {
     this.#apiKey = input.apiKey.trim();
     this.#modelId = input.modelId.trim();
     this.#fetcher = input.fetcher ?? defaultBrowserFetch;
+    this.#timeoutMs = input.timeoutMs ?? DEFAULT_RECOGNITION_TIMEOUT_MS;
     if (!this.#apiKey) throw new OpenRouterRecognitionError("invalid-key", "Введите OpenRouter API key.");
     if (!this.#modelId) throw new OpenRouterRecognitionError("unsupported-model", "Выберите модель OpenRouter.");
+    if (!Number.isFinite(this.#timeoutMs) || this.#timeoutMs <= 0) {
+      throw new OpenRouterRecognitionError("request-failed", "Тайм-аут AI-проверки должен быть положительным числом.");
+    }
   }
 
   async recognize(input: RecognitionProviderInput, signal: AbortSignal): Promise<RecognitionProviderResult> {
     const startedAt = performance.now();
+    const verification = isVerification(input);
+    const bounded = boundedSignal(signal, this.#timeoutMs);
     recognitionInfo("openrouter.request.start", {
       modelId: this.#modelId,
+      mode: verification ? "verification" : "discovery",
       imageWidthPx: input.imageWidthPx,
       imageHeightPx: input.imageHeightPx,
       localWalls: input.localSummary?.walls.length ?? 0,
       localOpenings: input.localSummary?.openings.length ?? 0,
+      timeoutMs: this.#timeoutMs,
     });
     try {
       const fetcher = this.#fetcher;
       const response = await fetcher(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: "POST",
         headers: authHeaders(this.#apiKey),
-        signal,
+        signal: bounded.signal,
         body: JSON.stringify({
           model: this.#modelId,
           messages: [{
@@ -195,13 +234,15 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
           response_format: {
             type: "json_schema",
             json_schema: {
-              name: "vlezet_floor_plan_recognition",
+              name: verification ? "vlezet_floor_plan_verification" : "vlezet_floor_plan_recognition",
               strict: true,
-              schema: OPENROUTER_RECOGNITION_JSON_SCHEMA,
+              schema: verification ? OPENROUTER_VERIFICATION_JSON_SCHEMA : OPENROUTER_RECOGNITION_JSON_SCHEMA,
             },
           },
           plugins: [{ id: "response-healing" }],
           provider: { require_parameters: true },
+          max_tokens: verification ? VERIFICATION_MAX_TOKENS : DISCOVERY_MAX_TOKENS,
+          temperature: 0,
           stream: false,
         }),
       });
@@ -221,8 +262,13 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
       catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "OpenRouter вернул некорректный JSON.", { cause }); }
 
       let normalized: RecognitionProviderResult;
-      try { normalized = normalizeOpenRouterRecognitionPayload(parsed); }
-      catch (cause) { throw new OpenRouterRecognitionError("invalid-response", "Ответ OpenRouter не прошёл проверку структуры ответа.", { cause }); }
+      try {
+        normalized = verification
+          ? normalizeOpenRouterVerificationPayload(parsed, input.localSummary)
+          : normalizeOpenRouterRecognitionPayload(parsed);
+      } catch (cause) {
+        throw new OpenRouterRecognitionError("invalid-response", "Ответ OpenRouter не прошёл проверку структуры ответа.", { cause });
+      }
 
       const result = sanitizeCloudRecognitionResult({ result: normalized, localSummary: input.localSummary });
       recognitionInfo("openrouter.request.complete", {
@@ -235,11 +281,20 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
       });
       return result;
     } catch (cause) {
-      recognitionError("openrouter.request.error", cause, {
+      const mappedCause = bounded.timedOut()
+        ? new OpenRouterRecognitionError(
+            "timeout",
+            `AI-проверка не завершилась за ${Math.round(this.#timeoutMs / 1000)} сек. Локальный черновик сохранён без изменений.`,
+            { cause },
+          )
+        : cause;
+      recognitionError("openrouter.request.error", mappedCause, {
         modelId: this.#modelId,
         durationMs: Math.round(performance.now() - startedAt),
       });
-      throw cause;
+      throw mappedCause;
+    } finally {
+      bounded.dispose();
     }
   }
 }
