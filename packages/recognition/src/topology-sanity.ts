@@ -33,9 +33,10 @@ const MAX_WALL_CANDIDATES = 128;
 const AXIS_TOLERANCE_DEG = 8;
 const INTERSECTION_COVERAGE_TOLERANCE_PX = 8;
 const MAX_ENDPOINT_TRIM_PX = 64;
-const MIN_ENDPOINT_TRIM_PX = 24;
+const MIN_ENDPOINT_TRIM_PX = 48;
 const DUPLICATE_MIN_OVERLAP_RATIO = 0.75;
 const DUPLICATE_BAND_OVERLAP_RATIO = 0.9;
+const MAX_DUPLICATE_AXIS_DISTANCE_PX = 32;
 const SMALL_ENCLOSURE_MAX_AREA_M2 = 0.5;
 const SMALL_ENCLOSURE_CORNER_TOLERANCE_PX = 8;
 const MIN_ENCLOSURE_SIDE_PX = 12;
@@ -257,7 +258,10 @@ function detectParallelDuplicates(
       const overlap = intervalOverlap(first, second);
       const overlapRatio = overlap / Math.max(1, Math.min(first.lengthPx, second.lengthPx));
       if (overlapRatio < DUPLICATE_MIN_OVERLAP_RATIO) continue;
-      const bandOverlapLimit = ((first.thicknessPx + second.thicknessPx) / 2) * DUPLICATE_BAND_OVERLAP_RATIO;
+      const bandOverlapLimit = Math.min(
+        MAX_DUPLICATE_AXIS_DISTANCE_PX,
+        Math.min(first.thicknessPx, second.thicknessPx) * DUPLICATE_BAND_OVERLAP_RATIO,
+      );
       if (Math.abs(first.axis - second.axis) >= bandOverlapLimit) continue;
       blocked.add(weakerWall(first, second).candidate.id);
     }
