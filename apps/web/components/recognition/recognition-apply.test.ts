@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyDocument } from "@vlezet/domain";
 import type { ReferencePlan } from "@vlezet/projects";
-import type { RecognitionDraft } from "@vlezet/recognition";
+import type { RecognitionDraft, RecognitionWallCandidate } from "@vlezet/recognition";
 import { planRecognitionApply } from "./recognition-apply";
 
 const NOW = "2026-07-22T00:00:00.000Z";
@@ -27,17 +27,39 @@ function draft(): RecognitionDraft {
   };
 }
 
+function wallCandidate(input: Readonly<{
+  id: string;
+  start: RecognitionWallCandidate["start"];
+  end: RecognitionWallCandidate["end"];
+  estimatedThicknessPx?: number;
+}>): RecognitionWallCandidate {
+  return {
+    id: input.id,
+    start: input.start,
+    end: input.end,
+    estimatedThicknessPx: input.estimatedThicknessPx ?? 75,
+    confidence: "high",
+    evidence: { localScore: 0.9, cloudScore: null, reasons: ["filled-wall-region-evidence"] },
+    origin: "local",
+    conflict: null,
+  };
+}
+
 function ids() {
   let index = 0;
   return (kind: "wall" | "vertex" | "opening") => `${kind}-${++index}`;
 }
 
-function wallEndpoints(plan: ReturnType<typeof planRecognitionApply>) {
-  const wall = plan.document.walls[0]!;
+function wallEndpointsAt(plan: ReturnType<typeof planRecognitionApply>, wallIndex: number) {
+  const wall = plan.document.walls[wallIndex]!;
   return {
     start: plan.document.vertices.find((vertex) => vertex.id === wall.startVertexId)!.position,
     end: plan.document.vertices.find((vertex) => vertex.id === wall.endVertexId)!.position,
   };
+}
+
+function wallEndpoints(plan: ReturnType<typeof planRecognitionApply>) {
+  return wallEndpointsAt(plan, 0);
 }
 
 describe("recognition apply planning", () => {
@@ -84,6 +106,58 @@ describe("recognition apply planning", () => {
     const { start, end } = wallEndpoints(plan);
     expect(start).toEqual({ x: 300, y: 400 });
     expect(end).toEqual({ x: 1500, y: 700 });
+  });
+
+  it("normalizes an implausibly thick raster cohort into architectural wall thicknesses", () => {
+    const source = draft();
+    const walls = [
+      wallCandidate({ id: "thin", start: { x: 0.1, y: 0.1 }, end: { x: 0.9, y: 0.1 }, estimatedThicknessPx: 200 }),
+      wallCandidate({ id: "median", start: { x: 0.1, y: 0.3 }, end: { x: 0.9, y: 0.3 }, estimatedThicknessPx: 400 }),
+      wallCandidate({ id: "thick", start: { x: 0.1, y: 0.5 }, end: { x: 0.9, y: 0.5 }, estimatedThicknessPx: 600 }),
+    ];
+    const plan = planRecognitionApply({
+      draft: {
+        ...source,
+        walls,
+        decisions: { thin: "accepted", median: "accepted", thick: "accepted" },
+      },
+      referencePlan,
+      document: createEmptyDocument(),
+      idFactory: ids(),
+    });
+
+    expect(plan.document.walls.map((wall) => wall.thickness)).toEqual([80, 150, 230]);
+    expect(Math.max(...plan.document.walls.map((wall) => wall.thickness))).toBeLessThanOrEqual(400);
+  });
+
+  it("canonicalizes connected near-axis candidates into one shared orthogonal topology", () => {
+    const source = draft();
+    const walls = [
+      wallCandidate({ id: "upper-vertical", start: { x: 0.5, y: 0.1 }, end: { x: 0.5, y: 0.5 } }),
+      wallCandidate({ id: "lower-vertical", start: { x: 0.508, y: 0.5 }, end: { x: 0.508, y: 0.9 } }),
+      wallCandidate({ id: "horizontal", start: { x: 0.2, y: 0.506 }, end: { x: 0.504, y: 0.506 } }),
+    ];
+    const plan = planRecognitionApply({
+      draft: {
+        ...source,
+        walls,
+        decisions: { "upper-vertical": "accepted", "lower-vertical": "accepted", horizontal: "accepted" },
+      },
+      referencePlan,
+      document: createEmptyDocument(),
+      idFactory: ids(),
+    });
+
+    expect(plan.document.walls).toHaveLength(3);
+    const upper = wallEndpointsAt(plan, 0);
+    const lower = wallEndpointsAt(plan, 1);
+    const horizontal = wallEndpointsAt(plan, 2);
+    expect(upper.start.x).toBe(upper.end.x);
+    expect(lower.start.x).toBe(lower.end.x);
+    expect(horizontal.start.y).toBe(horizontal.end.y);
+    expect(upper.start.x).toBe(lower.start.x);
+    expect(upper.end).toEqual(lower.start);
+    expect(horizontal.end).toEqual(lower.start);
   });
 
   it("refuses drafts from another reference revision", () => {
