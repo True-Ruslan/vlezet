@@ -1,3 +1,4 @@
+import { calibrateReferencePlan } from "@vlezet/geometry";
 import { describe, expect, it } from "vitest";
 import { EMPTY_CALIBRATION_DRAFT, reduceReferenceImport } from "./reference-import-machine";
 
@@ -18,6 +19,28 @@ describe("reference import state machine", () => {
     expect(state).toMatchObject({ selectedPage: 3 });
     state = reduceReferenceImport(state, { type: "raster-ready", fileName: "plan.pdf", raster, source: "pdf", pageNumber: 3, pageCount: 4 });
     expect(state).toMatchObject({ kind: "calibrating", draft: EMPTY_CALIBRATION_DRAFT, pageNumber: 3 });
+  });
+
+  it("keeps the source orientation unless alignment is selected explicitly", () => {
+    const state = reduceReferenceImport(
+      { kind: "idle" },
+      { type: "raster-ready", fileName: "vertical-size.png", raster, source: "png" },
+    );
+
+    expect(state).toMatchObject({ kind: "calibrating", draft: { alignment: "none" } });
+    if (state.kind !== "calibrating") throw new Error("Expected calibration state.");
+
+    const calibrated = calibrateReferencePlan({
+      widthPx: raster.widthPx,
+      heightPx: raster.heightPx,
+      pointA: { x: 400, y: 650 },
+      pointB: { x: 400, y: 150 },
+      knownLengthMm: 3000,
+      originWorld: { x: 0, y: 0 },
+      alignment: state.draft.alignment,
+    });
+
+    expect(calibrated.transform.rotationDeg).toBe(0);
   });
 
   it("keeps invalid page selections unchanged and cancel returns to idle", () => {
