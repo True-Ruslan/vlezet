@@ -253,6 +253,41 @@ function matchingRailWindow(
   }) ?? null;
 }
 
+function isAnchoredDoorLeaf(input: Readonly<{
+  segment: DetectedLineSegment;
+  wallStart: Point;
+  tangent: Point;
+  normal: Point;
+  gapStart: number;
+  gapEnd: number;
+  gapWidth: number;
+  expectedHalfThickness: number;
+}>): boolean {
+  const a = { x: input.segment.x1, y: input.segment.y1 };
+  const b = { x: input.segment.x2, y: input.segment.y2 };
+  const segmentLength = length(a, b);
+  if (segmentLength < input.gapWidth * 0.45 || segmentLength > input.gapWidth * 1.65) return false;
+  const project = (point: Point) => ({
+    along: dot({ x: point.x - input.wallStart.x, y: point.y - input.wallStart.y }, input.tangent),
+    across: dot({ x: point.x - input.wallStart.x, y: point.y - input.wallStart.y }, input.normal),
+  });
+  const first = project(a);
+  const second = project(b);
+  const anchorAlongTolerance = Math.max(10, input.gapWidth * 0.16);
+  const anchorAcrossTolerance = Math.max(12, input.expectedHalfThickness + 6);
+  const minimumLeafDepth = Math.max(18, input.gapWidth * 0.35);
+  const anchored = (anchor: { along: number; across: number }, leaf: { along: number; across: number }) => {
+    const edgeDistance = Math.min(
+      Math.abs(anchor.along - input.gapStart),
+      Math.abs(anchor.along - input.gapEnd),
+    );
+    return edgeDistance <= anchorAlongTolerance
+      && Math.abs(anchor.across) <= anchorAcrossTolerance
+      && Math.abs(leaf.across) >= minimumLeafDepth;
+  };
+  return anchored(first, second) || anchored(second, first);
+}
+
 export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): RecognitionOpeningCandidate[] {
   const wallSegments = input.wallSegments ?? input.segments ?? [];
   const symbolSegments = input.symbolSegments ?? input.segments ?? [];
@@ -317,7 +352,7 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
         y: start.y + tangent.y * gapCenterAlong,
       };
 
-      let angledEvidence = 0;
+      let anchoredDoorEvidence = false;
       let perpendicularEvidence = 0;
       for (const segment of symbolSegments) {
         const a = { x: segment.x1, y: segment.y1 };
@@ -326,19 +361,30 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
         if (length(segmentCenter, centerPx) > Math.max(widthPx * 1.1, 90)) continue;
         const delta = angleDelta(segmentAngle(segment), wallAngle);
         const segmentLength = length(a, b);
-        if (delta >= 20 && delta <= 75 && segmentLength >= 25 && segmentLength <= widthPx * 1.6) angledEvidence += 1;
-        if (delta >= 75 && delta <= 90 && segmentLength <= Math.max(80, expectedHalfThickness * 5)) perpendicularEvidence += 1;
+        if (delta >= 20 && isAnchoredDoorLeaf({
+          segment,
+          wallStart: start,
+          tangent,
+          normal,
+          gapStart,
+          gapEnd,
+          gapWidth: widthPx,
+          expectedHalfThickness,
+        })) anchoredDoorEvidence = true;
+        if (delta >= 75 && delta <= 90 && segmentLength <= Math.max(80, expectedHalfThickness * 5)) {
+          perpendicularEvidence += 1;
+        }
       }
 
       const pairedRailEvidence = matchingRailWindow(railWindows, gapCenterAlong, widthPx);
-      const kind = angledEvidence > 0
+      const kind = anchoredDoorEvidence
         ? "door"
         : pairedRailEvidence || perpendicularEvidence >= 2
           ? "window"
           : "unknown-opening";
       const confidence = kind === "unknown-opening" ? "low" : "medium";
       const reasons = kind === "door"
-        ? ["wall-gap", "door-arc-like-line"]
+        ? ["wall-gap", "door-leaf-anchored", "door-arc-like-line"]
         : kind === "window"
           ? pairedRailEvidence
             ? ["wall-gap", "paired-window-rails", "paired-cross-lines"]
