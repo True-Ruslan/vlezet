@@ -74,6 +74,27 @@ describe("recognition topology sanitation", () => {
       .toEqual([100, 200, 820, 200]);
   });
 
+  it("rejects a short stub instead of collapsing it to a zero-length wall", () => {
+    const result = sanitizeRecognitionWallTopology({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      millimetersPerPixel: 10,
+      wallCandidates: [
+        wall({ id: "stub", x1: 373, y1: 56, x2: 389, y2: 56, thicknessPx: 38 }),
+        wall({ id: "vertical", x1: 373, y1: 56, x2: 373, y2: 250, thicknessPx: 28 }),
+      ],
+    });
+
+    const stub = result.walls.find((candidate) => candidate.id === "stub")!;
+    expect(coordinates(stub)).toEqual([373, 56, 389, 56]);
+    expect(stub).toMatchObject({ confidence: "low", conflict: "unsupported" });
+    expect(stub.evidence.reasons).toContain("topology-degenerate-after-trim");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "topology-degenerate-after-trim",
+      candidateId: "stub",
+    }));
+  });
+
   it("never extends a wall endpoint forward to reach a perpendicular wall", () => {
     const result = sanitizeRecognitionWallTopology({
       widthPx: WIDTH,
