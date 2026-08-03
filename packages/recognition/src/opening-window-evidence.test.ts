@@ -49,6 +49,16 @@ const rasterFragmentedWindowSymbols: DetectedLineSegment[] = [
   { x1: 507, y1: 253, x2: 565, y2: 253 },
 ];
 
+const compressedWindowSymbols: DetectedLineSegment[] = [
+  { x1: 435, y1: 249, x2: 565, y2: 249 },
+  { x1: 435, y1: 251, x2: 565, y2: 251 },
+];
+
+const duplicateStrokeSymbols: DetectedLineSegment[] = [
+  { x1: 435, y1: 249, x2: 565, y2: 249 },
+  { x1: 435, y1: 250, x2: 565, y2: 250 },
+];
+
 const structuralEchoSymbols: DetectedLineSegment[] = [
   { x1: 435, y1: 242, x2: 565, y2: 242 },
   { x1: 435, y1: 258, x2: 565, y2: 258 },
@@ -85,6 +95,27 @@ describe("window evidence separation", () => {
       wallSegments: splitStructuralSegments,
       symbolSegments: rasterFragmentedWindowSymbols,
     }));
+  });
+
+  it("accepts two independently detected rails compressed to a 2 px separation", () => {
+    expectWindow(buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: splitStructuralSegments,
+      symbolSegments: compressedWindowSymbols,
+    }));
+  });
+
+  it("does not accept a 1 px anti-alias duplicate as two window rails", () => {
+    const openings = buildOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [wall],
+      wallSegments: continuousStructuralSegments,
+      symbolSegments: duplicateStrokeSymbols,
+    });
+    expect(openings).toEqual([]);
   });
 
   it("keeps door evidence authoritative when an angled swing line overlaps paired rails", () => {
