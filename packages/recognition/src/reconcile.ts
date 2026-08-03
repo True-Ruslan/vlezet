@@ -29,16 +29,33 @@ function wallDistance(a: ExistingRecognitionWall, b: ExistingRecognitionWall): n
   return Math.min(direct, reversed);
 }
 
+function hasTopologyWarning(candidate: RecognitionWallCandidate): boolean {
+  return candidate.conflict !== null
+    || candidate.evidence.reasons.some((reason) => reason.startsWith("topology-"));
+}
+
 function mergeWall(local: RecognitionWallCandidate, cloud: RecognitionWallCandidate): RecognitionWallCandidate {
+  const topologyGated = hasTopologyWarning(local);
+  const confidence = local.conflict !== null || local.confidence === "low"
+    ? "low"
+    : topologyGated
+      ? "medium"
+      : "high";
   return {
     ...local,
     estimatedThicknessPx: local.estimatedThicknessPx ?? cloud.estimatedThicknessPx,
-    confidence: "high",
+    confidence,
     origin: "merged",
     evidence: {
       localScore: local.evidence.localScore,
       cloudScore: cloud.evidence.cloudScore,
-      reasons: [...new Set([...local.evidence.reasons, ...cloud.evidence.reasons, "local-cloud-agreement"])],
+      reasons: [...new Set([
+        ...local.evidence.reasons,
+        ...cloud.evidence.reasons,
+        topologyGated
+          ? "local-cloud-agreement-topology-gated"
+          : "local-cloud-agreement",
+      ])],
     },
   };
 }
@@ -147,7 +164,7 @@ export function reconcileRecognition(input: ReconcileRecognitionInput): Recognit
   );
 
   for (const wall of walls) {
-    if (wall.conflict === "duplicate-existing") decisions[wall.id] = "rejected";
+    if (wall.conflict !== null) decisions[wall.id] = "rejected";
     else if (!(wall.id in decisions)) decisions[wall.id] = "pending";
   }
   for (const opening of openings) if (!(opening.id in decisions)) decisions[opening.id] = "pending";
