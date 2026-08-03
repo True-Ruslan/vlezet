@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseRecognitionBenchmarkFixtureV1 } from "../benchmarks/schema/fixture-v1";
+import { validateRecognitionBenchmarkFixtureV1 } from "../benchmarks/schema/fixture-v1";
 import { realAnalogueDefinitions } from "../benchmarks/real-analogues/source-definitions.mjs";
 import {
   buildRealFixtureJson,
@@ -67,7 +67,7 @@ describe("M7.9 immutable public real-fixture assets", () => {
 
   it("builds the canonical benchmark fixture schema with host-valid openings", () => {
     const definition = firstDefinition;
-    const fixture = parseRecognitionBenchmarkFixtureV1(
+    const fixture = validateRecognitionBenchmarkFixtureV1(
       buildRealFixtureJson(definition, "a".repeat(64)),
     );
 
