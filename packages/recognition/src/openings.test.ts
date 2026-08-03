@@ -3,12 +3,12 @@ import { buildOpeningHypotheses } from "./openings";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 
-function wallAt(id: string, yPx: number): RecognitionWallCandidate {
+function wallAt(id: string, yPx: number, thicknessPx = 20): RecognitionWallCandidate {
   return {
     id,
     start: { x: 0.1, y: yPx / 500 },
     end: { x: 0.9, y: yPx / 500 },
-    estimatedThicknessPx: 20,
+    estimatedThicknessPx: thicknessPx,
     confidence: "high",
     evidence: { localScore: 0.9, cloudScore: null, reasons: ["parallel-edges"] },
     origin: "local",
@@ -18,22 +18,22 @@ function wallAt(id: string, yPx: number): RecognitionWallCandidate {
 
 const wall = wallAt("wall-1", 250);
 const boundaryWall = wallAt("boundary-wall", 20);
-const lowResolutionBoundaryWall = wallAt("low-resolution-boundary-wall", 28);
-const nearInteriorWall = wallAt("near-interior-wall", 40);
+const lowResolutionBoundaryWall = wallAt("low-resolution-boundary-wall", 28, 8);
+const nearInteriorWall = wallAt("near-interior-wall", 40, 8);
 
-function edgesAt(yPx: number): DetectedLineSegment[] {
+function edgesAt(yPx: number, halfThicknessPx = 10): DetectedLineSegment[] {
   return [
-    { x1: 100, y1: yPx - 10, x2: 450, y2: yPx - 10 },
-    { x1: 100, y1: yPx + 10, x2: 450, y2: yPx + 10 },
-    { x1: 550, y1: yPx - 10, x2: 900, y2: yPx - 10 },
-    { x1: 550, y1: yPx + 10, x2: 900, y2: yPx + 10 },
+    { x1: 100, y1: yPx - halfThicknessPx, x2: 450, y2: yPx - halfThicknessPx },
+    { x1: 100, y1: yPx + halfThicknessPx, x2: 450, y2: yPx + halfThicknessPx },
+    { x1: 550, y1: yPx - halfThicknessPx, x2: 900, y2: yPx - halfThicknessPx },
+    { x1: 550, y1: yPx + halfThicknessPx, x2: 900, y2: yPx + halfThicknessPx },
   ];
 }
 
 const baseEdges = edgesAt(250);
 const boundaryEdges = edgesAt(20);
-const lowResolutionBoundaryEdges = edgesAt(28);
-const nearInteriorEdges = edgesAt(40);
+const lowResolutionBoundaryEdges = edgesAt(28, 4);
+const nearInteriorEdges = edgesAt(40, 4);
 
 function run(segments: DetectedLineSegment[], wallCandidate = wall) {
   return buildOpeningHypotheses({
@@ -70,7 +70,7 @@ describe("local opening hypotheses", () => {
     expect(result[0]?.evidence.reasons).toContain("exterior-boundary-gap");
   });
 
-  it("does not extend exterior inference to a wall 40 px inside the image", () => {
+  it("does not extend exterior inference to a thin wall 40 px inside the image", () => {
     const result = run(nearInteriorEdges, nearInteriorWall);
     expect(result).toHaveLength(1);
     expect(result[0]?.kind).toBe("unknown-opening");
