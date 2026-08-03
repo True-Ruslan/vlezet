@@ -333,10 +333,6 @@ export async function runLocalRecognitionEngine(
       rawSegments,
       adaptiveOptions.duplicateEndpointTolerancePx,
     );
-    const openingEvidenceSegments = deduplicateDetectedSegments([
-      ...segments,
-      ...symbolSegments,
-    ], Math.max(1, adaptiveOptions.duplicateEndpointTolerancePx / 2));
 
     options.onProgress?.({ phase: "walls", progress: 0.72 });
     const strictAnalysis = analyzeWallCandidates({
@@ -433,7 +429,8 @@ export async function runLocalRecognitionEngine(
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       wallCandidates: analysisWalls,
-      segments: openingEvidenceSegments,
+      wallSegments: segments,
+      symbolSegments,
     });
     const analysisOpenings = [...openingAnalysis.candidates];
     const { walls, openings } = rescaleRecognitionPixelEvidence({
