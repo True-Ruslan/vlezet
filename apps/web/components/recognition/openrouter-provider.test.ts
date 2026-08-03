@@ -126,9 +126,10 @@ describe("OpenRouter direct recognition provider", () => {
       imageHeightPx: 800,
       localSummary: localSummary(),
     }, signal);
+    const rejection = expect(pending).rejects.toMatchObject({ code: "timeout" });
 
     await vi.advanceTimersByTimeAsync(1000);
-    await expect(pending).rejects.toMatchObject({ code: "timeout" });
+    await rejection;
   });
 
   it("preserves the browser receiver when using native global fetch", async () => {
