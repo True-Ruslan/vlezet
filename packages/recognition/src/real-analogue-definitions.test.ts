@@ -1,7 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-
-// @ts-expect-error M7.9 RED: public analogue definitions are implemented after this contract fails.
 import { realAnalogueDefinitions } from "../benchmarks/real-analogues/source-definitions.mjs";
 
 const privateManifest = JSON.parse(readFileSync(new URL(
