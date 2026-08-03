@@ -295,7 +295,7 @@ function isExteriorBoundaryWall(input: Readonly<{
   heightPx: number;
   thicknessPx: number;
 }>): boolean {
-  const margin = Math.max(24, input.thicknessPx * 2.5);
+  const margin = Math.max(30, input.thicknessPx * 2.5);
   const horizontal = Math.abs(input.end.x - input.start.x) >= Math.abs(input.end.y - input.start.y);
   if (horizontal) {
     return Math.max(input.start.y, input.end.y) <= margin
