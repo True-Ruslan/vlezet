@@ -39,3 +39,4 @@ export type {
 export { completeWallCenterlines } from "./wall-completion-runtime";
 export * from "./wall-evidence-filter";
 export * from "./wall-topology";
+export * from "./window-host-consolidation";
