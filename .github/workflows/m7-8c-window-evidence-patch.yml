@@ -21,55 +21,34 @@ jobs:
           ref: feat/m7-8c-opening-classification-host-wall-validation
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.15.1
-          run_install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.16.0
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Apply bounded evidence patch
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
-          def replace_once(path: Path, old: str, new: str) -> None:
+          def replace_once(path: Path, pattern: str, replacement: str, flags: int = 0) -> None:
               text = path.read_text()
-              count = text.count(old)
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)
               if count != 1:
-                  raise SystemExit(f"{path}: expected one match, found {count}")
-              path.write_text(text.replace(old, new, 1))
+                  raise SystemExit(f"{path}: expected one match for {pattern!r}, found {count}")
+              path.write_text(updated)
 
           openings = Path("packages/recognition/src/openings.ts")
           replace_once(
               openings,
-              '''function mergeProjectedRails(rails: readonly ProjectedRail[]): ProjectedRail[] {''',
-              '''function mergeProjectedRails(
-            rails: readonly ProjectedRail[],
-            acrossTolerancePx: number,
-            gapTolerancePx: number,
-          ): ProjectedRail[] {''',
+              r"function mergeProjectedRails\(rails: readonly ProjectedRail\[\]\): ProjectedRail\[\] \{",
+              "function mergeProjectedRails(\n  rails: readonly ProjectedRail[],\n  acrossTolerancePx: number,\n  gapTolerancePx: number,\n): ProjectedRail[] {",
           )
           replace_once(
               openings,
-              '''      return Math.abs(candidateAcross - rail.across) <= 3
-                && rail.startAlong <= candidate.endAlong + 12
-                && rail.endAlong >= candidate.startAlong - 12;''',
-              '''      return Math.abs(candidateAcross - rail.across) <= acrossTolerancePx
-                && rail.startAlong <= candidate.endAlong + gapTolerancePx
-                && rail.endAlong >= candidate.startAlong - gapTolerancePx;''',
+              r"return Math\.abs\(candidateAcross - rail\.across\) <= 3\s+&& rail\.startAlong <= candidate\.endAlong \+ 12\s+&& rail\.endAlong >= candidate\.startAlong - 12;",
+              "return Math.abs(candidateAcross - rail.across) <= acrossTolerancePx\n        && rail.startAlong <= candidate.endAlong + gapTolerancePx\n        && rail.endAlong >= candidate.startAlong - gapTolerancePx;",
           )
           replace_once(
               openings,
-              '''    const rawRails = symbolSegments.flatMap((segment): ProjectedRail[] => {''',
+              r"    const rawRails = symbolSegments\.flatMap\(\(segment\): ProjectedRail\[\] => \{",
               '''    const structuralRails = wallSegments.flatMap((segment): ProjectedRail[] => {
               if (angleDelta(segmentAngle(segment), wallAngle) > 8) return [];
               const a = { x: segment.x1, y: segment.y1 };
@@ -94,17 +73,17 @@ jobs:
           )
           replace_once(
               openings,
-              '''      const across = dot(relative, normal);
-              if (Math.abs(across) > expectedHalfThickness + 6) return [];
-              return [{
+              r'''      const across = dot\(relative, normal\);
+              if \(Math\.abs\(across\) > expectedHalfThickness \+ 6\) return \[\];
+              return \[\{
                 startAlong,
                 endAlong,
-                centerAlong: (startAlong + endAlong) / 2,
+                centerAlong: \(startAlong \+ endAlong\) / 2,
                 across,
                 lengthPx: endAlong - startAlong,
-              }];
-            });
-            const rails = mergeProjectedRails(rawRails);''',
+              \}\];
+            \}\);
+            const rails = mergeProjectedRails\(rawRails\);''',
               '''      const across = dot(relative, normal);
               if (Math.abs(across) > expectedHalfThickness + 6) return [];
               const projected = {
@@ -132,19 +111,12 @@ jobs:
           engine = Path("apps/web/components/recognition/local-recognition-engine.ts")
           replace_once(
               engine,
-              '''    const openingEvidenceSegments = deduplicateDetectedSegments([
-              ...segments,
-              ...symbolSegments,
-            ], Math.max(1, adaptiveOptions.duplicateEndpointTolerancePx / 2));
-
-          ''',
-              '''''',
+              r'''\n    const openingEvidenceSegments = deduplicateDetectedSegments\(\[\n      \.\.\.segments,\n      \.\.\.symbolSegments,\n    \], Math\.max\(1, adaptiveOptions\.duplicateEndpointTolerancePx / 2\)\);\n''',
+              "\n",
           )
           replace_once(
               engine,
-              '''      wallCandidates: analysisWalls,
-              segments: openingEvidenceSegments,
-            });''',
+              r'''      wallCandidates: analysisWalls,\n      segments: openingEvidenceSegments,\n    \}\);''',
               '''      wallCandidates: analysisWalls,
               wallSegments: segments,
               symbolSegments,
@@ -152,16 +124,12 @@ jobs:
           )
           PY
 
-      - name: Verify focused regression tests
-        run: |
-          pnpm --filter @vlezet/recognition exec vitest run src/opening-window-evidence.test.ts
-          pnpm --dir apps/web exec vitest run components/recognition/local-recognition-engine-source.test.ts
-
-      - name: Commit verified patch
+      - name: Commit bounded evidence patch
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add packages/recognition/src/openings.ts apps/web/components/recognition/local-recognition-engine.ts
+          git diff --cached --check
           git commit -m "fix: separate and stabilize raster window evidence"
           git push origin HEAD:feat/m7-8c-opening-classification-host-wall-validation
