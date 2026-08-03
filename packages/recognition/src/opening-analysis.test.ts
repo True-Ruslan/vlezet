@@ -6,6 +6,7 @@ import {
 } from "./opening-analysis";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
+import type { StructuralMaskView } from "./wall-completion";
 
 const horizontalWall: RecognitionWallCandidate = {
   id: "wall-1",
@@ -76,6 +77,40 @@ describe("opening analysis", () => {
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]?.kind).toBe("unknown-opening");
     expect(result.candidates[0]?.confidence).toBe("low");
+  });
+
+  it("deduplicates a mask-supported window against the existing rail hypothesis", () => {
+    const structuralMask: StructuralMaskView = {
+      widthPx: 1000,
+      heightPx: 500,
+      isStructural: (x, y) =>
+        x >= 90 && x <= 910
+        && y >= 238 && y <= 262
+        && (x < 450 || x > 550),
+    };
+    const rails: DetectedLineSegment[] = [
+      { x1: 450, y1: 246, x2: 550, y2: 246 },
+      { x1: 450, y1: 254, x2: 550, y2: 254 },
+    ];
+
+    const result = analyzeOpeningHypotheses({
+      widthPx: 1000,
+      heightPx: 500,
+      wallCandidates: [horizontalWall],
+      wallSegments: baseEdges,
+      symbolSegments: rails,
+      structuralMask,
+    });
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]).toMatchObject({
+      kind: "window",
+      hostWallCandidateId: "wall-1",
+      confidence: "medium",
+    });
+    expect(result.candidates[0]?.evidence.reasons).toContain("mask-supported-window-gap");
+    expect(result.candidates[0]?.evidence.reasons).toContain("opening-hypothesis-deduplicated");
+    expect(result.rejections).toEqual([]);
   });
 
   it("rejects a hypothesis that references an unknown host wall", () => {
