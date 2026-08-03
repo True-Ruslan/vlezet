@@ -51,6 +51,15 @@ jobs:
       - name: Verify benchmark fixtures
         run: npm --prefix tools/recognition-benchmark run verify:fixtures
 
+      - name: Generate real-plan analogue fixtures
+        run: node tools/recognition-benchmark/generate-real-fixture-assets.mjs
+
+      - name: Verify generated real-plan analogue fixtures
+        run: node tools/recognition-benchmark/verify-real-fixtures.mjs
+
+      - name: Assert no private source bytes are committed
+        run: node tools/recognition-benchmark/private-source-check.mjs assert-repository .
+
       - name: Verify M7.8C gate contract
         run: node --test tools/recognition-benchmark/m7-8c-opening-gate.test.mjs
 
@@ -97,6 +106,15 @@ jobs:
           RECOGNITION_SOURCE_OVERLAYS_DIR: tools/recognition-benchmark/artifacts/source
           RECOGNITION_EVIDENCE_OUTPUT_DIR: tools/recognition-benchmark/artifacts/evidence
         run: pnpm benchmark:recognition:evidence
+
+      - name: Upload generated real-plan analogue assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recognition-real-fixture-assets
+          path: packages/recognition/benchmarks/real-analogues/fixtures
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Recognition Benchmark evidence
         if: always()
