@@ -59,6 +59,21 @@ describe("recognition topology sanitation", () => {
     }));
   });
 
+  it("trims the same bounded overshoot for a thin raster wall", () => {
+    const result = sanitizeRecognitionWallTopology({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      millimetersPerPixel: 10,
+      wallCandidates: [
+        wall({ id: "horizontal", x1: 100, y1: 200, x2: 860, y2: 200, thicknessPx: 10 }),
+        wall({ id: "vertical", x1: 820, y1: 100, x2: 820, y2: 500, thicknessPx: 10 }),
+      ],
+    });
+
+    expect(coordinates(result.walls.find((candidate) => candidate.id === "horizontal")!))
+      .toEqual([100, 200, 820, 200]);
+  });
+
   it("never extends a wall endpoint forward to reach a perpendicular wall", () => {
     const result = sanitizeRecognitionWallTopology({
       widthPx: WIDTH,
@@ -102,6 +117,21 @@ describe("recognition topology sanitation", () => {
       wallCandidates: [
         wall({ id: "upper", x1: 100, y1: 180, x2: 900, y2: 180, thicknessPx: 20 }),
         wall({ id: "lower", x1: 100, y1: 260, x2: 900, y2: 260, thicknessPx: 20 }),
+      ],
+    });
+
+    expect(result.walls.every((candidate) => candidate.conflict === null)).toBe(true);
+  });
+
+  it("keeps widely separated candidates when raw raster thickness is implausibly large", () => {
+    const result = sanitizeRecognitionWallTopology({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      millimetersPerPixel: 2,
+      wallCandidates: [
+        wall({ id: "upper", x1: 100, y1: 100, x2: 900, y2: 100, thicknessPx: 200 }),
+        wall({ id: "middle", x1: 100, y1: 300, x2: 900, y2: 300, thicknessPx: 400 }),
+        wall({ id: "lower", x1: 100, y1: 500, x2: 900, y2: 500, thicknessPx: 600 }),
       ],
     });
 
