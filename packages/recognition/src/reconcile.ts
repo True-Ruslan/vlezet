@@ -47,10 +47,17 @@ function mergeOpening(
   local: RecognitionOpeningCandidate,
   cloud: RecognitionOpeningCandidate,
 ): RecognitionOpeningCandidate {
+  const exactClassificationAgreement = local.kind === cloud.kind
+    && cloud.kind !== "unknown-opening"
+    && local.hostWallCandidateId !== null;
   return {
     ...local,
     kind: cloud.kind,
-    confidence: cloud.kind === "unknown-opening" ? "low" : "medium",
+    confidence: cloud.kind === "unknown-opening"
+      ? "low"
+      : exactClassificationAgreement
+        ? "high"
+        : "medium",
     origin: "merged",
     conflict: null,
     evidence: {
@@ -59,7 +66,9 @@ function mergeOpening(
       reasons: [...new Set([
         ...local.evidence.reasons,
         ...cloud.evidence.reasons,
-        "local-cloud-opening-agreement",
+        exactClassificationAgreement
+          ? "local-cloud-opening-agreement"
+          : "cloud-opening-reclassification",
       ])],
     },
   };
