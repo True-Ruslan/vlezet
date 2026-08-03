@@ -71,6 +71,21 @@ describe("shared local recognition engine extraction", () => {
     expect(engineSource).toContain('code: "multi-pass-source-normalisation"');
   });
 
+  it("consolidates symbol-confirmed window hosts after wall selection and before opening analysis", () => {
+    expect(engineSource).toContain("consolidateWindowHostWalls");
+    expect(engineSource).toContain("const windowHostConsolidation = consolidateWindowHostWalls({");
+    expect(engineSource).toContain("analysisWalls = [...windowHostConsolidation.walls]");
+    expect(engineSource).toContain('code: "window-symbol-host-consolidation"');
+    expect(engineSource).toContain('code: "window-host-consolidation-budget"');
+
+    const wallSelection = engineSource.indexOf("if (!useStructuralRegionEvidence && strictWalls.length < MIN_STRICT_WALLS)");
+    const consolidation = engineSource.indexOf("const windowHostConsolidation = consolidateWindowHostWalls({");
+    const openingAnalysis = engineSource.indexOf("const openingAnalysis = analyzeOpeningHypotheses({");
+    expect(wallSelection).toBeGreaterThan(-1);
+    expect(consolidation).toBeGreaterThan(wallSelection);
+    expect(openingAnalysis).toBeGreaterThan(consolidation);
+  });
+
   it("enables only host-validated local opening candidates", () => {
     expect(engineSource).toContain("const openingAnalysis = analyzeOpeningHypotheses({");
     expect(engineSource).toContain("const analysisOpenings = [...openingAnalysis.candidates]");
