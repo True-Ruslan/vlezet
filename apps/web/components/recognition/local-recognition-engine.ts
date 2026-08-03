@@ -4,6 +4,7 @@ import {
   analyzeWallCandidates,
   buildLocalWallTopology,
   completeWallCenterlines,
+  consolidateWindowHostWalls,
   createAdaptiveLocalRecognitionOptions,
   DEFAULT_WALL_COMPLETION_OPTIONS,
   extractStructuralWallRegions,
@@ -409,6 +410,14 @@ export async function runLocalRecognitionEngine(
         usedAdaptiveFallback = true;
       }
     }
+    const windowHostConsolidation = consolidateWindowHostWalls({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      wallCandidates: analysisWalls,
+      symbolSegments,
+    });
+    analysisWalls = [...windowHostConsolidation.walls];
+
     const debugSelection = useStructuralRegionEvidence
       ? { selectedMode: "regions" as const }
       : { selectedMode: usedAdaptiveFallback ? "adaptive" as const : "strict" as const };
@@ -488,6 +497,25 @@ export async function runLocalRecognitionEngine(
         message: analysisMillimetersPerPixel == null
           ? "Строгий локальный анализ нашёл мало стен, поэтому применены более гибкие пороги относительно размера изображения. Проверьте найденные линии перед применением."
           : "Строгий локальный анализ нашёл мало стен, поэтому применены более гибкие пороги по физическому масштабу. Проверьте найденные линии перед применением.",
+        candidateId: null,
+      });
+    }
+    if (windowHostConsolidation.acceptedBridgeCount > 0) {
+      diagnostics.push({
+        code: "window-symbol-host-consolidation",
+        severity: "info" as const,
+        message: `По подтверждённым оконным линиям безопасно объединено фрагментов стен: ${windowHostConsolidation.acceptedBridgeCount}.`,
+        candidateId: null,
+      });
+    }
+    if (windowHostConsolidation.diagnostics.some((code) =>
+      code === "window-host-budget-exceeded"
+      || code === "window-symbol-budget-exceeded"
+      || code === "window-host-bridge-budget-reached")) {
+      diagnostics.push({
+        code: "window-host-consolidation-budget",
+        severity: "warning" as const,
+        message: "Объединение оконных host-стен пропущено или ограничено безопасным лимитом; исходная локальная геометрия сохранена.",
         candidateId: null,
       });
     }
