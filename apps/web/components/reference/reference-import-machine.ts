@@ -37,7 +37,7 @@ export const EMPTY_CALIBRATION_DRAFT: CalibrationDraft = Object.freeze({
   pointA: null,
   pointB: null,
   lengthInput: "",
-  alignment: "horizontal",
+  alignment: "none",
 });
 
 export function reduceReferenceImport(state: ReferenceImportState, event: ReferenceImportEvent): ReferenceImportState {
