@@ -195,7 +195,11 @@ export class RecognitionController {
   async #updateDraft(update: (draft: RecognitionDraft) => RecognitionDraft): Promise<void> {
     const session = this.#state.session;
     if (!session) return;
-    const draft = validateRecognitionDraft(update(session.draft));
+    const changed = update(session.draft);
+    const reviewable = session.draft.status === "applied"
+      ? { ...changed, status: reviewStatus(session) }
+      : changed;
+    const draft = validateRecognitionDraft(reviewable);
     const updated = { ...session, draft, updatedAt: draft.updatedAt };
     await this.#repository.put(updated);
     this.#setState({ kind: "review", session: updated });
