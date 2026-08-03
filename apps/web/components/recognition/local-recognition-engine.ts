@@ -2,8 +2,10 @@ import cvModule from "@techstark/opencv-js";
 import {
   analyzeOpeningHypotheses,
   analyzeWallCandidates,
+  applyStructuralClutterVeto,
   buildLocalWallTopology,
   completeWallCenterlines,
+  consolidateThickWallSiblings,
   consolidateWindowHostWalls,
   createAdaptiveLocalRecognitionOptions,
   DEFAULT_WALL_COMPLETION_OPTIONS,
@@ -44,6 +46,11 @@ export type LocalRecognitionEngineDebug = Readonly<{
   supplementalCandidateCount: number;
   acceptedSupplementalCount: number;
   wallEvidenceFusionDiagnosticCodes: readonly string[];
+  thickWallMergedGroupCount: number;
+  thickWallConsolidationDiagnosticCodes: readonly string[];
+  structuralClutterBlockedCount: number;
+  structuralClutterDiagnosticCodes: readonly string[];
+  maskSupportedWindowCount: number;
   strict: LocalRecognitionWallStageDebug;
   adaptive: LocalRecognitionWallStageDebug | null;
   selectedMode: "regions" | "regions+supplemental" | "strict" | "adaptive";
@@ -264,6 +271,14 @@ export async function runLocalRecognitionEngine(
       new cv.Size(structuralKernelSize, structuralKernelSize),
     );
     cv.morphologyEx(structuralBinary, structuralMask, cv.MORPH_OPEN, structuralKernel);
+    const structuralMaskView = {
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      isStructural: (x: number, y: number) => {
+        if (x < 0 || y < 0 || x >= input.imageData.width || y >= input.imageData.height) return false;
+        return (structuralMask?.data[Math.floor(y) * input.imageData.width + Math.floor(x)] ?? 0) > 0;
+      },
+    };
 
     const structuralRegionEvidence = extractStructuralWallRegions({
       widthPx: input.imageData.width,
@@ -372,14 +387,7 @@ export async function runLocalRecognitionEngine(
             confidence: edge.confidence,
             reasons: edge.reasons,
           })),
-          mask: {
-            widthPx: input.imageData.width,
-            heightPx: input.imageData.height,
-            isStructural: (x, y) => {
-              if (x < 0 || y < 0 || x >= input.imageData.width || y >= input.imageData.height) return false;
-              return (structuralMask?.data[Math.floor(y) * input.imageData.width + Math.floor(x)] ?? 0) > 0;
-            },
-          },
+          mask: structuralMaskView,
           options: {
             ...DEFAULT_WALL_COMPLETION_OPTIONS,
             maximumAngleDeltaDeg: Math.min(
@@ -453,22 +461,55 @@ export async function runLocalRecognitionEngine(
         usedAdaptiveFallback = true;
       }
     }
-    const windowHostConsolidation = consolidateWindowHostWalls({
+
+    const thickWallConsolidation = consolidateThickWallSiblings({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      wallCandidates: analysisWalls,
+      mask: structuralMaskView,
+    });
+    analysisWalls = [...thickWallConsolidation.walls];
+
+    const structuralClutterVeto = applyStructuralClutterVeto({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       wallCandidates: analysisWalls,
       symbolSegments,
+      mask: structuralMaskView,
     });
-    analysisWalls = [...windowHostConsolidation.walls];
+    analysisWalls = [...structuralClutterVeto.walls];
+    const blockedAnalysisWalls = analysisWalls.filter((candidate) => candidate.conflict !== null);
+    const activeAnalysisWalls = analysisWalls.filter((candidate) => candidate.conflict === null);
+
+    const windowHostConsolidation = consolidateWindowHostWalls({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      wallCandidates: activeAnalysisWalls,
+      symbolSegments,
+    });
 
     const topologySanity = sanitizeRecognitionWallTopology({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       millimetersPerPixel: analysisMillimetersPerPixel,
-      wallCandidates: analysisWalls,
+      wallCandidates: windowHostConsolidation.walls,
     });
-    analysisWalls = [...topologySanity.walls];
-    const openingHostWalls = analysisWalls.filter((candidate) => candidate.conflict === null);
+    const openingHostWalls = topologySanity.walls.filter((candidate) => candidate.conflict === null);
+    analysisWalls = [...topologySanity.walls, ...blockedAnalysisWalls]
+      .sort((first, second) => first.id.localeCompare(second.id));
+
+    options.onProgress?.({ phase: "openings", progress: 0.9 });
+    const openingAnalysis = analyzeOpeningHypotheses({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      wallCandidates: openingHostWalls,
+      wallSegments: segments,
+      symbolSegments,
+      structuralMask: structuralMaskView,
+    });
+    const analysisOpenings = [...openingAnalysis.candidates];
+    const maskSupportedWindowCount = analysisOpenings.filter((candidate) =>
+      candidate.evidence.reasons.includes("mask-supported-window-gap")).length;
 
     const debugSelection = useStructuralRegionEvidence
       ? {
@@ -485,6 +526,11 @@ export async function runLocalRecognitionEngine(
       supplementalCandidateCount: supplementalWalls.length,
       acceptedSupplementalCount: wallEvidenceFusion.acceptedSupplementalCount,
       wallEvidenceFusionDiagnosticCodes: wallEvidenceFusion.diagnostics.map((diagnostic) => diagnostic.code),
+      thickWallMergedGroupCount: thickWallConsolidation.mergedGroupCount,
+      thickWallConsolidationDiagnosticCodes: thickWallConsolidation.diagnostics.map((diagnostic) => diagnostic.code),
+      structuralClutterBlockedCount: structuralClutterVeto.blockedCount,
+      structuralClutterDiagnosticCodes: structuralClutterVeto.diagnostics.map((diagnostic) => diagnostic.code),
+      maskSupportedWindowCount,
       strict: wallStageDebug(strictAnalysis, strictTopology),
       adaptive: adaptiveAnalysis ? wallStageDebug(adaptiveAnalysis) : null,
       completionAcceptedCount: analysis.completionAcceptedCount,
@@ -492,15 +538,6 @@ export async function runLocalRecognitionEngine(
       ...debugSelection,
     });
 
-    options.onProgress?.({ phase: "openings", progress: 0.9 });
-    const openingAnalysis = analyzeOpeningHypotheses({
-      widthPx: input.imageData.width,
-      heightPx: input.imageData.height,
-      wallCandidates: openingHostWalls,
-      wallSegments: segments,
-      symbolSegments,
-    });
-    const analysisOpenings = [...openingAnalysis.candidates];
     const { walls, openings } = rescaleRecognitionPixelEvidence({
       walls: analysisWalls,
       openings: analysisOpenings,
@@ -512,6 +549,8 @@ export async function runLocalRecognitionEngine(
 
     const diagnostics = [];
     diagnostics.push(...wallEvidenceFusion.diagnostics);
+    diagnostics.push(...thickWallConsolidation.diagnostics);
+    diagnostics.push(...structuralClutterVeto.diagnostics);
     diagnostics.push(...topologySanity.diagnostics);
     diagnostics.push({
       code: "thick-ink-structural-mask",
@@ -585,6 +624,14 @@ export async function runLocalRecognitionEngine(
         code: "window-host-consolidation-budget",
         severity: "warning" as const,
         message: "Объединение оконных host-стен пропущено или ограничено безопасным лимитом; исходная локальная геометрия сохранена.",
+        candidateId: null,
+      });
+    }
+    if (maskSupportedWindowCount > 0) {
+      diagnostics.push({
+        code: "mask-supported-window-recovery",
+        severity: "info" as const,
+        message: `По разрывам структурных стен и парным оконным направляющим восстановлено окон: ${maskSupportedWindowCount}.`,
         candidateId: null,
       });
     }
