@@ -377,6 +377,33 @@ function topologyComponents(topology: LocalWallTopology): TopologyComponent[] {
     || [...first.edgeIds][0]!.localeCompare([...second.edgeIds][0]!));
 }
 
+function componentPoints(
+  component: TopologyComponent,
+  edgesById: ReadonlyMap<string, LocalWallTopologyEdge>,
+): LocalWallPoint[] {
+  return [...component.edgeIds]
+    .flatMap((edgeId) => {
+      const edge = edgesById.get(edgeId);
+      return edge ? [edge.startPx, edge.endPx] : [];
+    });
+}
+
+function componentDistance(
+  first: TopologyComponent,
+  second: TopologyComponent,
+  edgesById: ReadonlyMap<string, LocalWallTopologyEdge>,
+): number {
+  let minimum = Number.POSITIVE_INFINITY;
+  const firstPoints = componentPoints(first, edgesById);
+  const secondPoints = componentPoints(second, edgesById);
+  for (const firstPoint of firstPoints) {
+    for (const secondPoint of secondPoints) {
+      minimum = Math.min(minimum, lengthBetween(firstPoint, secondPoint));
+    }
+  }
+  return minimum;
+}
+
 function selectPrimaryStructuralTopology(
   topology: LocalWallTopology,
   widthPx: number,
@@ -398,12 +425,54 @@ function selectPrimaryStructuralTopology(
   });
   const primary = ranked[0]!;
   if (primary.edgeIds.size < 3) return topology;
+
+  const shortSide = Math.min(widthPx, heightPx);
+  const boundaryTolerancePx = clamp(shortSide * 0.03, 8, 36);
+  const networkDistancePx = clamp(shortSide * 0.16, 30, 120);
+  const minimumSubstantialLengthPx = shortSide * 0.2;
+  const minimumLongSingleLengthPx = shortSide * 0.36;
+  const edgesById = new Map(topology.edges.map((edge) => [edge.id, edge]));
+  const retained = new Set<string>();
+
+  for (const component of ranked) {
+    if (component === primary) {
+      for (const edgeId of component.edgeIds) retained.add(edgeId);
+      continue;
+    }
+
+    const widthSpan = component.maximumX - component.minimumX;
+    const heightSpan = component.maximumY - component.minimumY;
+    const majorSpanRatio = Math.max(widthSpan / widthPx, heightSpan / heightPx);
+    const nearBoundary = component.minimumX <= boundaryTolerancePx
+      || component.minimumY <= boundaryTolerancePx
+      || component.maximumX >= widthPx - boundaryTolerancePx
+      || component.maximumY >= heightPx - boundaryTolerancePx;
+    const nearPrimary = componentDistance(component, primary, edgesById) <= networkDistancePx;
+    const substantial = component.totalLengthPx >= minimumSubstantialLengthPx
+      && majorSpanRatio >= 0.12;
+    const multiEdgeStructural = component.edgeIds.size >= 2
+      && substantial
+      && (component.edgeIds.size >= 3 || nearPrimary || nearBoundary);
+    const longSingleStructural = component.edgeIds.size === 1
+      && component.totalLengthPx >= minimumLongSingleLengthPx
+      && majorSpanRatio >= 0.28
+      && (nearPrimary || nearBoundary);
+
+    if (!multiEdgeStructural && !longSingleStructural) continue;
+    for (const edgeId of component.edgeIds) retained.add(edgeId);
+  }
+
   const edges = topology.edges
-    .filter((edge) => primary.edgeIds.has(edge.id))
-    .map((edge) => ({
-      ...edge,
-      reasons: [...new Set([...edge.reasons, "primary-structural-component"])].sort(),
-    }));
+    .filter((edge) => retained.has(edge.id))
+    .map((edge) => {
+      const reason = primary.edgeIds.has(edge.id)
+        ? "primary-structural-component"
+        : "retained-disconnected-structural-component";
+      return {
+        ...edge,
+        reasons: [...new Set([...edge.reasons, reason])].sort(),
+      };
+    });
   const degreeByJunction = new Map<string, number>();
   for (const edge of edges) {
     degreeByJunction.set(edge.startJunctionId, (degreeByJunction.get(edge.startJunctionId) ?? 0) + 1);
@@ -415,7 +484,7 @@ function selectPrimaryStructuralTopology(
       .filter((junction) => degreeByJunction.has(junction.id))
       .map((junction) => ({ ...junction, degree: degreeByJunction.get(junction.id) ?? 0 })),
     diagnostics: topology.diagnostics.filter(
-      (diagnostic) => diagnostic.edgeId === null || primary.edgeIds.has(diagnostic.edgeId),
+      (diagnostic) => diagnostic.edgeId === null || retained.has(diagnostic.edgeId),
     ),
   };
 }
