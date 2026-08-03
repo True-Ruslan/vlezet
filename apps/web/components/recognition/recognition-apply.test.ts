@@ -32,17 +32,58 @@ function ids() {
   return (kind: "wall" | "vertex" | "opening") => `${kind}-${++index}`;
 }
 
+function wallEndpoints(plan: ReturnType<typeof planRecognitionApply>) {
+  const wall = plan.document.walls[0]!;
+  return {
+    start: plan.document.vertices.find((vertex) => vertex.id === wall.startVertexId)!.position,
+    end: plan.document.vertices.find((vertex) => vertex.id === wall.endVertexId)!.position,
+  };
+}
+
 describe("recognition apply planning", () => {
   it("projects normalized image candidates through calibrated reference into millimetres", () => {
     const plan = planRecognitionApply({ draft: draft(), referencePlan, document: createEmptyDocument(), idFactory: ids() });
     expect(plan.document.walls).toHaveLength(1);
     const wall = plan.document.walls[0]!;
-    const start = plan.document.vertices.find((vertex) => vertex.id === wall.startVertexId)!;
-    const end = plan.document.vertices.find((vertex) => vertex.id === wall.endVertexId)!;
-    expect(start.position).toEqual({ x: 300, y: 400 });
-    expect(end.position).toEqual({ x: 1900, y: 400 });
+    const { start, end } = wallEndpoints(plan);
+    expect(start).toEqual({ x: 300, y: 400 });
+    expect(end).toEqual({ x: 1900, y: 400 });
     expect(wall.thickness).toBe(150);
     expect(plan.appliedCandidateIds).toEqual(["wall-candidate"]);
+  });
+
+  it("removes small raster skew from an almost-horizontal wall before creating real geometry", () => {
+    const source = draft();
+    const plan = planRecognitionApply({
+      draft: {
+        ...source,
+        walls: [{ ...source.walls[0]!, start: { x: 0.1, y: 0.2 }, end: { x: 0.9, y: 0.212 } }],
+      },
+      referencePlan,
+      document: createEmptyDocument(),
+      idFactory: ids(),
+    });
+    const { start, end } = wallEndpoints(plan);
+    expect(start.y).toBe(end.y);
+    expect(start.y).toBeCloseTo(406, 6);
+    expect(start.x).toBe(300);
+    expect(end.x).toBe(1900);
+  });
+
+  it("preserves a genuinely diagonal recognized wall", () => {
+    const source = draft();
+    const plan = planRecognitionApply({
+      draft: {
+        ...source,
+        walls: [{ ...source.walls[0]!, start: { x: 0.1, y: 0.2 }, end: { x: 0.7, y: 0.5 } }],
+      },
+      referencePlan,
+      document: createEmptyDocument(),
+      idFactory: ids(),
+    });
+    const { start, end } = wallEndpoints(plan);
+    expect(start).toEqual({ x: 300, y: 400 });
+    expect(end).toEqual({ x: 1500, y: 700 });
   });
 
   it("refuses drafts from another reference revision", () => {
