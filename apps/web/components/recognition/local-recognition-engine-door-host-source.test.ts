@@ -16,11 +16,14 @@ describe("M7.10 door host consolidation integration", () => {
     expect(topology).toBeGreaterThan(doorBridge);
   });
 
-  it("passes bridge-derived door hypotheses through the common opening validator", () => {
-    expect(source).toContain("additionalHypotheses: doorHostConsolidation.openingHypotheses");
+  it("passes bridge-derived door hypotheses through post-topology rebinding and the common opening validator", () => {
+    expect(source).toContain("hypotheses: doorHostConsolidation.openingHypotheses");
+    expect(source).toContain("additionalHypotheses: reboundDoorOpenings.hypotheses");
     const topology = source.indexOf("const topologySanity = sanitizeRecognitionWallTopology({");
+    const rebinding = source.indexOf("const reboundDoorOpenings = rebindOpeningHypothesesToWalls({");
     const openingAnalysis = source.indexOf("const openingAnalysis = analyzeOpeningHypotheses({");
-    expect(openingAnalysis).toBeGreaterThan(topology);
+    expect(rebinding).toBeGreaterThan(topology);
+    expect(openingAnalysis).toBeGreaterThan(rebinding);
   });
 
   it("records bounded bridge evidence without auto-applying geometry", () => {
