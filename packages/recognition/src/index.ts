@@ -1,6 +1,10 @@
 export * from "./architectural-lines";
 export * from "./cloud-sanity";
-export * from "./continuous-door-host-analysis";
+export type {
+  ContinuousDoorHostAnalysisInput,
+  ContinuousDoorHostAnalysisResult,
+} from "./continuous-door-host-analysis";
+export { detectContinuousHostDoorOpenings } from "./continuous-door-host-analysis-runtime";
 export * from "./door-host-consolidation";
 export { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 export {
