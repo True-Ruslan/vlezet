@@ -42,6 +42,11 @@ export function predictionMatchesRealExpectedWall(input: Readonly<{
   expectedWall: Readonly<Record<string, unknown>>;
 }>): boolean;
 
+export function predictionMatchesRealExpectedWallNetwork(input: Readonly<{
+  fixture: Readonly<Record<string, unknown>>;
+  prediction: Readonly<Record<string, unknown>>;
+}>): boolean;
+
 export function scoreRealWallGeometry(input: Readonly<{
   fixture: Readonly<Record<string, unknown>>;
   predictions: readonly Readonly<Record<string, unknown>>[];
