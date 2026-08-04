@@ -20,6 +20,19 @@ type ProjectedRail = Readonly<{
   lengthPx: number;
 }>;
 type RailWindow = Readonly<{ centerAlong: number; widthPx: number }>;
+type StructuralBounds = Readonly<{
+  minimumX: number;
+  maximumX: number;
+  minimumY: number;
+  maximumY: number;
+  horizontalWallCount: number;
+  verticalWallCount: number;
+}>;
+type ExteriorBoundaryEvidence = "image-edge" | "structural-network" | null;
+
+const AXIS_BOUNDARY_TOLERANCE_DEG = 10;
+const MIN_STRUCTURAL_BOUNDARY_WALLS = 4;
+const MIN_STRUCTURAL_BOUNDARY_SPAN_RATIO = 0.15;
 
 function length(a: Point, b: Point): number { return Math.hypot(b.x - a.x, b.y - a.y); }
 function dot(a: Point, b: Point): number { return a.x * b.x + a.y * b.y; }
@@ -288,27 +301,108 @@ function isAnchoredDoorLeaf(input: Readonly<{
   return anchored(first, second) || anchored(second, first);
 }
 
+function structuralBoundsForWalls(
+  walls: readonly RecognitionWallCandidate[],
+  widthPx: number,
+  heightPx: number,
+): StructuralBounds | null {
+  let minimumX = Number.POSITIVE_INFINITY;
+  let maximumX = Number.NEGATIVE_INFINITY;
+  let minimumY = Number.POSITIVE_INFINITY;
+  let maximumY = Number.NEGATIVE_INFINITY;
+  let horizontalWallCount = 0;
+  let verticalWallCount = 0;
+  let acceptedWallCount = 0;
+
+  for (const wall of walls) {
+    if (wall.conflict !== null) continue;
+    const start = pixelPoint(wall.start, widthPx, heightPx);
+    const end = pixelPoint(wall.end, widthPx, heightPx);
+    if (![start.x, start.y, end.x, end.y].every(Number.isFinite)) continue;
+    if (length(start, end) < 80) continue;
+    const angle = ((Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI) + 180) % 180;
+    const horizontalDelta = Math.min(angle, 180 - angle);
+    const verticalDelta = Math.abs(angle - 90);
+    if (Math.min(horizontalDelta, verticalDelta) > AXIS_BOUNDARY_TOLERANCE_DEG) continue;
+    if (horizontalDelta <= AXIS_BOUNDARY_TOLERANCE_DEG) horizontalWallCount += 1;
+    else verticalWallCount += 1;
+    acceptedWallCount += 1;
+    minimumX = Math.min(minimumX, start.x, end.x);
+    maximumX = Math.max(maximumX, start.x, end.x);
+    minimumY = Math.min(minimumY, start.y, end.y);
+    maximumY = Math.max(maximumY, start.y, end.y);
+  }
+
+  if (
+    acceptedWallCount < MIN_STRUCTURAL_BOUNDARY_WALLS
+    || horizontalWallCount === 0
+    || verticalWallCount === 0
+    || ![minimumX, maximumX, minimumY, maximumY].every(Number.isFinite)
+    || maximumX - minimumX < 80
+    || maximumY - minimumY < 80
+  ) return null;
+
+  return {
+    minimumX,
+    maximumX,
+    minimumY,
+    maximumY,
+    horizontalWallCount,
+    verticalWallCount,
+  };
+}
+
 function isExteriorBoundaryWall(input: Readonly<{
   start: Point;
   end: Point;
   widthPx: number;
   heightPx: number;
   thicknessPx: number;
-}>): boolean {
-  const margin = Math.max(30, input.thicknessPx * 2.5);
+  structuralBounds: StructuralBounds | null;
+}>): ExteriorBoundaryEvidence {
+  const imageMargin = Math.max(30, input.thicknessPx * 2.5);
   const horizontal = Math.abs(input.end.x - input.start.x) >= Math.abs(input.end.y - input.start.y);
   if (horizontal) {
-    return Math.max(input.start.y, input.end.y) <= margin
-      || Math.min(input.start.y, input.end.y) >= input.heightPx - margin;
+    if (
+      Math.max(input.start.y, input.end.y) <= imageMargin
+      || Math.min(input.start.y, input.end.y) >= input.heightPx - imageMargin
+    ) return "image-edge";
+  } else if (
+    Math.max(input.start.x, input.end.x) <= imageMargin
+    || Math.min(input.start.x, input.end.x) >= input.widthPx - imageMargin
+  ) return "image-edge";
+
+  const bounds = input.structuralBounds;
+  if (!bounds) return null;
+  const structuralMargin = Math.max(12, input.thicknessPx * 1.25);
+  const wallLength = length(input.start, input.end);
+  if (horizontal) {
+    const structuralSpan = bounds.maximumX - bounds.minimumX;
+    if (wallLength < Math.max(80, structuralSpan * MIN_STRUCTURAL_BOUNDARY_SPAN_RATIO)) return null;
+    const axis = (input.start.y + input.end.y) / 2;
+    return Math.abs(axis - bounds.minimumY) <= structuralMargin
+      || Math.abs(axis - bounds.maximumY) <= structuralMargin
+      ? "structural-network"
+      : null;
   }
-  return Math.max(input.start.x, input.end.x) <= margin
-    || Math.min(input.start.x, input.end.x) >= input.widthPx - margin;
+  const structuralSpan = bounds.maximumY - bounds.minimumY;
+  if (wallLength < Math.max(80, structuralSpan * MIN_STRUCTURAL_BOUNDARY_SPAN_RATIO)) return null;
+  const axis = (input.start.x + input.end.x) / 2;
+  return Math.abs(axis - bounds.minimumX) <= structuralMargin
+    || Math.abs(axis - bounds.maximumX) <= structuralMargin
+    ? "structural-network"
+    : null;
 }
 
 export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): RecognitionOpeningCandidate[] {
   const wallSegments = input.wallSegments ?? input.segments ?? [];
   const symbolSegments = input.symbolSegments ?? input.segments ?? [];
   const results: RecognitionOpeningCandidate[] = [];
+  const structuralBounds = structuralBoundsForWalls(
+    input.wallCandidates,
+    input.widthPx,
+    input.heightPx,
+  );
 
   for (const wall of input.wallCandidates) {
     const start = pixelPoint(wall.start, input.widthPx, input.heightPx);
@@ -320,12 +414,13 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
     const wallAngle = ((Math.atan2(tangent.y, tangent.x) * 180 / Math.PI) + 180) % 180;
     const expectedHalfThickness = Math.max(3, (wall.estimatedThicknessPx ?? 20) / 2);
     const edgeTolerance = Math.max(2.5, expectedHalfThickness * 0.35);
-    const exteriorBoundaryWall = isExteriorBoundaryWall({
+    const exteriorBoundaryEvidence = isExteriorBoundaryWall({
       start,
       end,
       widthPx: input.widthPx,
       heightPx: input.heightPx,
       thicknessPx: expectedHalfThickness * 2,
+      structuralBounds,
     });
 
     const structuralRails = structuralRailsForWall({
@@ -401,7 +496,7 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
       }
 
       const pairedRailEvidence = matchingRailWindow(railWindows, gapCenterAlong, widthPx);
-      const boundaryWindowEvidence = exteriorBoundaryWall && !anchoredDoorEvidence;
+      const boundaryWindowEvidence = exteriorBoundaryEvidence !== null && !anchoredDoorEvidence;
       const kind = anchoredDoorEvidence
         ? "door"
         : pairedRailEvidence || perpendicularEvidence >= 2 || boundaryWindowEvidence
@@ -414,7 +509,12 @@ export function buildOpeningHypotheses(input: BuildOpeningHypothesesInput): Reco
           ? pairedRailEvidence
             ? ["wall-gap", "paired-window-rails", "paired-cross-lines"]
             : boundaryWindowEvidence
-              ? ["wall-gap", "exterior-boundary-gap"]
+              ? [
+                  "wall-gap",
+                  exteriorBoundaryEvidence === "structural-network"
+                    ? "structural-network-boundary-gap"
+                    : "exterior-boundary-gap",
+                ]
               : ["wall-gap", "paired-cross-lines"]
           : ["wall-gap"];
       results.push({
