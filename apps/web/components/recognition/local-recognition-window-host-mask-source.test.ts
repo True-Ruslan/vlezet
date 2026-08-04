@@ -7,10 +7,20 @@ const runtimeSource = readFileSync(
 );
 
 describe("one-sided window host production mask contract", () => {
-  it("composes the extension in the existing mask-aware clutter runtime", () => {
+  it("runs the existing extension before and after segmented recovery", () => {
     expect(runtimeSource).toContain("extendOneSidedWindowHosts({");
     expect(runtimeSource).toContain("structuralMask: input.mask");
-    expect(runtimeSource.indexOf("applyStructuralClutterVetoBase(input)"))
-      .toBeLessThan(runtimeSource.indexOf("extendOneSidedWindowHosts({"));
+    expect(runtimeSource).toContain("const initialExtension = extend(input, base.walls)");
+    expect(runtimeSource).toContain("wallCandidates: initialExtension.walls");
+    expect(runtimeSource).toContain("const finalExtension = extend(input, segmented.walls)");
+
+    const baseIndex = runtimeSource.indexOf("applyStructuralClutterVetoBase(input)");
+    const initialIndex = runtimeSource.indexOf("const initialExtension = extend(input, base.walls)");
+    const segmentedIndex = runtimeSource.indexOf("recoverSegmentedBoundaryWalls({");
+    const finalIndex = runtimeSource.indexOf("const finalExtension = extend(input, segmented.walls)");
+    expect(baseIndex).toBeGreaterThanOrEqual(0);
+    expect(baseIndex).toBeLessThan(initialIndex);
+    expect(initialIndex).toBeLessThan(segmentedIndex);
+    expect(segmentedIndex).toBeLessThan(finalIndex);
   });
 });
