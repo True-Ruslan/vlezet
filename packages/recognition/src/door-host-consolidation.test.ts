@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
-// RED: implemented after this contract is observed failing.
-// @ts-expect-error planned M7.10 door host module does not exist in the RED commit
 import { consolidateDoorHostWalls } from "./door-host-consolidation";
 
 const WIDTH = 1000;
@@ -92,18 +90,18 @@ describe("symbol-confirmed door host consolidation", () => {
   });
 
   it("supports a rotated orthogonal wall frame", () => {
-    const first = wall("rotated-first", 100, 100, 350, 350);
-    const second = wall("rotated-second", 500, 500, 800, 800);
+    const first = wall("rotated-first", 100, 100, 300, 300);
+    const second = wall("rotated-second", 430, 430, 570, 570);
     const result = consolidateDoorHostWalls({
       widthPx: WIDTH,
       heightPx: HEIGHT,
       wallCandidates: [first, second],
-      symbolSegments: [{ x1: 350, y1: 350, x2: 350, y2: 500 }],
+      symbolSegments: [{ x1: 300, y1: 300, x2: 300, y2: 430 }],
     });
 
     expect(result.acceptedBridgeCount).toBe(1);
     expect(result.walls).toHaveLength(1);
-    expect(coordinates(result.walls[0]!)).toEqual([100, 100, 800, 800]);
+    expect(coordinates(result.walls[0]!)).toEqual([100, 100, 570, 570]);
     expect(result.walls[0]?.evidence.reasons).toContain("door-symbol-host-bridge");
   });
 
