@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
+import { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime";
 import type { StructuralMaskView } from "./wall-completion";
-import { consolidateWindowHostWalls } from "./window-host-consolidation-runtime";
 
 const WIDTH = 1000;
 const HEIGHT = 600;
@@ -49,9 +49,8 @@ function run(input: Readonly<{
   symbolSegments?: readonly DetectedLineSegment[];
   includeSeparator?: boolean;
   includeRightAnchor?: boolean;
-  includeMask?: boolean;
 }> = {}) {
-  return consolidateWindowHostWalls({
+  return applyStructuralClutterVeto({
     widthPx: WIDTH,
     heightPx: HEIGHT,
     wallCandidates: [
@@ -59,9 +58,7 @@ function run(input: Readonly<{
       ...(input.includeRightAnchor === false ? [] : [wall("right", 540, 900)]),
     ],
     symbolSegments: input.symbolSegments ?? rails,
-    ...(input.includeMask === false
-      ? {}
-      : { structuralMask: mask(input.includeSeparator !== false) }),
+    mask: mask(input.includeSeparator !== false),
   });
 }
 
@@ -73,7 +70,7 @@ describe("one-sided window host extension", () => {
   it("extends an existing host through paired rails and a mask-backed separator", () => {
     const result = run();
 
-    expect(result.acceptedBridgeCount).toBe(1);
+    expect(result.blockedCount).toBe(0);
     expect(result.walls).toHaveLength(2);
     const left = result.walls.find((candidate) => candidate.id === "left")!;
     expect(endX(left)).toBe(450);
@@ -83,34 +80,26 @@ describe("one-sided window host extension", () => {
       "paired-window-rails",
       "mask-backed-window-separator",
     ]));
-    expect(result.diagnostics).toContain("window-host-one-sided-extension");
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "window-host-one-sided-extension",
+    }));
   });
 
   it("does not extend without paired rails", () => {
     const result = run({ symbolSegments: rails.slice(0, 1) });
 
-    expect(result.acceptedBridgeCount).toBe(0);
     expect(endX(result.walls.find((candidate) => candidate.id === "left")!)).toBe(247);
   });
 
   it("does not extend without a mask-backed separator", () => {
     const result = run({ includeSeparator: false });
 
-    expect(result.acceptedBridgeCount).toBe(0);
     expect(endX(result.walls.find((candidate) => candidate.id === "left")!)).toBe(247);
   });
 
   it("does not extend without a second structural anchor after a door-sized gap", () => {
     const result = run({ includeRightAnchor: false });
 
-    expect(result.acceptedBridgeCount).toBe(0);
-    expect(endX(result.walls.find((candidate) => candidate.id === "left")!)).toBe(247);
-  });
-
-  it("preserves legacy behavior when no structural mask is supplied", () => {
-    const result = run({ includeMask: false });
-
-    expect(result.acceptedBridgeCount).toBe(0);
     expect(endX(result.walls.find((candidate) => candidate.id === "left")!)).toBe(247);
   });
 });
