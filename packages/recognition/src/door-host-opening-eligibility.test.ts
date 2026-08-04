@@ -12,13 +12,12 @@ function wall(
   y1: number,
   x2: number,
   y2: number,
-  thicknessPx = 20,
 ): RecognitionWallCandidate {
   return {
     id,
     start: { x: x1 / WIDTH, y: y1 / HEIGHT },
     end: { x: x2 / WIDTH, y: y2 / HEIGHT },
-    estimatedThicknessPx: thicknessPx,
+    estimatedThicknessPx: 20,
     confidence: "medium",
     evidence: { localScore: 0.72, cloudScore: null, reasons: ["filled-wall-region-evidence"] },
     origin: "local",
@@ -28,15 +27,13 @@ function wall(
 
 const leaf: DetectedLineSegment = { x1: 430, y1: 300, x2: 500, y2: 410 };
 
-function consolidateWithJunctions(leftJunctionX: number, rightJunctionX: number) {
+function consolidateWithMargins(marginPx: number) {
   return consolidateDoorHostWalls({
     widthPx: WIDTH,
     heightPx: HEIGHT,
     wallCandidates: [
-      wall("left", 100, 300, 430, 300),
-      wall("right", 570, 300, 900, 300),
-      wall("junction-left", leftJunctionX, 80, leftJunctionX, 520, 20),
-      wall("junction-right", rightJunctionX, 80, rightJunctionX, 520, 50),
+      wall("left", 430 - marginPx, 300, 430, 300),
+      wall("right", 570, 300, 570 + marginPx, 300),
     ],
     symbolSegments: [leaf],
   });
@@ -44,7 +41,7 @@ function consolidateWithJunctions(leftJunctionX: number, rightJunctionX: number)
 
 describe("door opening eligibility on generated hosts", () => {
   it("keeps a door hypothesis when the generated host has safe end margins", () => {
-    const result = consolidateWithJunctions(400, 600);
+    const result = consolidateWithMargins(30);
 
     expect(result.acceptedBridgeCount).toBe(1);
     expect(result.openingHypotheses).toHaveLength(1);
@@ -59,16 +56,16 @@ describe("door opening eligibility on generated hosts", () => {
     expect(result.diagnostics).not.toContain("door-opening-host-margin-rejected");
   });
 
-  it("suppresses only the opening hypothesis when the generated host has no end margins", () => {
-    const result = consolidateWithJunctions(430, 570);
+  it("suppresses only the opening hypothesis when generated host margins are insufficient", () => {
+    const result = consolidateWithMargins(20);
 
     expect(result.acceptedBridgeCount).toBe(1);
     expect(result.openingHypotheses).toEqual([]);
     expect(result.proposalEvidence).toHaveLength(1);
     expect(result.proposalEvidence[0]?.openingEligibility).toEqual({
       eligible: false,
-      startMarginPx: 0,
-      endMarginPx: 0,
+      startMarginPx: 20,
+      endMarginPx: 20,
       minimumMarginPx: 24,
       reason: "generated-host-end-margin",
     });
@@ -77,7 +74,7 @@ describe("door opening eligibility on generated hosts", () => {
     const host = result.walls.find((candidate) =>
       candidate.id === "local-door-host-left--right");
     expect(host).toBeDefined();
-    expect(host?.start).toEqual({ x: 0.43, y: 0.5 });
-    expect(host?.end).toEqual({ x: 0.57, y: 0.5 });
+    expect(host?.start).toEqual({ x: 0.41, y: 0.5 });
+    expect(host?.end).toEqual({ x: 0.59, y: 0.5 });
   });
 });
