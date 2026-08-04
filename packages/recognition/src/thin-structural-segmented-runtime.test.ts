@@ -8,14 +8,15 @@ const runtimeSource = readFileSync(
 );
 
 describe("segmented boundary production runtime", () => {
-  it("runs segmented recovery after base clutter processing", () => {
+  it("runs between the existing and follow-up one-sided extension passes", () => {
     expect(indexSource).toContain(
       'export { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime"',
     );
     expect(indexSource).toContain('export * from "./thin-structural-recovery"');
     expect(runtimeSource).toContain("applyStructuralClutterVetoBase");
+    expect(runtimeSource).toContain("const initialExtension = extend(input, base.walls)");
     expect(runtimeSource).toContain("recoverSegmentedBoundaryWalls");
-    expect(runtimeSource).toContain("wallCandidates: base.walls");
-    expect(runtimeSource).toContain("wallCandidates: segmented.walls");
+    expect(runtimeSource).toContain("wallCandidates: initialExtension.walls");
+    expect(runtimeSource).toContain("const finalExtension = extend(input, segmented.walls)");
   });
 });
