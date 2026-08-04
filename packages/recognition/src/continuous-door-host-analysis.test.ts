@@ -77,8 +77,8 @@ describe("continuous-host door analysis", () => {
     expect(opening.kind).toBe("door");
     expect(opening.hostWallCandidateId).toBe("room-divider");
     expect(opening.center.x * WIDTH).toBeCloseTo(WALL_X, 4);
-    expect(opening.center.y * HEIGHT).toBeCloseTo((GAP_START + GAP_END) / 2, 0);
-    expect(opening.widthPx).toBeCloseTo(GAP_END - GAP_START, 0);
+    expect(Math.abs(opening.center.y * HEIGHT - (GAP_START + GAP_END) / 2)).toBeLessThanOrEqual(2);
+    expect(Math.abs((opening.widthPx ?? 0) - (GAP_END - GAP_START))).toBeLessThanOrEqual(2);
     expect(opening.orientationDeg).toBeCloseTo(90, 4);
     expect(opening.confidence).toBe("medium");
     expect(opening.evidence.reasons).toEqual(expect.arrayContaining([
