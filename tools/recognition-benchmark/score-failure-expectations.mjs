@@ -1,3 +1,9 @@
+import {
+  matchRealWallCoverage,
+  predictionMatchesRealExpectedWall,
+  realFixtureCalibration,
+} from "./score-real-geometry.mjs";
+
 const DEFAULT_THRESHOLDS = Object.freeze({
   minimumWallGeometryF1: 0.85,
   minimumOpeningF1: 0.85,
@@ -20,21 +26,8 @@ function point(value, label) {
   return { x: finite(value.x, `${label}.x`), y: finite(value.y, `${label}.y`) };
 }
 
-function calibrationOf(fixture) {
-  const calibration = fixture?.calibration;
-  if (!calibration || typeof calibration !== "object") throw new Error("fixture.calibration is required.");
-  const sourceWidthPx = finite(calibration.sourceWidthPx, "calibration.sourceWidthPx");
-  const sourceHeightPx = finite(calibration.sourceHeightPx, "calibration.sourceHeightPx");
-  const millimetersPerPixel = finite(calibration.millimetersPerPixel, "calibration.millimetersPerPixel");
-  if (sourceWidthPx <= 0 || sourceHeightPx <= 0 || millimetersPerPixel <= 0) {
-    throw new Error("Fixture calibration values must be positive.");
-  }
-  return {
-    sourceWidthPx,
-    sourceHeightPx,
-    millimetersPerPixel,
-    originPx: point(calibration.originPx ?? { x: 0, y: 0 }, "calibration.originPx"),
-  };
+function active(candidate) {
+  return candidate && candidate.conflict == null;
 }
 
 function expectedPixelPoint(mmPoint, calibration) {
@@ -51,111 +44,22 @@ function predictedPixelPoint(normalizedPoint, calibration) {
   };
 }
 
-function subtract(first, second) {
-  return { x: first.x - second.x, y: first.y - second.y };
-}
-
-function add(first, second) {
-  return { x: first.x + second.x, y: first.y + second.y };
-}
-
-function scale(value, amount) {
-  return { x: value.x * amount, y: value.y * amount };
-}
-
-function dot(first, second) {
-  return first.x * second.x + first.y * second.y;
-}
-
-function length(value) {
-  return Math.hypot(value.x, value.y);
-}
-
 function distance(first, second) {
-  return length(subtract(first, second));
-}
-
-function midpoint(first, second) {
-  return scale(add(first, second), 0.5);
-}
-
-function angleDeg(start, end) {
-  return ((Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI) + 180) % 180;
-}
-
-function angleDelta(first, second) {
-  const raw = Math.abs(first - second) % 180;
-  return Math.min(raw, 180 - raw);
-}
-
-function active(candidate) {
-  return candidate && candidate.conflict == null;
-}
-
-function wallPixels(candidate, calibration) {
-  return {
-    id: candidate.id,
-    start: predictedPixelPoint(point(candidate.start, `${candidate.id}.start`), calibration),
-    end: predictedPixelPoint(point(candidate.end, `${candidate.id}.end`), calibration),
-    thicknessPx: Math.max(1, typeof candidate.estimatedThicknessPx === "number" ? candidate.estimatedThicknessPx : 1),
-  };
-}
-
-function expectedWallPixels(expected, calibration) {
-  return {
-    id: expected.id,
-    start: expectedPixelPoint(point(expected.startMm, `${expected.id}.startMm`), calibration),
-    end: expectedPixelPoint(point(expected.endMm, `${expected.id}.endMm`), calibration),
-    thicknessPx: Math.max(1, finite(expected.thicknessMm, `${expected.id}.thicknessMm`) / calibration.millimetersPerPixel),
-  };
-}
-
-function wallTolerancePx(fixture, calibration) {
-  const configured = fixture?.tolerances?.wallEndpointMm;
-  return Math.max(12, (typeof configured === "number" ? configured : 260) / calibration.millimetersPerPixel);
-}
-
-function wallAngleTolerance(fixture) {
-  const configured = fixture?.tolerances?.wallAngleDeg;
-  return typeof configured === "number" ? configured : 10;
-}
-
-function wallMatch(expected, predicted, fixture, calibration, toleranceMultiplier = 1) {
-  const expectedPixels = expectedWallPixels(expected, calibration);
-  const predictedPixels = wallPixels(predicted, calibration);
-  const expectedVector = subtract(expectedPixels.end, expectedPixels.start);
-  const predictedVector = subtract(predictedPixels.end, predictedPixels.start);
-  const expectedLength = length(expectedVector);
-  const predictedLength = length(predictedVector);
-  if (expectedLength <= 0 || predictedLength <= 0) return null;
-  if (angleDelta(angleDeg(expectedPixels.start, expectedPixels.end), angleDeg(predictedPixels.start, predictedPixels.end))
-    > wallAngleTolerance(fixture)) return null;
-
-  const tangent = scale(expectedVector, 1 / expectedLength);
-  const normal = { x: -tangent.y, y: tangent.x };
-  const firstAlong = dot(subtract(predictedPixels.start, expectedPixels.start), tangent);
-  const secondAlong = dot(subtract(predictedPixels.end, expectedPixels.start), tangent);
-  const predictedMinimum = Math.min(firstAlong, secondAlong);
-  const predictedMaximum = Math.max(firstAlong, secondAlong);
-  const overlap = Math.max(0, Math.min(expectedLength, predictedMaximum) - Math.max(0, predictedMinimum));
-  const overlapRatio = overlap / expectedLength;
-  const midpointOffset = Math.abs(dot(
-    subtract(midpoint(predictedPixels.start, predictedPixels.end), midpoint(expectedPixels.start, expectedPixels.end)),
-    normal,
-  ));
-  const tolerancePx = wallTolerancePx(fixture, calibration) * toleranceMultiplier;
-  if (overlapRatio < 0.62 || midpointOffset > tolerancePx) return null;
-  if (predictedLength / expectedLength < 0.5 || predictedLength / expectedLength > 1.65) return null;
-  return {
-    expected: expectedPixels,
-    predicted: predictedPixels,
-    overlapRatio,
-    midpointOffset,
-  };
+  return Math.hypot(first.x - second.x, first.y - second.y);
 }
 
 function expectedWallById(fixture, wallId) {
   return (fixture.expectedWalls ?? []).find((wall) => wall.id === wallId) ?? null;
+}
+
+function hostSupportsExpectedWall(fixture, hostPrediction, expectedHost) {
+  if (!hostPrediction || !expectedHost || !active(hostPrediction)) return false;
+  const coverage = matchRealWallCoverage({
+    fixture,
+    expectedWall: expectedHost,
+    predictions: [hostPrediction],
+  });
+  return coverage.predictedIds.includes(hostPrediction.id);
 }
 
 function openingMatch(expected, predicted, wallsById, fixture, calibration) {
@@ -181,32 +85,7 @@ function openingMatch(expected, predicted, wallsById, fixture, calibration) {
 
   const hostPrediction = wallsById.get(predicted.hostWallCandidateId);
   const expectedHost = expectedWallById(fixture, expected.hostWallId);
-  return Boolean(hostPrediction && expectedHost && wallMatch(expectedHost, hostPrediction, fixture, calibration, 1.25));
-}
-
-function orientation(a, b, c) {
-  const value = (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y);
-  if (Math.abs(value) < 1e-9) return 0;
-  return value > 0 ? 1 : 2;
-}
-
-function onSegment(a, b, c) {
-  return b.x <= Math.max(a.x, c.x) + 1e-9
-    && b.x + 1e-9 >= Math.min(a.x, c.x)
-    && b.y <= Math.max(a.y, c.y) + 1e-9
-    && b.y + 1e-9 >= Math.min(a.y, c.y);
-}
-
-function segmentsIntersect(firstStart, firstEnd, secondStart, secondEnd) {
-  const o1 = orientation(firstStart, firstEnd, secondStart);
-  const o2 = orientation(firstStart, firstEnd, secondEnd);
-  const o3 = orientation(secondStart, secondEnd, firstStart);
-  const o4 = orientation(secondStart, secondEnd, firstEnd);
-  if (o1 !== o2 && o3 !== o4) return true;
-  return (o1 === 0 && onSegment(firstStart, secondStart, firstEnd))
-    || (o2 === 0 && onSegment(firstStart, secondEnd, firstEnd))
-    || (o3 === 0 && onSegment(secondStart, firstStart, secondEnd))
-    || (o4 === 0 && onSegment(secondStart, firstEnd, secondEnd));
+  return hostSupportsExpectedWall(fixture, hostPrediction, expectedHost);
 }
 
 function pointInPolygon(target, polygon) {
@@ -223,44 +102,96 @@ function pointInPolygon(target, polygon) {
   return inside;
 }
 
-function segmentHitsPolygon(start, end, polygon) {
-  if (pointInPolygon(start, polygon) || pointInPolygon(end, polygon) || pointInPolygon(midpoint(start, end), polygon)) {
-    return true;
+function segmentInteriorRatio(start, end, polygon, sampleCount = 31) {
+  let inside = 0;
+  for (let index = 0; index < sampleCount; index += 1) {
+    const ratio = (index + 0.5) / sampleCount;
+    const sample = {
+      x: start.x + (end.x - start.x) * ratio,
+      y: start.y + (end.y - start.y) * ratio,
+    };
+    if (pointInPolygon(sample, polygon)) inside += 1;
   }
-  for (let index = 0; index < polygon.length; index += 1) {
-    const next = (index + 1) % polygon.length;
-    if (segmentsIntersect(start, end, polygon[index], polygon[next])) return true;
-  }
-  return false;
+  return inside / sampleCount;
+}
+
+function predictionIsExpectedStructure(fixture, prediction) {
+  return (fixture.expectedWalls ?? []).some((expectedWall) =>
+    predictionMatchesRealExpectedWall({ fixture, prediction, expectedWall }));
+}
+
+function angleDeg(start, end) {
+  return ((Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI) + 180) % 180;
+}
+
+function angleDelta(first, second) {
+  const raw = Math.abs(first - second) % 180;
+  return Math.min(raw, 180 - raw);
+}
+
+function subtract(first, second) {
+  return { x: first.x - second.x, y: first.y - second.y };
+}
+
+function add(first, second) {
+  return { x: first.x + second.x, y: first.y + second.y };
+}
+
+function scale(value, amount) {
+  return { x: value.x * amount, y: value.y * amount };
+}
+
+function dot(first, second) {
+  return first.x * second.x + first.y * second.y;
+}
+
+function length(value) {
+  return Math.hypot(value.x, value.y);
+}
+
+function midpoint(first, second) {
+  return scale(add(first, second), 0.5);
+}
+
+function predictionPixelGeometry(candidate, calibration) {
+  return {
+    start: predictedPixelPoint(point(candidate.start, `${candidate.id}.start`), calibration),
+    end: predictedPixelPoint(point(candidate.end, `${candidate.id}.end`), calibration),
+    thicknessPx: Math.max(1, typeof candidate.estimatedThicknessPx === "number" ? candidate.estimatedThicknessPx : 1),
+  };
 }
 
 function duplicateAxesForExpectedWall(expected, predictedWalls, fixture, calibration) {
-  const matches = predictedWalls
-    .filter(active)
-    .map((candidate) => ({ candidate, match: wallMatch(expected, candidate, fixture, calibration, 1.6) }))
-    .filter((entry) => entry.match !== null);
-  if (matches.length < 2) return null;
+  const coverage = matchRealWallCoverage({ fixture, expectedWall: expected, predictions: predictedWalls });
+  const candidates = coverage.measurements
+    .filter((entry) => entry.measurement.predictionCoverageRatio >= 0.6)
+    .map((entry) => ({
+      candidate: entry.prediction,
+      geometry: predictionPixelGeometry(entry.prediction, calibration),
+    }));
+  if (candidates.length < 2) return null;
   const expectedThicknessPx = finite(expected.thicknessMm, `${expected.id}.thicknessMm`) / calibration.millimetersPerPixel;
   if (expectedThicknessPx < 24) return null;
 
-  for (let firstIndex = 0; firstIndex < matches.length; firstIndex += 1) {
-    for (let secondIndex = firstIndex + 1; secondIndex < matches.length; secondIndex += 1) {
-      const first = matches[firstIndex].match.predicted;
-      const second = matches[secondIndex].match.predicted;
+  for (let firstIndex = 0; firstIndex < candidates.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < candidates.length; secondIndex += 1) {
+      const first = candidates[firstIndex].geometry;
+      const second = candidates[secondIndex].geometry;
       if (angleDelta(angleDeg(first.start, first.end), angleDeg(second.start, second.end)) > 8) continue;
       const firstVector = subtract(first.end, first.start);
       const firstLength = length(firstVector);
-      if (firstLength <= 0) continue;
+      const secondLength = length(subtract(second.end, second.start));
+      if (firstLength <= 0 || secondLength <= 0) continue;
       const tangent = scale(firstVector, 1 / firstLength);
       const normal = { x: -tangent.y, y: tangent.x };
       const firstRange = [dot(first.start, tangent), dot(first.end, tangent)].sort((a, b) => a - b);
       const secondRange = [dot(second.start, tangent), dot(second.end, tangent)].sort((a, b) => a - b);
       const overlap = Math.max(0, Math.min(firstRange[1], secondRange[1]) - Math.max(firstRange[0], secondRange[0]));
-      const overlapRatio = overlap / Math.max(1, Math.min(firstLength, length(subtract(second.end, second.start))));
+      const overlapRatio = overlap / Math.max(1, Math.min(firstLength, secondLength));
       const axisDistance = Math.abs(dot(subtract(midpoint(second.start, second.end), midpoint(first.start, first.end)), normal));
       const maximumDistance = Math.max(expectedThicknessPx * 1.25, (first.thicknessPx + second.thicknessPx) / 2 + 8);
       if (overlapRatio >= 0.7 && axisDistance >= 2 && axisDistance <= maximumDistance) {
-        return [matches[firstIndex].candidate.id, matches[secondIndex].candidate.id];
+        return [candidates[firstIndex].candidate.id, candidates[secondIndex].candidate.id].sort();
       }
     }
   }
@@ -270,7 +201,12 @@ function duplicateAxesForExpectedWall(expected, predictedWalls, fixture, calibra
 function uniqueFailures(failures) {
   const seen = new Set();
   return failures.filter((failure) => {
-    const key = JSON.stringify([failure.code, failure.expectationId ?? null, failure.candidateId ?? null, failure.candidateIds ?? null]);
+    const key = JSON.stringify([
+      failure.code,
+      failure.expectationId ?? null,
+      failure.candidateId ?? null,
+      failure.candidateIds ?? null,
+    ]);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -280,10 +216,11 @@ function uniqueFailures(failures) {
 export function scoreFailureExpectations({ fixture, recognitionResult }) {
   if (!fixture || typeof fixture !== "object") throw new Error("fixture is required.");
   if (!recognitionResult || typeof recognitionResult !== "object") throw new Error("recognitionResult is required.");
-  const calibration = calibrationOf(fixture);
+  const calibration = realFixtureCalibration(fixture);
   const predictedWalls = Array.isArray(recognitionResult.walls) ? recognitionResult.walls : [];
+  const activeWalls = predictedWalls.filter(active);
   const predictedOpenings = Array.isArray(recognitionResult.openings) ? recognitionResult.openings : [];
-  const wallsById = new Map(predictedWalls.filter(active).map((wall) => [wall.id, wall]));
+  const wallsById = new Map(activeWalls.map((wall) => [wall.id, wall]));
   const expectedWallsById = new Map((fixture.expectedWalls ?? []).map((wall) => [wall.id, wall]));
   const expectedOpeningsById = new Map((fixture.expectedOpenings ?? []).map((opening) => [opening.id, opening]));
   const expectations = fixture.failureExpectations ?? {
@@ -297,8 +234,11 @@ export function scoreFailureExpectations({ fixture, recognitionResult }) {
   for (const expectation of expectations.mustDetect ?? []) {
     if (expectation.kind === "wall") {
       const expected = expectedWallsById.get(expectation.id);
-      const matched = expected && predictedWalls.some((candidate) => active(candidate)
-        && wallMatch(expected, candidate, fixture, calibration));
+      const matched = Boolean(expected && matchRealWallCoverage({
+        fixture,
+        expectedWall: expected,
+        predictions: activeWalls,
+      }).matched);
       if (matched) mustDetectPassed += 1;
       else failures.push({
         code: "must-detect-wall-missed",
@@ -328,23 +268,24 @@ export function scoreFailureExpectations({ fixture, recognitionResult }) {
 
   for (const region of expectations.mustNotDetectRegions ?? []) {
     const polygon = region.polygonNormalized.map((entry, index) => point(entry, `${region.id}.polygon[${index}]`));
-    for (const candidate of predictedWalls.filter(active)) {
+    for (const candidate of activeWalls) {
+      if (predictionIsExpectedStructure(fixture, candidate)) continue;
       const start = point(candidate.start, `${candidate.id}.start`);
       const end = point(candidate.end, `${candidate.id}.end`);
-      if (segmentHitsPolygon(start, end, polygon)) {
+      if (segmentInteriorRatio(start, end, polygon) >= 0.6) {
         failures.push({
           code: "forbidden-wall-region-hit",
           fixtureId: fixture.id,
           expectationId: region.id,
           candidateId: candidate.id,
-          message: `${fixture.id}: wall ${candidate.id} intersects forbidden region ${region.id}.`,
+          message: `${fixture.id}: unmatched wall ${candidate.id} lies inside forbidden region ${region.id}.`,
         });
       }
     }
   }
 
   for (const expected of fixture.expectedWalls ?? []) {
-    const duplicateAxes = duplicateAxesForExpectedWall(expected, predictedWalls, fixture, calibration);
+    const duplicateAxes = duplicateAxesForExpectedWall(expected, activeWalls, fixture, calibration);
     if (duplicateAxes) {
       failures.push({
         code: "duplicate-thick-wall-axis",
@@ -407,9 +348,7 @@ export function enforceRealFixtureGate({
     throw new Error("At least one real fixture scenario score is required.");
   }
   const failures = [];
-  if ((aggregate.failedFixtureCount ?? 0) > 0) {
-    failures.push(`failedFixtureCount=${aggregate.failedFixtureCount}`);
-  }
+  if ((aggregate.failedFixtureCount ?? 0) > 0) failures.push(`failedFixtureCount=${aggregate.failedFixtureCount}`);
   const metrics = aggregate.metrics;
   const wallGeometryF1 = measuredMetric(metrics, "wallGeometryF1");
   const openingF1 = measuredMetric(metrics, "openingF1");
@@ -434,9 +373,7 @@ export function enforceRealFixtureGate({
   for (const score of scenarioScores) {
     for (const failure of score.failures ?? []) failures.push(failure.message ?? `${score.fixtureId}: ${failure.code}`);
   }
-  if (failures.length > 0) {
-    throw new Error(`M7.9 real fixture gate failed:\n- ${failures.join("\n- ")}`);
-  }
+  if (failures.length > 0) throw new Error(`M7.9 real fixture gate failed:\n- ${failures.join("\n- ")}`);
   return {
     passed: true,
     scenarioCount: scenarioScores.length,
