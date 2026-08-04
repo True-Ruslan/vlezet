@@ -20,7 +20,7 @@ permissions:
 jobs:
   source-benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -51,11 +51,11 @@ jobs:
       - name: Verify benchmark fixtures
         run: npm --prefix tools/recognition-benchmark run verify:fixtures
 
-      - name: Generate real-plan analogue fixtures
-        run: node tools/recognition-benchmark/generate-real-fixture-assets.mjs
+      - name: Generate public real-plan analogue fixtures
+        run: pnpm benchmark:recognition:real:generate
 
-      - name: Verify generated real-plan analogue fixtures
-        run: node tools/recognition-benchmark/verify-real-fixtures.mjs
+      - name: Verify public real-plan analogue fixtures
+        run: pnpm benchmark:recognition:real:verify
 
       - name: Assert no private source bytes are committed
         run: node tools/recognition-benchmark/private-source-check.mjs assert-repository .
@@ -89,15 +89,29 @@ jobs:
         working-directory: tools/recognition-benchmark
         env:
           RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
-        run: npx playwright test --config=playwright.config.mjs
+        run: npx playwright test recognition-source.spec.mjs --config=playwright.config.mjs --project=chromium --workers=1
 
       - name: Score Source Recognition Benchmark
         env:
           RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm --prefix tools/recognition-benchmark run score:source
 
+      - name: Run real source OpenCV benchmark
+        working-directory: tools/recognition-benchmark
+        env:
+          RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
+        run: npx playwright test recognition-real-source.spec.mjs --config=playwright.config.mjs --project=chromium --workers=1
+
+      - name: Score real source benchmark
+        env:
+          RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: pnpm benchmark:recognition:real-source-score
+
       - name: Enforce M7.8C Core and Source opening gates
         run: pnpm benchmark:recognition:m7-8c-gate tools/recognition-benchmark/artifacts/core/recognition-core-result.json tools/recognition-benchmark/artifacts/source/recognition-source-result.json
+
+      - name: Enforce real fixture scenario gate
+        run: pnpm benchmark:recognition:real:gate tools/recognition-benchmark/artifacts/real-source/recognition-real-source-result.json
 
       - name: Assemble recognition benchmark evidence
         env:
@@ -124,6 +138,7 @@ jobs:
           path: |
             tools/recognition-benchmark/artifacts/core
             tools/recognition-benchmark/artifacts/source
+            tools/recognition-benchmark/artifacts/real-source
             tools/recognition-benchmark/artifacts/evidence
             tools/recognition-benchmark/test-results
             /tmp/vlezet-recognition-benchmark.log
