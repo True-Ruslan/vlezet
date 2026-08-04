@@ -53,11 +53,32 @@ type MeasuredLine = Readonly<{
   start: Point;
   end: Point;
 }>;
+type PrimaryPixelWall = Readonly<{
+  id: string;
+  start: Point;
+  end: Point;
+  thicknessPx: number;
+}>;
+type ProjectedPrimaryWall = Readonly<{
+  source: PrimaryPixelWall;
+  minimum: number;
+  maximum: number;
+  axis: number;
+  lengthPx: number;
+}>;
 
 const EPSILON = 1e-7;
 const MAX_CROSS_SECTION_PX = 80;
 const MAX_ALONG_SAMPLES = 48;
 const PARALLEL_RAIL_MAX_DISTANCE_PX = 32;
+const MIN_SHORT_SEPARATOR_GAP_PX = 30;
+const MAX_SHORT_SEPARATOR_GAP_PX = 240;
+const MIN_SHORT_SEPARATOR_LENGTH_PX = 24;
+const MAX_SHORT_SEPARATOR_LENGTH_PX = 180;
+const MIN_SHORT_SEPARATOR_SUPPORT_RATIO = 0.82;
+const MIN_SHORT_SEPARATOR_LENGTH_THICKNESS_RATIO = 1.5;
+const MIN_PRIMARY_ANCHOR_LENGTH_PX = 80;
+const MAX_PRIMARY_THICKNESS_RATIO = 1.8;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -379,17 +400,18 @@ function pointToSegmentDistance(point: Point, start: Point, end: Point): number 
   return distance(point, { x: start.x + dx * ratio, y: start.y + dy * ratio });
 }
 
-function primaryPixels(candidate: RecognitionWallCandidate, widthPx: number, heightPx: number) {
+function primaryPixels(candidate: RecognitionWallCandidate, widthPx: number, heightPx: number): PrimaryPixelWall {
   return {
     id: candidate.id,
     start: { x: candidate.start.x * widthPx, y: candidate.start.y * heightPx },
     end: { x: candidate.end.x * widthPx, y: candidate.end.y * heightPx },
+    thicknessPx: Math.max(1, candidate.estimatedThicknessPx ?? 20),
   };
 }
 
 function physicalDuplicate(
   line: MeasuredLine,
-  primaries: readonly ReturnType<typeof primaryPixels>[],
+  primaries: readonly PrimaryPixelWall[],
 ): boolean {
   return primaries.some((primary) => {
     const primaryAngle = angleDeg(primary.start, primary.end);
@@ -442,7 +464,7 @@ function components(lines: readonly MeasuredLine[], tolerancePx: number): number
 
 function endpointAnchoredToPrimary(
   endpoint: Point,
-  primaries: readonly ReturnType<typeof primaryPixels>[],
+  primaries: readonly PrimaryPixelWall[],
   tolerancePx: number,
 ): boolean {
   return primaries.some((primary) =>
@@ -454,6 +476,55 @@ function boundaryAnchor(point: Point, widthPx: number, heightPx: number, marginP
     || point.y <= marginPx
     || point.x >= widthPx - marginPx
     || point.y >= heightPx - marginPx;
+}
+
+function projectPrimaryToLine(
+  primary: PrimaryPixelWall,
+  line: MeasuredLine,
+): ProjectedPrimaryWall | null {
+  if (angleDelta(angleDeg(primary.start, primary.end), angleDeg(line.start, line.end)) > 8) return null;
+  const axis = (dot(primary.start, line.normal) + dot(primary.end, line.normal)) / 2;
+  const axisTolerance = Math.max(6, Math.min(primary.thicknessPx, line.thicknessPx) * 0.4);
+  if (Math.abs(axis - line.axis) > axisTolerance) return null;
+  const thicknessRatio = Math.max(primary.thicknessPx, line.thicknessPx)
+    / Math.max(1, Math.min(primary.thicknessPx, line.thicknessPx));
+  if (thicknessRatio > MAX_PRIMARY_THICKNESS_RATIO) return null;
+  const first = dot(primary.start, line.tangent);
+  const second = dot(primary.end, line.tangent);
+  const minimum = Math.min(first, second);
+  const maximum = Math.max(first, second);
+  const lengthPx = maximum - minimum;
+  if (lengthPx < MIN_PRIMARY_ANCHOR_LENGTH_PX) return null;
+  return { source: primary, minimum, maximum, axis, lengthPx };
+}
+
+function boundedShortStructuralRun(
+  line: MeasuredLine,
+  primaries: readonly PrimaryPixelWall[],
+): boolean {
+  if (
+    line.lengthPx < Math.max(
+      MIN_SHORT_SEPARATOR_LENGTH_PX,
+      line.thicknessPx * MIN_SHORT_SEPARATOR_LENGTH_THICKNESS_RATIO,
+    )
+    || line.lengthPx > MAX_SHORT_SEPARATOR_LENGTH_PX
+    || line.supportRatio < MIN_SHORT_SEPARATOR_SUPPORT_RATIO
+  ) return false;
+
+  const projected = primaries
+    .map((primary) => projectPrimaryToLine(primary, line))
+    .filter((primary): primary is ProjectedPrimaryWall => primary !== null);
+  const before = projected.filter((primary) => primary.maximum <= line.minimum + EPSILON);
+  const after = projected.filter((primary) => primary.minimum >= line.maximum - EPSILON);
+  return before.some((left) => after.some((right) => {
+    if (left.source.id === right.source.id) return false;
+    const leftGap = line.minimum - left.maximum;
+    const rightGap = right.minimum - line.maximum;
+    return leftGap >= MIN_SHORT_SEPARATOR_GAP_PX
+      && leftGap <= MAX_SHORT_SEPARATOR_GAP_PX
+      && rightGap >= MIN_SHORT_SEPARATOR_GAP_PX
+      && rightGap <= MAX_SHORT_SEPARATOR_GAP_PX;
+  }));
 }
 
 function componentBounds(lines: readonly MeasuredLine[]) {
@@ -604,12 +675,15 @@ export function recoverThinStructuralWalls(input: Readonly<{
     const doublyAnchoredSingle = componentLines.length === 1
       && primaryAnchorCount >= 2
       && totalLength >= shortSide * 0.25;
-    if (!longSingleBoundaryWall && !boundedNetworkComponent && !doublyAnchoredSingle) continue;
+    const boundedShortRun = componentLines.length === 1
+      && boundedShortStructuralRun(componentLines[0]!, primaryPixelWalls);
+    if (!longSingleBoundaryWall && !boundedNetworkComponent && !doublyAnchoredSingle && !boundedShortRun) continue;
     acceptedComponentCount += 1;
     const reasons = [
       ...(componentLines.length >= 2 ? ["bounded-thin-wall-component"] : []),
       ...(boundaryAnchorCount > 0 ? ["image-boundary-anchor"] : []),
       ...(primaryAnchorCount > 0 ? ["primary-wall-anchor"] : []),
+      ...(boundedShortRun ? ["bounded-short-structural-run"] : []),
     ];
     for (const line of componentLines) {
       if (acceptedLines.length >= options.maximumRecoveredWalls) break;
