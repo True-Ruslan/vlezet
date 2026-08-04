@@ -35,7 +35,7 @@ function mask(structuralLeaf: boolean): StructuralMaskView {
         && (y < gapStart || y > gapEnd);
       const leafSupport = structuralLeaf
         && x >= wallX - 90
-        && x <= wallX
+        && x <= wallX - 18
         && Math.abs(y - gapStart) <= 6;
       return hostSupport || leafSupport;
     },
@@ -62,7 +62,7 @@ describe("continuous door leaf structural veto", () => {
     expect(detect(false).openingHypotheses).toHaveLength(1);
   });
 
-  it("rejects a structural wall run masquerading as a door leaf", () => {
+  it("rejects high structural support along the free leaf", () => {
     expect(detect(true).openingHypotheses).toHaveLength(0);
   });
 });
