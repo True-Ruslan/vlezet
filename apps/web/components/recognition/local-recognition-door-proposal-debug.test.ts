@@ -7,4 +7,8 @@ describe("local recognition door proposal debug contract", () => {
   it("forwards immutable door proposal evidence into benchmark debug", () => {
     expect(source).toContain("doorProposalEvidence: doorHostConsolidation.proposalEvidence");
   });
+
+  it("passes the calibrated analysis scale into door proposal generation", () => {
+    expect(source).toContain("millimetersPerPixel: analysisMillimetersPerPixel");
+  });
 });
