@@ -47,14 +47,7 @@ export type { StructuralClutterVetoResult } from "./structural-clutter-veto";
 export { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime";
 export * from "./structural-regions";
 export * from "./thick-wall-consolidation";
-export {
-  DEFAULT_THIN_STRUCTURAL_RECOVERY_OPTIONS,
-} from "./thin-structural-recovery";
-export type {
-  ThinStructuralRecoveryOptions,
-  ThinStructuralRecoveryResult,
-} from "./thin-structural-recovery";
-export { recoverThinStructuralWalls } from "./thin-structural-recovery-runtime";
+export * from "./thin-structural-recovery";
 export * from "./topology-sanity";
 export {
   DEFAULT_WALL_COMPLETION_OPTIONS,
