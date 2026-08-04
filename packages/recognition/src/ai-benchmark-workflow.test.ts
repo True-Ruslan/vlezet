@@ -16,9 +16,10 @@ describe("M7.9 AI benchmark workflow", () => {
   it("uses the GitHub secret without printing or persisting it", () => {
     expect(source).toContain("secrets.OPENROUTER_API_KEY");
     expect(source).toContain("OPENROUTER_API_KEY:");
-    expect(source).not.toContain("sk-or-v1-");
+    expect(source).not.toMatch(/sk-or-v1-[A-Za-z0-9_-]{16,}/);
     expect(source).not.toContain("echo $OPENROUTER_API_KEY");
     expect(source).toContain("Assert AI artifact contains no secrets");
+    expect(source).toContain("grep -Eiq 'sk-or-v1-");
   });
 
   it("generates public fixtures, runs local OpenCV first and then bounded AI verification", () => {
