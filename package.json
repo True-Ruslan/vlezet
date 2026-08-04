@@ -15,6 +15,9 @@
     "benchmark:recognition:core": "node tools/recognition-benchmark/run-core.mjs",
     "benchmark:recognition:source-score": "npm --prefix tools/recognition-benchmark run score:source",
     "benchmark:recognition:m7-8c-gate": "node tools/recognition-benchmark/m7-8c-opening-gate.mjs",
+    "benchmark:recognition:real:generate": "node tools/recognition-benchmark/generate-real-fixture-assets.mjs",
+    "benchmark:recognition:real:verify": "node tools/recognition-benchmark/verify-real-fixtures.mjs",
+    "benchmark:recognition:real:gate": "node tools/recognition-benchmark/real-fixture-gate.mjs",
     "benchmark:recognition:evidence": "node tools/recognition-benchmark/run-evidence.mjs"
   },
   "devDependencies": {
