@@ -5,9 +5,13 @@ import { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-run
 
 const widthPx = 1000;
 const heightPx = 800;
-const axisX = 700;
 
-function wall(id: string, startY: number, endY: number): RecognitionWallCandidate {
+function wall(
+  id: string,
+  axisX: number,
+  startY: number,
+  endY: number,
+): RecognitionWallCandidate {
   return {
     id,
     start: { x: axisX / widthPx, y: startY / heightPx },
@@ -20,13 +24,18 @@ function wall(id: string, startY: number, endY: number): RecognitionWallCandidat
   };
 }
 
-const terminal: RecognitionWallCandidate = {
-  ...wall("terminal", 700, 700),
-  start: { x: 100 / widthPx, y: 700 / heightPx },
-  end: { x: 900 / widthPx, y: 700 / heightPx },
-};
+function terminal(axisX: number): RecognitionWallCandidate {
+  return {
+    ...wall("terminal", axisX, 700, 700),
+    start: { x: 100 / widthPx, y: 700 / heightPx },
+    end: { x: 900 / widthPx, y: 700 / heightPx },
+  };
+}
 
-function structuralMask(runs: readonly (readonly [number, number])[]): StructuralMaskView {
+function structuralMask(
+  axisX: number,
+  runs: readonly (readonly [number, number])[],
+): StructuralMaskView {
   return {
     widthPx,
     heightPx,
@@ -39,24 +48,35 @@ function structuralMask(runs: readonly (readonly [number, number])[]): Structura
   };
 }
 
-function recover(runs: readonly (readonly [number, number])[]) {
+function recover(
+  axisX: number,
+  runs: readonly (readonly [number, number])[],
+) {
   return recoverSegmentedBoundaryWalls({
     widthPx,
     heightPx,
-    wallCandidates: [wall("upstream", 50, 350), terminal],
-    mask: structuralMask(runs),
+    wallCandidates: [wall("upstream", axisX, 50, 350), terminal(axisX)],
+    mask: structuralMask(axisX, runs),
   });
 }
 
-describe("segmented boundary two-gap runtime", () => {
-  it("keeps a chain with two architectural gaps", () => {
-    const result = recover([[50, 390], [480, 510], [620, 710]]);
+const twoGapRuns = [[50, 390], [480, 510], [620, 710]] as const;
+
+describe("segmented boundary exterior two-gap runtime", () => {
+  it("keeps an exterior chain with two architectural gaps", () => {
+    const result = recover(880, twoGapRuns);
     expect(result.recoveredWalls.length).toBeGreaterThan(0);
     expect(result.acceptedChainCount).toBeGreaterThan(0);
   });
 
   it("rejects a normal single-window continuation", () => {
-    const result = recover([[50, 390], [500, 710]]);
+    const result = recover(880, [[50, 390], [500, 710]]);
+    expect(result.recoveredWalls).toHaveLength(0);
+    expect(result.acceptedChainCount).toBe(0);
+  });
+
+  it("rejects an interior wet-zone chain even with two gaps", () => {
+    const result = recover(500, twoGapRuns);
     expect(result.recoveredWalls).toHaveLength(0);
     expect(result.acceptedChainCount).toBe(0);
   });
