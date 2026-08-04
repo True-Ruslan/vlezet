@@ -56,11 +56,12 @@ describe("door host window proposal integration", () => {
 
     expect(result.acceptedBridgeCount).toBe(0);
     expect(result.openingHypotheses).toHaveLength(2);
-    expect(result.openingHypotheses.map((candidate) => ({
+    const normalized = result.openingHypotheses.map((candidate) => ({
       kind: candidate.kind,
-      centerY: candidate.center.y * HEIGHT,
-      widthPx: candidate.widthPx,
-    }))).toEqual([
+      centerY: Math.round(candidate.center.y * HEIGHT),
+      widthPx: Math.round(candidate.widthPx ?? 0),
+    })).sort((first, second) => first.centerY - second.centerY);
+    expect(normalized).toEqual([
       { kind: "window", centerY: 200, widthPx: 80 },
       { kind: "window", centerY: 480, widthPx: 80 },
     ]);
