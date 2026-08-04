@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-// RED: the M7.9 scenario scorer is implemented after this contract is observed failing.
-// @ts-expect-error planned M7.9 module does not exist in the RED commit
 import {
   enforceRealFixtureGate,
   scoreFailureExpectations,
