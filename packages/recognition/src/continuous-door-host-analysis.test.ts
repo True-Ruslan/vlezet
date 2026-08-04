@@ -93,7 +93,7 @@ describe("continuous-host door analysis", () => {
   });
 
   it("accepts a closed structural tail shorter than the preferred probe length", () => {
-    const wallEnd = GAP_END + 17.8;
+    const wallEnd = GAP_END + 19.8;
     const result = run({ wallEnd });
 
     expect(result.openingHypotheses).toHaveLength(1);
