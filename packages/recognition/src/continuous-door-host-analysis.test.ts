@@ -100,6 +100,34 @@ describe("continuous-host door analysis", () => {
     expect(result.openingHypotheses[0]!.hostWallCandidateId).toBe("room-divider");
   });
 
+  it("rejects a door-like segment that touches the raster border", () => {
+    const wallX = 180;
+    const gapEnd = 340;
+    const candidate: RecognitionWallCandidate = {
+      ...wall(),
+      id: "border-adjacent-wall",
+      start: { x: wallX / WIDTH, y: WALL_START / HEIGHT },
+      end: { x: wallX / WIDTH, y: WALL_END / HEIGHT },
+    };
+    const structuralMask: StructuralMaskView = {
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      isStructural(x, y): boolean {
+        if (Math.abs(x - wallX) > 10 || y < WALL_START || y > WALL_END) return false;
+        return y < GAP_START || y > gapEnd;
+      },
+    };
+    const result = detectContinuousHostDoorOpenings({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [candidate],
+      symbolSegments: [{ x1: 0, y1: GAP_START, x2: wallX, y2: GAP_START }],
+      mask: structuralMask,
+    });
+
+    expect(result.openingHypotheses).toHaveLength(0);
+  });
+
   it("does not create a door without a raster gap", () => {
     expect(run({ structuralMask: mask({ includeGap: false }) }).openingHypotheses).toHaveLength(0);
   });
