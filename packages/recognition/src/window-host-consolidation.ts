@@ -8,9 +8,28 @@ export type WindowHostConsolidationInput = Readonly<{
   symbolSegments: readonly DetectedLineSegment[];
 }>;
 
+export type WindowHostProposalEvidence = Readonly<{
+  sourceWallCandidateIds: readonly [string, string];
+  bridgeKind: "symbol" | "boundary";
+  openingEligible: boolean;
+  gap: Readonly<{
+    start: Readonly<{ x: number; y: number }>;
+    end: Readonly<{ x: number; y: number }>;
+    center: Readonly<{ x: number; y: number }>;
+    widthPx: number;
+    orientationDeg: number;
+  }>;
+  generatedHost: Readonly<{
+    candidateId: string;
+    start: Readonly<{ x: number; y: number }>;
+    end: Readonly<{ x: number; y: number }>;
+  }>;
+}>;
+
 export type WindowHostConsolidationResult = Readonly<{
   walls: readonly RecognitionWallCandidate[];
   acceptedBridgeCount: number;
+  proposalEvidence: readonly WindowHostProposalEvidence[];
   diagnostics: readonly string[];
 }>;
 
@@ -51,6 +70,10 @@ type BridgeProposal = Readonly<{
   localScore: number;
   boundaryBridge: boolean;
   key: string;
+}>;
+type AppliedProposal = Readonly<{
+  walls: readonly RecognitionWallCandidate[];
+  evidence: WindowHostProposalEvidence | null;
 }>;
 
 const MAX_WALL_CANDIDATES = 64;
@@ -376,6 +399,69 @@ function createWallCandidate(
   };
 }
 
+function proposalEvidence(
+  proposal: BridgeProposal,
+  candidateId: string,
+  hostStart: number,
+  hostEnd: number,
+): WindowHostProposalEvidence {
+  const gapStart = pointOnLine(
+    proposal.origin,
+    proposal.tangent,
+    proposal.normal,
+    proposal.gapStart,
+    proposal.lineOffset,
+  );
+  const gapEnd = pointOnLine(
+    proposal.origin,
+    proposal.tangent,
+    proposal.normal,
+    proposal.gapEnd,
+    proposal.lineOffset,
+  );
+  const gapCenter = pointOnLine(
+    proposal.origin,
+    proposal.tangent,
+    proposal.normal,
+    (proposal.gapStart + proposal.gapEnd) / 2,
+    proposal.lineOffset,
+  );
+  const generatedStart = pointOnLine(
+    proposal.origin,
+    proposal.tangent,
+    proposal.normal,
+    hostStart,
+    proposal.lineOffset,
+  );
+  const generatedEnd = pointOnLine(
+    proposal.origin,
+    proposal.tangent,
+    proposal.normal,
+    hostEnd,
+    proposal.lineOffset,
+  );
+  return {
+    sourceWallCandidateIds: [proposal.firstId, proposal.secondId],
+    bridgeKind: proposal.boundaryBridge ? "boundary" : "symbol",
+    openingEligible: !proposal.boundaryBridge,
+    gap: {
+      start: gapStart,
+      end: gapEnd,
+      center: gapCenter,
+      widthPx: proposal.gapEnd - proposal.gapStart,
+      orientationDeg: segmentAngle(
+        proposal.origin,
+        add(proposal.origin, proposal.tangent),
+      ),
+    },
+    generatedHost: {
+      candidateId,
+      start: generatedStart,
+      end: generatedEnd,
+    },
+  };
+}
+
 function sortWalls(
   walls: readonly RecognitionWallCandidate[],
   widthPx: number,
@@ -405,7 +491,7 @@ function applyProposal(
   proposal: BridgeProposal,
   widthPx: number,
   heightPx: number,
-): RecognitionWallCandidate[] {
+): AppliedProposal {
   const otherWalls = walls.filter((_wall, index) => index !== proposal.firstIndex && index !== proposal.secondIndex);
   const intersections = otherWalls
     .map((wall) => intersectionAlong(proposal, wall, widthPx, heightPx))
@@ -422,7 +508,9 @@ function applyProposal(
     proposal.gapEnd,
     proposal.unionEnd,
   );
-  if (hostEnd - hostStart < MIN_WINDOW_GAP_PX) return [...walls];
+  if (hostEnd - hostStart < MIN_WINDOW_GAP_PX) {
+    return { walls: [...walls], evidence: null };
+  }
 
   const baseId = `local-window-host-${proposal.firstId}--${proposal.secondId}`;
   const replacements: RecognitionWallCandidate[] = [];
@@ -457,7 +545,10 @@ function applyProposal(
       true,
     ));
   }
-  return sortWalls([...otherWalls, ...replacements], widthPx, heightPx);
+  return {
+    walls: sortWalls([...otherWalls, ...replacements], widthPx, heightPx),
+    evidence: proposalEvidence(proposal, baseId, hostStart, hostEnd),
+  };
 }
 
 function nextProposal(
@@ -510,6 +601,7 @@ export function consolidateWindowHostWalls(
     return {
       walls: input.wallCandidates,
       acceptedBridgeCount: 0,
+      proposalEvidence: [],
       diagnostics: ["window-host-budget-exceeded"],
     };
   }
@@ -517,24 +609,29 @@ export function consolidateWindowHostWalls(
     return {
       walls: input.wallCandidates,
       acceptedBridgeCount: 0,
+      proposalEvidence: [],
       diagnostics: ["window-symbol-budget-exceeded"],
     };
   }
 
   let walls: readonly RecognitionWallCandidate[] = input.wallCandidates;
   let acceptedBridgeCount = 0;
+  const evidence: WindowHostProposalEvidence[] = [];
   while (acceptedBridgeCount < MAX_ACCEPTED_BRIDGES) {
     const proposal = nextProposal(walls, input.symbolSegments, input.widthPx, input.heightPx);
     if (!proposal) break;
-    const updated = applyProposal(walls, proposal, input.widthPx, input.heightPx);
+    const applied = applyProposal(walls, proposal, input.widthPx, input.heightPx);
+    const updated = applied.walls;
     if (updated.length === walls.length && updated.every((wall, index) => wall === walls[index])) break;
     walls = updated;
+    if (applied.evidence) evidence.push(applied.evidence);
     acceptedBridgeCount += 1;
   }
 
   return {
     walls,
     acceptedBridgeCount,
+    proposalEvidence: evidence,
     diagnostics: acceptedBridgeCount === MAX_ACCEPTED_BRIDGES
       ? ["window-host-bridge-budget-reached"]
       : [],
