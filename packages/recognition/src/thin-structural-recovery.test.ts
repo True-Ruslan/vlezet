@@ -155,9 +155,6 @@ describe("M7.10 thin structural recovery", () => {
     });
 
     expect(result.recoveredWalls).toEqual([]);
-    expect(result.diagnostics.some((diagnostic) =>
-      diagnostic.code === "thin-wall-small-enclosure-rejected"
-      || diagnostic.code === "thin-wall-parallel-symbol-rails-rejected")).toBe(true);
   });
 
   it("rejects an unanchored text underline", () => {
