@@ -93,7 +93,6 @@ export type LocalWallCandidateAnalysis = Readonly<{
 }>;
 
 const EPSILON = 1e-7;
-const MAX_BLIND_COLLINEAR_GAP_THICKNESS_RATIO = 1.5;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -245,20 +244,6 @@ function perpendicularDistance(point: Vector, line: LocalWallCenterline): number
   return Math.abs(dot(point, normal) - dot(line.startPx, normal));
 }
 
-function maximumBlindCollinearGap(
-  first: LocalWallCenterline,
-  second: LocalWallCenterline,
-  absoluteMaximumPx: number,
-): number {
-  const thicknesses = [first.thicknessPx, second.thicknessPx]
-    .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0);
-  if (thicknesses.length === 0) return absoluteMaximumPx;
-  return Math.min(
-    absoluteMaximumPx,
-    Math.max(...thicknesses) * MAX_BLIND_COLLINEAR_GAP_THICKNESS_RATIO,
-  );
-}
-
 function mergeCenterlineFragments(
   input: readonly LocalWallCenterline[],
   options: LocalRecognitionOptions,
@@ -290,7 +275,7 @@ function mergeCenterlineFragments(
       const secondMinimum = Math.min(candidateStart, candidateEnd);
       const secondMaximum = Math.max(candidateStart, candidateEnd);
       const gap = Math.max(0, Math.max(firstMinimum, secondMinimum) - Math.min(firstMaximum, secondMaximum));
-      if (gap > maximumBlindCollinearGap(existing, candidate, options.collinearMergeGapPx)) continue;
+      if (gap > options.collinearMergeGapPx) continue;
 
       const normal = { x: -firstDirection.y, y: firstDirection.x };
       const totalEvidence = existing.evidenceCount + candidate.evidenceCount;
