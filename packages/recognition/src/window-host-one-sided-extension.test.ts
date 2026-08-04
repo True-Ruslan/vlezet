@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 import type { StructuralMaskView } from "./wall-completion";
-import { consolidateWindowHostWalls } from "./window-host-consolidation";
+import { consolidateWindowHostWalls } from "./window-host-consolidation-runtime";
 
 const WIDTH = 1000;
 const HEIGHT = 600;
