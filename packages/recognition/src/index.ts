@@ -66,5 +66,14 @@ export { completeWallCenterlines } from "./wall-completion-runtime";
 export * from "./wall-evidence-filter";
 export * from "./wall-evidence-fusion";
 export * from "./wall-topology";
-export * from "./window-host-consolidation";
+export type { WindowHostConsolidationInput } from "./window-host-consolidation";
+export type {
+  WindowHostAnnotatedWallCandidate,
+  WindowHostConsolidationResult,
+  WindowHostProposalEvidence,
+} from "./window-host-consolidation-runtime";
+export {
+  consolidateWindowHostWalls,
+  windowHostProposalEvidenceForWall,
+} from "./window-host-consolidation-runtime";
 export * from "./window-mask-analysis";
