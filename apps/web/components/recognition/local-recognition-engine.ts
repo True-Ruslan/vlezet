@@ -522,6 +522,7 @@ export async function runLocalRecognitionEngine(
     const doorHostConsolidation = consolidateDoorHostWalls({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
+      millimetersPerPixel: analysisMillimetersPerPixel,
       wallCandidates: windowHostConsolidation.walls,
       symbolSegments,
     });
