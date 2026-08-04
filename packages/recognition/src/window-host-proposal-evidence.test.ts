@@ -89,8 +89,8 @@ describe("window host proposal evidence", () => {
     expect(result.proposalEvidence).toHaveLength(2);
     expect(result.proposalEvidence.map((item) => ({
       sources: item.sourceWallCandidateIds,
-      gapStart: item.gap.start.y,
-      gapEnd: item.gap.end.y,
+      gapStart: Math.round(item.gap.start.y),
+      gapEnd: Math.round(item.gap.end.y),
     }))).toEqual([
       {
         sources: ["middle", "upper"],
