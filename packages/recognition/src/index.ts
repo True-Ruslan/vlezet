@@ -5,7 +5,13 @@ export type {
   ContinuousDoorHostAnalysisResult,
 } from "./continuous-door-host-analysis";
 export { detectContinuousHostDoorOpenings } from "./continuous-door-host-analysis-runtime";
-export * from "./door-host-consolidation";
+export type {
+  DoorHostConsolidationInput,
+  DoorHostConsolidationResult,
+  DoorHostProposalEvidence,
+  DoorOpeningEligibility,
+} from "./door-host-consolidation";
+export { consolidateDoorHostWalls } from "./door-host-consolidation-runtime";
 export { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 export {
   analyzeWallCandidates,
@@ -75,6 +81,7 @@ export type {
 export {
   consolidateWindowHostWalls,
   windowHostProposalEvidenceForWall,
+  windowHostProposalEvidenceListForWall,
 } from "./window-host-consolidation-runtime";
 export type { CreateWindowHostOpeningHypothesesInput } from "./window-host-opening-hypotheses";
 export { createWindowHostOpeningHypotheses } from "./window-host-opening-hypotheses";
