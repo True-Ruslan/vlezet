@@ -1,5 +1,6 @@
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
+import { DEFAULT_OPENING_ANALYSIS_OPTIONS } from "./opening-analysis";
 
 export type DoorHostConsolidationInput = Readonly<{
   widthPx: number;
@@ -9,6 +10,14 @@ export type DoorHostConsolidationInput = Readonly<{
 }>;
 
 type Point = Readonly<{ x: number; y: number }>;
+
+export type DoorOpeningEligibility = Readonly<{
+  eligible: boolean;
+  startMarginPx: number;
+  endMarginPx: number;
+  minimumMarginPx: number;
+  reason: "generated-host-end-margin" | null;
+}>;
 
 export type DoorHostProposalEvidence = Readonly<{
   sourceWallCandidateIds: readonly [string, string];
@@ -28,6 +37,7 @@ export type DoorHostProposalEvidence = Readonly<{
     start: Point;
     end: Point;
   }>;
+  openingEligibility: DoorOpeningEligibility;
 }>;
 
 export type DoorHostConsolidationResult = Readonly<{
@@ -100,6 +110,10 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 function clamp01(value: number): number {
   return clamp(value, 0, 1);
+}
+
+function stablePixelValue(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
 }
 
 function dot(first: Point, second: Point): number {
@@ -447,11 +461,31 @@ function createOpeningHypothesis(
   };
 }
 
+function doorOpeningEligibility(
+  proposal: BridgeProposal,
+  hostStart: number,
+  hostEnd: number,
+): DoorOpeningEligibility {
+  const rawStartMarginPx = Math.max(0, proposal.gapStart - hostStart);
+  const rawEndMarginPx = Math.max(0, hostEnd - proposal.gapEnd);
+  const minimumMarginPx = DEFAULT_OPENING_ANALYSIS_OPTIONS.minimumEndMarginPx;
+  const eligible = rawStartMarginPx + EPSILON >= minimumMarginPx
+    && rawEndMarginPx + EPSILON >= minimumMarginPx;
+  return {
+    eligible,
+    startMarginPx: stablePixelValue(rawStartMarginPx),
+    endMarginPx: stablePixelValue(rawEndMarginPx),
+    minimumMarginPx,
+    reason: eligible ? null : "generated-host-end-margin",
+  };
+}
+
 function createProposalEvidence(
   candidateId: string,
   proposal: BridgeProposal,
   hostStart: number,
   hostEnd: number,
+  openingEligibility: DoorOpeningEligibility,
 ): DoorHostProposalEvidence {
   const point = (along: number): Point => pointOnLine(
     proposal.origin,
@@ -478,6 +512,7 @@ function createProposalEvidence(
       start: point(hostStart),
       end: point(hostEnd),
     },
+    openingEligibility,
   };
 }
 
@@ -528,6 +563,7 @@ function applyProposal(
 
   const sourceId = `${proposal.firstId}--${proposal.secondId}`;
   const baseId = `local-door-host-${sourceId}`;
+  const openingEligibility = doorOpeningEligibility(proposal, hostStart, hostEnd);
   const replacements: RecognitionWallCandidate[] = [];
   if (hostStart - proposal.unionStart >= MIN_FRAGMENT_LENGTH_PX) {
     replacements.push(createWallCandidate(
@@ -562,14 +598,22 @@ function applyProposal(
   }
   return {
     walls: sortWalls([...otherWalls, ...replacements], widthPx, heightPx),
-    openingHypothesis: createOpeningHypothesis(
-      `local-door-opening-${sourceId}`,
+    openingHypothesis: openingEligibility.eligible
+      ? createOpeningHypothesis(
+          `local-door-opening-${sourceId}`,
+          baseId,
+          proposal,
+          widthPx,
+          heightPx,
+        )
+      : null,
+    proposalEvidence: createProposalEvidence(
       baseId,
       proposal,
-      widthPx,
-      heightPx,
+      hostStart,
+      hostEnd,
+      openingEligibility,
     ),
-    proposalEvidence: createProposalEvidence(baseId, proposal, hostStart, hostEnd),
   };
 }
 
@@ -642,9 +686,10 @@ export function consolidateDoorHostWalls(
     for (const diagnostic of next.diagnostics) diagnostics.add(diagnostic);
     if (!next.proposal) break;
     const applied = applyProposal(walls, next.proposal, input.widthPx, input.heightPx);
-    if (!applied.openingHypothesis || !applied.proposalEvidence) break;
+    if (!applied.proposalEvidence) break;
     walls = applied.walls;
-    openingHypotheses.push(applied.openingHypothesis);
+    if (applied.openingHypothesis) openingHypotheses.push(applied.openingHypothesis);
+    else diagnostics.add("door-opening-host-margin-rejected");
     proposalEvidence.push(applied.proposalEvidence);
     acceptedBridgeCount += 1;
   }
