@@ -8,14 +8,36 @@ export type DoorHostConsolidationInput = Readonly<{
   symbolSegments: readonly DetectedLineSegment[];
 }>;
 
+type Point = Readonly<{ x: number; y: number }>;
+
+export type DoorHostProposalEvidence = Readonly<{
+  sourceWallCandidateIds: readonly [string, string];
+  selectedLeaf: Readonly<{
+    anchorSide: "start" | "end";
+    anchor: Point;
+    free: Point;
+    lengthPx: number;
+  }>;
+  gap: Readonly<{
+    start: Point;
+    end: Point;
+    widthPx: number;
+  }>;
+  generatedHost: Readonly<{
+    candidateId: string;
+    start: Point;
+    end: Point;
+  }>;
+}>;
+
 export type DoorHostConsolidationResult = Readonly<{
   walls: readonly RecognitionWallCandidate[];
   openingHypotheses: readonly RecognitionOpeningCandidate[];
+  proposalEvidence: readonly DoorHostProposalEvidence[];
   acceptedBridgeCount: number;
   diagnostics: readonly string[];
 }>;
 
-type Point = Readonly<{ x: number; y: number }>;
 type Interval = Readonly<{ start: number; end: number }>;
 type WallGeometry = Readonly<{
   candidate: RecognitionWallCandidate;
@@ -51,6 +73,7 @@ type BridgeProposal = Readonly<{
   thicknessPx: number;
   localScore: number;
   evidenceReasons: readonly string[];
+  selectedLeaf: DoorLeafEvidence;
   key: string;
 }>;
 type PairEvaluation = Readonly<{
@@ -60,6 +83,7 @@ type PairEvaluation = Readonly<{
 type AppliedProposal = Readonly<{
   walls: readonly RecognitionWallCandidate[];
   openingHypothesis: RecognitionOpeningCandidate | null;
+  proposalEvidence: DoorHostProposalEvidence | null;
 }>;
 
 const MAX_WALL_CANDIDATES = 64;
@@ -153,7 +177,10 @@ function projectInterval(geometry: WallGeometry, origin: Point, tangent: Point):
   return { start: Math.min(first, second), end: Math.max(first, second) };
 }
 
-function projectEndpoint(point: Point, proposal: Omit<BridgeProposal, "key">): ProjectedEndpoint {
+function projectEndpoint(
+  point: Point,
+  proposal: Omit<BridgeProposal, "key" | "selectedLeaf">,
+): ProjectedEndpoint {
   const relative = subtract(point, proposal.origin);
   return {
     along: dot(relative, proposal.tangent),
@@ -170,7 +197,7 @@ function canonicalSegmentPoints(segment: DetectedLineSegment): readonly [Point, 
 }
 
 function doorLeafEvidence(
-  proposal: Omit<BridgeProposal, "key">,
+  proposal: Omit<BridgeProposal, "key" | "selectedLeaf">,
   symbolSegments: readonly DetectedLineSegment[],
 ): DoorLeafEvidence[] {
   const gapWidth = proposal.gapEnd - proposal.gapStart;
@@ -287,7 +314,7 @@ function proposalForPair(
 
   const sourceIds = [first.candidate.id, second.candidate.id].sort();
   const lineOffset = (firstOffset * first.length + secondOffset * second.length) / (first.length + second.length);
-  const partial: Omit<BridgeProposal, "key"> = {
+  const partial: Omit<BridgeProposal, "key" | "selectedLeaf"> = {
     firstId: sourceIds[0]!,
     secondId: sourceIds[1]!,
     firstIndex,
@@ -326,6 +353,7 @@ function proposalForPair(
   return {
     proposal: {
       ...partial,
+      selectedLeaf,
       key: `${selectedLeaf.key}|${gapStart.toFixed(4)}|${gapEnd.toFixed(4)}|${sourceIds.join("|")}`,
     },
     diagnostics: [],
@@ -419,6 +447,40 @@ function createOpeningHypothesis(
   };
 }
 
+function createProposalEvidence(
+  candidateId: string,
+  proposal: BridgeProposal,
+  hostStart: number,
+  hostEnd: number,
+): DoorHostProposalEvidence {
+  const point = (along: number): Point => pointOnLine(
+    proposal.origin,
+    proposal.tangent,
+    proposal.normal,
+    along,
+    proposal.lineOffset,
+  );
+  return {
+    sourceWallCandidateIds: [proposal.firstId, proposal.secondId],
+    selectedLeaf: {
+      anchorSide: proposal.selectedLeaf.anchorSide,
+      anchor: proposal.selectedLeaf.anchor.point,
+      free: proposal.selectedLeaf.free.point,
+      lengthPx: proposal.selectedLeaf.lengthPx,
+    },
+    gap: {
+      start: point(proposal.gapStart),
+      end: point(proposal.gapEnd),
+      widthPx: proposal.gapEnd - proposal.gapStart,
+    },
+    generatedHost: {
+      candidateId,
+      start: point(hostStart),
+      end: point(hostEnd),
+    },
+  };
+}
+
 function sortWalls(
   walls: readonly RecognitionWallCandidate[],
   widthPx: number,
@@ -461,7 +523,7 @@ function applyProposal(
     proposal.unionEnd,
   );
   if (hostEnd - hostStart < MIN_DOOR_GAP_PX) {
-    return { walls: [...walls], openingHypothesis: null };
+    return { walls: [...walls], openingHypothesis: null, proposalEvidence: null };
   }
 
   const sourceId = `${proposal.firstId}--${proposal.secondId}`;
@@ -507,6 +569,7 @@ function applyProposal(
       widthPx,
       heightPx,
     ),
+    proposalEvidence: createProposalEvidence(baseId, proposal, hostStart, hostEnd),
   };
 }
 
@@ -554,6 +617,7 @@ export function consolidateDoorHostWalls(
     return {
       walls: input.wallCandidates,
       openingHypotheses: [],
+      proposalEvidence: [],
       acceptedBridgeCount: 0,
       diagnostics: ["door-host-budget-exceeded"],
     };
@@ -562,6 +626,7 @@ export function consolidateDoorHostWalls(
     return {
       walls: input.wallCandidates,
       openingHypotheses: [],
+      proposalEvidence: [],
       acceptedBridgeCount: 0,
       diagnostics: ["door-symbol-budget-exceeded"],
     };
@@ -570,15 +635,17 @@ export function consolidateDoorHostWalls(
   let walls: readonly RecognitionWallCandidate[] = input.wallCandidates;
   let acceptedBridgeCount = 0;
   const openingHypotheses: RecognitionOpeningCandidate[] = [];
+  const proposalEvidence: DoorHostProposalEvidence[] = [];
   const diagnostics = new Set<string>();
   while (acceptedBridgeCount < MAX_ACCEPTED_BRIDGES) {
     const next = nextProposal(walls, input.symbolSegments, input.widthPx, input.heightPx);
     for (const diagnostic of next.diagnostics) diagnostics.add(diagnostic);
     if (!next.proposal) break;
     const applied = applyProposal(walls, next.proposal, input.widthPx, input.heightPx);
-    if (!applied.openingHypothesis) break;
+    if (!applied.openingHypothesis || !applied.proposalEvidence) break;
     walls = applied.walls;
     openingHypotheses.push(applied.openingHypothesis);
+    proposalEvidence.push(applied.proposalEvidence);
     acceptedBridgeCount += 1;
   }
   if (acceptedBridgeCount === MAX_ACCEPTED_BRIDGES) diagnostics.add("door-host-bridge-budget-reached");
@@ -586,6 +653,8 @@ export function consolidateDoorHostWalls(
   return {
     walls,
     openingHypotheses: openingHypotheses.sort((first, second) => first.id.localeCompare(second.id)),
+    proposalEvidence: proposalEvidence.sort((first, second) =>
+      first.generatedHost.candidateId.localeCompare(second.generatedHost.candidateId)),
     acceptedBridgeCount,
     diagnostics: [...diagnostics].sort(),
   };
