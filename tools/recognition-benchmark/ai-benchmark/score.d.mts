@@ -1,7 +1,4 @@
-import type {
-  AiLocalSummary,
-  AiVerificationResponse,
-} from "./openrouter-client.mjs";
+import type { AiLocalSummary } from "./openrouter-client.mjs";
 
 export type AiBenchmarkUsage = Readonly<{
   promptTokens: number | null;
@@ -10,15 +7,29 @@ export type AiBenchmarkUsage = Readonly<{
   costUsd: number | null;
 }>;
 
+export type AiBenchmarkResponse = Readonly<{
+  walls: readonly Readonly<{
+    id: string;
+    confidence: string;
+    score: number;
+  }>[];
+  openings: readonly Readonly<{
+    id: string;
+    kind: string;
+    confidence: string;
+    score: number;
+  }>[];
+}>;
+
 export type AiBenchmarkRun = Readonly<{
   modelId: string;
   fixtureId: string;
   repetition: number;
   latencyMs: number;
   usage: AiBenchmarkUsage | null;
-  response: AiVerificationResponse;
+  response: AiBenchmarkResponse;
   localSummary: AiLocalSummary;
-  expectedOpeningKinds: Readonly<Record<string, "door" | "window" | "unknown-opening">>;
+  expectedOpeningKinds: Readonly<Record<string, string>>;
   schemaFailure: boolean;
   safetyViolations: readonly string[];
 }>;
