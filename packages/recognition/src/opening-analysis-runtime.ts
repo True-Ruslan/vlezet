@@ -1,4 +1,4 @@
-import { detectContinuousHostDoorOpenings } from "./continuous-door-host-analysis";
+import { detectContinuousHostDoorOpenings } from "./continuous-door-host-analysis-runtime";
 import type {
   AnalyzeOpeningHypothesesInput,
   OpeningAnalysisResult,
