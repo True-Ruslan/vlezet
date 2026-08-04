@@ -3,7 +3,7 @@ import type {
   RecognitionOpeningCandidate,
   RecognitionWallCandidate,
 } from "./model";
-import { validateOpeningHypotheses } from "./opening-analysis";
+import { validateOpeningHypotheses } from "./opening-analysis-runtime-with-window-proposals";
 
 const WIDTH = 1000;
 const HEIGHT = 1000;
