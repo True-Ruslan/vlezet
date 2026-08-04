@@ -56,6 +56,7 @@ export type AnalyzeOpeningHypothesesInput = Readonly<{
   wallSegments?: readonly DetectedLineSegment[];
   symbolSegments?: readonly DetectedLineSegment[];
   structuralMask?: StructuralMaskView;
+  additionalHypotheses?: readonly RecognitionOpeningCandidate[];
   options?: Partial<OpeningAnalysisOptions>;
 }>;
 
@@ -325,7 +326,11 @@ export function analyzeOpeningHypotheses(
       })
     : [];
   const hypotheses = deduplicateHypotheses(
-    [...existingHypotheses, ...maskSupportedWindows],
+    [
+      ...existingHypotheses,
+      ...maskSupportedWindows,
+      ...(input.additionalHypotheses ?? []),
+    ],
     input.widthPx,
     input.heightPx,
   );
