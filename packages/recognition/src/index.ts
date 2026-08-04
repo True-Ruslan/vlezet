@@ -1,5 +1,6 @@
 export * from "./architectural-lines";
 export * from "./cloud-sanity";
+export * from "./door-host-consolidation";
 export { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 export {
   analyzeWallCandidates,
