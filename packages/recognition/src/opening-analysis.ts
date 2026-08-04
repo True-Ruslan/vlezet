@@ -80,7 +80,6 @@ type PositionedHypothesis = Readonly<{
   startAlongPx: number;
   endAlongPx: number;
   validatedByHostChain: boolean;
-  validatedByDoorBridgeSpan: boolean;
 }>;
 
 const MAX_HOST_CHAIN_WALLS = 128;
@@ -89,7 +88,6 @@ const MAX_HOST_CHAIN_ANGLE_DELTA_DEG = 8;
 const MIN_HOST_CHAIN_AXIS_TOLERANCE_PX = 4;
 const MAX_HOST_CHAIN_AXIS_TOLERANCE_PX = 8;
 const MIN_HOST_CHAIN_THICKNESS_TOLERANCE_PX = 8;
-const DOOR_BRIDGE_SPAN_TOLERANCE_PX = 2;
 const EPSILON = 1e-7;
 
 function finitePositive(value: number, label: string): number {
@@ -222,14 +220,6 @@ function hostChainExtent(
   };
 }
 
-function isBridgeDerivedDoor(candidate: RecognitionOpeningCandidate): boolean {
-  if (candidate.kind !== "door") return false;
-  const reasons = new Set(candidate.evidence.reasons);
-  return reasons.has("door-gap-from-bridge")
-    && reasons.has("door-leaf-anchored")
-    && reasons.has("door-symbol-host-bridge");
-}
-
 function rejection(
   candidate: RecognitionOpeningCandidate,
   code: OpeningHypothesisRejectionCode,
@@ -288,30 +278,17 @@ function positionedHypothesis(
   const halfWidthPx = openingWidthPx / 2;
   const startAlongPx = centerAlongPx - halfWidthPx;
   const endAlongPx = centerAlongPx + halfWidthPx;
-  const bridgeDerivedDoor = isBridgeDerivedDoor(candidate);
-  const spanTolerancePx = bridgeDerivedDoor ? DOOR_BRIDGE_SPAN_TOLERANCE_PX : 0;
-  if (
-    centerAlongPx < -spanTolerancePx
-    || centerAlongPx > hostLengthPx + spanTolerancePx
-    || startAlongPx < -spanTolerancePx
-    || endAlongPx > hostLengthPx + spanTolerancePx
-  ) {
+  if (centerAlongPx < 0 || centerAlongPx > hostLengthPx || startAlongPx < 0 || endAlongPx > hostLengthPx) {
     return rejection(candidate, "opening-outside-host-span", "Проём выходит за границы выбранной стены.");
   }
 
-  const doorBridgeSpanValidated = bridgeDerivedDoor
-    && Math.abs(startAlongPx) <= DOOR_BRIDGE_SPAN_TOLERANCE_PX
-    && Math.abs(hostLengthPx - endAlongPx) <= DOOR_BRIDGE_SPAN_TOLERANCE_PX;
   const originalStartMarginPx = startAlongPx;
   const originalEndMarginPx = hostLengthPx - endAlongPx;
   const effectiveStartMarginPx = originalStartMarginPx + chainExtent.startExtensionPx;
   const effectiveEndMarginPx = originalEndMarginPx + chainExtent.endExtensionPx;
   if (
-    !doorBridgeSpanValidated
-    && (
-      effectiveStartMarginPx < options.minimumEndMarginPx
-      || effectiveEndMarginPx < options.minimumEndMarginPx
-    )
+    effectiveStartMarginPx < options.minimumEndMarginPx
+    || effectiveEndMarginPx < options.minimumEndMarginPx
   ) {
     return rejection(candidate, "opening-end-margin", "Проём расположен слишком близко к углу или окончанию стены.");
   }
@@ -323,12 +300,8 @@ function positionedHypothesis(
     startAlongPx,
     endAlongPx,
     validatedByHostChain:
-      !doorBridgeSpanValidated
-      && (
-        originalStartMarginPx < options.minimumEndMarginPx
-        || originalEndMarginPx < options.minimumEndMarginPx
-      ),
-    validatedByDoorBridgeSpan: doorBridgeSpanValidated,
+      originalStartMarginPx < options.minimumEndMarginPx
+      || originalEndMarginPx < options.minimumEndMarginPx,
   };
 }
 
@@ -339,7 +312,6 @@ function acceptedCandidate(item: PositionedHypothesis): RecognitionOpeningCandid
     "host-wall-validated",
     "opening-span-validated",
     ...(item.validatedByHostChain ? ["host-wall-chain-validated"] : []),
-    ...(item.validatedByDoorBridgeSpan ? ["door-bridge-span-validated"] : []),
   ])].sort();
   return {
     ...candidate,
