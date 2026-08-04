@@ -77,9 +77,13 @@ export type RecognitionBaselineComparisonV1 = Readonly<{
   metrics: readonly RecognitionBaselineMetricComparisonV1[];
 }>;
 
+export type RecognitionBenchmarkCorpusVersionV1 =
+  | "recognition-corpus-v1"
+  | "recognition-real-analogue-corpus-v1";
+
 export type RecognitionBenchmarkResultV1 = Readonly<{
   schemaVersion: "recognition-benchmark-result-v1";
-  corpusVersion: "recognition-corpus-v1";
+  corpusVersion: RecognitionBenchmarkCorpusVersionV1;
   recognitionEngineVersion: string;
   commitSha: string;
   generatedAt: string;
@@ -108,6 +112,10 @@ const AGGREGATE_METRICS = [
 const RATE_METRICS = new Set<string>([
   "wallGeometryF1", "wallTopologyF1", "openingF1", "exactZoneCount",
   "exactZoneCountRate", "incorrectHighConfidenceRate",
+]);
+const CORPUS_VERSIONS = new Set<RecognitionBenchmarkCorpusVersionV1>([
+  "recognition-corpus-v1",
+  "recognition-real-analogue-corpus-v1",
 ]);
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -157,6 +165,14 @@ function sha(value: unknown, label: string): string {
 function timestamp(value: unknown, label: string): string {
   const result = text(value, label);
   if (Number.isNaN(Date.parse(result))) throw new RecognitionBenchmarkResultValidationError(`${label} содержит некорректную дату.`);
+  return result;
+}
+
+function corpusVersion(value: unknown): RecognitionBenchmarkCorpusVersionV1 {
+  const result = text(value, "corpusVersion") as RecognitionBenchmarkCorpusVersionV1;
+  if (!CORPUS_VERSIONS.has(result)) {
+    throw new RecognitionBenchmarkResultValidationError("Неподдерживаемая версия corpus.");
+  }
   return result;
 }
 
@@ -247,7 +263,7 @@ function baselineComparison(value: unknown): RecognitionBaselineComparisonV1 | n
 export function validateRecognitionBenchmarkResultV1(value: unknown): RecognitionBenchmarkResultV1 {
   const input = record(value, "result");
   if (input.schemaVersion !== "recognition-benchmark-result-v1") throw new RecognitionBenchmarkResultValidationError("Неподдерживаемая версия result schema.");
-  if (input.corpusVersion !== "recognition-corpus-v1") throw new RecognitionBenchmarkResultValidationError("Неподдерживаемая версия corpus.");
+  const validatedCorpusVersion = corpusVersion(input.corpusVersion);
 
   const fixtures = list(input.fixtures, "fixtures").map((entry, index): RecognitionFixtureResultV1 => {
     const item = record(entry, `fixtures[${index}]`);
@@ -274,7 +290,7 @@ export function validateRecognitionBenchmarkResultV1(value: unknown): Recognitio
 
   return {
     schemaVersion: "recognition-benchmark-result-v1",
-    corpusVersion: "recognition-corpus-v1",
+    corpusVersion: validatedCorpusVersion,
     recognitionEngineVersion: text(input.recognitionEngineVersion, "recognitionEngineVersion"),
     commitSha: sha(input.commitSha, "commitSha"),
     generatedAt: timestamp(input.generatedAt, "generatedAt"),
