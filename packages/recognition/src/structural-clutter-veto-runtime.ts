@@ -1,5 +1,5 @@
 import type { RecognitionDiagnostic } from "./model";
-import { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery";
+import { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime";
 import {
   applyStructuralClutterVeto as applyStructuralClutterVetoBase,
   type StructuralClutterVetoResult,
