@@ -3,10 +3,17 @@ import type {
   RecognitionWallCandidate,
 } from "./model";
 
+export type RecognitionTopologyStructuralMask = Readonly<{
+  widthPx: number;
+  heightPx: number;
+  isStructural: (x: number, y: number) => boolean;
+}>;
+
 export type RecognitionTopologySanityInput = Readonly<{
   widthPx: number;
   heightPx: number;
   millimetersPerPixel: number | null;
+  structuralMask?: RecognitionTopologyStructuralMask | null;
   wallCandidates: readonly RecognitionWallCandidate[];
 }>;
 
@@ -35,6 +42,9 @@ const INTERSECTION_COVERAGE_TOLERANCE_PX = 8;
 const MAX_ENDPOINT_TRIM_PX = 64;
 const MIN_ENDPOINT_TRIM_PX = 48;
 const MIN_SANITIZED_WALL_LENGTH_PX = 12;
+const MAX_DOUBLE_TRIM_CONTINUITY_LENGTH_PX = 96;
+const MIN_DOUBLE_TRIM_CONTINUITY_RATIO = 0.72;
+const MAX_CONTINUITY_SAMPLES = 64;
 const DUPLICATE_MIN_OVERLAP_RATIO = 0.75;
 const DUPLICATE_BAND_OVERLAP_RATIO = 0.9;
 const MAX_DUPLICATE_AXIS_DISTANCE_PX = 32;
@@ -205,10 +215,36 @@ function withPixelEndpoints(
   };
 }
 
+function centralStructuralContinuity(
+  start: Point,
+  end: Point,
+  thicknessPx: number,
+  structuralMask: RecognitionTopologyStructuralMask,
+): number {
+  const segmentLength = length(start, end);
+  if (segmentLength <= 0) return 0;
+  const endpointExclusionPx = Math.min(segmentLength * 0.25, Math.max(2, thicknessPx / 2));
+  const interiorLengthPx = segmentLength - endpointExclusionPx * 2;
+  if (interiorLengthPx <= 2) return 1;
+
+  const startRatio = endpointExclusionPx / segmentLength;
+  const endRatio = 1 - startRatio;
+  const sampleCount = Math.max(8, Math.min(MAX_CONTINUITY_SAMPLES, Math.ceil(interiorLengthPx)));
+  let supported = 0;
+  for (let index = 0; index < sampleCount; index += 1) {
+    const ratio = startRatio + (endRatio - startRatio) * ((index + 0.5) / sampleCount);
+    const x = start.x + (end.x - start.x) * ratio;
+    const y = start.y + (end.y - start.y) * ratio;
+    if (structuralMask.isStructural(Math.round(x), Math.round(y))) supported += 1;
+  }
+  return supported / sampleCount;
+}
+
 function trimOvershoots(
   candidates: readonly RecognitionWallCandidate[],
   widthPx: number,
   heightPx: number,
+  structuralMask: RecognitionTopologyStructuralMask | null,
 ): Readonly<{ walls: RecognitionWallCandidate[]; diagnostics: RecognitionDiagnostic[] }> {
   const pixelWalls = candidates.map((candidate) => toPixelWall(candidate, widthPx, heightPx));
   const diagnostics: RecognitionDiagnostic[] = [];
@@ -217,7 +253,8 @@ function trimOvershoots(
     const trimmedEnd = trimEndpoint(wall.end, wall.start, wall, pixelWalls);
     if (!trimmedStart.trimmed && !trimmedEnd.trimmed) return wall.candidate;
 
-    if (length(trimmedStart.point, trimmedEnd.point) < MIN_SANITIZED_WALL_LENGTH_PX) {
+    const sanitizedLengthPx = length(trimmedStart.point, trimmedEnd.point);
+    if (sanitizedLengthPx < MIN_SANITIZED_WALL_LENGTH_PX) {
       diagnostics.push({
         code: "topology-degenerate-after-trim",
         severity: "warning",
@@ -227,16 +264,45 @@ function trimOvershoots(
       return blockCandidate(wall.candidate, "topology-degenerate-after-trim");
     }
 
+    const trimmedCandidate = withPixelEndpoints(
+      wall,
+      trimmedStart.point,
+      trimmedEnd.point,
+      widthPx,
+      heightPx,
+    );
+    const doubleTrimContinuityLimitPx = Math.min(
+      MAX_DOUBLE_TRIM_CONTINUITY_LENGTH_PX,
+      Math.max(MIN_ENDPOINT_TRIM_PX, wall.thicknessPx * 3),
+    );
+    if (
+      structuralMask
+      && trimmedStart.trimmed
+      && trimmedEnd.trimmed
+      && sanitizedLengthPx <= doubleTrimContinuityLimitPx
+      && centralStructuralContinuity(
+        trimmedStart.point,
+        trimmedEnd.point,
+        wall.thicknessPx,
+        structuralMask,
+      ) < MIN_DOUBLE_TRIM_CONTINUITY_RATIO
+    ) {
+      diagnostics.push({
+        code: "topology-double-trim-low-continuity",
+        severity: "warning",
+        message: "Короткий фрагмент между двумя обрезанными пересечениями не подтверждён непрерывным структурным растром.",
+        candidateId: wall.candidate.id,
+      });
+      return blockCandidate(trimmedCandidate, "topology-double-trim-low-continuity");
+    }
+
     diagnostics.push({
       code: "topology-endpoint-overshoot-trimmed",
       severity: "info",
       message: "Выступающий конец стены обрезан по существующему перпендикулярному пересечению.",
       candidateId: wall.candidate.id,
     });
-    return addReason(
-      withPixelEndpoints(wall, trimmedStart.point, trimmedEnd.point, widthPx, heightPx),
-      "topology-endpoint-overshoot-trimmed",
-    );
+    return addReason(trimmedCandidate, "topology-endpoint-overshoot-trimmed");
   });
   return { walls, diagnostics };
 }
@@ -365,6 +431,16 @@ export function sanitizeRecognitionWallTopology(
   if (!Number.isFinite(input.widthPx) || input.widthPx <= 0 || !Number.isFinite(input.heightPx) || input.heightPx <= 0) {
     throw new Error("Размер изображения должен быть положительным и конечным.");
   }
+  const structuralMask = input.structuralMask ?? null;
+  if (
+    structuralMask
+    && (
+      structuralMask.widthPx !== input.widthPx
+      || structuralMask.heightPx !== input.heightPx
+    )
+  ) {
+    throw new Error("Размер structural mask должен совпадать с размером изображения.");
+  }
 
   const canonicalCandidates = [...input.wallCandidates].sort((first, second) => first.id.localeCompare(second.id));
   if (canonicalCandidates.length > MAX_WALL_CANDIDATES) {
@@ -379,7 +455,12 @@ export function sanitizeRecognitionWallTopology(
     };
   }
 
-  const trimmed = trimOvershoots(canonicalCandidates, input.widthPx, input.heightPx);
+  const trimmed = trimOvershoots(
+    canonicalCandidates,
+    input.widthPx,
+    input.heightPx,
+    structuralMask,
+  );
   const duplicateIds = detectParallelDuplicates(trimmed.walls, input.widthPx, input.heightPx);
   const smallEnclosureIds = detectSmallEnclosures(
     trimmed.walls,
