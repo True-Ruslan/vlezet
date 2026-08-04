@@ -35,6 +35,7 @@ type PixelWall = Readonly<{
   lengthPx: number;
   thicknessPx: number;
 }>;
+type CleanRun = Readonly<{ start: number; end: number }>;
 
 const MAX_WALL_CANDIDATES = 128;
 const AXIS_TOLERANCE_DEG = 8;
@@ -45,6 +46,11 @@ const MIN_SANITIZED_WALL_LENGTH_PX = 12;
 const MAX_DOUBLE_TRIM_CONTINUITY_LENGTH_PX = 96;
 const MIN_DOUBLE_TRIM_CONTINUITY_RATIO = 0.72;
 const MAX_CONTINUITY_SAMPLES = 64;
+const MAX_MASK_GAP_SCAN_SAMPLES = 2048;
+const MAX_CLEAN_CROSS_SECTION_SUPPORT_RATIO = 0.2;
+const MIN_MASK_GAP_THICKNESS_RATIO = 1.5;
+const MIN_MASK_GAP_WIDTH_PX = 12;
+const MIN_MASK_RETAINED_SIDE_PX = 24;
 const DUPLICATE_MIN_OVERLAP_RATIO = 0.75;
 const DUPLICATE_BAND_OVERLAP_RATIO = 0.9;
 const MAX_DUPLICATE_AXIS_DISTANCE_PX = 32;
@@ -54,6 +60,10 @@ const MIN_ENCLOSURE_SIDE_PX = 12;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 function length(first: Point, second: Point): number {
@@ -238,6 +248,112 @@ function centralStructuralContinuity(
     if (structuralMask.isStructural(Math.round(x), Math.round(y))) supported += 1;
   }
   return supported / sampleCount;
+}
+
+function crossSectionSupport(
+  wall: PixelWall,
+  along: number,
+  structuralMask: RecognitionTopologyStructuralMask,
+): number | null {
+  if (wall.orientation === "diagonal" || wall.axis === null) return null;
+  const acrossSamples = Math.max(3, Math.min(9, Math.round(wall.thicknessPx)));
+  const halfThickness = wall.thicknessPx / 2;
+  let supported = 0;
+  try {
+    for (let index = 0; index < acrossSamples; index += 1) {
+      const across = wall.axis - halfThickness
+        + ((index + 0.5) / acrossSamples) * wall.thicknessPx;
+      const x = wall.orientation === "horizontal" ? along : across;
+      const y = wall.orientation === "horizontal" ? across : along;
+      const sampleX = Math.round(clamp(x, 0, structuralMask.widthPx - 1));
+      const sampleY = Math.round(clamp(y, 0, structuralMask.heightPx - 1));
+      if (structuralMask.isStructural(sampleX, sampleY)) supported += 1;
+    }
+  } catch {
+    return null;
+  }
+  return supported / acrossSamples;
+}
+
+function longestCleanRun(
+  wall: PixelWall,
+  structuralMask: RecognitionTopologyStructuralMask,
+): CleanRun | null {
+  if (wall.orientation === "diagonal" || wall.axis === null) return null;
+  const minimumSidePx = Math.max(MIN_MASK_RETAINED_SIDE_PX, wall.thicknessPx * MIN_MASK_GAP_THICKNESS_RATIO);
+  const scanStart = Math.ceil(wall.minimum + minimumSidePx);
+  const scanEnd = Math.floor(wall.maximum - minimumSidePx);
+  if (scanEnd <= scanStart) return null;
+
+  const span = scanEnd - scanStart;
+  const sampleCount = Math.min(MAX_MASK_GAP_SCAN_SAMPLES, span + 1);
+  const step = sampleCount <= 1 ? 1 : span / (sampleCount - 1);
+  let currentStart: number | null = null;
+  let currentEnd: number | null = null;
+  let best: CleanRun | null = null;
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    const along = index === sampleCount - 1 ? scanEnd : scanStart + index * step;
+    const support = crossSectionSupport(wall, along, structuralMask);
+    if (support === null) return null;
+    if (support <= MAX_CLEAN_CROSS_SECTION_SUPPORT_RATIO) {
+      if (currentStart === null) currentStart = along;
+      currentEnd = along;
+      continue;
+    }
+    if (currentStart !== null && currentEnd !== null) {
+      const candidate = { start: currentStart, end: currentEnd };
+      if (!best || candidate.end - candidate.start > best.end - best.start) best = candidate;
+    }
+    currentStart = null;
+    currentEnd = null;
+  }
+  if (currentStart !== null && currentEnd !== null) {
+    const candidate = { start: currentStart, end: currentEnd };
+    if (!best || candidate.end - candidate.start > best.end - best.start) best = candidate;
+  }
+  return best;
+}
+
+function hasMaskConfirmedOpeningGap(
+  candidate: RecognitionWallCandidate,
+  widthPx: number,
+  heightPx: number,
+  structuralMask: RecognitionTopologyStructuralMask,
+): boolean {
+  if (
+    candidate.conflict !== null
+    || !candidate.evidence.reasons.includes("bounded-opening-gap-bridge")
+  ) return false;
+  const wall = toPixelWall(candidate, widthPx, heightPx);
+  const cleanRun = longestCleanRun(wall, structuralMask);
+  if (!cleanRun) return false;
+  const minimumGapPx = Math.max(MIN_MASK_GAP_WIDTH_PX, wall.thicknessPx * MIN_MASK_GAP_THICKNESS_RATIO);
+  return cleanRun.end - cleanRun.start >= minimumGapPx;
+}
+
+function capMaskConfirmedOpeningBridgeConfidence(
+  candidates: readonly RecognitionWallCandidate[],
+  widthPx: number,
+  heightPx: number,
+  structuralMask: RecognitionTopologyStructuralMask | null,
+): Readonly<{ walls: RecognitionWallCandidate[]; diagnostics: RecognitionDiagnostic[] }> {
+  if (!structuralMask) return { walls: [...candidates], diagnostics: [] };
+  const diagnostics: RecognitionDiagnostic[] = [];
+  const walls = candidates.map((candidate) => {
+    if (
+      candidate.confidence !== "high"
+      || !hasMaskConfirmedOpeningGap(candidate, widthPx, heightPx, structuralMask)
+    ) return candidate;
+    diagnostics.push({
+      code: "topology-mask-opening-gap-confidence-capped",
+      severity: "warning",
+      message: "Высокая уверенность стены ограничена: structural mask подтверждает чистый разрыв внутри слепого объединения.",
+      candidateId: candidate.id,
+    });
+    return addReason({ ...candidate, confidence: "medium" }, "topology-mask-opening-gap-confidence-capped");
+  });
+  return { walls, diagnostics };
 }
 
 function trimOvershoots(
@@ -455,8 +571,14 @@ export function sanitizeRecognitionWallTopology(
     };
   }
 
-  const trimmed = trimOvershoots(
+  const confidenceCapped = capMaskConfirmedOpeningBridgeConfidence(
     canonicalCandidates,
+    input.widthPx,
+    input.heightPx,
+    structuralMask,
+  );
+  const trimmed = trimOvershoots(
+    confidenceCapped.walls,
     input.widthPx,
     input.heightPx,
     structuralMask,
@@ -469,7 +591,10 @@ export function sanitizeRecognitionWallTopology(
     input.millimetersPerPixel,
     duplicateIds,
   );
-  const diagnostics: RecognitionDiagnostic[] = [...trimmed.diagnostics];
+  const diagnostics: RecognitionDiagnostic[] = [
+    ...confidenceCapped.diagnostics,
+    ...trimmed.diagnostics,
+  ];
 
   const walls = trimmed.walls.map((candidate) => {
     if (candidate.conflict !== null) return candidate;
