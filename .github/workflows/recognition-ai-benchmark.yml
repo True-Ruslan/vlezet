@@ -1,0 +1,106 @@
+name: Recognition AI Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated OpenRouter vision model IDs (maximum 3)"
+        required: true
+        default: "google/gemini-2.5-flash"
+        type: string
+      fixtures:
+        description: "Comma-separated public fixture IDs (maximum 12)"
+        required: true
+        default: "real-plan-001-anonymized,real-plan-002-anonymized,real-plan-008-anonymized"
+        type: string
+      repetitions:
+        description: "Repeated verification runs per model and fixture (1-5)"
+        required: true
+        default: "3"
+        type: string
+      mode:
+        description: "Verification scope"
+        required: true
+        default: "disputed-zones"
+        type: choice
+        options:
+          - disputed-zones
+          - verification
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recognition-ai-benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    name: bounded-openrouter-verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install benchmark harness
+        run: npm --prefix tools/recognition-benchmark install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npm --prefix tools/recognition-benchmark exec playwright install --with-deps chromium
+
+      - name: Generate public real-plan analogue fixtures
+        run: pnpm benchmark:recognition:real:generate
+
+      - name: Verify public real-plan analogue fixtures
+        run: pnpm benchmark:recognition:real:verify
+
+      - name: Run real source OpenCV benchmark
+        env:
+          RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.sha }}
+        run: npm --prefix tools/recognition-benchmark exec playwright test recognition-real-source.spec.mjs --project=chromium --workers=1
+
+      - name: Run bounded OpenRouter benchmark
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          AI_BENCHMARK_MODELS: ${{ inputs.models }}
+          AI_BENCHMARK_FIXTURES: ${{ inputs.fixtures }}
+          AI_BENCHMARK_REPETITIONS: ${{ inputs.repetitions }}
+          AI_BENCHMARK_MODE: ${{ inputs.mode }}
+          AI_BENCHMARK_MAX_TOKENS: "2048"
+          AI_BENCHMARK_TIMEOUT_MS: "90000"
+          GITHUB_SHA: ${{ github.sha }}
+        run: pnpm benchmark:recognition:ai
+
+      - name: Assert AI artifact contains no secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="tools/recognition-benchmark/artifacts/ai/recognition-ai-benchmark.json"
+          test -s "$artifact"
+          if grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-' "$artifact"; then
+            echo "AI benchmark artifact contains secret-like material" >&2
+            exit 1
+          fi
+
+      - name: Upload AI benchmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: recognition-ai-benchmark-evidence
+          path: tools/recognition-benchmark/artifacts/ai
+          if-no-files-found: error
+          retention-days: 14
