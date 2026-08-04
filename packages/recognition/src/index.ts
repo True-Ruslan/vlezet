@@ -33,7 +33,7 @@ export type {
 export {
   analyzeOpeningHypotheses,
   validateOpeningHypotheses,
-} from "./opening-analysis-runtime";
+} from "./opening-analysis-runtime-with-window-proposals";
 export * from "./opening-host-rebinding";
 export * from "./openings";
 export * from "./provider";
@@ -76,4 +76,6 @@ export {
   consolidateWindowHostWalls,
   windowHostProposalEvidenceForWall,
 } from "./window-host-consolidation-runtime";
+export type { CreateWindowHostOpeningHypothesesInput } from "./window-host-opening-hypotheses";
+export { createWindowHostOpeningHypotheses } from "./window-host-opening-hypotheses";
 export * from "./window-mask-analysis";
