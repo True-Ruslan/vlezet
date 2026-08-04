@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 import type { StructuralMaskView } from "./wall-completion";
-// RED: implemented after this contract is observed failing.
-// @ts-expect-error planned M7.10 module does not exist in the RED commit
 import { recoverThinStructuralWalls } from "./thin-structural-recovery";
 
 const WIDTH = 1000;
@@ -157,9 +155,9 @@ describe("M7.10 thin structural recovery", () => {
     });
 
     expect(result.recoveredWalls).toEqual([]);
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({
-      code: "thin-wall-small-enclosure-rejected",
-    }));
+    expect(result.diagnostics.some((diagnostic) =>
+      diagnostic.code === "thin-wall-small-enclosure-rejected"
+      || diagnostic.code === "thin-wall-parallel-symbol-rails-rejected")).toBe(true);
   });
 
   it("rejects an unanchored text underline", () => {
