@@ -5,6 +5,7 @@ import {
   applyStructuralClutterVeto,
   buildLocalWallTopology,
   completeWallCenterlines,
+  consolidateDoorHostWalls,
   consolidateThickWallSiblings,
   consolidateWindowHostWalls,
   createAdaptiveLocalRecognitionOptions,
@@ -51,6 +52,8 @@ export type LocalRecognitionEngineDebug = Readonly<{
   thinAcceptedComponentCount: number;
   thinDominantFrameDeg: number | null;
   thinRecoveryDiagnosticCodes: readonly string[];
+  doorAcceptedBridgeCount: number;
+  doorHostDiagnosticCodes: readonly string[];
   thickWallMergedGroupCount: number;
   thickWallConsolidationDiagnosticCodes: readonly string[];
   structuralClutterBlockedCount: number;
@@ -509,12 +512,18 @@ export async function runLocalRecognitionEngine(
       wallCandidates: activeAnalysisWalls,
       symbolSegments,
     });
+    const doorHostConsolidation = consolidateDoorHostWalls({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      wallCandidates: windowHostConsolidation.walls,
+      symbolSegments,
+    });
 
     const topologySanity = sanitizeRecognitionWallTopology({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       millimetersPerPixel: analysisMillimetersPerPixel,
-      wallCandidates: windowHostConsolidation.walls,
+      wallCandidates: doorHostConsolidation.walls,
     });
     const openingHostWalls = topologySanity.walls.filter((candidate) => candidate.conflict === null);
     analysisWalls = [...topologySanity.walls, ...blockedAnalysisWalls]
@@ -552,6 +561,8 @@ export async function runLocalRecognitionEngine(
       thinAcceptedComponentCount: thinStructuralRecovery.acceptedComponentCount,
       thinDominantFrameDeg: thinStructuralRecovery.dominantFrameDeg,
       thinRecoveryDiagnosticCodes: thinStructuralRecovery.diagnostics.map((diagnostic) => diagnostic.code),
+      doorAcceptedBridgeCount: doorHostConsolidation.acceptedBridgeCount,
+      doorHostDiagnosticCodes: doorHostConsolidation.diagnostics,
       thickWallMergedGroupCount: thickWallConsolidation.mergedGroupCount,
       thickWallConsolidationDiagnosticCodes: thickWallConsolidation.diagnostics.map((diagnostic) => diagnostic.code),
       structuralClutterBlockedCount: structuralClutterVeto.blockedCount,
@@ -659,6 +670,25 @@ export async function runLocalRecognitionEngine(
         code: "window-host-consolidation-budget",
         severity: "warning" as const,
         message: "Объединение оконных host-стен пропущено или ограничено безопасным лимитом; исходная локальная геометрия сохранена.",
+        candidateId: null,
+      });
+    }
+    if (doorHostConsolidation.acceptedBridgeCount > 0) {
+      diagnostics.push({
+        code: "door-symbol-host-consolidation",
+        severity: "info" as const,
+        message: `По подтверждённым дверным створкам безопасно объединено host-стен: ${doorHostConsolidation.acceptedBridgeCount}.`,
+        candidateId: null,
+      });
+    }
+    if (doorHostConsolidation.diagnostics.some((code) =>
+      code === "door-host-budget-exceeded"
+      || code === "door-symbol-budget-exceeded"
+      || code === "door-host-bridge-budget-reached")) {
+      diagnostics.push({
+        code: "door-host-consolidation-budget",
+        severity: "warning" as const,
+        message: "Объединение дверных host-стен пропущено или ограничено безопасным лимитом; исходная локальная геометрия сохранена.",
         candidateId: null,
       });
     }
