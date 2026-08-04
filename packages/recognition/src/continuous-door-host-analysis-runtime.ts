@@ -5,9 +5,11 @@ import type {
 import {
   detectContinuousHostDoorOpenings as detectContinuousHostDoorOpeningsBase,
 } from "./continuous-door-host-analysis";
+import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 
 const EVIDENCE_SPAN_TOLERANCE_PX = 2;
+const BORDER_SYMBOL_MARGIN_PX = 2;
 const EPSILON = 1e-7;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -56,6 +58,17 @@ function extendForEvidence(
   };
 }
 
+function touchesRasterBorder(
+  segment: DetectedLineSegment,
+  widthPx: number,
+  heightPx: number,
+): boolean {
+  return [segment.x1, segment.x2].some((x) =>
+    x <= BORDER_SYMBOL_MARGIN_PX || x >= widthPx - BORDER_SYMBOL_MARGIN_PX)
+    || [segment.y1, segment.y2].some((y) =>
+      y <= BORDER_SYMBOL_MARGIN_PX || y >= heightPx - BORDER_SYMBOL_MARGIN_PX);
+}
+
 export function detectContinuousHostDoorOpenings(
   input: ContinuousDoorHostAnalysisInput,
 ): ContinuousDoorHostAnalysisResult {
@@ -63,5 +76,7 @@ export function detectContinuousHostDoorOpenings(
     ...input,
     wallCandidates: input.wallCandidates.map((candidate) =>
       extendForEvidence(candidate, input.widthPx, input.heightPx)),
+    symbolSegments: input.symbolSegments.filter((segment) =>
+      !touchesRasterBorder(segment, input.widthPx, input.heightPx)),
   });
 }
