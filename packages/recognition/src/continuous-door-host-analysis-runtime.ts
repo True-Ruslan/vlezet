@@ -10,6 +10,10 @@ import type { RecognitionWallCandidate } from "./model";
 
 const EVIDENCE_SPAN_TOLERANCE_PX = 2;
 const BORDER_SYMBOL_MARGIN_PX = 2;
+const MAX_LEAF_STRUCTURAL_SUPPORT_RATIO = 0.4;
+const LEAF_SUPPORT_SAMPLES = 32;
+const LEAF_SUPPORT_START_RATIO = 0.2;
+const LEAF_SUPPORT_END_RATIO = 0.95;
 const EPSILON = 1e-7;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -69,6 +73,30 @@ function touchesRasterBorder(
       y <= BORDER_SYMBOL_MARGIN_PX || y >= heightPx - BORDER_SYMBOL_MARGIN_PX);
 }
 
+function structuralSupportRatio(
+  segment: DetectedLineSegment,
+  input: ContinuousDoorHostAnalysisInput,
+): number {
+  let structural = 0;
+  for (let index = 0; index < LEAF_SUPPORT_SAMPLES; index += 1) {
+    const ratio = LEAF_SUPPORT_START_RATIO
+      + (LEAF_SUPPORT_END_RATIO - LEAF_SUPPORT_START_RATIO)
+        * (index + 0.5) / LEAF_SUPPORT_SAMPLES;
+    const x = segment.x1 + (segment.x2 - segment.x1) * ratio;
+    const y = segment.y1 + (segment.y2 - segment.y1) * ratio;
+    if (input.mask.isStructural(Math.round(x), Math.round(y))) structural += 1;
+  }
+  return structural / LEAF_SUPPORT_SAMPLES;
+}
+
+function isDoorLeafCandidate(
+  segment: DetectedLineSegment,
+  input: ContinuousDoorHostAnalysisInput,
+): boolean {
+  return !touchesRasterBorder(segment, input.widthPx, input.heightPx)
+    && structuralSupportRatio(segment, input) <= MAX_LEAF_STRUCTURAL_SUPPORT_RATIO;
+}
+
 export function detectContinuousHostDoorOpenings(
   input: ContinuousDoorHostAnalysisInput,
 ): ContinuousDoorHostAnalysisResult {
@@ -77,6 +105,6 @@ export function detectContinuousHostDoorOpenings(
     wallCandidates: input.wallCandidates.map((candidate) =>
       extendForEvidence(candidate, input.widthPx, input.heightPx)),
     symbolSegments: input.symbolSegments.filter((segment) =>
-      !touchesRasterBorder(segment, input.widthPx, input.heightPx)),
+      isDoorLeafCandidate(segment, input)),
   });
 }
