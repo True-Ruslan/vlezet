@@ -12,6 +12,7 @@ import type {
   RecognitionOpeningCandidate,
   RecognitionWallCandidate,
 } from "./model";
+import { detectWindowHostBridgeOpenings } from "./window-host-bridge-opening";
 
 type Point = Readonly<{ x: number; y: number }>;
 
@@ -206,21 +207,29 @@ export function validateOpeningHypotheses(
 export function analyzeOpeningHypotheses(
   input: AnalyzeOpeningHypothesesInput,
 ): OpeningAnalysisResult {
+  const symbolSegments = input.symbolSegments ?? input.segments ?? [];
   const continuousDoorOpenings = input.structuralMask
     ? detectContinuousHostDoorOpenings({
         widthPx: input.widthPx,
         heightPx: input.heightPx,
         wallCandidates: input.wallCandidates,
-        symbolSegments: input.symbolSegments ?? input.segments ?? [],
+        symbolSegments,
         mask: input.structuralMask,
       })
     : { openingHypotheses: [], diagnostics: [] };
+  const bridgeWindowOpenings = detectWindowHostBridgeOpenings({
+    widthPx: input.widthPx,
+    heightPx: input.heightPx,
+    wallCandidates: input.wallCandidates,
+    symbolSegments,
+  });
   return deduplicateAcrossHosts(
     analyzeOpeningHypothesesBase({
       ...input,
       additionalHypotheses: [
         ...(input.additionalHypotheses ?? []),
         ...continuousDoorOpenings.openingHypotheses,
+        ...bridgeWindowOpenings,
       ],
     }),
     input.wallCandidates,
