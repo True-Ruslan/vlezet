@@ -16,7 +16,19 @@ export type {
   LocalWallCandidateAnalysis,
 } from "./local-lines";
 export * from "./model";
-export * from "./opening-analysis";
+export { DEFAULT_OPENING_ANALYSIS_OPTIONS } from "./opening-analysis";
+export type {
+  AnalyzeOpeningHypothesesInput,
+  OpeningAnalysisOptions,
+  OpeningAnalysisResult,
+  OpeningHypothesisRejection,
+  OpeningHypothesisRejectionCode,
+  ValidateOpeningHypothesesInput,
+} from "./opening-analysis";
+export {
+  analyzeOpeningHypotheses,
+  validateOpeningHypotheses,
+} from "./opening-analysis-runtime";
 export * from "./opening-host-rebinding";
 export * from "./openings";
 export * from "./provider";
