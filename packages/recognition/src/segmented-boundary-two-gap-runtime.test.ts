@@ -64,13 +64,13 @@ const twoGapRuns = [[50, 390], [480, 510], [620, 710]] as const;
 
 describe("segmented boundary exterior two-gap runtime", () => {
   it("keeps an exterior chain with two architectural gaps", () => {
-    const result = recover(880, twoGapRuns);
+    const result = recover(890, twoGapRuns);
     expect(result.recoveredWalls.length).toBeGreaterThan(0);
     expect(result.acceptedChainCount).toBeGreaterThan(0);
   });
 
   it("rejects a normal single-window continuation", () => {
-    const result = recover(880, [[50, 390], [500, 710]]);
+    const result = recover(890, [[50, 390], [500, 710]]);
     expect(result.recoveredWalls).toHaveLength(0);
     expect(result.acceptedChainCount).toBe(0);
   });
