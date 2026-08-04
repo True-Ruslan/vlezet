@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
-// RED: implemented after this contract is observed failing.
-// @ts-expect-error planned M7.10 host rebinding module does not exist in the RED commit
 import { rebindOpeningHypothesesToWalls } from "./opening-host-rebinding";
 
 const WIDTH = 1000;
