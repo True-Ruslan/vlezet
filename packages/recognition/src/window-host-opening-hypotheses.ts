@@ -107,9 +107,14 @@ function openingForEvidence(
     ? 8
     : Math.max(8, (currentHost.estimatedThicknessPx ?? 20) / 2 + 4);
   if (Math.abs(centerAcross) > axisTolerancePx) return null;
-  if (
-    centerAlong - halfWidth < MIN_END_MARGIN_PX
-    || lengthPx - centerAlong - halfWidth < MIN_END_MARGIN_PX
+
+  const startMarginPx = centerAlong - halfWidth;
+  const endMarginPx = lengthPx - centerAlong - halfWidth;
+  if (currentHost === null) {
+    if (startMarginPx < -EPSILON || endMarginPx < -EPSILON) return null;
+  } else if (
+    startMarginPx < MIN_END_MARGIN_PX
+    || endMarginPx < MIN_END_MARGIN_PX
   ) return null;
 
   const hostOrientationDeg = ((Math.atan2(vector.y, vector.x) * 180 / Math.PI) + 180) % 180;
