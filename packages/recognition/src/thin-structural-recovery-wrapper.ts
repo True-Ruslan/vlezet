@@ -9,9 +9,11 @@ type RecoveryInput = Parameters<typeof recoverBase>[0];
 type Point = Readonly<{ x: number; y: number }>;
 type MeasuredEdge = Readonly<{
   index: number;
+  sourceIndexes: readonly number[];
   angleDeg: number;
   tangent: Point;
   normal: Point;
+  rawAxis: number;
   axis: number;
   minimum: number;
   maximum: number;
@@ -28,7 +30,7 @@ type RawRun = Readonly<{
   lengthPx: number;
   thicknessPx: number;
   supportRatio: number;
-  sourceIndexes: readonly [number, number];
+  sourceIndexes: readonly number[];
 }>;
 type ProjectedWall = Readonly<{
   id: string;
@@ -49,9 +51,13 @@ const MIN_EDGE_OVERLAP_RATIO = 0.8;
 const MIN_EDGE_LENGTH_RATIO = 0.8;
 const MAX_EDGE_THICKNESS_RATIO = 1.5;
 const MIN_THICKNESS_PX = 8;
+const MIN_MEASURED_EDGE_LENGTH_PX = 10;
 const MIN_RUN_LENGTH_PX = 24;
 const MAX_RUN_LENGTH_PX = 180;
 const MIN_RUN_SUPPORT_RATIO = 0.82;
+const MAX_BOUNDARY_FRAGMENT_ANGLE_DELTA_DEG = 4;
+const MAX_BOUNDARY_FRAGMENT_RAW_AXIS_DELTA_PX = 3;
+const MAX_BOUNDARY_FRAGMENT_GAP_PX = 12;
 const MIN_ANCHOR_LENGTH_PX = 80;
 const MAX_ANCHOR_THICKNESS_RATIO = 1.8;
 const MIN_OPENING_GAP_PX = 30;
@@ -151,12 +157,12 @@ function measureEdge(
   const start = { x: segment.x1, y: segment.y1 };
   const end = { x: segment.x2, y: segment.y2 };
   const lengthPx = distance(start, end);
-  if (!Number.isFinite(lengthPx) || lengthPx < MIN_RUN_LENGTH_PX) return null;
+  if (!Number.isFinite(lengthPx) || lengthPx < MIN_MEASURED_EDGE_LENGTH_PX) return null;
   const angleDeg = angle(start, end);
   const radians = angleDeg * Math.PI / 180;
   const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
   const normal = { x: -tangent.y, y: tangent.x };
-  const baseAxis = (dot(start, normal) + dot(end, normal)) / 2;
+  const rawAxis = (dot(start, normal) + dot(end, normal)) / 2;
   const offsets: number[] = [];
   const thicknesses: number[] = [];
   const sampleCount = 5;
@@ -177,16 +183,85 @@ function measureEdge(
   const secondAlong = dot(end, tangent);
   return {
     index,
+    sourceIndexes: [index],
     angleDeg,
     tangent,
     normal,
-    axis: baseAxis + median(offsets),
+    rawAxis,
+    axis: rawAxis + median(offsets),
     minimum: Math.min(firstAlong, secondAlong),
     maximum: Math.max(firstAlong, secondAlong),
     lengthPx,
     thicknessPx: median(thicknesses),
     supportRatio,
   };
+}
+
+function boundaryFragmentsCompatible(first: MeasuredEdge, second: MeasuredEdge): boolean {
+  if (angleDelta(first.angleDeg, second.angleDeg) > MAX_BOUNDARY_FRAGMENT_ANGLE_DELTA_DEG) return false;
+  if (Math.abs(first.rawAxis - second.rawAxis) > MAX_BOUNDARY_FRAGMENT_RAW_AXIS_DELTA_PX) return false;
+  const thicknessRatio = Math.max(first.thicknessPx, second.thicknessPx)
+    / Math.max(1, Math.min(first.thicknessPx, second.thicknessPx));
+  if (thicknessRatio > MAX_EDGE_THICKNESS_RATIO) return false;
+  const gap = Math.max(
+    0,
+    Math.max(first.minimum, second.minimum) - Math.min(first.maximum, second.maximum),
+  );
+  return gap <= MAX_BOUNDARY_FRAGMENT_GAP_PX;
+}
+
+function mergeBoundaryFragments(edges: readonly MeasuredEdge[]): MeasuredEdge[] {
+  const pending = [...edges].sort((first, second) =>
+    first.angleDeg - second.angleDeg
+    || first.rawAxis - second.rawAxis
+    || first.minimum - second.minimum
+    || first.maximum - second.maximum
+    || first.index - second.index);
+  const merged: MeasuredEdge[] = [];
+
+  for (const edge of pending) {
+    const existingIndex = merged.findIndex((candidate) => boundaryFragmentsCompatible(candidate, edge));
+    if (existingIndex < 0) {
+      merged.push(edge);
+      continue;
+    }
+    const existing = merged[existingIndex]!;
+    const totalWeight = existing.lengthPx + edge.lengthPx;
+    const minimum = Math.min(existing.minimum, edge.minimum);
+    const maximum = Math.max(existing.maximum, edge.maximum);
+    merged[existingIndex] = {
+      index: Math.min(existing.index, edge.index),
+      sourceIndexes: [...new Set([...existing.sourceIndexes, ...edge.sourceIndexes])].sort((first, second) => first - second),
+      angleDeg: (
+        existing.angleDeg * existing.lengthPx
+        + edge.angleDeg * edge.lengthPx
+      ) / totalWeight,
+      tangent: existing.tangent,
+      normal: existing.normal,
+      rawAxis: (
+        existing.rawAxis * existing.lengthPx
+        + edge.rawAxis * edge.lengthPx
+      ) / totalWeight,
+      axis: (
+        existing.axis * existing.lengthPx
+        + edge.axis * edge.lengthPx
+      ) / totalWeight,
+      minimum,
+      maximum,
+      lengthPx: maximum - minimum,
+      thicknessPx: (
+        existing.thicknessPx * existing.lengthPx
+        + edge.thicknessPx * edge.lengthPx
+      ) / totalWeight,
+      supportRatio: Math.min(existing.supportRatio, edge.supportRatio),
+    };
+  }
+  return merged.sort((first, second) =>
+    first.angleDeg - second.angleDeg
+    || first.rawAxis - second.rawAxis
+    || first.minimum - second.minimum
+    || first.maximum - second.maximum
+    || first.index - second.index);
 }
 
 function pairRun(first: MeasuredEdge, second: MeasuredEdge): RawRun | null {
@@ -202,17 +277,21 @@ function pairRun(first: MeasuredEdge, second: MeasuredEdge): RawRun | null {
   if (overlap <= 0) return null;
   if (overlap / Math.min(first.lengthPx, second.lengthPx) < MIN_EDGE_OVERLAP_RATIO) return null;
   if (Math.min(first.lengthPx, second.lengthPx) / Math.max(first.lengthPx, second.lengthPx) < MIN_EDGE_LENGTH_RATIO) return null;
-  if (overlap < MIN_RUN_LENGTH_PX || overlap > MAX_RUN_LENGTH_PX) return null;
+  const minimum = Math.min(first.minimum, second.minimum);
+  const maximum = Math.max(first.maximum, second.maximum);
+  const lengthPx = maximum - minimum;
+  if (lengthPx < MIN_RUN_LENGTH_PX || lengthPx > MAX_RUN_LENGTH_PX) return null;
   return {
     tangent: first.tangent,
     normal: first.normal,
     axis: (first.axis + second.axis) / 2,
-    minimum: overlapStart,
-    maximum: overlapEnd,
-    lengthPx: overlap,
+    minimum,
+    maximum,
+    lengthPx,
     thicknessPx: median([first.thicknessPx, second.thicknessPx]),
     supportRatio: Math.min(first.supportRatio, second.supportRatio),
-    sourceIndexes: [first.index, second.index],
+    sourceIndexes: [...new Set([...first.sourceIndexes, ...second.sourceIndexes])]
+      .sort((firstIndex, secondIndex) => firstIndex - secondIndex),
   };
 }
 
@@ -351,9 +430,10 @@ function postRecoverRuns(
     || input.inkMask.widthPx !== input.widthPx
     || input.inkMask.heightPx !== input.heightPx
   ) return [];
-  const measurements = input.segments
+  const measuredFragments = input.segments
     .map((segment, index) => measureEdge(segment, index, input.inkMask))
     .filter((edge): edge is MeasuredEdge => edge !== null);
+  const measurements = mergeBoundaryFragments(measuredFragments);
   if (measurements.length * Math.max(0, measurements.length - 1) / 2 > MAX_PAIR_COMPARISONS) return [];
 
   const runs = new Map<string, RawRun>();
