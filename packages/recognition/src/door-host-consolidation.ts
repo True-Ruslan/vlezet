@@ -396,30 +396,6 @@ function intersectionAlong(
   return dot(subtract(point, proposal.origin), proposal.tangent);
 }
 
-function collinearWallCoversProposalGap(
-  proposal: BridgeProposal,
-  wall: RecognitionWallCandidate,
-  widthPx: number,
-  heightPx: number,
-): boolean {
-  const geometry = canonicalGeometry(wall, widthPx, heightPx);
-  const proposalAngle = segmentAngle(proposal.origin, add(proposal.origin, proposal.tangent));
-  if (!geometry || angleDelta(geometry.angleDeg, proposalAngle) > 8) return false;
-
-  const firstOffset = dot(subtract(geometry.start, proposal.origin), proposal.normal) - proposal.lineOffset;
-  const secondOffset = dot(subtract(geometry.end, proposal.origin), proposal.normal) - proposal.lineOffset;
-  const offsetTolerance = Math.max(4, proposal.thicknessPx * 0.35);
-  if (Math.max(Math.abs(firstOffset), Math.abs(secondOffset)) > offsetTolerance) return false;
-
-  const interval = projectInterval(geometry, proposal.origin, proposal.tangent);
-  const gapWidth = proposal.gapEnd - proposal.gapStart;
-  const overlap = Math.max(
-    0,
-    Math.min(interval.end, proposal.gapEnd) - Math.max(interval.start, proposal.gapStart),
-  );
-  return overlap + EPSILON >= gapWidth * 0.8;
-}
-
 function createWallCandidate(
   id: string,
   proposal: BridgeProposal,
@@ -661,7 +637,6 @@ function nextProposal(
       if (!evaluation.proposal) continue;
       const blocked = walls.some((wall, index) => {
         if (index === firstIndex || index === secondIndex) return false;
-        if (collinearWallCoversProposalGap(evaluation.proposal!, wall, widthPx, heightPx)) return true;
         const along = intersectionAlong(evaluation.proposal!, wall, widthPx, heightPx);
         return along !== null
           && along > evaluation.proposal!.gapStart + EPSILON
