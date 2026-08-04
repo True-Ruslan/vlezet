@@ -68,13 +68,27 @@ export type OpeningAnalysisResult = Readonly<{
 
 type Point = Readonly<{ x: number; y: number }>;
 
+type HostChainExtent = Readonly<{
+  startExtensionPx: number;
+  endExtensionPx: number;
+}>;
+
 type PositionedHypothesis = Readonly<{
   candidate: RecognitionOpeningCandidate;
   host: RecognitionWallCandidate;
   centerAlongPx: number;
   startAlongPx: number;
   endAlongPx: number;
+  validatedByHostChain: boolean;
 }>;
+
+const MAX_HOST_CHAIN_WALLS = 128;
+const MAX_HOST_CHAIN_GAP_PX = 16;
+const MAX_HOST_CHAIN_ANGLE_DELTA_DEG = 8;
+const MIN_HOST_CHAIN_AXIS_TOLERANCE_PX = 4;
+const MAX_HOST_CHAIN_AXIS_TOLERANCE_PX = 8;
+const MIN_HOST_CHAIN_THICKNESS_TOLERANCE_PX = 8;
+const EPSILON = 1e-7;
 
 function finitePositive(value: number, label: string): number {
   if (!Number.isFinite(value) || value <= 0) {
@@ -99,6 +113,113 @@ function length(vector: Point): number {
   return Math.hypot(vector.x, vector.y);
 }
 
+function angleDeltaDeg(first: Point, second: Point): number {
+  const firstLength = length(first);
+  const secondLength = length(second);
+  if (firstLength <= EPSILON || secondLength <= EPSILON) return 180;
+  const cosine = Math.max(-1, Math.min(1, Math.abs(dot(first, second) / (firstLength * secondLength))));
+  return Math.acos(cosine) * 180 / Math.PI;
+}
+
+function thicknessCompatible(
+  first: RecognitionWallCandidate,
+  second: RecognitionWallCandidate,
+): boolean {
+  const firstThickness = first.estimatedThicknessPx;
+  const secondThickness = second.estimatedThicknessPx;
+  if (
+    firstThickness === null
+    || secondThickness === null
+    || !Number.isFinite(firstThickness)
+    || !Number.isFinite(secondThickness)
+  ) return true;
+  return Math.abs(firstThickness - secondThickness)
+    <= Math.max(MIN_HOST_CHAIN_THICKNESS_TOLERANCE_PX, Math.min(firstThickness, secondThickness) * 0.5);
+}
+
+function hostChainExtent(
+  host: RecognitionWallCandidate,
+  walls: readonly RecognitionWallCandidate[],
+  widthPx: number,
+  heightPx: number,
+): HostChainExtent {
+  if (walls.length > MAX_HOST_CHAIN_WALLS) {
+    return { startExtensionPx: 0, endExtensionPx: 0 };
+  }
+
+  const hostStart = pixelPoint(host.start, widthPx, heightPx);
+  const hostEnd = pixelPoint(host.end, widthPx, heightPx);
+  const hostVector = subtract(hostEnd, hostStart);
+  const hostLengthPx = length(hostVector);
+  if (!Number.isFinite(hostLengthPx) || hostLengthPx <= EPSILON) {
+    return { startExtensionPx: 0, endExtensionPx: 0 };
+  }
+
+  const tangent = { x: hostVector.x / hostLengthPx, y: hostVector.y / hostLengthPx };
+  const normal = { x: -tangent.y, y: tangent.x };
+  const hostThickness = host.estimatedThicknessPx ?? 16;
+  const intervals: Array<Readonly<{ minimum: number; maximum: number }>> = [
+    { minimum: 0, maximum: hostLengthPx },
+  ];
+
+  for (const candidate of walls) {
+    if (candidate.id === host.id || candidate.conflict !== null) continue;
+    if (!thicknessCompatible(host, candidate)) continue;
+
+    const candidateStart = pixelPoint(candidate.start, widthPx, heightPx);
+    const candidateEnd = pixelPoint(candidate.end, widthPx, heightPx);
+    const candidateVector = subtract(candidateEnd, candidateStart);
+    if (angleDeltaDeg(hostVector, candidateVector) > MAX_HOST_CHAIN_ANGLE_DELTA_DEG) continue;
+
+    const candidateThickness = candidate.estimatedThicknessPx ?? 16;
+    const axisTolerancePx = Math.max(
+      MIN_HOST_CHAIN_AXIS_TOLERANCE_PX,
+      Math.min(
+        MAX_HOST_CHAIN_AXIS_TOLERANCE_PX,
+        Math.min(hostThickness, candidateThickness) * 0.25,
+      ),
+    );
+    const startRelative = subtract(candidateStart, hostStart);
+    const endRelative = subtract(candidateEnd, hostStart);
+    if (
+      Math.abs(dot(startRelative, normal)) > axisTolerancePx
+      || Math.abs(dot(endRelative, normal)) > axisTolerancePx
+    ) continue;
+
+    const startAlongPx = dot(startRelative, tangent);
+    const endAlongPx = dot(endRelative, tangent);
+    intervals.push({
+      minimum: Math.min(startAlongPx, endAlongPx),
+      maximum: Math.max(startAlongPx, endAlongPx),
+    });
+  }
+
+  let chainMinimum = 0;
+  let chainMaximum = hostLengthPx;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const interval of intervals) {
+      if (
+        interval.maximum < chainMinimum - MAX_HOST_CHAIN_GAP_PX
+        || interval.minimum > chainMaximum + MAX_HOST_CHAIN_GAP_PX
+      ) continue;
+      const nextMinimum = Math.min(chainMinimum, interval.minimum);
+      const nextMaximum = Math.max(chainMaximum, interval.maximum);
+      if (nextMinimum < chainMinimum - EPSILON || nextMaximum > chainMaximum + EPSILON) {
+        chainMinimum = nextMinimum;
+        chainMaximum = nextMaximum;
+        changed = true;
+      }
+    }
+  }
+
+  return {
+    startExtensionPx: Math.max(0, -chainMinimum),
+    endExtensionPx: Math.max(0, chainMaximum - hostLengthPx),
+  };
+}
+
 function rejection(
   candidate: RecognitionOpeningCandidate,
   code: OpeningHypothesisRejectionCode,
@@ -119,6 +240,7 @@ function positionedHypothesis(
   widthPx: number,
   heightPx: number,
   options: OpeningAnalysisOptions,
+  chainExtent: HostChainExtent,
 ): PositionedHypothesis | OpeningHypothesisRejection {
   const hostStart = pixelPoint(host.start, widthPx, heightPx);
   const hostEnd = pixelPoint(host.end, widthPx, heightPx);
@@ -160,21 +282,36 @@ function positionedHypothesis(
     return rejection(candidate, "opening-outside-host-span", "Проём выходит за границы выбранной стены.");
   }
 
+  const originalStartMarginPx = startAlongPx;
+  const originalEndMarginPx = hostLengthPx - endAlongPx;
+  const effectiveStartMarginPx = originalStartMarginPx + chainExtent.startExtensionPx;
+  const effectiveEndMarginPx = originalEndMarginPx + chainExtent.endExtensionPx;
   if (
-    startAlongPx < options.minimumEndMarginPx
-    || hostLengthPx - endAlongPx < options.minimumEndMarginPx
+    effectiveStartMarginPx < options.minimumEndMarginPx
+    || effectiveEndMarginPx < options.minimumEndMarginPx
   ) {
     return rejection(candidate, "opening-end-margin", "Проём расположен слишком близко к углу или окончанию стены.");
   }
 
-  return { candidate, host, centerAlongPx, startAlongPx, endAlongPx };
+  return {
+    candidate,
+    host,
+    centerAlongPx,
+    startAlongPx,
+    endAlongPx,
+    validatedByHostChain:
+      originalStartMarginPx < options.minimumEndMarginPx
+      || originalEndMarginPx < options.minimumEndMarginPx,
+  };
 }
 
-function acceptedCandidate(candidate: RecognitionOpeningCandidate): RecognitionOpeningCandidate {
+function acceptedCandidate(item: PositionedHypothesis): RecognitionOpeningCandidate {
+  const candidate = item.candidate;
   const reasons = [...new Set([
     ...candidate.evidence.reasons,
     "host-wall-validated",
     "opening-span-validated",
+    ...(item.validatedByHostChain ? ["host-wall-chain-validated"] : []),
   ])].sort();
   return {
     ...candidate,
@@ -271,7 +408,14 @@ export function validateOpeningHypotheses(
       rejections.push(rejection(candidate, "unknown-host-wall", "Проём ссылается на неизвестную стену."));
       continue;
     }
-    const result = positionedHypothesis(candidate, host, widthPx, heightPx, options);
+    const result = positionedHypothesis(
+      candidate,
+      host,
+      widthPx,
+      heightPx,
+      options,
+      hostChainExtent(host, input.wallCandidates, widthPx, heightPx),
+    );
     if ("code" in result) rejections.push(result);
     else positioned.push(result);
   }
@@ -299,7 +443,7 @@ export function validateOpeningHypotheses(
   }
 
   return {
-    candidates: accepted.map((item) => acceptedCandidate(item.candidate)),
+    candidates: accepted.map(acceptedCandidate),
     rejections: rejections.sort((first, second) =>
       first.candidateId.localeCompare(second.candidateId)
       || first.code.localeCompare(second.code)),
