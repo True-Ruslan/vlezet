@@ -117,7 +117,7 @@ describe("door host opening hypotheses", () => {
     expect(result.openingHypotheses?.[0]?.hostWallCandidateId)
       .toBe("local-door-host-rotated-first--rotated-second");
     expect(result.openingHypotheses?.[0]?.center.x).toBeCloseTo(0.365, 3);
-    expect(result.openingHypotheses?.[0]?.center.y).toBeCloseTo(0.365, 3);
+    expect(result.openingHypotheses?.[0]?.center.y).toBeCloseTo(365 / HEIGHT, 3);
     expect(result.openingHypotheses?.[0]?.orientationDeg).toBeCloseTo(45, 3);
     expect(result.openingHypotheses?.[0]?.widthPx).toBeCloseTo(Math.hypot(130, 130), 3);
   });
