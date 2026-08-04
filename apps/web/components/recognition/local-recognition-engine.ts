@@ -13,6 +13,7 @@ import {
   extractStructuralWallRegions,
   fuseRecognitionWallEvidence,
   LOCAL_RECOGNITION_ENGINE_VERSION,
+  rebindOpeningHypothesesToWalls,
   recoverThinStructuralWalls,
   rescaleRecognitionPixelEvidence,
   sanitizeRecognitionWallTopology,
@@ -54,6 +55,8 @@ export type LocalRecognitionEngineDebug = Readonly<{
   thinRecoveryDiagnosticCodes: readonly string[];
   doorAcceptedBridgeCount: number;
   doorHostDiagnosticCodes: readonly string[];
+  doorOpeningReboundCount: number;
+  doorOpeningRebindDiagnosticCodes: readonly string[];
   thickWallMergedGroupCount: number;
   thickWallConsolidationDiagnosticCodes: readonly string[];
   structuralClutterBlockedCount: number;
@@ -526,6 +529,12 @@ export async function runLocalRecognitionEngine(
       wallCandidates: doorHostConsolidation.walls,
     });
     const openingHostWalls = topologySanity.walls.filter((candidate) => candidate.conflict === null);
+    const reboundDoorOpenings = rebindOpeningHypothesesToWalls({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      wallCandidates: openingHostWalls,
+      hypotheses: doorHostConsolidation.openingHypotheses,
+    });
     analysisWalls = [...topologySanity.walls, ...blockedAnalysisWalls]
       .sort((first, second) => first.id.localeCompare(second.id));
 
@@ -537,7 +546,7 @@ export async function runLocalRecognitionEngine(
       wallSegments: segments,
       symbolSegments,
       structuralMask: structuralMaskView,
-      additionalHypotheses: doorHostConsolidation.openingHypotheses,
+      additionalHypotheses: reboundDoorOpenings.hypotheses,
     });
     const analysisOpenings = [...openingAnalysis.candidates];
     const maskSupportedWindowCount = analysisOpenings.filter((candidate) =>
@@ -564,6 +573,8 @@ export async function runLocalRecognitionEngine(
       thinRecoveryDiagnosticCodes: thinStructuralRecovery.diagnostics.map((diagnostic) => diagnostic.code),
       doorAcceptedBridgeCount: doorHostConsolidation.acceptedBridgeCount,
       doorHostDiagnosticCodes: doorHostConsolidation.diagnostics,
+      doorOpeningReboundCount: reboundDoorOpenings.reboundCount,
+      doorOpeningRebindDiagnosticCodes: reboundDoorOpenings.diagnostics,
       thickWallMergedGroupCount: thickWallConsolidation.mergedGroupCount,
       thickWallConsolidationDiagnosticCodes: thickWallConsolidation.diagnostics.map((diagnostic) => diagnostic.code),
       structuralClutterBlockedCount: structuralClutterVeto.blockedCount,
@@ -690,6 +701,22 @@ export async function runLocalRecognitionEngine(
         code: "door-host-consolidation-budget",
         severity: "warning" as const,
         message: "Объединение дверных host-стен пропущено или ограничено безопасным лимитом; исходная локальная геометрия сохранена.",
+        candidateId: null,
+      });
+    }
+    if (reboundDoorOpenings.reboundCount > 0) {
+      diagnostics.push({
+        code: "opening-host-rebound",
+        severity: "info" as const,
+        message: `После topology sanitation геометрически перепривязано дверных проёмов: ${reboundDoorOpenings.reboundCount}.`,
+        candidateId: null,
+      });
+    }
+    if (reboundDoorOpenings.diagnostics.includes("opening-host-rebind-budget-exceeded")) {
+      diagnostics.push({
+        code: "opening-host-rebind-budget",
+        severity: "warning" as const,
+        message: "Перепривязка дверных проёмов ограничена безопасным лимитом; исходные гипотезы оставлены обычному fail-closed validator.",
         candidateId: null,
       });
     }
