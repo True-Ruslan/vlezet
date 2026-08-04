@@ -1,3 +1,4 @@
+import { detectContinuousHostDoorOpenings } from "./continuous-door-host-analysis";
 import type {
   AnalyzeOpeningHypothesesInput,
   OpeningAnalysisResult,
@@ -205,8 +206,23 @@ export function validateOpeningHypotheses(
 export function analyzeOpeningHypotheses(
   input: AnalyzeOpeningHypothesesInput,
 ): OpeningAnalysisResult {
+  const continuousDoorOpenings = input.structuralMask
+    ? detectContinuousHostDoorOpenings({
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        wallCandidates: input.wallCandidates,
+        symbolSegments: input.symbolSegments ?? input.segments ?? [],
+        mask: input.structuralMask,
+      })
+    : { openingHypotheses: [], diagnostics: [] };
   return deduplicateAcrossHosts(
-    analyzeOpeningHypothesesBase(input),
+    analyzeOpeningHypothesesBase({
+      ...input,
+      additionalHypotheses: [
+        ...(input.additionalHypotheses ?? []),
+        ...continuousDoorOpenings.openingHypotheses,
+      ],
+    }),
     input.wallCandidates,
     input.widthPx,
     input.heightPx,
