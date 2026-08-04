@@ -67,6 +67,44 @@ describe("window host proposal evidence", () => {
     expect(result.walls[0]).toHaveProperty("windowHostProposalEvidence", result.proposalEvidence[0]);
   });
 
+  it("records every accepted proposal when a later bridge consumes a residual wall", () => {
+    const result = consolidateWindowHostWalls({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [
+        wall("upper", 400, 40, 400, 160),
+        wall("middle", 400, 240, 400, 440),
+        wall("lower", 400, 520, 400, 590),
+        wall("junction", 100, 340, 700, 340),
+      ],
+      symbolSegments: [
+        { x1: 396, y1: 160, x2: 396, y2: 240 },
+        { x1: 404, y1: 160, x2: 404, y2: 240 },
+        { x1: 396, y1: 440, x2: 396, y2: 520 },
+        { x1: 404, y1: 440, x2: 404, y2: 520 },
+      ],
+    });
+
+    expect(result.acceptedBridgeCount).toBe(2);
+    expect(result.proposalEvidence).toHaveLength(2);
+    expect(result.proposalEvidence.map((item) => ({
+      sources: item.sourceWallCandidateIds,
+      gapStart: item.gap.start.y,
+      gapEnd: item.gap.end.y,
+    }))).toEqual([
+      {
+        sources: ["middle", "upper"],
+        gapStart: 160,
+        gapEnd: 240,
+      },
+      {
+        sources: ["local-window-host-middle--upper-residual-after", "lower"],
+        gapStart: 440,
+        gapEnd: 520,
+      },
+    ]);
+  });
+
   it("records boundary bridges as ineligible for window creation", () => {
     const result = consolidateWindowHostWalls({
       widthPx: WIDTH,
