@@ -2,8 +2,6 @@ name: Recognition Benchmark
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - "apps/web/components/recognition/**"
       - "apps/web/app/%5F%5Frecognition-benchmark/**"
