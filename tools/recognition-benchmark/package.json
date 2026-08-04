@@ -9,7 +9,8 @@
     "verify:real-fixtures": "node verify-real-fixtures.mjs",
     "gate:real": "node real-fixture-gate.mjs",
     "benchmark:ai": "node ai-benchmark/run.mjs",
-    "score:source": "node run-source-score.mjs"
+    "score:source": "node run-source-score.mjs",
+    "score:real-source": "node run-real-source-score.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.54.2"
