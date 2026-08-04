@@ -12,12 +12,13 @@ function wall(
   y1: number,
   x2: number,
   y2: number,
+  thicknessPx = 20,
 ): RecognitionWallCandidate {
   return {
     id,
     start: { x: x1 / WIDTH, y: y1 / HEIGHT },
     end: { x: x2 / WIDTH, y: y2 / HEIGHT },
-    estimatedThicknessPx: 20,
+    estimatedThicknessPx: thicknessPx,
     confidence: "medium",
     evidence: { localScore: 0.72, cloudScore: null, reasons: ["filled-wall-region-evidence"] },
     origin: "local",
@@ -34,8 +35,8 @@ function consolidateWithJunctions(leftJunctionX: number, rightJunctionX: number)
     wallCandidates: [
       wall("left", 100, 300, 430, 300),
       wall("right", 570, 300, 900, 300),
-      wall("junction-left", leftJunctionX, 80, leftJunctionX, 520),
-      wall("junction-right", rightJunctionX, 80, rightJunctionX, 520),
+      wall("junction-left", leftJunctionX, 80, leftJunctionX, 520, 20),
+      wall("junction-right", rightJunctionX, 80, rightJunctionX, 520, 50),
     ],
     symbolSegments: [leaf],
   });
