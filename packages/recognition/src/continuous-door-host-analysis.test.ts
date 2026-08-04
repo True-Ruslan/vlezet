@@ -12,11 +12,11 @@ const WALL_END = 520;
 const GAP_START = 220;
 const GAP_END = 310;
 
-function wall(): RecognitionWallCandidate {
+function wall(endY = WALL_END): RecognitionWallCandidate {
   return {
     id: "room-divider",
     start: { x: WALL_X / WIDTH, y: WALL_START / HEIGHT },
-    end: { x: WALL_X / WIDTH, y: WALL_END / HEIGHT },
+    end: { x: WALL_X / WIDTH, y: endY / HEIGHT },
     estimatedThicknessPx: 20,
     confidence: "medium",
     evidence: {
@@ -32,14 +32,16 @@ function wall(): RecognitionWallCandidate {
 function mask(options: Readonly<{
   includeGap?: boolean;
   closeAfterGap?: boolean;
+  wallEnd?: number;
 }> = {}): StructuralMaskView {
   const includeGap = options.includeGap !== false;
   const closeAfterGap = options.closeAfterGap !== false;
+  const wallEnd = options.wallEnd ?? WALL_END;
   return {
     widthPx: WIDTH,
     heightPx: HEIGHT,
     isStructural(x, y): boolean {
-      if (Math.abs(x - WALL_X) > 10 || y < WALL_START || y > WALL_END) return false;
+      if (Math.abs(x - WALL_X) > 10 || y < WALL_START || y > wallEnd) return false;
       if (!includeGap) return true;
       if (y >= GAP_START && y <= GAP_END) return false;
       if (!closeAfterGap && y > GAP_START) return false;
@@ -58,13 +60,14 @@ const doorLeaf: DetectedLineSegment = {
 function run(input: Readonly<{
   segment?: DetectedLineSegment;
   structuralMask?: StructuralMaskView;
+  wallEnd?: number;
 }> = {}) {
   return detectContinuousHostDoorOpenings({
     widthPx: WIDTH,
     heightPx: HEIGHT,
-    wallCandidates: [wall()],
+    wallCandidates: [wall(input.wallEnd)],
     symbolSegments: [input.segment ?? doorLeaf],
-    mask: input.structuralMask ?? mask(),
+    mask: input.structuralMask ?? mask({ wallEnd: input.wallEnd }),
   });
 }
 
@@ -87,6 +90,14 @@ describe("continuous-host door analysis", () => {
       "perpendicular-door-leaf",
     ]));
     expect(result.diagnostics).toContain("continuous-host-door-detected");
+  });
+
+  it("accepts a closed structural tail shorter than the preferred probe length", () => {
+    const wallEnd = GAP_END + 17.8;
+    const result = run({ wallEnd });
+
+    expect(result.openingHypotheses).toHaveLength(1);
+    expect(result.openingHypotheses[0]!.hostWallCandidateId).toBe("room-divider");
   });
 
   it("does not create a door without a raster gap", () => {
