@@ -113,14 +113,18 @@ function wallCoverageThreshold(fixture) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0.68;
 }
 
+function wallEndpointTolerance(fixture) {
+  const value = fixture?.tolerances?.wallEndpointMm;
+  return typeof value === "number" && Number.isFinite(value) ? value : 220;
+}
+
 function offsetToleranceMm(fixture, expectedWall, prediction, calibration) {
-  const endpointTolerance = fixture?.tolerances?.wallEndpointMm;
   const expectedHalf = typeof expectedWall.thicknessMm === "number" ? expectedWall.thicknessMm / 2 : 110;
   const predictedHalf = typeof prediction.estimatedThicknessPx === "number"
     ? prediction.estimatedThicknessPx * calibration.millimetersPerPixel / 2
     : 100;
   return Math.max(
-    typeof endpointTolerance === "number" ? endpointTolerance : 220,
+    wallEndpointTolerance(fixture),
     expectedHalf + predictedHalf + 80,
   );
 }
@@ -152,6 +156,28 @@ function measurePredictionAgainstExpected({ fixture, expectedWall, prediction, c
   };
 }
 
+function measureExpectedOnPrediction({ fixture, expectedWall, prediction, calibration, predicted }) {
+  const expected = expectedSegment(expectedWall);
+  if (angleDelta(expected.orientationDeg, predicted.orientationDeg) > wallOrientationTolerance(fixture)) return null;
+  const normal = { x: -predicted.tangent.y, y: predicted.tangent.x };
+  const predictedMidpoint = midpoint(predicted.start, predicted.end);
+  const expectedMidpoint = midpoint(expected.start, expected.end);
+  const signedOffsetMm = dot(subtract(expectedMidpoint, predictedMidpoint), normal);
+  if (Math.abs(signedOffsetMm) > offsetToleranceMm(fixture, expectedWall, prediction, calibration)) return null;
+
+  const projectedStart = dot(subtract(expected.start, predicted.start), predicted.tangent);
+  const projectedEnd = dot(subtract(expected.end, predicted.start), predicted.tangent);
+  const clippedStart = Math.max(0, Math.min(projectedStart, projectedEnd));
+  const clippedEnd = Math.min(predicted.length, Math.max(projectedStart, projectedEnd));
+  const overlapMm = Math.max(0, clippedEnd - clippedStart);
+  if (overlapMm <= 0) return null;
+  return {
+    expectedWallId: expectedWall.id,
+    interval: [clippedStart, clippedEnd],
+    signedOffsetMm,
+  };
+}
+
 function unionLength(intervals) {
   if (intervals.length === 0) return 0;
   const ordered = intervals
@@ -170,6 +196,35 @@ function unionLength(intervals) {
     }
   }
   return total + currentEnd - currentStart;
+}
+
+function contiguousExpectedGroups(entries, gapToleranceMm) {
+  const ordered = [...entries].sort((first, second) =>
+    first.interval[0] - second.interval[0]
+    || first.interval[1] - second.interval[1]
+    || first.expectedWallId.localeCompare(second.expectedWallId));
+  const groups = [];
+  let current = [];
+  let currentEnd = Number.NEGATIVE_INFINITY;
+  let currentOffsetMm = 0;
+
+  for (const entry of ordered) {
+    const gapMm = entry.interval[0] - currentEnd;
+    const sameAxis = current.length === 0
+      || Math.abs(entry.signedOffsetMm - currentOffsetMm) <= gapToleranceMm;
+    if (current.length === 0 || (gapMm <= gapToleranceMm && sameAxis)) {
+      current.push(entry);
+      currentEnd = Math.max(currentEnd, entry.interval[1]);
+      currentOffsetMm = current.reduce((total, item) => total + item.signedOffsetMm, 0) / current.length;
+      continue;
+    }
+    groups.push(current);
+    current = [entry];
+    currentEnd = entry.interval[1];
+    currentOffsetMm = entry.signedOffsetMm;
+  }
+  if (current.length > 0) groups.push(current);
+  return groups;
 }
 
 export function matchRealWallCoverage({ fixture, expectedWall, predictions }) {
@@ -212,6 +267,28 @@ export function predictionMatchesRealExpectedWall({ fixture, prediction, expecte
   return Boolean(measurement && measurement.predictionCoverageRatio >= 0.6);
 }
 
+export function predictionMatchesRealExpectedWallNetwork({ fixture, prediction }) {
+  if (prediction?.conflict != null) return false;
+  if ((fixture.expectedWalls ?? []).some((expectedWall) =>
+    predictionMatchesRealExpectedWall({ fixture, prediction, expectedWall }))) return true;
+
+  const calibration = realFixtureCalibration(fixture);
+  const predicted = predictedSegment(prediction, calibration);
+  const entries = (fixture.expectedWalls ?? [])
+    .map((expectedWall) => measureExpectedOnPrediction({
+      fixture,
+      expectedWall,
+      prediction,
+      calibration,
+      predicted,
+    }))
+    .filter((entry) => entry !== null);
+  const gapToleranceMm = wallEndpointTolerance(fixture);
+  return contiguousExpectedGroups(entries, gapToleranceMm).some((group) =>
+    group.length >= 2
+    && unionLength(group.map((entry) => entry.interval)) / predicted.length >= 0.6);
+}
+
 function countMetric(truePositive, falsePositive, falseNegative) {
   const precision = truePositive + falsePositive === 0
     ? (falseNegative === 0 ? 1 : 0)
@@ -230,8 +307,7 @@ export function scoreRealWallGeometry({ fixture, predictions }) {
   const matchedExpectedWallIds = matches.filter((match) => match.matched).map((match) => match.expectedWallId).sort();
   const unmatchedExpectedWallIds = matches.filter((match) => !match.matched).map((match) => match.expectedWallId).sort();
   const matchedPredictionIds = activePredictions
-    .filter((prediction) => (fixture.expectedWalls ?? []).some((expectedWall) =>
-      predictionMatchesRealExpectedWall({ fixture, prediction, expectedWall })))
+    .filter((prediction) => predictionMatchesRealExpectedWallNetwork({ fixture, prediction }))
     .map((prediction) => prediction.id)
     .sort();
   const matchedPredictionSet = new Set(matchedPredictionIds);
