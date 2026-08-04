@@ -58,10 +58,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install benchmark harness
-        run: npm --prefix tools/recognition-benchmark install --no-audit --no-fund
+        working-directory: tools/recognition-benchmark
+        run: npm install --no-package-lock --no-audit --no-fund
 
       - name: Install Chromium
-        run: npm --prefix tools/recognition-benchmark exec playwright install --with-deps chromium
+        working-directory: tools/recognition-benchmark
+        run: npx playwright install --with-deps chromium
 
       - name: Generate public real-plan analogue fixtures
         run: pnpm benchmark:recognition:real:generate
@@ -69,10 +71,35 @@ jobs:
       - name: Verify public real-plan analogue fixtures
         run: pnpm benchmark:recognition:real:verify
 
+      - name: Assert no private source bytes are committed
+        run: node tools/recognition-benchmark/private-source-check.mjs assert-repository .
+
+      - name: Start benchmark-only Vlezet harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          RECOGNITION_BENCHMARK_HARNESS=1 NEXT_TELEMETRY_DISABLED=1 pnpm --dir apps/web exec next dev --hostname 127.0.0.1 > /tmp/vlezet-recognition-ai-benchmark.log 2>&1 &
+          echo $! > /tmp/vlezet-recognition-ai-benchmark.pid
+          for attempt in {1..90}; do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/__recognition-benchmark > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/vlezet-recognition-ai-benchmark.log
+          exit 1
+
       - name: Run real source OpenCV benchmark
+        working-directory: tools/recognition-benchmark
+        env:
+          RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
+          RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.sha }}
+        run: npx playwright test recognition-real-source.spec.mjs --config=playwright.config.mjs --workers=1
+
+      - name: Score real source benchmark
         env:
           RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.sha }}
-        run: npm --prefix tools/recognition-benchmark exec playwright test recognition-real-source.spec.mjs --project=chromium --workers=1
+        run: pnpm benchmark:recognition:real-source-score
 
       - name: Run bounded OpenRouter benchmark
         env:
@@ -98,9 +125,21 @@ jobs:
           fi
 
       - name: Upload AI benchmark evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: recognition-ai-benchmark-evidence
-          path: tools/recognition-benchmark/artifacts/ai
-          if-no-files-found: error
+          path: |
+            tools/recognition-benchmark/artifacts/ai
+            tools/recognition-benchmark/artifacts/real-source
+            /tmp/vlezet-recognition-ai-benchmark.log
+          if-no-files-found: warn
           retention-days: 14
+
+      - name: Stop benchmark harness
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/vlezet-recognition-ai-benchmark.pid ]; then
+            kill "$(cat /tmp/vlezet-recognition-ai-benchmark.pid)" || true
+          fi
