@@ -1,5 +1,5 @@
 import type { DetectedLineSegment } from "./local-lines";
-import type { RecognitionWallCandidate } from "./model";
+import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
 
 export type DoorHostConsolidationInput = Readonly<{
   widthPx: number;
@@ -10,6 +10,7 @@ export type DoorHostConsolidationInput = Readonly<{
 
 export type DoorHostConsolidationResult = Readonly<{
   walls: readonly RecognitionWallCandidate[];
+  openingHypotheses: readonly RecognitionOpeningCandidate[];
   acceptedBridgeCount: number;
   diagnostics: readonly string[];
 }>;
@@ -56,6 +57,10 @@ type PairEvaluation = Readonly<{
   proposal: BridgeProposal | null;
   diagnostics: readonly string[];
 }>;
+type AppliedProposal = Readonly<{
+  walls: readonly RecognitionWallCandidate[];
+  openingHypothesis: RecognitionOpeningCandidate | null;
+}>;
 
 const MAX_WALL_CANDIDATES = 64;
 const MAX_SYMBOL_SEGMENTS = 512;
@@ -67,6 +72,10 @@ const EPSILON = 1e-7;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+function clamp01(value: number): number {
+  return clamp(value, 0, 1);
 }
 
 function dot(first: Point, second: Point): number {
@@ -358,8 +367,8 @@ function createWallCandidate(
   const end = pointOnLine(proposal.origin, proposal.tangent, proposal.normal, endAlong, proposal.lineOffset);
   return {
     id,
-    start: { x: clamp(start.x / widthPx, 0, 1), y: clamp(start.y / heightPx, 0, 1) },
-    end: { x: clamp(end.x / widthPx, 0, 1), y: clamp(end.y / heightPx, 0, 1) },
+    start: { x: clamp01(start.x / widthPx), y: clamp01(start.y / heightPx) },
+    end: { x: clamp01(end.x / widthPx), y: clamp01(end.y / heightPx) },
     estimatedThicknessPx: proposal.thicknessPx,
     confidence: "medium",
     evidence: {
@@ -368,6 +377,42 @@ function createWallCandidate(
       reasons: residual
         ? [...new Set([...proposal.evidenceReasons, "door-host-residual"])].sort()
         : proposal.evidenceReasons,
+    },
+    origin: "local",
+    conflict: null,
+  };
+}
+
+function createOpeningHypothesis(
+  id: string,
+  hostWallCandidateId: string,
+  proposal: BridgeProposal,
+  widthPx: number,
+  heightPx: number,
+): RecognitionOpeningCandidate {
+  const gapCenterAlong = (proposal.gapStart + proposal.gapEnd) / 2;
+  const center = pointOnLine(
+    proposal.origin,
+    proposal.tangent,
+    proposal.normal,
+    gapCenterAlong,
+    proposal.lineOffset,
+  );
+  return {
+    id,
+    kind: "door",
+    hostWallCandidateId,
+    center: { x: clamp01(center.x / widthPx), y: clamp01(center.y / heightPx) },
+    widthPx: proposal.gapEnd - proposal.gapStart,
+    orientationDeg: segmentAngle(proposal.origin, add(proposal.origin, proposal.tangent)),
+    confidence: "medium",
+    evidence: {
+      localScore: proposal.localScore,
+      cloudScore: null,
+      reasons: [...new Set([
+        ...proposal.evidenceReasons,
+        "door-gap-from-bridge",
+      ])].sort(),
     },
     origin: "local",
     conflict: null,
@@ -398,7 +443,7 @@ function applyProposal(
   proposal: BridgeProposal,
   widthPx: number,
   heightPx: number,
-): RecognitionWallCandidate[] {
+): AppliedProposal {
   const otherWalls = walls.filter((_wall, index) => index !== proposal.firstIndex && index !== proposal.secondIndex);
   const intersections = otherWalls
     .map((wall) => intersectionAlong(proposal, wall, widthPx, heightPx))
@@ -415,9 +460,12 @@ function applyProposal(
     proposal.gapEnd,
     proposal.unionEnd,
   );
-  if (hostEnd - hostStart < MIN_DOOR_GAP_PX) return [...walls];
+  if (hostEnd - hostStart < MIN_DOOR_GAP_PX) {
+    return { walls: [...walls], openingHypothesis: null };
+  }
 
-  const baseId = `local-door-host-${proposal.firstId}--${proposal.secondId}`;
+  const sourceId = `${proposal.firstId}--${proposal.secondId}`;
+  const baseId = `local-door-host-${sourceId}`;
   const replacements: RecognitionWallCandidate[] = [];
   if (hostStart - proposal.unionStart >= MIN_FRAGMENT_LENGTH_PX) {
     replacements.push(createWallCandidate(
@@ -450,7 +498,16 @@ function applyProposal(
       true,
     ));
   }
-  return sortWalls([...otherWalls, ...replacements], widthPx, heightPx);
+  return {
+    walls: sortWalls([...otherWalls, ...replacements], widthPx, heightPx),
+    openingHypothesis: createOpeningHypothesis(
+      `local-door-opening-${sourceId}`,
+      baseId,
+      proposal,
+      widthPx,
+      heightPx,
+    ),
+  };
 }
 
 function nextProposal(
@@ -496,6 +553,7 @@ export function consolidateDoorHostWalls(
   if (input.wallCandidates.length > MAX_WALL_CANDIDATES) {
     return {
       walls: input.wallCandidates,
+      openingHypotheses: [],
       acceptedBridgeCount: 0,
       diagnostics: ["door-host-budget-exceeded"],
     };
@@ -503,6 +561,7 @@ export function consolidateDoorHostWalls(
   if (input.symbolSegments.length > MAX_SYMBOL_SEGMENTS) {
     return {
       walls: input.wallCandidates,
+      openingHypotheses: [],
       acceptedBridgeCount: 0,
       diagnostics: ["door-symbol-budget-exceeded"],
     };
@@ -510,20 +569,23 @@ export function consolidateDoorHostWalls(
 
   let walls: readonly RecognitionWallCandidate[] = input.wallCandidates;
   let acceptedBridgeCount = 0;
+  const openingHypotheses: RecognitionOpeningCandidate[] = [];
   const diagnostics = new Set<string>();
   while (acceptedBridgeCount < MAX_ACCEPTED_BRIDGES) {
     const next = nextProposal(walls, input.symbolSegments, input.widthPx, input.heightPx);
     for (const diagnostic of next.diagnostics) diagnostics.add(diagnostic);
     if (!next.proposal) break;
-    const updated = applyProposal(walls, next.proposal, input.widthPx, input.heightPx);
-    if (updated.length === walls.length && updated.every((wall, index) => wall === walls[index])) break;
-    walls = updated;
+    const applied = applyProposal(walls, next.proposal, input.widthPx, input.heightPx);
+    if (!applied.openingHypothesis) break;
+    walls = applied.walls;
+    openingHypotheses.push(applied.openingHypothesis);
     acceptedBridgeCount += 1;
   }
   if (acceptedBridgeCount === MAX_ACCEPTED_BRIDGES) diagnostics.add("door-host-bridge-budget-reached");
 
   return {
     walls,
+    openingHypotheses: openingHypotheses.sort((first, second) => first.id.localeCompare(second.id)),
     acceptedBridgeCount,
     diagnostics: [...diagnostics].sort(),
   };
