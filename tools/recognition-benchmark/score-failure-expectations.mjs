@@ -1,6 +1,6 @@
 import {
   matchRealWallCoverage,
-  predictionMatchesRealExpectedWall,
+  predictionMatchesRealExpectedWallNetwork,
   realFixtureCalibration,
 } from "./score-real-geometry.mjs";
 
@@ -116,8 +116,7 @@ function segmentInteriorRatio(start, end, polygon, sampleCount = 31) {
 }
 
 function predictionIsExpectedStructure(fixture, prediction) {
-  return (fixture.expectedWalls ?? []).some((expectedWall) =>
-    predictionMatchesRealExpectedWall({ fixture, prediction, expectedWall }));
+  return predictionMatchesRealExpectedWallNetwork({ fixture, prediction });
 }
 
 function angleDeg(start, end) {
