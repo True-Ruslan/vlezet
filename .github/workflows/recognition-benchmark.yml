@@ -89,7 +89,7 @@ jobs:
         working-directory: tools/recognition-benchmark
         env:
           RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
-        run: npx playwright test recognition-source.spec.mjs --config=playwright.config.mjs --project=chromium --workers=1
+        run: npx playwright test recognition-source.spec.mjs --config=playwright.config.mjs --workers=1
 
       - name: Score Source Recognition Benchmark
         env:
@@ -100,7 +100,7 @@ jobs:
         working-directory: tools/recognition-benchmark
         env:
           RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
-        run: npx playwright test recognition-real-source.spec.mjs --config=playwright.config.mjs --project=chromium --workers=1
+        run: npx playwright test recognition-real-source.spec.mjs --config=playwright.config.mjs --workers=1
 
       - name: Score real source benchmark
         env:
