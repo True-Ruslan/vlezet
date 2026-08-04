@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-// RED: real-corpus opening scoring is implemented after this contract fails.
-// @ts-expect-error planned M7.9 scorer does not exist in the RED commit
 import { scoreRealOpenings } from "../../../tools/recognition-benchmark/score-real-openings.mjs";
 
 const fixture = {
