@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-// RED: fragment-aware real-corpus scoring is implemented after this contract fails.
-// @ts-expect-error planned M7.9 scorer does not exist in the RED commit
 import {
   matchRealWallCoverage,
   scoreRealWallGeometry,
