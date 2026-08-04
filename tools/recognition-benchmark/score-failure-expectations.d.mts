@@ -16,13 +16,26 @@ export type RealFixtureScenarioScore = Readonly<{
   failures: readonly RealFixtureScenarioFailure[];
 }>;
 
+export type RealFixtureInput = Readonly<Record<string, unknown>>;
+export type RealRecognitionResultInput = Readonly<{
+  walls: readonly Readonly<Record<string, unknown>>[];
+  openings: readonly Readonly<Record<string, unknown>>[];
+}>;
+export type RealBenchmarkResultInput = Readonly<{
+  aggregate: Readonly<{
+    fixtureCount?: number;
+    failedFixtureCount?: number;
+    metrics: Readonly<Record<string, unknown>>;
+  }>;
+}>;
+
 export function scoreFailureExpectations(input: Readonly<{
-  fixture: any;
-  recognitionResult: Readonly<{ walls: readonly any[]; openings: readonly any[] }>;
+  fixture: RealFixtureInput;
+  recognitionResult: RealRecognitionResultInput;
 }>): RealFixtureScenarioScore;
 
 export function enforceRealFixtureGate(input: Readonly<{
-  benchmarkResult: any;
+  benchmarkResult: RealBenchmarkResultInput;
   scenarioScores: readonly RealFixtureScenarioScore[];
   thresholds?: Partial<Readonly<{
     minimumWallGeometryF1: number;
