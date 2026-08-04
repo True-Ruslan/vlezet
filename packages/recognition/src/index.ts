@@ -25,7 +25,8 @@ export * from "./review-budget";
 export * from "./review-selection";
 export * from "./session";
 export * from "./source-scale";
-export * from "./structural-clutter-veto";
+export type { StructuralClutterVetoResult } from "./structural-clutter-veto";
+export { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime";
 export * from "./structural-regions";
 export * from "./thick-wall-consolidation";
 export * from "./thin-structural-recovery";
@@ -46,9 +47,5 @@ export { completeWallCenterlines } from "./wall-completion-runtime";
 export * from "./wall-evidence-filter";
 export * from "./wall-evidence-fusion";
 export * from "./wall-topology";
-export { consolidateWindowHostWalls } from "./window-host-consolidation-runtime";
-export type {
-  WindowHostConsolidationInput,
-  WindowHostConsolidationResult,
-} from "./window-host-consolidation-runtime";
+export * from "./window-host-consolidation";
 export * from "./window-mask-analysis";
