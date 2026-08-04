@@ -5,6 +5,9 @@
   "scripts": {
     "generate:fixtures": "node generate-fixture-assets.mjs",
     "verify:fixtures": "node verify-fixture-assets.mjs",
+    "generate:real-fixtures": "node generate-real-fixture-assets.mjs",
+    "verify:real-fixtures": "node verify-real-fixtures.mjs",
+    "gate:real": "node real-fixture-gate.mjs",
     "score:source": "node run-source-score.mjs"
   },
   "devDependencies": {
