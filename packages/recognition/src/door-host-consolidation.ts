@@ -4,7 +4,6 @@ import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./mo
 export type DoorHostConsolidationInput = Readonly<{
   widthPx: number;
   heightPx: number;
-  millimetersPerPixel?: number | null;
   wallCandidates: readonly RecognitionWallCandidate[];
   symbolSegments: readonly DetectedLineSegment[];
 }>;
@@ -93,8 +92,6 @@ const MAX_ACCEPTED_BRIDGES = 16;
 const MIN_FRAGMENT_LENGTH_PX = 20;
 const MIN_DOOR_GAP_PX = 30;
 const MAX_DOOR_GAP_PX = 240;
-const MIN_DOOR_WIDTH_MM = 600;
-const MAX_DOOR_WIDTH_MM = 1200;
 const EPSILON = 1e-7;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -289,7 +286,6 @@ function proposalForPair(
   firstIndex: number,
   secondIndex: number,
   symbolSegments: readonly DetectedLineSegment[],
-  millimetersPerPixel: number | null,
 ): PairEvaluation {
   if (angleDelta(first.angleDeg, second.angleDeg) > 8) return { proposal: null, diagnostics: [] };
   const tangent = first.tangent;
@@ -314,12 +310,6 @@ function proposalForPair(
   const gapWidth = gapEnd - gapStart;
   if (gapWidth < MIN_DOOR_GAP_PX || gapWidth > MAX_DOOR_GAP_PX) {
     return { proposal: null, diagnostics: [] };
-  }
-  if (millimetersPerPixel !== null) {
-    const gapWidthMm = gapWidth * millimetersPerPixel;
-    if (gapWidthMm < MIN_DOOR_WIDTH_MM || gapWidthMm > MAX_DOOR_WIDTH_MM) {
-      return { proposal: null, diagnostics: ["door-gap-physical-width-rejected"] };
-    }
   }
 
   const sourceIds = [first.candidate.id, second.candidate.id].sort();
@@ -588,7 +578,6 @@ function nextProposal(
   symbolSegments: readonly DetectedLineSegment[],
   widthPx: number,
   heightPx: number,
-  millimetersPerPixel: number | null,
 ): Readonly<{ proposal: BridgeProposal | null; diagnostics: readonly string[] }> {
   const geometries = walls.map((wall) => canonicalGeometry(wall, widthPx, heightPx));
   const proposals: BridgeProposal[] = [];
@@ -599,14 +588,7 @@ function nextProposal(
     for (let secondIndex = firstIndex + 1; secondIndex < geometries.length; secondIndex += 1) {
       const second = geometries[secondIndex];
       if (!second) continue;
-      const evaluation = proposalForPair(
-        first,
-        second,
-        firstIndex,
-        secondIndex,
-        symbolSegments,
-        millimetersPerPixel,
-      );
+      const evaluation = proposalForPair(first, second, firstIndex, secondIndex, symbolSegments);
       for (const diagnostic of evaluation.diagnostics) diagnostics.add(diagnostic);
       if (!evaluation.proposal) continue;
       const blocked = walls.some((wall, index) => {
@@ -630,10 +612,6 @@ export function consolidateDoorHostWalls(
 ): DoorHostConsolidationResult {
   if (!Number.isFinite(input.widthPx) || input.widthPx <= 0 || !Number.isFinite(input.heightPx) || input.heightPx <= 0) {
     throw new Error("Размер изображения должен быть положительным и конечным.");
-  }
-  const millimetersPerPixel = input.millimetersPerPixel ?? null;
-  if (millimetersPerPixel !== null && (!Number.isFinite(millimetersPerPixel) || millimetersPerPixel <= 0)) {
-    throw new Error("Масштаб изображения должен быть положительным и конечным.");
   }
   if (input.wallCandidates.length > MAX_WALL_CANDIDATES) {
     return {
@@ -660,13 +638,7 @@ export function consolidateDoorHostWalls(
   const proposalEvidence: DoorHostProposalEvidence[] = [];
   const diagnostics = new Set<string>();
   while (acceptedBridgeCount < MAX_ACCEPTED_BRIDGES) {
-    const next = nextProposal(
-      walls,
-      input.symbolSegments,
-      input.widthPx,
-      input.heightPx,
-      millimetersPerPixel,
-    );
+    const next = nextProposal(walls, input.symbolSegments, input.widthPx, input.heightPx);
     for (const diagnostic of next.diagnostics) diagnostics.add(diagnostic);
     if (!next.proposal) break;
     const applied = applyProposal(walls, next.proposal, input.widthPx, input.heightPx);
