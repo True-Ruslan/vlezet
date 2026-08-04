@@ -530,6 +530,7 @@ export async function runLocalRecognitionEngine(
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
       millimetersPerPixel: analysisMillimetersPerPixel,
+      structuralMask: structuralMaskView,
       wallCandidates: doorHostConsolidation.walls,
     });
     const openingHostWalls = topologySanity.walls.filter((candidate) => candidate.conflict === null);
