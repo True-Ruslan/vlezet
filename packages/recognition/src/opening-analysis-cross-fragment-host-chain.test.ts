@@ -30,7 +30,7 @@ function opening(hostWallCandidateId: string): RecognitionOpeningCandidate {
     id: "cross-fragment-window",
     kind: "window",
     hostWallCandidateId,
-    center: { x: 0.4, y: 376 / HEIGHT },
+    center: { x: 0.4, y: 364 / HEIGHT },
     widthPx: 148,
     orientationDeg: 90,
     confidence: "medium",
