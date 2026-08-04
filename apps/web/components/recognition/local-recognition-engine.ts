@@ -24,6 +24,7 @@ import type {
   DetectedLineSegment,
   LocalRecognitionOptions,
   LocalWallTopology,
+  OpeningHypothesisRejection,
   RecognitionDraft,
   RecognitionWallCandidate,
 } from "@vlezet/recognition";
@@ -62,6 +63,7 @@ export type LocalRecognitionEngineDebug = Readonly<{
   structuralClutterBlockedCount: number;
   structuralClutterDiagnosticCodes: readonly string[];
   maskSupportedWindowCount: number;
+  openingRejections: readonly OpeningHypothesisRejection[];
   strict: LocalRecognitionWallStageDebug;
   adaptive: LocalRecognitionWallStageDebug | null;
   selectedMode: "regions" | "regions+supplemental" | "strict" | "adaptive";
@@ -580,6 +582,7 @@ export async function runLocalRecognitionEngine(
       structuralClutterBlockedCount: structuralClutterVeto.blockedCount,
       structuralClutterDiagnosticCodes: structuralClutterVeto.diagnostics.map((diagnostic) => diagnostic.code),
       maskSupportedWindowCount,
+      openingRejections: openingAnalysis.rejections,
       strict: wallStageDebug(strictAnalysis, strictTopology),
       adaptive: adaptiveAnalysis ? wallStageDebug(adaptiveAnalysis) : null,
       completionAcceptedCount: analysis.completionAcceptedCount,
