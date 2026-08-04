@@ -28,14 +28,7 @@ export * from "./source-scale";
 export * from "./structural-clutter-veto";
 export * from "./structural-regions";
 export * from "./thick-wall-consolidation";
-export {
-  DEFAULT_THIN_STRUCTURAL_RECOVERY_OPTIONS,
-} from "./thin-structural-recovery";
-export type {
-  ThinStructuralRecoveryOptions,
-  ThinStructuralRecoveryResult,
-} from "./thin-structural-recovery";
-export { recoverThinStructuralWalls } from "./thin-structural-recovery-wrapper";
+export * from "./thin-structural-recovery";
 export * from "./topology-sanity";
 export {
   DEFAULT_WALL_COMPLETION_OPTIONS,
