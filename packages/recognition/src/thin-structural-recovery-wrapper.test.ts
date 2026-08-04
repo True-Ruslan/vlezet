@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 import {
   recoverThinStructuralWalls as recoverBase,
@@ -35,7 +36,7 @@ function mask(): StructuralMaskView {
   };
 }
 
-const segments = [
+const segments: readonly DetectedLineSegment[] = [
   { x1: 100, y1: 184, x2: 247, y2: 184 },
   { x1: 100, y1: 216, x2: 247, y2: 216 },
   { x1: 247, y1: 200, x2: 382, y2: 200 },
@@ -44,9 +45,9 @@ const segments = [
   { x1: 382, y1: 216, x2: 450, y2: 216 },
   { x1: 540, y1: 184, x2: 900, y2: 184 },
   { x1: 540, y1: 216, x2: 900, y2: 216 },
-] as const;
+];
 
-function input(sourceSegments = segments) {
+function input(sourceSegments: readonly DetectedLineSegment[] = segments) {
   return {
     widthPx: WIDTH,
     heightPx: HEIGHT,
