@@ -39,7 +39,8 @@ const segments = [
   { x1: 100, y1: 184, x2: 247, y2: 184 },
   { x1: 100, y1: 216, x2: 247, y2: 216 },
   { x1: 247, y1: 200, x2: 382, y2: 200 },
-  { x1: 382, y1: 184, x2: 450, y2: 184 },
+  { x1: 383, y1: 184, x2: 398, y2: 184 },
+  { x1: 399, y1: 184, x2: 447, y2: 184 },
   { x1: 382, y1: 216, x2: 450, y2: 216 },
   { x1: 540, y1: 184, x2: 900, y2: 184 },
   { x1: 540, y1: 216, x2: 900, y2: 216 },
@@ -56,7 +57,7 @@ function input(sourceSegments = segments) {
 }
 
 describe("additive bounded short-run post recovery", () => {
-  it("recovers a thick separator independently of a thin rail chain", () => {
+  it("recovers a thick separator when one boundary edge is fragmented", () => {
     const result = recoverThinStructuralWalls(input());
 
     expect(result.recoveredWalls).toHaveLength(1);
@@ -74,7 +75,10 @@ describe("additive bounded short-run post recovery", () => {
 
   it("returns the base result unchanged when no bounded thick run exists", () => {
     const withoutSeparator = segments.filter((segment) =>
-      !(segment.x1 === 382 && segment.x2 === 450));
+      !(
+        (segment.x1 >= 382 && segment.x2 <= 450)
+        && (segment.y1 === 184 || segment.y1 === 216)
+      ));
 
     expect(recoverThinStructuralWalls(input(withoutSeparator)))
       .toEqual(recoverBase(input(withoutSeparator)));
