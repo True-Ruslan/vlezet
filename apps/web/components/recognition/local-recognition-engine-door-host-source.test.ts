@@ -16,6 +16,13 @@ describe("M7.10 door host consolidation integration", () => {
     expect(topology).toBeGreaterThan(doorBridge);
   });
 
+  it("passes bridge-derived door hypotheses through the common opening validator", () => {
+    expect(source).toContain("additionalHypotheses: doorHostConsolidation.openingHypotheses");
+    const topology = source.indexOf("const topologySanity = sanitizeRecognitionWallTopology({");
+    const openingAnalysis = source.indexOf("const openingAnalysis = analyzeOpeningHypotheses({");
+    expect(openingAnalysis).toBeGreaterThan(topology);
+  });
+
   it("records bounded bridge evidence without auto-applying geometry", () => {
     expect(source).toContain("doorAcceptedBridgeCount");
     expect(source).toContain("doorHostDiagnosticCodes");
