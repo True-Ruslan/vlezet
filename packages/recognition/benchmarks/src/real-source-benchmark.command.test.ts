@@ -3,7 +3,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { LOCAL_RECOGNITION_ENGINE_VERSION, validateRecognitionDraft } from "../../src/index";
+import type { BenchmarkMetricValue, RecognitionFixtureResultV1 } from "../schema/result-v1";
 import { validateRecognitionBenchmarkResultV1 } from "../schema/result-v1";
+import { scoreRealWallGeometry } from "../../../../tools/recognition-benchmark/score-real-geometry.mjs";
+import { scoreRealOpenings } from "../../../../tools/recognition-benchmark/score-real-openings.mjs";
 import { aggregateRecognitionResults } from "./aggregate-report";
 import { canonicalBenchmarkJson } from "./canonical-json";
 import { scoreRecognitionFixture } from "./score-fixture";
@@ -12,6 +15,75 @@ import { renderRecognitionBenchmarkMarkdown } from "./write-report";
 
 const commandEnabled = process.env.RECOGNITION_REAL_SOURCE_BENCHMARK_COMMAND === "1";
 const corpusRoot = fileURLToPath(new URL("../real-analogues", import.meta.url));
+
+function measured(value: number): BenchmarkMetricValue {
+  return { status: "measured", value: Number(value.toFixed(12)) };
+}
+
+function realFixtureScore(
+  fixture: Parameters<typeof scoreRecognitionFixture>[0]["fixture"],
+  draft: ReturnType<typeof validateRecognitionDraft>,
+): RecognitionFixtureResultV1 {
+  const base = scoreRecognitionFixture({
+    fixture,
+    wallPredictions: draft.walls,
+    openingPredictions: draft.openings,
+    roomPredictions: [],
+    reconciliationSnapshot: draft,
+    failure: null,
+  });
+  const walls = scoreRealWallGeometry({ fixture, predictions: draft.walls });
+  const openings = scoreRealOpenings({
+    fixture,
+    wallPredictions: draft.walls,
+    openingPredictions: draft.openings,
+  });
+  const matchedKeys = new Set([
+    ...walls.matchedPredictionIds.map((id) => `wall:${id}`),
+    ...openings.matchedPredictionIds.map((id) => `opening:${id}`),
+  ]);
+  const activePredictions = [
+    ...draft.walls.filter((candidate) => candidate.conflict === null).map((candidate) => ({
+      key: `wall:${candidate.id}`,
+      confidence: candidate.confidence,
+    })),
+    ...draft.openings.filter((candidate) => candidate.conflict === null).map((candidate) => ({
+      key: `opening:${candidate.id}`,
+      confidence: candidate.confidence,
+    })),
+  ];
+  const highConfidencePredictionCount = activePredictions.filter((candidate) => candidate.confidence === "high").length;
+  const highConfidenceFalsePositiveCount = activePredictions.filter((candidate) =>
+    candidate.confidence === "high" && !matchedKeys.has(candidate.key)).length;
+  const incorrectHighConfidenceRate = highConfidencePredictionCount === 0
+    ? 0
+    : highConfidenceFalsePositiveCount / highConfidencePredictionCount;
+  const diagnostics = [
+    ...base.diagnostics,
+    ...openings.unknownHostOpenings.map((opening) =>
+      `unknown-host-opening:${opening.openingId}:${opening.hostWallCandidateId ?? "null"}`),
+  ];
+
+  return {
+    ...base,
+    diagnostics,
+    metrics: {
+      ...base.metrics,
+      wallGeometryF1: measured(walls.metrics.f1),
+      openingF1: measured(openings.metrics.f1),
+      incorrectHighConfidenceRate: measured(incorrectHighConfidenceRate),
+      unknownHostOpenings: measured(openings.unknownHostOpeningCount),
+    },
+    evidence: {
+      ...base.evidence,
+      wallGeometry: walls.metrics,
+      openings: openings.metrics,
+      highConfidencePredictionCount,
+      highConfidenceFalsePositiveCount,
+      unknownHostOpenings: openings.unknownHostOpeningCount,
+    },
+  };
+}
 
 describe.skipIf(!commandEnabled)("Real Source Recognition Benchmark command", () => {
   it("scores all twelve public real-plan analogue predictions", async () => {
@@ -29,7 +101,7 @@ describe.skipIf(!commandEnabled)("Real Source Recognition Benchmark command", ()
     const fixtureIds = manifest.fixtures.map((entry) => entry.fixtureId).sort();
     expect(fixtureIds).toHaveLength(12);
     await mkdir(outputDirectory, { recursive: true });
-    const fixtures = [];
+    const fixtures: RecognitionFixtureResultV1[] = [];
 
     for (const fixtureId of fixtureIds) {
       const fixtureDirectory = join(corpusRoot, "fixtures", fixtureId);
@@ -38,14 +110,7 @@ describe.skipIf(!commandEnabled)("Real Source Recognition Benchmark command", ()
         const draft = validateRecognitionDraft(JSON.parse(
           await readFile(join(predictionsDirectory, `${fixtureId}.json`), "utf8"),
         ) as unknown);
-        fixtures.push(scoreRecognitionFixture({
-          fixture,
-          wallPredictions: draft.walls,
-          openingPredictions: draft.openings,
-          roomPredictions: [],
-          reconciliationSnapshot: draft,
-          failure: null,
-        }));
+        fixtures.push(realFixtureScore(fixture, draft));
         const sourceBase64 = (await readFile(join(fixtureDirectory, "source.png"))).toString("base64");
         await writeFile(
           join(outputDirectory, `${fixtureId}.svg`),
