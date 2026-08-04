@@ -72,6 +72,24 @@ describe("window host opening hypotheses", () => {
     ]));
   });
 
+  it("creates a detached hypothesis after the generated host was consumed", () => {
+    const result = symbolBridge();
+    const hypotheses = createWindowHostOpeningHypotheses({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [],
+      proposalEvidence: result.proposalEvidence,
+    });
+
+    expect(hypotheses).toHaveLength(1);
+    expect(hypotheses[0]).toMatchObject({
+      kind: "window",
+      hostWallCandidateId: "local-window-host-left--right",
+      center: { x: 0.5, y: 0.5 },
+      widthPx: 140,
+    });
+  });
+
   it("does not create an opening from an exterior boundary bridge", () => {
     const result = consolidateWindowHostWalls({
       widthPx: WIDTH,
@@ -87,6 +105,7 @@ describe("window host opening hypotheses", () => {
       widthPx: WIDTH,
       heightPx: HEIGHT,
       wallCandidates: result.walls,
+      proposalEvidence: result.proposalEvidence,
     })).toEqual([]);
   });
 
@@ -111,13 +130,16 @@ describe("window host opening hypotheses", () => {
       widthPx: WIDTH,
       heightPx: HEIGHT,
       wallCandidates: result.walls,
+      proposalEvidence: result.proposalEvidence,
     });
     const reverse = createWindowHostOpeningHypotheses({
       widthPx: WIDTH,
       heightPx: HEIGHT,
       wallCandidates: [...result.walls].reverse(),
+      proposalEvidence: [...result.proposalEvidence].reverse(),
     });
 
     expect(reverse).toEqual(forward);
+    expect(forward).toHaveLength(1);
   });
 });
