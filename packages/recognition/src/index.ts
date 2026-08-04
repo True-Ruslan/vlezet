@@ -26,6 +26,7 @@ export * from "./source-scale";
 export * from "./structural-clutter-veto";
 export * from "./structural-regions";
 export * from "./thick-wall-consolidation";
+export * from "./thin-structural-recovery";
 export * from "./topology-sanity";
 export {
   DEFAULT_WALL_COMPLETION_OPTIONS,
