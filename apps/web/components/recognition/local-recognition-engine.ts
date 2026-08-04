@@ -12,6 +12,7 @@ import {
   extractStructuralWallRegions,
   fuseRecognitionWallEvidence,
   LOCAL_RECOGNITION_ENGINE_VERSION,
+  recoverThinStructuralWalls,
   rescaleRecognitionPixelEvidence,
   sanitizeRecognitionWallTopology,
   sourceRasterPixelScale,
@@ -46,6 +47,10 @@ export type LocalRecognitionEngineDebug = Readonly<{
   supplementalCandidateCount: number;
   acceptedSupplementalCount: number;
   wallEvidenceFusionDiagnosticCodes: readonly string[];
+  thinRecoveredWallCount: number;
+  thinAcceptedComponentCount: number;
+  thinDominantFrameDeg: number | null;
+  thinRecoveryDiagnosticCodes: readonly string[];
   thickWallMergedGroupCount: number;
   thickWallConsolidationDiagnosticCodes: readonly string[];
   structuralClutterBlockedCount: number;
@@ -265,6 +270,14 @@ export async function runLocalRecognitionEngine(
     }
 
     cv.threshold(gray, structuralBinary, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
+    const thinInkMaskView = {
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      isStructural: (x: number, y: number) => {
+        if (x < 0 || y < 0 || x >= input.imageData.width || y >= input.imageData.height) return false;
+        return (structuralBinary?.data[Math.floor(y) * input.imageData.width + Math.floor(x)] ?? 0) > 0;
+      },
+    };
     const structuralKernelSize = oddKernelSize(Math.min(input.imageData.width, input.imageData.height));
     structuralKernel = cv.getStructuringElement(
       cv.MORPH_RECT,
@@ -462,6 +475,15 @@ export async function runLocalRecognitionEngine(
       }
     }
 
+    const thinStructuralRecovery = recoverThinStructuralWalls({
+      widthPx: input.imageData.width,
+      heightPx: input.imageData.height,
+      primaryWalls: analysisWalls,
+      segments: symbolSegments,
+      inkMask: thinInkMaskView,
+    });
+    analysisWalls = [...thinStructuralRecovery.walls];
+
     const thickWallConsolidation = consolidateThickWallSiblings({
       widthPx: input.imageData.width,
       heightPx: input.imageData.height,
@@ -526,6 +548,10 @@ export async function runLocalRecognitionEngine(
       supplementalCandidateCount: supplementalWalls.length,
       acceptedSupplementalCount: wallEvidenceFusion.acceptedSupplementalCount,
       wallEvidenceFusionDiagnosticCodes: wallEvidenceFusion.diagnostics.map((diagnostic) => diagnostic.code),
+      thinRecoveredWallCount: thinStructuralRecovery.recoveredWalls.length,
+      thinAcceptedComponentCount: thinStructuralRecovery.acceptedComponentCount,
+      thinDominantFrameDeg: thinStructuralRecovery.dominantFrameDeg,
+      thinRecoveryDiagnosticCodes: thinStructuralRecovery.diagnostics.map((diagnostic) => diagnostic.code),
       thickWallMergedGroupCount: thickWallConsolidation.mergedGroupCount,
       thickWallConsolidationDiagnosticCodes: thickWallConsolidation.diagnostics.map((diagnostic) => diagnostic.code),
       structuralClutterBlockedCount: structuralClutterVeto.blockedCount,
@@ -549,6 +575,7 @@ export async function runLocalRecognitionEngine(
 
     const diagnostics = [];
     diagnostics.push(...wallEvidenceFusion.diagnostics);
+    diagnostics.push(...thinStructuralRecovery.diagnostics);
     diagnostics.push(...thickWallConsolidation.diagnostics);
     diagnostics.push(...structuralClutterVeto.diagnostics);
     diagnostics.push(...topologySanity.diagnostics);
@@ -571,6 +598,14 @@ export async function runLocalRecognitionEngine(
         code: "topology-anchored-hough-supplement",
         severity: "info" as const,
         message: `По строгим линейным признакам восстановлено стен, независимо привязанных к основной сети: ${wallEvidenceFusion.acceptedSupplementalCount}.`,
+        candidateId: null,
+      });
+    }
+    if (thinStructuralRecovery.recoveredWalls.length > 0) {
+      diagnostics.push({
+        code: "thin-structural-component-recovery",
+        severity: "info" as const,
+        message: `По исходному ink mask восстановлено безопасных тонких стен: ${thinStructuralRecovery.recoveredWalls.length}.`,
         candidateId: null,
       });
     }
