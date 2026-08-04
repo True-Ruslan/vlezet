@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { RecognitionWallCandidate } from "./model";
-import { consolidateWindowHostWalls } from "./window-host-consolidation-runtime";
+import {
+  consolidateWindowHostWalls,
+  type WindowHostProposalEvidence,
+} from "./window-host-consolidation-runtime";
 import { createWindowHostOpeningHypotheses } from "./window-host-opening-hypotheses";
 
 const WIDTH = 1000;
@@ -43,6 +46,24 @@ function symbolBridge() {
     ],
   });
 }
+
+const edgeBoundedEvidence: WindowHostProposalEvidence = {
+  sourceWallCandidateIds: ["upper", "lower"],
+  bridgeKind: "symbol",
+  openingEligible: true,
+  gap: {
+    start: { x: 400, y: 220 },
+    end: { x: 400, y: 310 },
+    center: { x: 400, y: 265 },
+    widthPx: 90,
+    orientationDeg: 90,
+  },
+  generatedHost: {
+    candidateId: "bounded-host",
+    start: { x: 400, y: 220 },
+    end: { x: 400, y: 520 },
+  },
+};
 
 describe("window host opening hypotheses", () => {
   it("creates one exact window hypothesis from accepted symbol proposal evidence", () => {
@@ -88,6 +109,25 @@ describe("window host opening hypotheses", () => {
       center: { x: 0.5, y: 0.5 },
       widthPx: 140,
     });
+  });
+
+  it("defers end-margin validation for detached evidence until host rebinding", () => {
+    const detached = createWindowHostOpeningHypotheses({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [],
+      proposalEvidence: [edgeBoundedEvidence],
+    });
+    expect(detached).toHaveLength(1);
+    expect(detached[0]?.hostWallCandidateId).toBe("bounded-host");
+
+    const attached = createWindowHostOpeningHypotheses({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [wall("bounded-host", 400, 220, 400, 520)],
+      proposalEvidence: [],
+    });
+    expect(attached).toEqual([]);
   });
 
   it("does not create an opening from an exterior boundary bridge", () => {
