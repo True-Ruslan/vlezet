@@ -12,6 +12,8 @@ const MAX_AXIS_TOLERANCE_PX = 10;
 const MERGE_INTERVAL_TOLERANCE_PX = 4;
 const ANGLE_QUANTUM_DEG = 5;
 const AXIS_QUANTUM_PX = 8;
+const EXTERIOR_EDGE_MARGIN_RATIO = 0.14;
+const MAX_EXTERIOR_EDGE_MARGIN_PX = 180;
 const EPSILON = 1e-7;
 
 type Point = Readonly<{ x: number; y: number }>;
@@ -121,6 +123,24 @@ function groupRecoveredWalls(
     .sort((first, second) => first.key.localeCompare(second.key));
 }
 
+function nearExteriorEdge(
+  group: RecoveredGroup,
+  widthPx: number,
+  heightPx: number,
+): boolean {
+  const margin = Math.min(
+    MAX_EXTERIOR_EDGE_MARGIN_PX,
+    Math.min(widthPx, heightPx) * EXTERIOR_EDGE_MARGIN_RATIO,
+  );
+  const point = group.reference.midpoint;
+  return Math.min(
+    point.x,
+    widthPx - point.x,
+    point.y,
+    heightPx - point.y,
+  ) <= margin;
+}
+
 function axisTolerance(first: PixelWall, second: PixelWall): number {
   return Math.max(
     MIN_AXIS_TOLERANCE_PX,
@@ -191,7 +211,9 @@ export function recoverSegmentedBoundaryWalls(
     base.recoveredWalls,
     input.widthPx,
     input.heightPx,
-  ).filter((group) => architecturalGapCount(group, originalWalls) >= 2);
+  ).filter((group) =>
+    nearExteriorEdge(group, input.widthPx, input.heightPx)
+    && architecturalGapCount(group, originalWalls) >= 2);
   const acceptedIds = new Set(
     acceptedGroups.flatMap((group) => group.walls.map((wall) => wall.candidate.id)),
   );
