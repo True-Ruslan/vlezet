@@ -10,6 +10,12 @@ const runtimeSource = readFileSync(
 describe("segmented boundary production runtime", () => {
   it("runs between the existing and follow-up one-sided extension passes", () => {
     expect(indexSource).toContain(
+      'export { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime"',
+    );
+    expect(indexSource).toContain(
+      'export type { SegmentedBoundaryRecoveryResult } from "./segmented-boundary-recovery"',
+    );
+    expect(indexSource).toContain(
       'export { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime"',
     );
     expect(indexSource).toContain('export * from "./thin-structural-recovery"');
