@@ -8,6 +8,7 @@
     "generate:real-fixtures": "node generate-real-fixture-assets.mjs",
     "verify:real-fixtures": "node verify-real-fixtures.mjs",
     "gate:real": "node real-fixture-gate.mjs",
+    "benchmark:ai": "node ai-benchmark/run.mjs",
     "score:source": "node run-source-score.mjs"
   },
   "devDependencies": {
