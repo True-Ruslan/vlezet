@@ -1,17 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-// RED: M7.9 AI benchmark modules are implemented after this contract fails.
-// @ts-expect-error planned M7.9 module does not exist in the RED commit
 import {
   DEFAULT_AI_BENCHMARK_LIMITS,
   validateAiBenchmarkConfig,
 } from "../../../tools/recognition-benchmark/ai-benchmark/config.mjs";
-// @ts-expect-error planned M7.9 module does not exist in the RED commit
 import {
   createOpenRouterBenchmarkClient,
   normalizeVerificationResponse,
   redactAiBenchmarkText,
 } from "../../../tools/recognition-benchmark/ai-benchmark/openrouter-client.mjs";
-// @ts-expect-error planned M7.9 module does not exist in the RED commit
 import { scoreAiBenchmarkRuns } from "../../../tools/recognition-benchmark/ai-benchmark/score.mjs";
 
 const localSummary = {
