@@ -22,6 +22,7 @@ import {
 } from "@vlezet/recognition";
 import type {
   DetectedLineSegment,
+  DoorHostProposalEvidence,
   LocalRecognitionOptions,
   LocalWallTopology,
   OpeningHypothesisRejection,
@@ -56,6 +57,7 @@ export type LocalRecognitionEngineDebug = Readonly<{
   thinRecoveryDiagnosticCodes: readonly string[];
   doorAcceptedBridgeCount: number;
   doorHostDiagnosticCodes: readonly string[];
+  doorProposalEvidence: readonly DoorHostProposalEvidence[];
   doorOpeningReboundCount: number;
   doorOpeningRebindDiagnosticCodes: readonly string[];
   thickWallMergedGroupCount: number;
@@ -575,6 +577,7 @@ export async function runLocalRecognitionEngine(
       thinRecoveryDiagnosticCodes: thinStructuralRecovery.diagnostics.map((diagnostic) => diagnostic.code),
       doorAcceptedBridgeCount: doorHostConsolidation.acceptedBridgeCount,
       doorHostDiagnosticCodes: doorHostConsolidation.diagnostics,
+      doorProposalEvidence: doorHostConsolidation.proposalEvidence,
       doorOpeningReboundCount: reboundDoorOpenings.reboundCount,
       doorOpeningRebindDiagnosticCodes: reboundDoorOpenings.diagnostics,
       thickWallMergedGroupCount: thickWallConsolidation.mergedGroupCount,
