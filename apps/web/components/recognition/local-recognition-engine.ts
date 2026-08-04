@@ -537,6 +537,7 @@ export async function runLocalRecognitionEngine(
       wallSegments: segments,
       symbolSegments,
       structuralMask: structuralMaskView,
+      additionalHypotheses: doorHostConsolidation.openingHypotheses,
     });
     const analysisOpenings = [...openingAnalysis.candidates];
     const maskSupportedWindowCount = analysisOpenings.filter((candidate) =>
