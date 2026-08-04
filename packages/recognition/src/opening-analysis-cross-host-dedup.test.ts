@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
-import { validateOpeningHypotheses } from "./opening-analysis";
+import { validateOpeningHypotheses } from "./opening-analysis-runtime";
 
 const WIDTH = 1000;
 const HEIGHT = 600;
