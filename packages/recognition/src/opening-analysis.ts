@@ -20,6 +20,7 @@ export type OpeningHypothesisRejectionCode =
 export type OpeningHypothesisRejection = Readonly<{
   candidateId: string;
   hostWallCandidateId: string | null;
+  candidate: RecognitionOpeningCandidate;
   code: OpeningHypothesisRejectionCode;
   message: string;
 }>;
@@ -106,6 +107,7 @@ function rejection(
   return {
     candidateId: candidate.id,
     hostWallCandidateId: candidate.hostWallCandidateId,
+    candidate,
     code,
     message,
   };
