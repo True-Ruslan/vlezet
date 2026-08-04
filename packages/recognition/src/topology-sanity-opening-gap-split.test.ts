@@ -47,8 +47,8 @@ function coordinates(candidate: RecognitionWallCandidate) {
   ];
 }
 
-describe("mask-confirmed bounded opening gap splitting", () => {
-  it("splits a blind bridge at a clean structural corridor while preserving both wall sides", () => {
+describe("mask-confirmed blind opening bridge confidence", () => {
+  it("caps confidence without changing wall identity or geometry", () => {
     const result = sanitizeRecognitionWallTopology({
       widthPx: WIDTH,
       heightPx: HEIGHT,
@@ -57,22 +57,22 @@ describe("mask-confirmed bounded opening gap splitting", () => {
       wallCandidates: [bridgedWall()],
     });
 
-    expect(result.walls).toHaveLength(2);
-    expect(result.walls.map((candidate) => coordinates(candidate))).toEqual([
-      [100, 200, 430, 200],
-      [490, 200, 900, 200],
-    ]);
-    expect(result.walls.every((candidate) =>
-      candidate.conflict === null
-      && candidate.confidence === "high"
-      && candidate.evidence.reasons.includes("topology-mask-opening-gap-split"))).toBe(true);
+    expect(result.walls).toHaveLength(1);
+    expect(result.walls[0]).toMatchObject({
+      id: "blind-bridge",
+      confidence: "medium",
+      conflict: null,
+    });
+    expect(coordinates(result.walls[0]!)).toEqual([100, 200, 900, 200]);
+    expect(result.walls[0]?.evidence.reasons)
+      .toContain("topology-mask-opening-gap-confidence-capped");
     expect(result.diagnostics).toContainEqual(expect.objectContaining({
-      code: "topology-mask-opening-gap-split",
+      code: "topology-mask-opening-gap-confidence-capped",
       candidateId: "blind-bridge",
     }));
   });
 
-  it("keeps the bridge when the mask confirms structural continuity", () => {
+  it("keeps high confidence when the mask confirms structural continuity", () => {
     const result = sanitizeRecognitionWallTopology({
       widthPx: WIDTH,
       heightPx: HEIGHT,
@@ -81,12 +81,16 @@ describe("mask-confirmed bounded opening gap splitting", () => {
       wallCandidates: [bridgedWall()],
     });
 
-    expect(result.walls).toHaveLength(1);
-    expect(result.walls[0]?.id).toBe("blind-bridge");
-    expect(result.walls[0]?.evidence.reasons).not.toContain("topology-mask-opening-gap-split");
+    expect(result.walls[0]).toMatchObject({
+      id: "blind-bridge",
+      confidence: "high",
+      conflict: null,
+    });
+    expect(result.walls[0]?.evidence.reasons)
+      .not.toContain("topology-mask-opening-gap-confidence-capped");
   });
 
-  it("preserves legacy behavior when no structural mask is supplied", () => {
+  it("preserves legacy confidence when no structural mask is supplied", () => {
     const result = sanitizeRecognitionWallTopology({
       widthPx: WIDTH,
       heightPx: HEIGHT,
@@ -94,7 +98,10 @@ describe("mask-confirmed bounded opening gap splitting", () => {
       wallCandidates: [bridgedWall()],
     });
 
-    expect(result.walls).toHaveLength(1);
-    expect(result.walls[0]?.id).toBe("blind-bridge");
+    expect(result.walls[0]).toMatchObject({
+      id: "blind-bridge",
+      confidence: "high",
+      conflict: null,
+    });
   });
 });
