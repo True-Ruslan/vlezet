@@ -8,6 +8,7 @@ import {
   validateRecognitionDraft,
   type RecognitionAiProposalMetadata,
   type RecognitionSessionRecord,
+  type RecognitionSessionRepository,
   type SanitizedRecognitionProposal,
   type ValidatedRecognitionDraft,
 } from "@vlezet/recognition";
@@ -89,6 +90,34 @@ function session(value: ValidatedRecognitionDraft = draft()): RecognitionSession
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   };
+}
+
+class DelayedRecognitionSessionRepository implements RecognitionSessionRepository {
+  #current: RecognitionSessionRecord | null;
+  #putCount = 0;
+  readonly firstPutStarted = deferred<void>();
+  readonly releaseFirstPut = deferred<void>();
+
+  constructor(initial: RecognitionSessionRecord) {
+    this.#current = structuredClone(initial);
+  }
+
+  async getForProject(projectId: string): Promise<RecognitionSessionRecord | null> {
+    return this.#current?.projectId === projectId ? structuredClone(this.#current) : null;
+  }
+
+  async put(value: RecognitionSessionRecord): Promise<void> {
+    this.#putCount += 1;
+    if (this.#putCount === 1) {
+      this.firstPutStarted.resolve();
+      await this.releaseFirstPut.promise;
+    }
+    this.#current = structuredClone(value);
+  }
+
+  async deleteForProject(projectId: string): Promise<void> {
+    if (this.#current?.projectId === projectId) this.#current = null;
+  }
 }
 
 function metadata(
@@ -178,6 +207,16 @@ async function restoredController(initial: ValidatedRecognitionDraft = draft()) 
   return { controller, repository, states };
 }
 
+async function controllerWithRepository(repository: RecognitionSessionRepository) {
+  const controller = new RecognitionController({
+    repository,
+    runLocal: vi.fn(),
+    onState: vi.fn(),
+  });
+  await controller.restore("project", { assetId: "asset", referenceRevision: "revision" });
+  return controller;
+}
+
 describe("recognition controller AI proposals", () => {
   it("does not mutate a missing session or a runner that reports unavailable evidence/key", async () => {
     const repository = new MemoryRecognitionSessionRepository();
@@ -227,6 +266,46 @@ describe("recognition controller AI proposals", () => {
     expect(states.filter((kind) => kind === "running-ai-proposals")).toHaveLength(2);
     expect(persisted?.draft.aiProposalMetadata?.requestId).toBe(requestIds[1]);
     expect(persisted?.draft.aiProposals[0]?.provider.requestId).toBe(requestIds[1]);
+  });
+
+  it("keeps the newer request final when an older persistence is already in flight", async () => {
+    const repository = new DelayedRecognitionSessionRepository(session());
+    const controller = await controllerWithRepository(repository);
+    const requestIds: string[] = [];
+    const run: RecognitionAiProposalRunner = async (input) => {
+      requestIds.push(input.requestId);
+      return result(input.session.draft, input.requestId);
+    };
+
+    const firstRun = controller.startAiProposalDiscovery(run);
+    await repository.firstPutStarted.promise;
+    const secondRun = controller.startAiProposalDiscovery(run);
+    await Promise.resolve();
+    repository.releaseFirstPut.resolve();
+    await Promise.all([firstRun, secondRun]);
+
+    const persisted = await repository.getForProject("project");
+    expect(persisted?.draft.aiProposalMetadata?.requestId).toBe(requestIds[1]);
+    expect(persisted?.draft.aiProposals[0]?.provider.requestId).toBe(requestIds[1]);
+  });
+
+  it("keeps a local edit final when proposal persistence is already in flight", async () => {
+    const repository = new DelayedRecognitionSessionRepository(session());
+    const controller = await controllerWithRepository(repository);
+    const running = controller.startAiProposalDiscovery(async (input) =>
+      result(input.session.draft, input.requestId));
+    await repository.firstPutStarted.promise;
+
+    const editing = controller.editWall("wall-1", { end: { x: 0.85, y: 0.2 } });
+    await Promise.resolve();
+    repository.releaseFirstPut.resolve();
+    await Promise.all([running, editing]);
+
+    const persisted = await repository.getForProject("project");
+    expect(persisted?.draft.walls.find(({ id }) => id === "wall-1")?.end).toEqual({ x: 0.85, y: 0.2 });
+    expect(persisted?.draft.aiProposals).toEqual([]);
+    expect(persisted?.draft.proposalDecisions).toEqual({});
+    expect(persisted?.draft.aiProposalMetadata).toBeNull();
   });
 
   it("cancellation prevents a late response from replacing proposal state", async () => {
