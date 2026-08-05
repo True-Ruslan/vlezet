@@ -13,6 +13,7 @@ export { sanitizeAiProposalBatch } from "./ai-proposal-sanity-runtime";
 export * from "./ai-proposals";
 export * from "./ai-rejected-opening-evidence";
 export * from "./ai-rejected-opening-evidence-runtime";
+export * from "./ai-wall-review-sanitizer";
 export * from "./architectural-lines";
 export * from "./cloud-sanity";
 export type {
@@ -66,7 +67,11 @@ export type { SegmentedBoundaryRecoveryResult } from "./segmented-boundary-recov
 export { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime";
 export * from "./session";
 export * from "./source-scale";
-export type { StructuralClutterVetoResult } from "./structural-clutter-veto";
+export type {
+  StructuralClutterCandidateAnalysis,
+  StructuralClutterVetoResult,
+} from "./structural-clutter-veto";
+export { analyzeStructuralClutterCandidate } from "./structural-clutter-veto";
 export { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime";
 export * from "./structural-regions";
 export * from "./thick-wall-consolidation";
