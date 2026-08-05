@@ -1,8 +1,0 @@
-task=2-proposal-contracts-and-draft-migration
-head=f3d8c79c303ccf5f8fa32b723ccd1eb755084c9b
-verification-head=ef9a6aa5444ebf8923f5bcd7fcaca50d1722896d
-verification-ci=3872
-verification-result=unit-core-typecheck-lint-build-pass
-normal-ci=3874
-normal-red=door-window-washbasin-advisory-only
-persistent-draft=validated-only
