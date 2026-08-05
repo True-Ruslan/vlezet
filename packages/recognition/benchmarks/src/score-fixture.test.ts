@@ -116,6 +116,9 @@ function reconciliationSnapshot(wallId: string, openingId: string | null): Recog
     diagnostics: [],
     decisions: Object.fromEntries([wallCandidate, ...openingCandidates].map((candidate) => [candidate.id, "pending" as const])),
     source: { local: true, cloud: false },
+    aiProposals: [],
+    proposalDecisions: {},
+    aiProposalMetadata: null,
     createdAt: "2026-08-01T20:00:00.000Z",
     updatedAt: "2026-08-01T20:00:00.000Z",
   };
