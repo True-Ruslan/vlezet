@@ -117,7 +117,7 @@ function batch(localDraft: RecognitionDraft): AiProposalBatch {
       hostWallHintIds: ["wall-1"],
       sourceRegion: { x: 0.63, y: 0.42, width: 0.14, height: 0.16 },
       modelConfidence: 0.9,
-      reasonCodes: ["visible-gap", "paired-rails"],
+      reasonCodes: ["visible-gap", "parallel-window-rails"],
     }],
     diagnostics: [],
   };
