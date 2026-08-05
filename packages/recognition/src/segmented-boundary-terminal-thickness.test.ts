@@ -48,8 +48,8 @@ function contaminatedMask(shortTerminal: boolean): StructuralMaskView {
     heightPx: HEIGHT,
     isStructural(x, y): boolean {
       const onVerticalAxis = Math.abs(x - AXIS_X) <= HOST_HALF_THICKNESS;
-      if (onVerticalAxis && y >= 50 && y <= 390) return true;
-      if (onVerticalAxis && y >= 480 && y <= 510) return true;
+      if (onVerticalAxis && y >= 50 && y <= 350) return true;
+      if (onVerticalAxis && y >= 400 && y <= 510) return true;
       if (onVerticalAxis && y >= (shortTerminal ? 682 : 620) && y <= 720) return true;
       return y >= 680 && y <= 720 && x >= 100 && x <= 950;
     },
