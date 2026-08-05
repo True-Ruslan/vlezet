@@ -1,4 +1,5 @@
 import type { RecognitionDiagnostic } from "./model";
+import { registerStructuralMaskForActiveWalls } from "./recognition-runtime-context";
 import { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime";
 import {
   applyStructuralClutterVeto as applyStructuralClutterVetoBase,
@@ -21,6 +22,14 @@ function extend(
   });
 }
 
+function withRuntimeMask(
+  result: StructuralClutterVetoResult,
+  input: StructuralClutterVetoInput,
+): StructuralClutterVetoResult {
+  registerStructuralMaskForActiveWalls(result.walls, input.mask);
+  return result;
+}
+
 export function applyStructuralClutterVeto(
   input: StructuralClutterVetoInput,
 ): StructuralClutterVetoResult {
@@ -38,7 +47,7 @@ export function applyStructuralClutterVeto(
   if (
     segmented.recoveredWalls.length === 0
     && acceptedExtensionCount === 0
-  ) return base;
+  ) return withRuntimeMask(base, input);
 
   const diagnostics: RecognitionDiagnostic[] = [
     ...base.diagnostics,
@@ -52,11 +61,11 @@ export function applyStructuralClutterVeto(
       candidateId: null,
     });
   }
-  return {
+  return withRuntimeMask({
     walls: finalExtension.walls,
     blockedCount: base.blockedCount,
     diagnostics: diagnostics.sort((first, second) =>
       first.code.localeCompare(second.code)
       || (first.candidateId ?? "").localeCompare(second.candidateId ?? "")),
-  };
+  }, input);
 }
