@@ -1,3 +1,9 @@
+import {
+  emptyAiProposalDraftState,
+  validateAiProposalDraftState,
+  type RecognitionAiProposalDraftState,
+} from "./ai-proposals";
+
 export type NormalizedPoint = Readonly<{ x: number; y: number }>;
 export type RecognitionConfidence = "high" | "medium" | "low";
 export type RecognitionOrigin = "local" | "cloud" | "merged";
@@ -77,7 +83,7 @@ export type RecognitionDraft = Readonly<{
   source: RecognitionSourceSummary;
   createdAt: string;
   updatedAt: string;
-}>;
+}> & RecognitionAiProposalDraftState;
 
 export type RecognitionCloudMetadata = Readonly<{
   providerId: string;
@@ -161,6 +167,32 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: s
 
 function nullableText(value: unknown, label: string): string | null {
   return value === null ? null : text(value, label);
+}
+
+function hasOwn(input: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(input, key);
+}
+
+function validateProposalState(input: Record<string, unknown>): RecognitionAiProposalDraftState {
+  const fields = ["aiProposals", "proposalDecisions", "aiProposalMetadata"] as const;
+  const supplied = fields.filter((field) => hasOwn(input, field));
+  if (supplied.length === 0) return emptyAiProposalDraftState();
+  if (supplied.length !== fields.length) {
+    throw new RecognitionValidationError(
+      "Состояние AI-предложений должно содержать aiProposals, proposalDecisions и aiProposalMetadata одновременно.",
+    );
+  }
+  try {
+    return validateAiProposalDraftState({
+      aiProposals: input.aiProposals,
+      proposalDecisions: input.proposalDecisions,
+      aiProposalMetadata: input.aiProposalMetadata,
+    });
+  } catch (error) {
+    throw new RecognitionValidationError(
+      error instanceof Error ? error.message : "Состояние AI-предложений содержит некорректные данные.",
+    );
+  }
 }
 
 export function validateNormalizedPoint(value: unknown, label = "Координата"): NormalizedPoint {
@@ -256,6 +288,7 @@ export function validateRecognitionDraft(value: unknown): RecognitionDraft {
   if (typeof source.local !== "boolean" || typeof source.cloud !== "boolean") {
     throw new RecognitionValidationError("Источник распознавания должен содержать логические флаги local/cloud.");
   }
+  const proposalState = validateProposalState(input);
   return {
     id: text(input.id, "Идентификатор черновика"),
     projectId: text(input.projectId, "Идентификатор проекта"),
@@ -269,6 +302,7 @@ export function validateRecognitionDraft(value: unknown): RecognitionDraft {
     diagnostics: array(input.diagnostics, "Диагностика").map(validateDiagnostic),
     decisions,
     source: { local: source.local, cloud: source.cloud },
+    ...proposalState,
     createdAt: timestamp(input.createdAt, "Дата создания черновика"),
     updatedAt: timestamp(input.updatedAt, "Дата изменения черновика"),
   };
