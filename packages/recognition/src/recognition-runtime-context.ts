@@ -1,13 +1,16 @@
 import type { RecognitionWallCandidate } from "./model";
+import type { OpeningHypothesisRejection } from "./opening-analysis";
 import type { StructuralMaskView } from "./wall-completion";
 
 const structuralMasksByWall = new WeakMap<RecognitionWallCandidate, StructuralMaskView>();
 const MAX_PENDING_AI_EVIDENCE_CONTEXTS = 8;
 const MAX_PENDING_AI_EVIDENCE_MASK_PIXELS = 8_000_000;
+const MAX_PENDING_AI_REJECTED_OPENINGS = 48;
 
 export type PendingAiLocalEvidenceContext = Readonly<{
   activeWallIds: readonly string[];
   structuralMask: StructuralMaskView;
+  openingRejections: readonly OpeningHypothesisRejection[];
 }>;
 
 const pendingAiEvidenceByWallSignature = new Map<string, PendingAiLocalEvidenceContext>();
@@ -59,6 +62,28 @@ function retainStructuralMask(mask: StructuralMaskView): StructuralMaskView | nu
   };
 }
 
+function retainOpeningRejections(
+  rejections: readonly OpeningHypothesisRejection[],
+): readonly OpeningHypothesisRejection[] | null {
+  if (rejections.length > MAX_PENDING_AI_REJECTED_OPENINGS) return null;
+  return [...rejections]
+    .sort((left, right) => left.candidateId.localeCompare(right.candidateId))
+    .map((rejection) => ({
+      candidateId: rejection.candidateId,
+      hostWallCandidateId: rejection.hostWallCandidateId,
+      code: rejection.code,
+      message: rejection.message,
+      candidate: {
+        ...rejection.candidate,
+        center: { ...rejection.candidate.center },
+        evidence: {
+          ...rejection.candidate.evidence,
+          reasons: [...rejection.candidate.evidence.reasons],
+        },
+      },
+    }));
+}
+
 export function registerStructuralMaskForActiveWalls(
   wallCandidates: readonly RecognitionWallCandidate[],
   mask: StructuralMaskView,
@@ -89,6 +114,7 @@ export function takeStructuralMaskForWalls(
 export function registerPendingAiLocalEvidenceContext(
   wallCandidates: readonly RecognitionWallCandidate[],
   structuralMask: StructuralMaskView,
+  openingRejections: readonly OpeningHypothesisRejection[] = [],
 ): void {
   const activeWallIds = wallCandidates
     .filter((wall) => wall.conflict === null)
@@ -96,10 +122,15 @@ export function registerPendingAiLocalEvidenceContext(
     .sort();
   if (activeWallIds.length === 0) return;
   const retainedMask = retainStructuralMask(structuralMask);
-  if (!retainedMask) return;
+  const retainedRejections = retainOpeningRejections(openingRejections);
+  if (!retainedMask || !retainedRejections) return;
   const signature = wallSignature(activeWallIds);
   pendingAiEvidenceByWallSignature.delete(signature);
-  pendingAiEvidenceByWallSignature.set(signature, { activeWallIds, structuralMask: retainedMask });
+  pendingAiEvidenceByWallSignature.set(signature, {
+    activeWallIds,
+    structuralMask: retainedMask,
+    openingRejections: retainedRejections,
+  });
   while (pendingAiEvidenceByWallSignature.size > MAX_PENDING_AI_EVIDENCE_CONTEXTS) {
     const oldest = pendingAiEvidenceByWallSignature.keys().next().value as string | undefined;
     if (oldest === undefined) break;
