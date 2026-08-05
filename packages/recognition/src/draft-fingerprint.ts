@@ -1,6 +1,4 @@
 import {
-  LOCAL_DRAFT_FINGERPRINT_PREFIX,
-  validateAiProposalBatch,
   AiProposalValidationError,
   type AiProposalBatch,
 } from "./ai-proposals";
@@ -8,6 +6,8 @@ import {
   validateRecognitionDraft,
   type RecognitionDraft,
 } from "./model";
+
+export const LOCAL_DRAFT_FINGERPRINT_PREFIX = "recognition-local-draft-v1:" as const;
 
 export type AiProposalRequestIdentity = Readonly<{
   requestId: string;
@@ -202,14 +202,13 @@ export function assertAiProposalBatchIdentity(
   batch: AiProposalBatch,
   expected: AiProposalRequestIdentity,
 ): void {
-  const validBatch = validateAiProposalBatch(batch);
-  if (validBatch.requestId !== expected.requestId) {
+  if (batch.requestId !== expected.requestId) {
     throw new AiProposalValidationError("Ответ AI относится к другому запросу.");
   }
-  if (validBatch.referenceRevision !== expected.referenceRevision) {
+  if (batch.referenceRevision !== expected.referenceRevision) {
     throw new AiProposalValidationError("Ответ AI относится к другой ревизии подложки.");
   }
-  if (validBatch.localDraftFingerprint !== expected.localDraftFingerprint) {
+  if (batch.localDraftFingerprint !== expected.localDraftFingerprint) {
     throw new AiProposalValidationError("Ответ AI относится к изменённому локальному черновику.");
   }
 }
