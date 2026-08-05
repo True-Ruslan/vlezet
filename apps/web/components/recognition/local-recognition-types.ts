@@ -1,5 +1,6 @@
 import type {
   RecognitionAiLocalEvidenceTransfer,
+  RecognitionAiRejectedOpeningEvidenceTransfer,
   RecognitionDraft,
 } from "@vlezet/recognition";
 
@@ -40,5 +41,6 @@ export type RecognitionWorkerMessage =
       requestId: string;
       draft: RecognitionDraft;
       evidence: RecognitionAiLocalEvidenceTransfer | null;
+      rejectedOpeningEvidence?: RecognitionAiRejectedOpeningEvidenceTransfer | null;
     }>
   | Readonly<{ type: "error"; requestId: string; message: string }>;
