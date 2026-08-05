@@ -37,8 +37,7 @@ const upperWalls: RecognitionWallCandidate[] = [
   wall("upper-after", BOUNDARY_X, 330, BOUNDARY_X, 390),
 ];
 
-const enclosureWalls: RecognitionWallCandidate[] = [
-  wall("outer-frame", FRAME_X, 50, FRAME_X, 700),
+const enclosureConnectors: RecognitionWallCandidate[] = [
   wall("top-connector", BOUNDARY_X, 50, FRAME_X, 50),
   wall("bottom-connector", BOUNDARY_X, 700, FRAME_X, 700),
 ];
@@ -50,20 +49,23 @@ const rails: DetectedLineSegment[] = [
   { x1: 704, y1: 510, x2: 704, y2: 620 },
 ];
 
-const structuralMask: StructuralMaskView = {
-  widthPx: WIDTH,
-  heightPx: HEIGHT,
-  isStructural(x, y): boolean {
-    if (Math.abs(x - BOUNDARY_X) <= 10) {
-      return (y >= 50 && y <= 390)
-        || (y >= 480 && y <= 510)
-        || (y >= 620 && y <= 700);
-    }
-    if (Math.abs(x - FRAME_X) <= 10) return y >= 50 && y <= 700;
-    if (y >= 40 && y <= 60) return x >= BOUNDARY_X && x <= FRAME_X;
-    return y >= 690 && y <= 710 && x >= BOUNDARY_X && x <= FRAME_X;
-  },
-};
+function structuralMask(includeEnclosure: boolean): StructuralMaskView {
+  return {
+    widthPx: WIDTH,
+    heightPx: HEIGHT,
+    isStructural(x, y): boolean {
+      if (Math.abs(x - BOUNDARY_X) <= 10) {
+        return (y >= 50 && y <= 390)
+          || (y >= 480 && y <= 510)
+          || (y >= 620 && y <= 700);
+      }
+      if (!includeEnclosure) return false;
+      if (Math.abs(x - FRAME_X) <= 10) return y >= 50 && y <= 700;
+      if (y >= 40 && y <= 60) return x >= BOUNDARY_X && x <= FRAME_X;
+      return y >= 690 && y <= 710 && x >= BOUNDARY_X && x <= FRAME_X;
+    },
+  };
+}
 
 function run(input: Readonly<{
   includeMask: boolean;
@@ -72,7 +74,7 @@ function run(input: Readonly<{
 }>) {
   const wallCandidates = [
     ...upperWalls,
-    ...(input.includeEnclosure ? enclosureWalls : []),
+    ...(input.includeEnclosure ? enclosureConnectors : []),
   ];
   const symbolSegments = [...rails];
   if (input.reverse) {
@@ -84,12 +86,14 @@ function run(input: Readonly<{
     heightPx: HEIGHT,
     wallCandidates,
     symbolSegments,
-    ...(input.includeMask ? { structuralMask } : {}),
+    ...(input.includeMask
+      ? { structuralMask: structuralMask(input.includeEnclosure) }
+      : {}),
   });
 }
 
 describe("window host segmented structural recovery", () => {
-  it("recovers a proven enclosed continuation and creates the second window proposal", () => {
+  it("recovers a continuation enclosed by a mask-backed exterior frame", () => {
     const result = run({ includeMask: true, includeEnclosure: true });
 
     expect(result.segmentedRecoveredWallCount).toBeGreaterThanOrEqual(2);
@@ -114,7 +118,7 @@ describe("window host segmented structural recovery", () => {
     expect(result.proposalEvidence).toHaveLength(1);
   });
 
-  it("does not recover an interior continuation without the exterior enclosure", () => {
+  it("does not recover an interior continuation without a mask-backed exterior enclosure", () => {
     const result = run({ includeMask: true, includeEnclosure: false });
 
     expect(result.acceptedBridgeCount).toBe(1);
