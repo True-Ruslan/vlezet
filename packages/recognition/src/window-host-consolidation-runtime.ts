@@ -1,4 +1,5 @@
 import type { RecognitionWallCandidate } from "./model";
+import { takeStructuralMaskForWalls } from "./recognition-runtime-context";
 import type { StructuralMaskView } from "./wall-completion";
 import type {
   WindowHostConsolidationInput as BaseWindowHostConsolidationInput,
@@ -115,9 +116,14 @@ function baseInput(input: WindowHostConsolidationInput): BaseWindowHostConsolida
 export function consolidateWindowHostWalls(
   input: WindowHostConsolidationInput,
 ): WindowHostConsolidationResult {
+  const structuralMask = input.structuralMask ?? takeStructuralMaskForWalls(
+    input.wallCandidates,
+    input.widthPx,
+    input.heightPx,
+  );
   const firstBase = consolidateWindowHostWallsBase(baseInput(input));
   const firstWalls = annotateResult(firstBase, input.wallCandidates);
-  if (!input.structuralMask || firstBase.proposalEvidence.length === 0) {
+  if (!structuralMask || firstBase.proposalEvidence.length === 0) {
     return {
       ...firstBase,
       walls: firstWalls,
@@ -129,7 +135,7 @@ export function consolidateWindowHostWalls(
     widthPx: input.widthPx,
     heightPx: input.heightPx,
     wallCandidates: firstWalls,
-    mask: input.structuralMask,
+    mask: structuralMask,
   });
   if (segmented.recoveredWalls.length === 0) {
     return {
