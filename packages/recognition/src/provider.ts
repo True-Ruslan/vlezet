@@ -2,6 +2,7 @@ import {
   AI_PROPOSAL_MAX_DIAGNOSTICS,
   AI_PROPOSAL_MAX_OPENINGS,
   AI_PROPOSAL_MAX_WALL_REVIEWS,
+  type AiProposalBatch,
   type NormalizedBox,
 } from "./ai-proposals";
 import type {
@@ -112,6 +113,21 @@ export type RecognitionAiProposalRequest = Readonly<{
 export type RecognitionAiProposalImageInput = Readonly<{
   type: "image_url";
   image_url: Readonly<{ url: string }>;
+}>;
+
+export type RecognitionAiProviderUsage = Readonly<{
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+}>;
+
+export type RecognitionAiProviderEnvelope = Readonly<{
+  batch: AiProposalBatch;
+  providerId: string;
+  modelId: string;
+  latencyMs: number;
+  usage: RecognitionAiProviderUsage;
+  attemptCount: 1 | 2;
 }>;
 
 export const DEFAULT_RECOGNITION_AI_PROPOSAL_BUDGETS: RecognitionAiProposalBudgets = Object.freeze({
