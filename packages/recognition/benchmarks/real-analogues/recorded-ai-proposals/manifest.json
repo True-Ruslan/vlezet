@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "recognition-recorded-ai-proposals-v1",
+  "fixtures": [
+    {
+      "id": "product-owner-current-plan-stage1",
+      "analogueFixtureId": "real-plan-001-anonymized",
+      "mode": "stage1-proposal-discovery",
+      "responsePath": "fixtures/product-owner-current-plan-stage1.json",
+      "expected": {
+        "eligibleDoorsMinimum": 1,
+        "eligibleWindowsMinimum": 1,
+        "eligibleWashbasinAdvisory": true,
+        "eligibleUnknownHostOpenings": 0,
+        "eligibleOutsideHostOpenings": 0,
+        "directLocalMutationCount": 0,
+        "protectedStrongWallAdvisories": 0,
+        "forbiddenRegionEligibleProposals": 0
+      }
+    }
+  ]
+}
