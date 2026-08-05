@@ -68,7 +68,7 @@ export type RecognitionSourceSummary = Readonly<{
   cloud: boolean;
 }>;
 
-export type RecognitionDraft = Readonly<{
+type RecognitionDraftBase = Readonly<{
   id: string;
   projectId: string;
   referenceAssetId: string;
@@ -83,7 +83,21 @@ export type RecognitionDraft = Readonly<{
   source: RecognitionSourceSummary;
   createdAt: string;
   updatedAt: string;
-}> & RecognitionAiProposalDraftState;
+}>;
+
+type LegacyRecognitionAiProposalDraftState = Readonly<{
+  aiProposals?: never;
+  proposalDecisions?: never;
+  aiProposalMetadata?: never;
+}>;
+
+/** Input boundary: either the complete current proposal state or the complete legacy shape. */
+export type RecognitionDraft = RecognitionDraftBase & (
+  RecognitionAiProposalDraftState | LegacyRecognitionAiProposalDraftState
+);
+
+/** Canonical in-memory/persistent form returned only after validation and migration. */
+export type ValidatedRecognitionDraft = RecognitionDraftBase & RecognitionAiProposalDraftState;
 
 export type RecognitionCloudMetadata = Readonly<{
   providerId: string;
@@ -97,7 +111,7 @@ export type RecognitionSessionRecord = Readonly<{
   referenceAssetId: string;
   referenceRevision: string;
   engineVersion: string;
-  draft: RecognitionDraft;
+  draft: ValidatedRecognitionDraft;
   cloudMetadata: RecognitionCloudMetadata | null;
   createdAt: string;
   updatedAt: string;
@@ -269,7 +283,7 @@ function validateDiagnostic(value: unknown, index: number): RecognitionDiagnosti
   };
 }
 
-export function validateRecognitionDraft(value: unknown): RecognitionDraft {
+export function validateRecognitionDraft(value: unknown): ValidatedRecognitionDraft {
   const input = record(value, "Черновик распознавания");
   const walls = array(input.walls, "Стены").map(validateWall);
   const openings = array(input.openings, "Проёмы").map(validateOpening);
