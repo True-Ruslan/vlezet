@@ -1,5 +1,19 @@
 import {
+  AI_PROPOSAL_MAX_DIAGNOSTICS,
+  AI_PROPOSAL_MAX_OPENINGS,
+  AI_PROPOSAL_MAX_WALL_REVIEWS,
+  type NormalizedBox,
+} from "./ai-proposals";
+import type {
+  RecognitionAiClutterEvidence,
+  RecognitionAiDoorEvidence,
+  RecognitionAiWindowEvidence,
+} from "./ai-local-evidence";
+import {
   validateNormalizedPoint,
+  type NormalizedPoint,
+  type RecognitionConfidence,
+  type RecognitionConflictKind,
   type RecognitionDiagnostic,
   type RecognitionOpeningCandidate,
   type RecognitionRoomLabelCandidate,
@@ -28,6 +42,86 @@ export interface RecognitionProvider {
   readonly displayName: string;
   recognize(input: RecognitionProviderInput, signal: AbortSignal): Promise<RecognitionProviderResult>;
 }
+
+export const RECOGNITION_AI_PROPOSAL_MAX_RESPONSE_BYTES = 96 * 1024;
+export const RECOGNITION_AI_PROPOSAL_MAX_TOKENS = 4096;
+export const RECOGNITION_AI_PROPOSAL_ALLOWED_KINDS = [
+  "door",
+  "window",
+  "local-wall-review",
+] as const;
+
+export type RecognitionAiProposalAllowedKind = typeof RECOGNITION_AI_PROPOSAL_ALLOWED_KINDS[number];
+
+export type RecognitionAiProposalBudgets = Readonly<{
+  allowedProposalKinds: readonly RecognitionAiProposalAllowedKind[];
+  maxOpeningProposals: number;
+  maxWallReviewProposals: number;
+  maxDiagnostics: number;
+  maxResponseBytes: number;
+  maxTokens: number;
+}>;
+
+export type RecognitionAiLocalWallSummary = Readonly<{
+  id: string;
+  start: NormalizedPoint;
+  end: NormalizedPoint;
+  estimatedThicknessPx: number | null;
+  confidence: RecognitionConfidence;
+  conflict: RecognitionConflictKind | null;
+  localScore: number | null;
+  reasonCodes: readonly string[];
+}>;
+
+export type RecognitionAiLocalOpeningSummary = Readonly<{
+  id: string;
+  kind: "door" | "window" | "unknown-opening";
+  hostWallCandidateId: string | null;
+  center: NormalizedPoint;
+  widthPx: number | null;
+  orientationDeg: number | null;
+  confidence: RecognitionConfidence;
+  conflict: RecognitionConflictKind | null;
+  localScore: number | null;
+  reasonCodes: readonly string[];
+}>;
+
+export type RecognitionAiLocalSummary = Readonly<{
+  activeWallIds: readonly string[];
+  planBounds: NormalizedBox | null;
+  walls: readonly RecognitionAiLocalWallSummary[];
+  openings: readonly RecognitionAiLocalOpeningSummary[];
+  doorEvidence: readonly RecognitionAiDoorEvidence[];
+  windowEvidence: readonly RecognitionAiWindowEvidence[];
+  clutterEvidence: readonly RecognitionAiClutterEvidence[];
+}>;
+
+export type RecognitionAiProposalRequest = Readonly<{
+  mode: "proposal-discovery-stage1";
+  requestId: string;
+  referenceRevision: string;
+  localDraftFingerprint: string;
+  imageWidthPx: number;
+  imageHeightPx: number;
+  sourceImageDataUrl: string;
+  overlayImageDataUrl: string;
+  localSummary: RecognitionAiLocalSummary;
+  budgets: RecognitionAiProposalBudgets;
+}>;
+
+export type RecognitionAiProposalImageInput = Readonly<{
+  type: "image_url";
+  image_url: Readonly<{ url: string }>;
+}>;
+
+export const DEFAULT_RECOGNITION_AI_PROPOSAL_BUDGETS: RecognitionAiProposalBudgets = Object.freeze({
+  allowedProposalKinds: RECOGNITION_AI_PROPOSAL_ALLOWED_KINDS,
+  maxOpeningProposals: AI_PROPOSAL_MAX_OPENINGS,
+  maxWallReviewProposals: AI_PROPOSAL_MAX_WALL_REVIEWS,
+  maxDiagnostics: AI_PROPOSAL_MAX_DIAGNOSTICS,
+  maxResponseBytes: RECOGNITION_AI_PROPOSAL_MAX_RESPONSE_BYTES,
+  maxTokens: RECOGNITION_AI_PROPOSAL_MAX_TOKENS,
+});
 
 function requireRecord(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} содержит некорректные данные.`);
