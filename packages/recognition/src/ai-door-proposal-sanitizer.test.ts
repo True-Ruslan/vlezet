@@ -14,6 +14,12 @@ import type { OpeningHypothesisRejection } from "./opening-analysis";
 const WIDTH = 1000;
 const HEIGHT = 500;
 
+type DraftOverrides = Readonly<{
+  walls?: RecognitionDraft["walls"];
+  openings?: RecognitionDraft["openings"];
+  decisions?: RecognitionDraft["decisions"];
+}>;
+
 function wall(id = "wall-1", y = 0.5): RecognitionWallCandidate {
   return {
     id,
@@ -27,7 +33,7 @@ function wall(id = "wall-1", y = 0.5): RecognitionWallCandidate {
   };
 }
 
-function draft(overrides: Partial<RecognitionDraft> = {}): RecognitionDraft {
+function draft(overrides: DraftOverrides = {}): RecognitionDraft {
   return {
     id: "draft-door-sanitizer",
     projectId: "project-1",
@@ -35,15 +41,14 @@ function draft(overrides: Partial<RecognitionDraft> = {}): RecognitionDraft {
     referenceRevision: "revision-1",
     engineVersion: "5",
     status: "local-complete",
-    walls: [wall()],
-    openings: [],
+    walls: overrides.walls ?? [wall()],
+    openings: overrides.openings ?? [],
     roomLabels: [],
     diagnostics: [],
-    decisions: { "wall-1": "pending" },
+    decisions: overrides.decisions ?? { "wall-1": "pending" },
     source: { local: true, cloud: false },
     createdAt: "2026-08-05T00:00:00.000Z",
     updatedAt: "2026-08-05T00:00:00.000Z",
-    ...overrides,
   };
 }
 
