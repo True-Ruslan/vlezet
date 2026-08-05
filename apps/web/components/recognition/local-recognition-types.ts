@@ -1,4 +1,7 @@
-import type { RecognitionDraft } from "@vlezet/recognition";
+import type {
+  RecognitionAiLocalEvidenceTransfer,
+  RecognitionDraft,
+} from "@vlezet/recognition";
 
 export type LocalRecognitionPhase = "prepare" | "edges" | "lines" | "walls" | "openings" | "complete";
 
@@ -32,5 +35,10 @@ export type RecognitionWorkerRequest = Readonly<{
 
 export type RecognitionWorkerMessage =
   | Readonly<{ type: "progress"; requestId: string; progress: LocalRecognitionProgress }>
-  | Readonly<{ type: "result"; requestId: string; draft: RecognitionDraft }>
+  | Readonly<{
+      type: "result";
+      requestId: string;
+      draft: RecognitionDraft;
+      evidence: RecognitionAiLocalEvidenceTransfer | null;
+    }>
   | Readonly<{ type: "error"; requestId: string; message: string }>;
