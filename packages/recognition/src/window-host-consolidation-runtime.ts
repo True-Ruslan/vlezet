@@ -1,14 +1,20 @@
 import type { RecognitionWallCandidate } from "./model";
+import type { StructuralMaskView } from "./wall-completion";
 import type {
-  WindowHostConsolidationInput,
+  WindowHostConsolidationInput as BaseWindowHostConsolidationInput,
   WindowHostConsolidationResult as BaseWindowHostConsolidationResult,
   WindowHostProposalEvidence,
 } from "./window-host-consolidation";
 import {
   consolidateWindowHostWalls as consolidateWindowHostWallsBase,
 } from "./window-host-consolidation";
+import { recoverWindowHostSegmentedWalls } from "./window-host-segmented-recovery";
 
 export type { WindowHostProposalEvidence } from "./window-host-consolidation";
+
+export type WindowHostConsolidationInput = BaseWindowHostConsolidationInput & Readonly<{
+  structuralMask?: StructuralMaskView;
+}>;
 
 export type WindowHostAnnotatedWallCandidate = RecognitionWallCandidate & Readonly<{
   windowHostProposalEvidence?: WindowHostProposalEvidence;
@@ -17,6 +23,7 @@ export type WindowHostAnnotatedWallCandidate = RecognitionWallCandidate & Readon
 
 export type WindowHostConsolidationResult = Omit<BaseWindowHostConsolidationResult, "walls"> & Readonly<{
   walls: readonly WindowHostAnnotatedWallCandidate[];
+  segmentedRecoveredWallCount: number;
 }>;
 
 function evidenceKey(evidence: WindowHostProposalEvidence): string {
@@ -41,6 +48,10 @@ function mergeEvidence(
     || first.gap.center.y - second.gap.center.y);
 }
 
+function mergeDiagnostics(...groups: readonly (readonly string[])[]): readonly string[] {
+  return [...new Set(groups.flat())].sort((first, second) => first.localeCompare(second));
+}
+
 export function windowHostProposalEvidenceForWall(
   candidate: RecognitionWallCandidate,
 ): WindowHostProposalEvidence | null {
@@ -56,12 +67,12 @@ export function windowHostProposalEvidenceListForWall(
   return annotated.windowHostProposalEvidence ? [annotated.windowHostProposalEvidence] : [];
 }
 
-export function consolidateWindowHostWalls(
-  input: WindowHostConsolidationInput,
-): WindowHostConsolidationResult {
-  const base = consolidateWindowHostWallsBase(input);
+function annotateResult(
+  base: BaseWindowHostConsolidationResult,
+  inputWalls: readonly RecognitionWallCandidate[],
+): readonly WindowHostAnnotatedWallCandidate[] {
   const lineageByCandidateId = new Map<string, readonly WindowHostProposalEvidence[]>();
-  for (const candidate of input.wallCandidates) {
+  for (const candidate of inputWalls) {
     const inherited = windowHostProposalEvidenceListForWall(candidate);
     if (inherited.length > 0) lineageByCandidateId.set(candidate.id, inherited);
   }
@@ -78,7 +89,7 @@ export function consolidateWindowHostWalls(
     lineageByCandidateId.set(`${generatedId}-residual-after`, inherited);
   }
 
-  const walls = base.walls.map((candidate): WindowHostAnnotatedWallCandidate => {
+  return base.walls.map((candidate): WindowHostAnnotatedWallCandidate => {
     const evidenceList = lineageByCandidateId.get(candidate.id) ?? [];
     if (evidenceList.length === 0) return candidate;
     const directEvidence = [...evidenceList]
@@ -90,5 +101,56 @@ export function consolidateWindowHostWalls(
       windowHostProposalEvidenceList: evidenceList,
     };
   });
-  return { ...base, walls };
+}
+
+function baseInput(input: WindowHostConsolidationInput): BaseWindowHostConsolidationInput {
+  return {
+    widthPx: input.widthPx,
+    heightPx: input.heightPx,
+    wallCandidates: input.wallCandidates,
+    symbolSegments: input.symbolSegments,
+  };
+}
+
+export function consolidateWindowHostWalls(
+  input: WindowHostConsolidationInput,
+): WindowHostConsolidationResult {
+  const firstBase = consolidateWindowHostWallsBase(baseInput(input));
+  const firstWalls = annotateResult(firstBase, input.wallCandidates);
+  if (!input.structuralMask || firstBase.proposalEvidence.length === 0) {
+    return {
+      ...firstBase,
+      walls: firstWalls,
+      segmentedRecoveredWallCount: 0,
+    };
+  }
+
+  const segmented = recoverWindowHostSegmentedWalls({
+    widthPx: input.widthPx,
+    heightPx: input.heightPx,
+    wallCandidates: firstWalls,
+    mask: input.structuralMask,
+  });
+  if (segmented.recoveredWalls.length === 0) {
+    return {
+      ...firstBase,
+      walls: firstWalls,
+      segmentedRecoveredWallCount: 0,
+    };
+  }
+
+  const secondBase = consolidateWindowHostWallsBase({
+    widthPx: input.widthPx,
+    heightPx: input.heightPx,
+    wallCandidates: segmented.walls,
+    symbolSegments: input.symbolSegments,
+  });
+  const secondWalls = annotateResult(secondBase, segmented.walls);
+  return {
+    walls: secondWalls,
+    acceptedBridgeCount: firstBase.acceptedBridgeCount + secondBase.acceptedBridgeCount,
+    proposalEvidence: mergeEvidence(firstBase.proposalEvidence, secondBase.proposalEvidence),
+    diagnostics: mergeDiagnostics(firstBase.diagnostics, secondBase.diagnostics),
+    segmentedRecoveredWallCount: segmented.recoveredWalls.length,
+  };
 }
