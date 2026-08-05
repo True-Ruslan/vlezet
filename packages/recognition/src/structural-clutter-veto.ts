@@ -11,6 +11,18 @@ export type StructuralClutterVetoResult = Readonly<{
   diagnostics: readonly RecognitionDiagnostic[];
 }>;
 
+export type StructuralClutterCandidateAnalysis = Readonly<{
+  targetWallCandidateId: string;
+  lengthPx: number;
+  shortWallLimitPx: number;
+  structuralSupportRatio: number;
+  minimumStructuralSupportRatio: number;
+  endpointAnchorCount: number;
+  isShortWall: boolean;
+  hasWeakStructuralSupport: boolean;
+  hasTwoEndpointAnchors: boolean;
+}>;
+
 type Point = Readonly<{ x: number; y: number }>;
 type PixelWall = Readonly<{
   candidate: RecognitionWallCandidate;
@@ -130,6 +142,45 @@ function preserveResult(
     walls: [...candidates].sort((first, second) => first.id.localeCompare(second.id)),
     blockedCount: 0,
     diagnostics: diagnostic ? [diagnostic] : [],
+  };
+}
+
+export function analyzeStructuralClutterCandidate(input: Readonly<{
+  widthPx: number;
+  heightPx: number;
+  wallCandidates: readonly RecognitionWallCandidate[];
+  targetWallCandidateId: string;
+  mask: StructuralMaskView;
+}>): StructuralClutterCandidateAnalysis | null {
+  if (
+    !Number.isFinite(input.widthPx)
+    || input.widthPx <= 0
+    || !Number.isFinite(input.heightPx)
+    || input.heightPx <= 0
+    || input.mask.widthPx !== input.widthPx
+    || input.mask.heightPx !== input.heightPx
+    || input.wallCandidates.length > MAX_WALL_CANDIDATES
+  ) return null;
+
+  const walls = input.wallCandidates
+    .map((candidate) => pixelWall(candidate, input.widthPx, input.heightPx))
+    .filter((wall): wall is PixelWall => wall !== null);
+  const target = walls.find(({ candidate }) => candidate.id === input.targetWallCandidateId);
+  if (!target) return null;
+
+  const shortWallLimitPx = Math.min(input.widthPx, input.heightPx) * SHORT_WALL_RATIO;
+  const supportRatio = structuralSupportRatio(target, input.mask);
+  const anchors = endpointAnchorCount(target, walls);
+  return {
+    targetWallCandidateId: input.targetWallCandidateId,
+    lengthPx: target.lengthPx,
+    shortWallLimitPx,
+    structuralSupportRatio: supportRatio,
+    minimumStructuralSupportRatio: MIN_STRUCTURAL_SUPPORT_RATIO,
+    endpointAnchorCount: anchors,
+    isShortWall: target.lengthPx < shortWallLimitPx,
+    hasWeakStructuralSupport: supportRatio < MIN_STRUCTURAL_SUPPORT_RATIO,
+    hasTwoEndpointAnchors: anchors >= 2,
   };
 }
 
