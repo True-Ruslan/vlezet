@@ -6,7 +6,7 @@ import {
   registerAiRejectedOpeningEvidenceForDraft,
 } from "./ai-rejected-opening-evidence";
 import type { RecognitionAiLocalEvidenceSnapshot } from "./ai-local-evidence";
-import { sanitizeAiOpeningProposal } from "./ai-opening-sanitizer";
+import { sanitizeAiOpeningProposal } from "./ai-opening-sanitizer-runtime";
 import { createLocalDraftFingerprint } from "./draft-fingerprint";
 import type { RecognitionDraft, RecognitionWallCandidate } from "./model";
 import type { OpeningHypothesisRejection } from "./opening-analysis";
