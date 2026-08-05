@@ -1,3 +1,4 @@
+import { DEFAULT_OPENING_ANALYSIS_OPTIONS } from "./opening-analysis";
 import type {
   AnalyzeOpeningHypothesesInput,
   OpeningAnalysisResult,
@@ -16,6 +17,16 @@ import { createWindowHostOpeningHypotheses } from "./window-host-opening-hypothe
 
 type Point = Readonly<{ x: number; y: number }>;
 type Interval = Readonly<{ minimum: number; maximum: number }>;
+type CornerExtension = Readonly<{
+  startExtensionPx: number;
+  endExtensionPx: number;
+}>;
+type RetryOpeningInput = Readonly<{
+  widthPx: number;
+  heightPx: number;
+  wallCandidates: readonly RecognitionWallCandidate[];
+  options?: ValidateOpeningHypothesesInput["options"];
+}>;
 
 const MAX_HOST_CHAIN_WALLS = 128;
 const MAX_HOST_CHAIN_GAP_PX = 16;
@@ -23,6 +34,11 @@ const MAX_HOST_CHAIN_ANGLE_DELTA_DEG = 8;
 const MIN_HOST_CHAIN_AXIS_TOLERANCE_PX = 4;
 const MAX_HOST_CHAIN_AXIS_TOLERANCE_PX = 8;
 const MIN_HOST_CHAIN_THICKNESS_TOLERANCE_PX = 8;
+const MIN_CORNER_ANCHOR_ANGLE_DELTA_DEG = 70;
+const MIN_CORNER_ANCHOR_LENGTH_PX = 48;
+const MIN_CORNER_ENDPOINT_TOLERANCE_PX = 4;
+const MAX_CORNER_ENDPOINT_TOLERANCE_PX = 16;
+const CORNER_EXTENSION_EPSILON_PX = 0.5;
 const EPSILON = 1e-7;
 
 function pixelPoint(
@@ -59,6 +75,146 @@ function angleDeltaDeg(first: Point, second: Point): number {
   if (firstLength <= EPSILON || secondLength <= EPSILON) return 180;
   const cosine = Math.max(-1, Math.min(1, Math.abs(dot(first, second) / (firstLength * secondLength))));
   return Math.acos(cosine) * 180 / Math.PI;
+}
+
+function distancePointToSegment(
+  point: Point,
+  start: Point,
+  end: Point,
+): number {
+  const segment = subtract(end, start);
+  const segmentLengthSquared = dot(segment, segment);
+  if (segmentLengthSquared <= EPSILON) return vectorLength(subtract(point, start));
+  const projection = Math.max(
+    0,
+    Math.min(1, dot(subtract(point, start), segment) / segmentLengthSquared),
+  );
+  return vectorLength(subtract(point, add(start, scale(segment, projection))));
+}
+
+function exactWindowProposal(candidate: RecognitionOpeningCandidate): boolean {
+  return candidate.kind === "window"
+    && candidate.evidence.reasons.includes("paired-window-rails")
+    && candidate.evidence.reasons.includes("window-host-proposal-evidence");
+}
+
+function hasPerpendicularCornerAnchor(
+  host: RecognitionWallCandidate,
+  endpoint: Point,
+  walls: readonly RecognitionWallCandidate[],
+  widthPx: number,
+  heightPx: number,
+): boolean {
+  const hostStart = pixelPoint(host.start, widthPx, heightPx);
+  const hostEnd = pixelPoint(host.end, widthPx, heightPx);
+  const hostVector = subtract(hostEnd, hostStart);
+  const hostThicknessPx = host.estimatedThicknessPx ?? 16;
+
+  return walls.some((candidate) => {
+    if (candidate.id === host.id || candidate.conflict !== null) return false;
+    const candidateStart = pixelPoint(candidate.start, widthPx, heightPx);
+    const candidateEnd = pixelPoint(candidate.end, widthPx, heightPx);
+    const candidateVector = subtract(candidateEnd, candidateStart);
+    const candidateLengthPx = vectorLength(candidateVector);
+    if (
+      candidateLengthPx < MIN_CORNER_ANCHOR_LENGTH_PX
+      || angleDeltaDeg(hostVector, candidateVector) < MIN_CORNER_ANCHOR_ANGLE_DELTA_DEG
+    ) return false;
+
+    const candidateThicknessPx = candidate.estimatedThicknessPx ?? 16;
+    const endpointTolerancePx = Math.max(
+      MIN_CORNER_ENDPOINT_TOLERANCE_PX,
+      Math.min(
+        MAX_CORNER_ENDPOINT_TOLERANCE_PX,
+        Math.max(hostThicknessPx, candidateThicknessPx) / 2 + 2,
+      ),
+    );
+    return distancePointToSegment(endpoint, candidateStart, candidateEnd) <= endpointTolerancePx;
+  });
+}
+
+function cornerExtensionForRejection(
+  rejection: OpeningHypothesisRejection,
+  host: RecognitionWallCandidate,
+  input: RetryOpeningInput,
+): CornerExtension | null {
+  if (
+    rejection.code !== "opening-end-margin"
+    || !exactWindowProposal(rejection.candidate)
+    || host.conflict !== null
+  ) return null;
+
+  const hostStart = pixelPoint(host.start, input.widthPx, input.heightPx);
+  const hostEnd = pixelPoint(host.end, input.widthPx, input.heightPx);
+  const hostVector = subtract(hostEnd, hostStart);
+  const hostLengthPx = vectorLength(hostVector);
+  const openingWidthPx = rejection.candidate.widthPx;
+  if (
+    !Number.isFinite(hostLengthPx)
+    || hostLengthPx <= EPSILON
+    || openingWidthPx === null
+    || !Number.isFinite(openingWidthPx)
+    || openingWidthPx <= 0
+  ) return null;
+
+  const tangent = { x: hostVector.x / hostLengthPx, y: hostVector.y / hostLengthPx };
+  const center = pixelPoint(rejection.candidate.center, input.widthPx, input.heightPx);
+  const centerAlongPx = dot(subtract(center, hostStart), tangent);
+  const halfWidthPx = openingWidthPx / 2;
+  const startMarginPx = centerAlongPx - halfWidthPx;
+  const endMarginPx = hostLengthPx - (centerAlongPx + halfWidthPx);
+  const minimumEndMarginPx = input.options?.minimumEndMarginPx
+    ?? DEFAULT_OPENING_ANALYSIS_OPTIONS.minimumEndMarginPx;
+  const startDeficient = startMarginPx < minimumEndMarginPx;
+  const endDeficient = endMarginPx < minimumEndMarginPx;
+  if (startDeficient === endDeficient) return null;
+
+  const deficientEndpoint = startDeficient ? hostStart : hostEnd;
+  if (!hasPerpendicularCornerAnchor(
+    host,
+    deficientEndpoint,
+    input.wallCandidates,
+    input.widthPx,
+    input.heightPx,
+  )) return null;
+
+  return startDeficient
+    ? {
+        startExtensionPx: minimumEndMarginPx - startMarginPx + CORNER_EXTENSION_EPSILON_PX,
+        endExtensionPx: 0,
+      }
+    : {
+        startExtensionPx: 0,
+        endExtensionPx: minimumEndMarginPx - endMarginPx + CORNER_EXTENSION_EPSILON_PX,
+      };
+}
+
+function extendedHostForCorner(
+  host: RecognitionWallCandidate,
+  extension: CornerExtension,
+  widthPx: number,
+  heightPx: number,
+): RecognitionWallCandidate | null {
+  const hostStart = pixelPoint(host.start, widthPx, heightPx);
+  const hostEnd = pixelPoint(host.end, widthPx, heightPx);
+  const hostVector = subtract(hostEnd, hostStart);
+  const hostLengthPx = vectorLength(hostVector);
+  if (!Number.isFinite(hostLengthPx) || hostLengthPx <= EPSILON) return null;
+
+  const tangent = { x: hostVector.x / hostLengthPx, y: hostVector.y / hostLengthPx };
+  const extendedStart = add(hostStart, scale(tangent, -extension.startExtensionPx));
+  const extendedEnd = add(hostEnd, scale(tangent, extension.endExtensionPx));
+  return {
+    ...host,
+    start: {
+      x: Math.max(0, Math.min(1, extendedStart.x / widthPx)),
+      y: Math.max(0, Math.min(1, extendedStart.y / heightPx)),
+    },
+    end: {
+      x: Math.max(0, Math.min(1, extendedEnd.x / widthPx)),
+      y: Math.max(0, Math.min(1, extendedEnd.y / heightPx)),
+    },
+  };
 }
 
 function thicknessCompatible(
@@ -185,12 +341,7 @@ function markChainValidated(candidate: RecognitionOpeningCandidate): Recognition
 
 function retryWindowHostChains(
   result: OpeningAnalysisResult,
-  input: Readonly<{
-    widthPx: number;
-    heightPx: number;
-    wallCandidates: readonly RecognitionWallCandidate[];
-    options?: ValidateOpeningHypothesesInput["options"];
-  }>,
+  input: RetryOpeningInput,
 ): OpeningAnalysisResult {
   const wallsById = new Map(input.wallCandidates.map((wall) => [wall.id, wall]));
   const extendedById = new Map<string, RecognitionWallCandidate>();
@@ -234,11 +385,80 @@ function retryWindowHostChains(
   return { candidates, rejections };
 }
 
+function markCornerValidated(candidate: RecognitionOpeningCandidate): RecognitionOpeningCandidate {
+  return {
+    ...candidate,
+    evidence: {
+      ...candidate.evidence,
+      reasons: [...new Set([
+        ...candidate.evidence.reasons,
+        "perpendicular-corner-terminated",
+      ])].sort(),
+    },
+  };
+}
+
+function retryCornerTerminatedWindows(
+  result: OpeningAnalysisResult,
+  input: RetryOpeningInput,
+): OpeningAnalysisResult {
+  const wallsById = new Map(input.wallCandidates.map((wall) => [wall.id, wall]));
+  const extensionsById = new Map<string, CornerExtension>();
+  const retryCandidates: RecognitionOpeningCandidate[] = [];
+  const retryIds = new Set<string>();
+
+  for (const rejection of result.rejections) {
+    const hostId = rejection.hostWallCandidateId;
+    if (hostId === null) continue;
+    const host = wallsById.get(hostId);
+    if (!host) continue;
+    const extension = cornerExtensionForRejection(rejection, host, input);
+    if (!extension) continue;
+    const current = extensionsById.get(hostId) ?? {
+      startExtensionPx: 0,
+      endExtensionPx: 0,
+    };
+    extensionsById.set(hostId, {
+      startExtensionPx: Math.max(current.startExtensionPx, extension.startExtensionPx),
+      endExtensionPx: Math.max(current.endExtensionPx, extension.endExtensionPx),
+    });
+    retryCandidates.push(rejection.candidate);
+    retryIds.add(rejection.candidateId);
+  }
+
+  if (retryCandidates.length === 0) return result;
+  const validationWalls = input.wallCandidates.map((wall) => {
+    const extension = extensionsById.get(wall.id);
+    return extension
+      ? extendedHostForCorner(wall, extension, input.widthPx, input.heightPx) ?? wall
+      : wall;
+  });
+  const retried = validateOpeningHypothesesBase({
+    widthPx: input.widthPx,
+    heightPx: input.heightPx,
+    wallCandidates: validationWalls,
+    hypotheses: [...result.candidates, ...retryCandidates],
+    options: input.options,
+  });
+  const candidates = retried.candidates
+    .map((candidate) => retryIds.has(candidate.id) ? markCornerValidated(candidate) : candidate)
+    .sort((first, second) => first.id.localeCompare(second.id));
+  const retainedRejections = result.rejections.filter((rejection) => !retryIds.has(rejection.candidateId));
+  const rejections = [...retainedRejections, ...retried.rejections]
+    .sort((first, second) =>
+      first.candidateId.localeCompare(second.candidateId)
+      || first.code.localeCompare(second.code));
+  return { candidates, rejections };
+}
+
 export function validateOpeningHypotheses(
   input: ValidateOpeningHypothesesInput,
 ): OpeningAnalysisResult {
-  return retryWindowHostChains(
-    validateOpeningHypothesesBase(input),
+  return retryCornerTerminatedWindows(
+    retryWindowHostChains(
+      validateOpeningHypothesesBase(input),
+      input,
+    ),
     input,
   );
 }
@@ -258,5 +478,8 @@ export function analyzeOpeningHypotheses(
       ...windowHostProposals,
     ],
   });
-  return retryWindowHostChains(result, input);
+  return retryCornerTerminatedWindows(
+    retryWindowHostChains(result, input),
+    input,
+  );
 }
