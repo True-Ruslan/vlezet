@@ -161,12 +161,13 @@ describe("bounded OpenRouter Stage 1 proposal mode", () => {
   });
 
   it("performs one text-only schema repair with the same model and provider", async () => {
+    const invalidResponse = '{"schemaVersion":';
     const bodies: unknown[] = [];
     const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       bodies.push(body);
       return bodies.length === 1
-        ? completion('{"schemaVersion":')
+        ? completion(invalidResponse)
         : completion(JSON.stringify(validProviderBatch()));
     });
     const provider = new OpenRouterDirectProvider({
@@ -188,6 +189,7 @@ describe("bounded OpenRouter Stage 1 proposal mode", () => {
     expect(repair.provider).toEqual((bodies[0] as { provider: unknown }).provider);
     expect(repair.messages[0].content.filter((item) => item.type === "image_url")).toEqual([]);
     expect(repair.messages[0].content[0]?.text).toContain("schema-repair");
+    expect(repair.messages[0].content[0]?.text).toContain(invalidResponse);
   });
 
   it("does not repair semantic identity mismatches", async () => {
