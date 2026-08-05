@@ -17,8 +17,8 @@ describe("local recognition AI evidence source contract", () => {
 
   it("materializes bounded evidence after the engine result and before posting it", () => {
     const engineIndex = workerSource.indexOf("await runLocalRecognitionEngine");
-    const evidenceIndex = workerSource.indexOf("materializePendingAiLocalEvidenceForDraft");
-    const postIndex = workerSource.indexOf('post({ type: "result"');
+    const evidenceIndex = workerSource.indexOf("materializePendingAiLocalEvidenceForDraft(", engineIndex);
+    const postIndex = workerSource.indexOf('post({ type: "result"', evidenceIndex);
     expect(engineIndex).toBeGreaterThan(-1);
     expect(evidenceIndex).toBeGreaterThan(engineIndex);
     expect(postIndex).toBeGreaterThan(evidenceIndex);
@@ -26,8 +26,8 @@ describe("local recognition AI evidence source contract", () => {
 
   it("validates the Draft and registers transferred evidence before resolving", () => {
     const validationIndex = clientSource.indexOf("validateRecognitionDraft(message.draft)");
-    const registrationIndex = clientSource.indexOf("registerAiLocalEvidenceForDraft");
-    const resolveIndex = clientSource.indexOf("resolve(draft)");
+    const registrationIndex = clientSource.indexOf("registerAiLocalEvidenceForDraft(", validationIndex);
+    const resolveIndex = clientSource.indexOf("resolve(draft)", registrationIndex);
     expect(validationIndex).toBeGreaterThan(-1);
     expect(registrationIndex).toBeGreaterThan(validationIndex);
     expect(resolveIndex).toBeGreaterThan(registrationIndex);
