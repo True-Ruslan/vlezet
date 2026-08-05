@@ -4,7 +4,12 @@ export type {
   SanitizedAiOpeningProposal,
 } from "./ai-opening-sanitizer";
 export { sanitizeAiOpeningProposal } from "./ai-opening-sanitizer-runtime";
-export * from "./ai-proposal-sanity";
+export type {
+  RecognitionAiProviderIdentity,
+  SanitizeAiProposalBatchInput,
+  SanitizeAiProposalBatchResult,
+} from "./ai-proposal-sanity";
+export { sanitizeAiProposalBatch } from "./ai-proposal-sanity-runtime";
 export * from "./ai-proposals";
 export * from "./ai-rejected-opening-evidence";
 export * from "./ai-rejected-opening-evidence-runtime";
