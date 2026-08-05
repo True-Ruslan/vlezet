@@ -9,7 +9,7 @@ import type {
 import {
   consolidateWindowHostWalls as consolidateWindowHostWallsBase,
 } from "./window-host-consolidation";
-import { recoverWindowHostSegmentedWalls } from "./window-host-segmented-recovery";
+import { recoverWindowHostSegmentedWalls } from "./window-host-segmented-recovery-runtime";
 
 export type { WindowHostProposalEvidence } from "./window-host-consolidation";
 
