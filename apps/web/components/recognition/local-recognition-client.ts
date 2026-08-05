@@ -1,6 +1,7 @@
 import {
   inflateAiLocalEvidenceTransfer,
   registerAiLocalEvidenceForDraft,
+  registerAiRejectedOpeningEvidenceForDraft,
   validateRecognitionDraft,
   type RecognitionDraft,
 } from "@vlezet/recognition";
@@ -113,6 +114,12 @@ export function runLocalRecognition(
           registerAiLocalEvidenceForDraft(
             draft,
             inflateAiLocalEvidenceTransfer(message.evidence),
+          );
+        }
+        if (message.rejectedOpeningEvidence) {
+          registerAiRejectedOpeningEvidenceForDraft(
+            draft,
+            message.rejectedOpeningEvidence,
           );
         }
         recognitionInfo("local.complete", {
