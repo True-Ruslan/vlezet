@@ -1,5 +1,9 @@
 export * from "./ai-local-evidence";
-export * from "./ai-opening-sanitizer";
+export type {
+  SanitizeAiOpeningProposalInput,
+  SanitizedAiOpeningProposal,
+} from "./ai-opening-sanitizer";
+export { sanitizeAiOpeningProposal } from "./ai-opening-sanitizer-runtime";
 export * from "./ai-proposal-sanity";
 export * from "./ai-proposals";
 export * from "./ai-rejected-opening-evidence";
