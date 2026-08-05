@@ -1,3 +1,4 @@
+export * from "./ai-proposals";
 export * from "./architectural-lines";
 export * from "./cloud-sanity";
 export type {
