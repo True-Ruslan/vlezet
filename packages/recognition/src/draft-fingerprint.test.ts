@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  createRecognitionDraftFingerprint,
+  assertAiProposalBatchIdentity,
+  createAiProposalRequestIdentity,
+  createLocalDraftFingerprint,
+  type AiProposalBatch,
   type RecognitionDraft,
   type ValidatedRecognitionDraft,
 } from "./index";
@@ -21,7 +24,11 @@ function draft(overrides: Partial<ValidatedRecognitionDraft> = {}): ValidatedRec
       end: { x: 0.9, y: 0.2 },
       estimatedThicknessPx: 18,
       confidence: "high",
-      evidence: { localScore: 0.94, cloudScore: null, reasons: ["parallel-edges", "filled-wall-region-evidence"] },
+      evidence: {
+        localScore: 0.94,
+        cloudScore: null,
+        reasons: ["parallel-edges", "filled-wall-region-evidence"],
+      },
       origin: "local",
       conflict: null,
     }],
@@ -33,7 +40,11 @@ function draft(overrides: Partial<ValidatedRecognitionDraft> = {}): ValidatedRec
       widthPx: 90,
       orientationDeg: 0,
       confidence: "medium",
-      evidence: { localScore: 0.72, cloudScore: null, reasons: ["wall-gap", "host-wall-validated"] },
+      evidence: {
+        localScore: 0.72,
+        cloudScore: null,
+        reasons: ["wall-gap", "host-wall-validated"],
+      },
       origin: "local",
       conflict: null,
     }],
@@ -50,75 +61,89 @@ function draft(overrides: Partial<ValidatedRecognitionDraft> = {}): ValidatedRec
   };
 }
 
-describe("local Draft fingerprint", () => {
-  it("returns a lowercase SHA-256 digest", () => {
-    expect(createRecognitionDraftFingerprint(draft())).toMatch(/^[a-f0-9]{64}$/);
+function batch(input: Readonly<{
+  requestId?: string;
+  referenceRevision?: string;
+  localDraftFingerprint?: string;
+}> = {}): AiProposalBatch {
+  return {
+    schemaVersion: "recognition-ai-proposals-v1",
+    requestId: input.requestId ?? "request-1",
+    referenceRevision: input.referenceRevision ?? "revision-1",
+    localDraftFingerprint: input.localDraftFingerprint ?? createLocalDraftFingerprint(draft()),
+    proposals: [],
+    diagnostics: [],
+  };
+}
+
+describe("local Draft fingerprint and proposal request identity", () => {
+  it("returns a versioned lowercase SHA-256 digest", () => {
+    expect(createLocalDraftFingerprint(draft()))
+      .toMatch(/^recognition-local-draft-v1:[a-f0-9]{64}$/);
   });
 
-  it("is stable across timestamps, status, diagnostics and proposal state", () => {
+  it("is stable across timestamps, status, diagnostics, decisions and proposal state", () => {
     const source = draft();
     const changed: RecognitionDraft = {
       ...source,
       status: "reconciled",
       diagnostics: [{ code: "changed", severity: "warning", message: "changed", candidateId: "wall-1" }],
+      decisions: { "wall-1": "accepted", "opening-1": "rejected" },
       aiProposals: [],
       proposalDecisions: {},
       aiProposalMetadata: null,
       createdAt: "2026-08-06T00:00:00.000Z",
       updatedAt: "2026-08-07T00:00:00.000Z",
     };
-    expect(createRecognitionDraftFingerprint(changed)).toBe(createRecognitionDraftFingerprint(source));
+    expect(createLocalDraftFingerprint(changed)).toBe(createLocalDraftFingerprint(source));
   });
 
-  it("is invariant to wall, opening, decision and evidence-reason ordering", () => {
+  it("is invariant to wall, opening and evidence-reason ordering after canonical ID sort", () => {
+    const base = draft();
     const secondWall = {
-      ...draft().walls[0]!,
+      ...base.walls[0]!,
       id: "wall-2",
       start: { x: 0.2, y: 0.8 },
       end: { x: 0.8, y: 0.8 },
       evidence: { localScore: 0.8, cloudScore: null, reasons: ["b", "a"] },
     };
     const secondOpening = {
-      ...draft().openings[0]!,
+      ...base.openings[0]!,
       id: "opening-2",
       hostWallCandidateId: "wall-2",
       center: { x: 0.6, y: 0.8 },
     };
     const first = draft({
-      walls: [draft().walls[0]!, secondWall],
-      openings: [draft().openings[0]!, secondOpening],
-      decisions: { "wall-1": "pending", "opening-1": "accepted", "wall-2": "rejected", "opening-2": "edited" },
+      walls: [base.walls[0]!, secondWall],
+      openings: [base.openings[0]!, secondOpening],
     });
     const second = draft({
-      walls: [{ ...secondWall, evidence: { ...secondWall.evidence, reasons: ["a", "b"] } }, draft().walls[0]!],
-      openings: [secondOpening, draft().openings[0]!],
-      decisions: { "opening-2": "edited", "wall-2": "rejected", "opening-1": "accepted", "wall-1": "pending" },
+      walls: [{ ...secondWall, evidence: { ...secondWall.evidence, reasons: ["a", "b"] } }, base.walls[0]!],
+      openings: [secondOpening, base.openings[0]!],
     });
-    expect(createRecognitionDraftFingerprint(second)).toBe(createRecognitionDraftFingerprint(first));
+    expect(createLocalDraftFingerprint(second)).toBe(createLocalDraftFingerprint(first));
   });
 
-  it("changes for geometry, classification, host, confidence, evidence, decision or reference identity changes", () => {
+  it("changes for local wall and opening structural changes", () => {
     const source = draft();
     const mutations: RecognitionDraft[] = [
-      { ...source, referenceAssetId: "asset-2" },
-      { ...source, referenceRevision: "revision-2" },
-      { ...source, engineVersion: "6" },
       { ...source, walls: [{ ...source.walls[0]!, end: { x: 0.85, y: 0.2 } }] },
       { ...source, walls: [{ ...source.walls[0]!, estimatedThicknessPx: 22 }] },
       { ...source, walls: [{ ...source.walls[0]!, confidence: "medium" }] },
+      { ...source, walls: [{ ...source.walls[0]!, conflict: "unsupported" }] },
       { ...source, walls: [{ ...source.walls[0]!, evidence: { ...source.walls[0]!.evidence, localScore: 0.8 } }] },
       { ...source, openings: [{ ...source.openings[0]!, kind: "window" }] },
       { ...source, openings: [{ ...source.openings[0]!, hostWallCandidateId: null }] },
       { ...source, openings: [{ ...source.openings[0]!, widthPx: 100 }] },
-      { ...source, decisions: { ...source.decisions, "opening-1": "accepted" } },
+      { ...source, openings: [{ ...source.openings[0]!, orientationDeg: 90 }] },
     ];
-    const fingerprint = createRecognitionDraftFingerprint(source);
+    const fingerprint = createLocalDraftFingerprint(source);
     for (const mutation of mutations) {
-      expect(createRecognitionDraftFingerprint(mutation)).not.toBe(fingerprint);
+      expect(createLocalDraftFingerprint(mutation)).not.toBe(fingerprint);
     }
   });
 
-  it("normalizes negative zero and finite decimal representation", () => {
+  it("normalizes negative zero", () => {
     const source = draft();
     const negativeZero = draft({
       walls: [{ ...source.walls[0]!, start: { x: -0, y: 0.2 } }],
@@ -126,6 +151,26 @@ describe("local Draft fingerprint", () => {
     const positiveZero = draft({
       walls: [{ ...source.walls[0]!, start: { x: 0, y: 0.2 } }],
     });
-    expect(createRecognitionDraftFingerprint(negativeZero)).toBe(createRecognitionDraftFingerprint(positiveZero));
+    expect(createLocalDraftFingerprint(negativeZero)).toBe(createLocalDraftFingerprint(positiveZero));
+  });
+
+  it("creates exact request identity and rejects request, revision or fingerprint mismatch", () => {
+    const localDraft = draft();
+    const identity = createAiProposalRequestIdentity({
+      requestId: "request-1",
+      referenceRevision: "revision-1",
+      localDraft,
+    });
+    expect(identity).toEqual({
+      requestId: "request-1",
+      referenceRevision: "revision-1",
+      localDraftFingerprint: createLocalDraftFingerprint(localDraft),
+    });
+    expect(() => assertAiProposalBatchIdentity(batch(), identity)).not.toThrow();
+    expect(() => assertAiProposalBatchIdentity(batch({ requestId: "request-2" }), identity)).toThrow();
+    expect(() => assertAiProposalBatchIdentity(batch({ referenceRevision: "revision-2" }), identity)).toThrow();
+    expect(() => assertAiProposalBatchIdentity(batch({
+      localDraftFingerprint: "recognition-local-draft-v1:" + "b".repeat(64),
+    }), identity)).toThrow();
   });
 });
