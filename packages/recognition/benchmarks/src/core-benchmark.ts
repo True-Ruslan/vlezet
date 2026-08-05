@@ -113,6 +113,9 @@ function localDraft(
     diagnostics: [],
     decisions: Object.fromEntries([...walls, ...openings].map((candidate) => [candidate.id, "pending" as const])),
     source: { local: true, cloud: false },
+    aiProposals: [],
+    proposalDecisions: {},
+    aiProposalMetadata: null,
     createdAt: now,
     updatedAt: now,
   };
