@@ -41,9 +41,10 @@ type RecoveredGroup = Readonly<{
   reference: PixelWall;
   walls: readonly PixelWall[];
 }>;
-type UpstreamHost = Readonly<{
-  wall: PixelWall;
-  gapPx: number;
+type ThicknessReference = Readonly<{
+  thicknessPx: number;
+  totalLengthPx: number;
+  walls: readonly PixelWall[];
 }>;
 
 function subtract(first: Point, second: Point): Point {
@@ -219,40 +220,15 @@ function architecturalGapCount(
   return count;
 }
 
-function gapFromRecoveredToCandidate(
-  recovered: PixelWall,
-  candidate: PixelWall,
-): number | null {
-  const interval = intervalOn(recovered, candidate);
-  if (interval.end < 0) return -interval.end;
-  if (interval.start > recovered.lengthPx) return interval.start - recovered.lengthPx;
-  return null;
+function intervalGap(first: Interval, second: Interval): number {
+  if (first.end < second.start) return second.start - first.end;
+  if (second.end < first.start) return first.start - second.end;
+  return 0;
 }
 
-function nearestUpstreamHost(
-  recovered: PixelWall,
-  contextWalls: readonly PixelWall[],
-): UpstreamHost | null {
-  const candidates: UpstreamHost[] = [];
-  for (const wall of contextWalls) {
-    if (
-      wall.candidate.id === recovered.candidate.id
-      || wall.candidate.conflict !== null
-      || wall.lengthPx < MIN_UPSTREAM_HOST_LENGTH_PX
-      || !collinearWith(recovered, wall)
-    ) continue;
-    const gapPx = gapFromRecoveredToCandidate(recovered, wall);
-    if (
-      gapPx === null
-      || gapPx < MIN_OPENING_GAP_PX
-      || gapPx > MAX_OPENING_GAP_PX
-    ) continue;
-    candidates.push({ wall, gapPx });
-  }
-  return candidates.sort((first, second) =>
-    first.gapPx - second.gapPx
-    || first.wall.thicknessPx - second.wall.thicknessPx
-    || first.wall.candidate.id.localeCompare(second.wall.candidate.id))[0] ?? null;
+function chainGapAllowed(gapPx: number): boolean {
+  return gapPx <= MERGE_INTERVAL_TOLERANCE_PX
+    || (gapPx >= MIN_OPENING_GAP_PX && gapPx <= MAX_OPENING_GAP_PX);
 }
 
 function intersectionAlongRecovered(
@@ -293,6 +269,59 @@ function fullyInsidePerpendicularAnchorBand(
   });
 }
 
+function connectedThicknessReference(
+  recovered: PixelWall,
+  contextWalls: readonly PixelWall[],
+  originalWalls: readonly PixelWall[],
+): ThicknessReference | null {
+  const candidates = contextWalls
+    .filter((wall) =>
+      wall.candidate.id !== recovered.candidate.id
+      && wall.candidate.conflict === null
+      && Number.isFinite(wall.thicknessPx)
+      && wall.thicknessPx > 0
+      && collinearWith(recovered, wall))
+    .sort((first, second) => first.candidate.id.localeCompare(second.candidate.id));
+  const connected: PixelWall[] = [recovered];
+  const pending = [...candidates];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let index = pending.length - 1; index >= 0; index -= 1) {
+      const candidate = pending[index]!;
+      const candidateInterval = intervalOn(recovered, candidate);
+      const touchesChain = connected.some((wall) =>
+        chainGapAllowed(intervalGap(candidateInterval, intervalOn(recovered, wall))));
+      if (!touchesChain) continue;
+      connected.push(candidate);
+      pending.splice(index, 1);
+      changed = true;
+    }
+  }
+
+  const evidenceWalls = connected
+    .filter((wall) =>
+      wall.candidate.id !== recovered.candidate.id
+      && !fullyInsidePerpendicularAnchorBand(wall, originalWalls));
+  const totalLengthPx = evidenceWalls.reduce((sum, wall) => sum + wall.lengthPx, 0);
+  if (totalLengthPx < MIN_UPSTREAM_HOST_LENGTH_PX) return null;
+
+  const byThickness = [...evidenceWalls].sort((first, second) =>
+    first.thicknessPx - second.thicknessPx
+    || first.candidate.id.localeCompare(second.candidate.id));
+  const midpointWeight = totalLengthPx / 2;
+  let accumulated = 0;
+  let thicknessPx = byThickness.at(-1)?.thicknessPx ?? 0;
+  for (const wall of byThickness) {
+    accumulated += wall.lengthPx;
+    if (accumulated + EPSILON < midpointWeight) continue;
+    thicknessPx = wall.thicknessPx;
+    break;
+  }
+  if (!Number.isFinite(thicknessPx) || thicknessPx <= 0) return null;
+  return { thicknessPx, totalLengthPx, walls: evidenceWalls };
+}
+
 function geometryId(
   start: Point,
   end: Point,
@@ -313,19 +342,19 @@ function normalizePerpendicularAnchorThickness(
   if (!candidate.evidence.reasons.includes("segmented-structural-boundary")) return candidate;
   const recovered = pixelWall(candidate, widthPx, heightPx);
   if (!recovered) return candidate;
-  const upstream = nearestUpstreamHost(recovered, contextWalls);
-  if (!upstream) return candidate;
+  const reference = connectedThicknessReference(recovered, contextWalls, originalWalls);
+  if (!reference) return candidate;
   const maximumTerminalLengthPx = Math.max(
     MAX_TERMINAL_LENGTH_PX,
-    upstream.wall.thicknessPx * MAX_TERMINAL_HOST_LENGTH_RATIO,
+    reference.thicknessPx * MAX_TERMINAL_HOST_LENGTH_RATIO,
   );
   if (
     recovered.lengthPx > maximumTerminalLengthPx
-    || recovered.thicknessPx <= upstream.wall.thicknessPx * MIN_THICKNESS_INHERITANCE_RATIO
+    || recovered.thicknessPx <= reference.thicknessPx * MIN_THICKNESS_INHERITANCE_RATIO
     || !fullyInsidePerpendicularAnchorBand(recovered, originalWalls)
   ) return candidate;
 
-  const thicknessPx = upstream.wall.thicknessPx;
+  const thicknessPx = reference.thicknessPx;
   return {
     ...candidate,
     id: geometryId(recovered.start, recovered.end, thicknessPx),
