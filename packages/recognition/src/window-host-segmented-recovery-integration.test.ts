@@ -94,10 +94,11 @@ describe("window host segmented structural recovery", () => {
 
     expect(result.segmentedRecoveredWallCount).toBeGreaterThanOrEqual(2);
     expect(result.acceptedBridgeCount).toBe(2);
-    expect(result.proposalEvidence.map((item) => [
+    const gapIntervals = result.proposalEvidence.map((item) => [
       Math.round(item.gap.start.y),
       Math.round(item.gap.end.y),
-    ])).toEqual([
+    ] as const).sort((first, second) => first[0] - second[0]);
+    expect(gapIntervals).toEqual([
       [180, 330],
       [510, 620],
     ]);
