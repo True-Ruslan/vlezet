@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LOCAL_RECOGNITION_ENGINE_VERSION,
   MemoryRecognitionSessionRepository,
-  type RecognitionDraft,
   type RecognitionSessionRecord,
   type RecognitionWallCandidate,
+  type ValidatedRecognitionDraft,
 } from "@vlezet/recognition";
 import { RecognitionController } from "./recognition-controller";
 
@@ -28,7 +28,7 @@ function wall(id: string, y: number): RecognitionWallCandidate {
 }
 
 function session(cloud: boolean): RecognitionSessionRecord {
-  const draft: RecognitionDraft = {
+  const draft: ValidatedRecognitionDraft = {
     id: "draft",
     projectId: "project",
     referenceAssetId: "asset",
@@ -41,6 +41,9 @@ function session(cloud: boolean): RecognitionSessionRecord {
     diagnostics: [],
     decisions: { "wall-1": "accepted", "wall-2": "pending" },
     source: { local: true, cloud },
+    aiProposals: [],
+    proposalDecisions: {},
+    aiProposalMetadata: null,
     createdAt: NOW,
     updatedAt: NOW,
   };
