@@ -1,11 +1,20 @@
 import {
+  assertAiProposalBatchIdentity,
   sanitizeCloudRecognitionResult,
+  type RecognitionAiProviderEnvelope,
+  type RecognitionAiProviderUsage,
+  type RecognitionAiProposalRequest,
   type RecognitionDiagnostic,
   type RecognitionProvider,
   type RecognitionProviderInput,
   type RecognitionProviderResult,
 } from "@vlezet/recognition";
 import { recognitionError, recognitionInfo } from "./recognition-debug";
+import { recognitionAiProposalImageInputs } from "./recognition-ai-request";
+import {
+  OPENROUTER_PROPOSAL_JSON_SCHEMA,
+  normalizeOpenRouterProposalPayload,
+} from "./openrouter-proposal-schema";
 import {
   OPENROUTER_RECOGNITION_JSON_SCHEMA,
   OPENROUTER_VERIFICATION_JSON_SCHEMA,
@@ -19,8 +28,16 @@ const VERIFICATION_MAX_TOKENS = 2048;
 const DISCOVERY_MAX_TOKENS = 4096;
 const MIN_LOCAL_HIGH_CONFIDENCE_FOR_PROFILE_WARNING = 3;
 const MIN_ACCEPTABLE_CONFIRMED_HIGH_RATIO = 0.4;
+const PROPOSAL_REPAIR_CONTENT_LIMIT = 32 * 1024;
+
+export const OPENROUTER_PROPOSAL_PRIMARY_TIMEOUT_MS = 45_000;
+export const OPENROUTER_PROPOSAL_SCHEMA_REPAIR_TIMEOUT_MS = 15_000;
+export const OPENROUTER_PROPOSAL_MAX_ATTEMPTS = 2;
+export const OPENROUTER_PROPOSAL_MAX_RESPONSE_BYTES = 96 * 1024;
+export const OPENROUTER_PROPOSAL_MAX_TOKENS = 4096;
 
 const defaultBrowserFetch: typeof fetch = (input, init) => globalThis.fetch(input, init);
+const proposalProviderPreferences = Object.freeze({ require_parameters: true });
 
 export type OpenRouterModelOption = Readonly<{
   id: string;
@@ -53,6 +70,16 @@ export class OpenRouterRecognitionError extends Error {
   }
 }
 
+class RepairableProposalResponseError extends OpenRouterRecognitionError {
+  readonly repairCode: "invalid-json" | "invalid-structure";
+
+  constructor(repairCode: RepairableProposalResponseError["repairCode"], message: string, options?: ErrorOptions) {
+    super("invalid-response", message, options);
+    this.name = "RepairableProposalResponseError";
+    this.repairCode = repairCode;
+  }
+}
+
 function authHeaders(apiKey: string): HeadersInit {
   return {
     Authorization: `Bearer ${apiKey}`,
@@ -64,9 +91,7 @@ async function responseError(response: Response): Promise<never> {
   if (response.status === 401 || response.status === 403) throw new OpenRouterRecognitionError("invalid-key", "OpenRouter отклонил API key.");
   if (response.status === 402) throw new OpenRouterRecognitionError("insufficient-funds", "На балансе OpenRouter недостаточно средств для выбранной модели.");
   if (response.status === 429) throw new OpenRouterRecognitionError("rate-limit", "OpenRouter временно ограничил частоту запросов. Повторите позже.");
-  let detail = "";
-  try { detail = JSON.stringify(await response.json()); } catch { detail = await response.text().catch(() => ""); }
-  throw new OpenRouterRecognitionError("request-failed", `OpenRouter вернул ошибку ${response.status}${detail ? `: ${detail.slice(0, 300)}` : "."}`);
+  throw new OpenRouterRecognitionError("request-failed", `OpenRouter вернул ошибку ${response.status}.`);
 }
 
 export async function listCompatibleOpenRouterModels(
@@ -223,6 +248,119 @@ function boundedSignal(externalSignal: AbortSignal, timeoutMs: number): Readonly
   };
 }
 
+function finiteUsage(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function proposalUsage(value: unknown): RecognitionAiProviderUsage {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { promptTokens: null, completionTokens: null, totalTokens: null };
+  }
+  const usage = value as Record<string, unknown>;
+  return {
+    promptTokens: finiteUsage(usage.prompt_tokens),
+    completionTokens: finiteUsage(usage.completion_tokens),
+    totalTokens: finiteUsage(usage.total_tokens),
+  };
+}
+
+function proposalPrompt(request: RecognitionAiProposalRequest): string {
+  return [
+    "mode=proposal-discovery-stage1",
+    "Найди только пропущенные двери, пропущенные окна и вероятный мусор среди локальных кандидатов стен.",
+    "Не изменяй и не возвращай существующую геометрию локального Draft.",
+    "Не предлагай новые стены, подписи комнат, мебель, сантехнику или иные типы объектов.",
+    "Первое изображение — исходный план. Второе — прозрачный overlay с локальными ID W/D/O.",
+    "Все координаты и размеры в ответе используй в целой системе 0..10000 относительно полного исходного изображения.",
+    `requestId=${request.requestId}`,
+    `referenceRevision=${request.referenceRevision}`,
+    `localDraftFingerprint=${request.localDraftFingerprint}`,
+    `budgets=${JSON.stringify(request.budgets)}`,
+    `localSummary=${JSON.stringify(request.localSummary)}`,
+  ].join("\n");
+}
+
+function proposalResponseFormat() {
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: "vlezet_floor_plan_proposals_stage1",
+      strict: true,
+      schema: OPENROUTER_PROPOSAL_JSON_SCHEMA,
+    },
+  } as const;
+}
+
+function primaryProposalBody(modelId: string, request: RecognitionAiProposalRequest) {
+  return {
+    model: modelId,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "text", text: proposalPrompt(request) },
+        ...recognitionAiProposalImageInputs(request),
+      ],
+    }],
+    response_format: proposalResponseFormat(),
+    provider: proposalProviderPreferences,
+    max_tokens: OPENROUTER_PROPOSAL_MAX_TOKENS,
+    temperature: 0,
+    stream: false,
+  };
+}
+
+function repairProposalBody(
+  modelId: string,
+  request: RecognitionAiProposalRequest,
+  repairCode: RepairableProposalResponseError["repairCode"],
+  invalidContent: string,
+) {
+  const boundedContent = invalidContent.slice(0, PROPOSAL_REPAIR_CONTENT_LIMIT);
+  return {
+    model: modelId,
+    messages: [{
+      role: "user",
+      content: [{
+        type: "text",
+        text: [
+          "schema-repair",
+          `repairCode=${repairCode}`,
+          "Исправь только JSON ниже по той же строгой Stage 1 schema.",
+          "Не добавляй новые типы, не меняй requestId, referenceRevision или localDraftFingerprint.",
+          `requestId=${request.requestId}`,
+          `referenceRevision=${request.referenceRevision}`,
+          `localDraftFingerprint=${request.localDraftFingerprint}`,
+          "invalidResponse:",
+          boundedContent,
+        ].join("\n"),
+      }],
+    }],
+    response_format: proposalResponseFormat(),
+    provider: proposalProviderPreferences,
+    max_tokens: OPENROUTER_PROPOSAL_MAX_TOKENS,
+    temperature: 0,
+    stream: false,
+  };
+}
+
+type ProposalAttemptResult = Readonly<{
+  batch: RecognitionAiProviderEnvelope["batch"];
+  usage: RecognitionAiProviderUsage;
+  invalidContent: string;
+}>;
+
+function responseByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+function safeProposalError(cause: unknown): OpenRouterRecognitionError {
+  if (cause instanceof OpenRouterRecognitionError) return cause;
+  return new OpenRouterRecognitionError(
+    "request-failed",
+    "Не удалось выполнить AI-поиск пропущенных элементов. Локальный черновик сохранён без изменений.",
+  );
+}
+
 export class OpenRouterDirectProvider implements RecognitionProvider {
   readonly id = "openrouter-direct";
   readonly displayName = "OpenRouter";
@@ -240,6 +378,186 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
     if (!this.#modelId) throw new OpenRouterRecognitionError("unsupported-model", "Выберите модель OpenRouter.");
     if (!Number.isFinite(this.#timeoutMs) || this.#timeoutMs <= 0) {
       throw new OpenRouterRecognitionError("request-failed", "Тайм-аут AI-проверки должен быть положительным числом.");
+    }
+  }
+
+  async #proposalAttempt(
+    request: RecognitionAiProposalRequest,
+    signal: AbortSignal,
+    timeoutMs: number,
+    body: unknown,
+    repairable: boolean,
+  ): Promise<ProposalAttemptResult> {
+    const bounded = boundedSignal(signal, timeoutMs);
+    try {
+      const response = await this.#fetcher(`${OPENROUTER_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: authHeaders(this.#apiKey),
+        signal: bounded.signal,
+        body: JSON.stringify(body),
+      });
+      recognitionInfo("openrouter.proposals.response", {
+        modelId: this.#modelId,
+        status: response.status,
+        repair: !repairable,
+      });
+      if (!response.ok) return responseError(response);
+      const responseText = await response.text();
+      if (responseByteLength(responseText) > OPENROUTER_PROPOSAL_MAX_RESPONSE_BYTES) {
+        throw new OpenRouterRecognitionError(
+          "invalid-response",
+          "Ответ OpenRouter превысил безопасный размер.",
+        );
+      }
+      let envelope: unknown;
+      try {
+        envelope = JSON.parse(responseText);
+      } catch {
+        throw new OpenRouterRecognitionError(
+          "invalid-response",
+          "OpenRouter вернул некорректный HTTP JSON envelope.",
+        );
+      }
+      if (!envelope || typeof envelope !== "object" || Array.isArray(envelope)) {
+        throw new OpenRouterRecognitionError("invalid-response", "OpenRouter вернул некорректный HTTP envelope.");
+      }
+      const outer = envelope as Record<string, unknown>;
+      const choices = Array.isArray(outer.choices) ? outer.choices : [];
+      const choice = choices[0];
+      const message = choice && typeof choice === "object" && !Array.isArray(choice)
+        ? (choice as Record<string, unknown>).message
+        : null;
+      const content = message && typeof message === "object" && !Array.isArray(message)
+        ? (message as Record<string, unknown>).content
+        : null;
+      if (typeof content !== "string" || !content.trim()) {
+        throw new OpenRouterRecognitionError(
+          "invalid-response",
+          "OpenRouter не вернул структурированный Stage 1 результат.",
+        );
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        if (repairable) {
+          throw new RepairableProposalResponseError(
+            "invalid-json",
+            "OpenRouter вернул некорректный Stage 1 JSON.",
+          );
+        }
+        throw new OpenRouterRecognitionError("invalid-response", "Schema repair вернул некорректный JSON.");
+      }
+      let batch: RecognitionAiProviderEnvelope["batch"];
+      try {
+        batch = normalizeOpenRouterProposalPayload(parsed);
+      } catch {
+        if (repairable) {
+          throw new RepairableProposalResponseError(
+            "invalid-structure",
+            "Ответ OpenRouter не прошёл строгую Stage 1 schema.",
+          );
+        }
+        throw new OpenRouterRecognitionError("invalid-response", "Schema repair не прошёл строгую Stage 1 schema.");
+      }
+      try {
+        assertAiProposalBatchIdentity(batch, {
+          requestId: request.requestId,
+          referenceRevision: request.referenceRevision,
+          localDraftFingerprint: request.localDraftFingerprint,
+        });
+      } catch {
+        throw new OpenRouterRecognitionError(
+          "invalid-response",
+          "Ответ OpenRouter относится к другому запросу или локальному черновику.",
+        );
+      }
+      return { batch, usage: proposalUsage(outer.usage), invalidContent: content };
+    } catch (cause) {
+      if (bounded.timedOut()) {
+        throw new OpenRouterRecognitionError(
+          "timeout",
+          `AI-поиск пропусков не завершился за ${Math.round(timeoutMs / 1000)} сек. Локальный черновик сохранён без изменений.`,
+        );
+      }
+      throw cause;
+    } finally {
+      bounded.dispose();
+    }
+  }
+
+  async recognizeProposals(
+    request: RecognitionAiProposalRequest,
+    signal: AbortSignal,
+  ): Promise<RecognitionAiProviderEnvelope> {
+    const startedAt = performance.now();
+    recognitionInfo("openrouter.proposals.start", {
+      modelId: this.#modelId,
+      mode: request.mode,
+      imageWidthPx: request.imageWidthPx,
+      imageHeightPx: request.imageHeightPx,
+      localWalls: request.localSummary.walls.length,
+      localOpenings: request.localSummary.openings.length,
+      maxAttempts: OPENROUTER_PROPOSAL_MAX_ATTEMPTS,
+    });
+    try {
+      try {
+        const primary = await this.#proposalAttempt(
+          request,
+          signal,
+          OPENROUTER_PROPOSAL_PRIMARY_TIMEOUT_MS,
+          primaryProposalBody(this.#modelId, request),
+          true,
+        );
+        const latencyMs = Math.round(performance.now() - startedAt);
+        recognitionInfo("openrouter.proposals.complete", {
+          modelId: this.#modelId,
+          attemptCount: 1,
+          proposals: primary.batch.proposals.length,
+          diagnostics: primary.batch.diagnostics.length,
+          durationMs: latencyMs,
+        });
+        return {
+          batch: primary.batch,
+          providerId: this.id,
+          modelId: this.#modelId,
+          latencyMs,
+          usage: primary.usage,
+          attemptCount: 1,
+        };
+      } catch (cause) {
+        if (!(cause instanceof RepairableProposalResponseError)) throw cause;
+        const repaired = await this.#proposalAttempt(
+          request,
+          signal,
+          OPENROUTER_PROPOSAL_SCHEMA_REPAIR_TIMEOUT_MS,
+          repairProposalBody(this.#modelId, request, cause.repairCode, cause.message),
+          false,
+        );
+        const latencyMs = Math.round(performance.now() - startedAt);
+        recognitionInfo("openrouter.proposals.complete", {
+          modelId: this.#modelId,
+          attemptCount: 2,
+          proposals: repaired.batch.proposals.length,
+          diagnostics: repaired.batch.diagnostics.length,
+          durationMs: latencyMs,
+        });
+        return {
+          batch: repaired.batch,
+          providerId: this.id,
+          modelId: this.#modelId,
+          latencyMs,
+          usage: repaired.usage,
+          attemptCount: 2,
+        };
+      }
+    } catch (cause) {
+      const mapped = safeProposalError(cause);
+      recognitionError("openrouter.proposals.error", mapped, {
+        modelId: this.#modelId,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+      throw mapped;
     }
   }
 
