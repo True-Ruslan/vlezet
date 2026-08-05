@@ -9,6 +9,7 @@ import {
   type RecognitionDraftStatus,
   type RecognitionSessionRecord,
   type RecognitionSessionRepository,
+  type ValidatedRecognitionDraft,
 } from "@vlezet/recognition";
 import type { LocalRecognitionInput, LocalRecognitionProgress } from "./local-recognition-types";
 
@@ -28,7 +29,10 @@ export type RecognitionControllerOptions = Readonly<{
   onState: (state: RecognitionControllerState) => void;
 }>;
 
-function sessionFromDraft(draft: RecognitionDraft, previous?: RecognitionSessionRecord | null): RecognitionSessionRecord {
+function sessionFromDraft(
+  draft: ValidatedRecognitionDraft,
+  previous?: RecognitionSessionRecord | null,
+): RecognitionSessionRecord {
   return {
     id: previous?.id ?? crypto.randomUUID(),
     projectId: draft.projectId,
@@ -42,7 +46,7 @@ function sessionFromDraft(draft: RecognitionDraft, previous?: RecognitionSession
   };
 }
 
-function enforceReviewableLocalDraft(draft: RecognitionDraft): RecognitionDraft {
+function enforceReviewableLocalDraft(draft: ValidatedRecognitionDraft): ValidatedRecognitionDraft {
   const budget = enforceLocalWallReviewBudget({ walls: draft.walls });
   if (!budget.overloaded) return draft;
   return {
@@ -177,7 +181,7 @@ export class RecognitionController {
     const status: RecognitionDraftStatus = applied ? "applied" : reviewStatus(session);
     if (session.draft.status === status) return;
     const updatedAt = new Date().toISOString();
-    const draft: RecognitionDraft = { ...session.draft, status, updatedAt };
+    const draft: ValidatedRecognitionDraft = { ...session.draft, status, updatedAt };
     const updated = { ...session, draft, updatedAt };
     await this.#repository.put(updated);
     this.#setState({ kind: "review", session: updated });
@@ -192,7 +196,9 @@ export class RecognitionController {
     this.#abortController = null;
   }
 
-  async #updateDraft(update: (draft: RecognitionDraft) => RecognitionDraft): Promise<void> {
+  async #updateDraft(
+    update: (draft: ValidatedRecognitionDraft) => ValidatedRecognitionDraft,
+  ): Promise<void> {
     const session = this.#state.session;
     if (!session) return;
     const changed = update(session.draft);
