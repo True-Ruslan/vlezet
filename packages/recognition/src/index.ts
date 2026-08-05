@@ -1,4 +1,5 @@
 export * from "./ai-local-evidence";
+export * from "./ai-opening-sanitizer";
 export * from "./ai-proposal-sanity";
 export * from "./ai-proposals";
 export * from "./ai-rejected-opening-evidence";
