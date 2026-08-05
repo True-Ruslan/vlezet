@@ -92,10 +92,16 @@ function distancePointToSegment(
   return vectorLength(subtract(point, add(start, scale(segment, projection))));
 }
 
-function exactWindowProposal(candidate: RecognitionOpeningCandidate): boolean {
-  return candidate.kind === "window"
-    && candidate.evidence.reasons.includes("paired-window-rails")
-    && candidate.evidence.reasons.includes("window-host-proposal-evidence");
+function exactCornerProposal(candidate: RecognitionOpeningCandidate): boolean {
+  const reasons = candidate.evidence.reasons;
+  if (candidate.kind === "window") {
+    return reasons.includes("paired-window-rails")
+      && reasons.includes("window-host-proposal-evidence");
+  }
+  return candidate.kind === "door"
+    && reasons.includes("continuous-host-mask-door-gap")
+    && reasons.includes("door-leaf-anchored")
+    && reasons.includes("perpendicular-door-leaf");
 }
 
 function hasPerpendicularCornerAnchor(
@@ -140,7 +146,7 @@ function cornerExtensionForRejection(
 ): CornerExtension | null {
   if (
     rejection.code !== "opening-end-margin"
-    || !exactWindowProposal(rejection.candidate)
+    || !exactCornerProposal(rejection.candidate)
     || host.conflict !== null
   ) return null;
 
