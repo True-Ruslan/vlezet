@@ -46,6 +46,9 @@ const draft: RecognitionDraft = {
   diagnostics: [],
   decisions: { "matched-top": "pending", "false-positive": "pending" },
   source: { local: true, cloud: false },
+  aiProposals: [],
+  proposalDecisions: {},
+  aiProposalMetadata: null,
   createdAt: "2026-08-01T00:00:00.000Z",
   updatedAt: "2026-08-01T00:00:00.000Z",
 };
