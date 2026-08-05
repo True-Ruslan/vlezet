@@ -29,6 +29,9 @@ function validDraft(): RecognitionDraft {
     diagnostics: [],
     decisions: { "wall-1": "pending" },
     source: { local: true, cloud: true },
+    aiProposals: [],
+    proposalDecisions: {},
+    aiProposalMetadata: null,
     createdAt: "2026-08-01T20:00:00.000Z",
     updatedAt: "2026-08-01T20:00:00.000Z",
   };
