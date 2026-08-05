@@ -1,3 +1,4 @@
+export * from "./ai-local-evidence";
 export * from "./ai-proposals";
 export * from "./architectural-lines";
 export * from "./cloud-sanity";
@@ -41,7 +42,7 @@ export type {
 export {
   analyzeOpeningHypotheses,
   validateOpeningHypotheses,
-} from "./opening-analysis-runtime-with-window-proposals";
+} from "./opening-analysis-with-ai-evidence";
 export * from "./opening-host-rebinding";
 export * from "./openings";
 export * from "./provider";
