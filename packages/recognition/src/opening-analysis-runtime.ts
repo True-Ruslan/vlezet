@@ -12,6 +12,7 @@ import type {
   RecognitionOpeningCandidate,
   RecognitionWallCandidate,
 } from "./model";
+import { retryTerminalDoorHostValidation } from "./terminal-door-host-validation";
 
 type Point = Readonly<{ x: number; y: number }>;
 
@@ -196,7 +197,10 @@ export function validateOpeningHypotheses(
   input: ValidateOpeningHypothesesInput,
 ): OpeningAnalysisResult {
   return deduplicateAcrossHosts(
-    validateOpeningHypothesesBase(input),
+    retryTerminalDoorHostValidation(
+      validateOpeningHypothesesBase(input),
+      input,
+    ),
     input.wallCandidates,
     input.widthPx,
     input.heightPx,
@@ -215,13 +219,20 @@ export function analyzeOpeningHypotheses(
         mask: input.structuralMask,
       })
     : { openingHypotheses: [], diagnostics: [] };
+  const result = analyzeOpeningHypothesesBase({
+    ...input,
+    additionalHypotheses: [
+      ...(input.additionalHypotheses ?? []),
+      ...continuousDoorOpenings.openingHypotheses,
+    ],
+  });
   return deduplicateAcrossHosts(
-    analyzeOpeningHypothesesBase({
-      ...input,
-      additionalHypotheses: [
-        ...(input.additionalHypotheses ?? []),
-        ...continuousDoorOpenings.openingHypotheses,
-      ],
+    retryTerminalDoorHostValidation(result, {
+      widthPx: input.widthPx,
+      heightPx: input.heightPx,
+      wallCandidates: input.wallCandidates,
+      hypotheses: result.candidates,
+      options: input.options,
     }),
     input.wallCandidates,
     input.widthPx,
