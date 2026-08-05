@@ -8,12 +8,17 @@ const HEIGHT = 800;
 const AXIS_X = 900;
 const HOST_HALF_THICKNESS = 10;
 
-function verticalHost(): RecognitionWallCandidate {
+function verticalWall(
+  id: string,
+  startY: number,
+  endY: number,
+  thicknessPx = HOST_HALF_THICKNESS * 2,
+): RecognitionWallCandidate {
   return {
-    id: "upstream-host",
-    start: { x: AXIS_X / WIDTH, y: 50 / HEIGHT },
-    end: { x: AXIS_X / WIDTH, y: 350 / HEIGHT },
-    estimatedThicknessPx: HOST_HALF_THICKNESS * 2,
+    id,
+    start: { x: AXIS_X / WIDTH, y: startY / HEIGHT },
+    end: { x: AXIS_X / WIDTH, y: endY / HEIGHT },
+    estimatedThicknessPx: thicknessPx,
     confidence: "medium",
     evidence: {
       localScore: 0.74,
@@ -25,12 +30,12 @@ function verticalHost(): RecognitionWallCandidate {
   };
 }
 
-function terminalAnchor(): RecognitionWallCandidate {
+function horizontalAnchor(y: number, thicknessPx = 40): RecognitionWallCandidate {
   return {
-    id: "terminal-anchor",
-    start: { x: 100 / WIDTH, y: 700 / HEIGHT },
-    end: { x: 950 / WIDTH, y: 700 / HEIGHT },
-    estimatedThicknessPx: 40,
+    id: `terminal-anchor-${y}`,
+    start: { x: 100 / WIDTH, y: y / HEIGHT },
+    end: { x: 950 / WIDTH, y: y / HEIGHT },
+    estimatedThicknessPx: thicknessPx,
     confidence: "medium",
     evidence: {
       localScore: 0.74,
@@ -56,11 +61,28 @@ function contaminatedMask(shortTerminal: boolean): StructuralMaskView {
   };
 }
 
+function fragmentedChainMask(): StructuralMaskView {
+  return {
+    widthPx: WIDTH,
+    heightPx: HEIGHT,
+    isStructural(x, y): boolean {
+      const onVerticalAxis = Math.abs(x - AXIS_X) <= HOST_HALF_THICKNESS;
+      if (onVerticalAxis && y >= 50 && y <= 200) return true;
+      if (onVerticalAxis && y >= 400 && y <= 422) return true;
+      if (onVerticalAxis && y >= 612 && y <= 648) return true;
+      return y >= 610 && y <= 650 && x >= 100 && x <= 950;
+    },
+  };
+}
+
 function run(shortTerminal: boolean) {
   return recoverSegmentedBoundaryWalls({
     widthPx: WIDTH,
     heightPx: HEIGHT,
-    wallCandidates: [verticalHost(), terminalAnchor()],
+    wallCandidates: [
+      verticalWall("upstream-host", 50, 350),
+      horizontalAnchor(700),
+    ],
     mask: contaminatedMask(shortTerminal),
   });
 }
@@ -76,6 +98,23 @@ describe("segmented terminal thickness at a perpendicular anchor", () => {
   it("inherits upstream thickness when the entire short terminal lies in the anchor band", () => {
     const result = run(true);
     const terminal = result.recoveredWalls.find((candidate) => interval(candidate)[0] >= 680);
+
+    expect(terminal).toBeDefined();
+    expect(Math.abs((terminal?.estimatedThicknessPx ?? 0) - 20)).toBeLessThanOrEqual(1);
+    expect(terminal?.evidence.reasons).toContain("perpendicular-anchor-thickness-inherited");
+  });
+
+  it("inherits through a connected chain whose immediate relay is shorter than the upstream minimum", () => {
+    const result = recoverSegmentedBoundaryWalls({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [
+        verticalWall("fragmented-upstream-host", 50, 200),
+        horizontalAnchor(630),
+      ],
+      mask: fragmentedChainMask(),
+    });
+    const terminal = result.recoveredWalls.find((candidate) => interval(candidate)[0] >= 610);
 
     expect(terminal).toBeDefined();
     expect(Math.abs((terminal?.estimatedThicknessPx ?? 0) - 20)).toBeLessThanOrEqual(1);
