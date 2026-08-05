@@ -16,7 +16,11 @@ export function analyzeOpeningHypotheses(
 ): OpeningAnalysisResult {
   const result = analyzeOpeningHypothesesBase(input);
   if (input.structuralMask) {
-    registerPendingAiLocalEvidenceContext(input.wallCandidates, input.structuralMask);
+    registerPendingAiLocalEvidenceContext(
+      input.wallCandidates,
+      input.structuralMask,
+      result.rejections,
+    );
   }
   return result;
 }
