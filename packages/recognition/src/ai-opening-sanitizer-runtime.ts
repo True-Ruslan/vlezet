@@ -5,6 +5,7 @@ import {
   type SanitizeAiOpeningProposalInput,
   type SanitizedAiOpeningProposal,
 } from "./ai-opening-sanitizer";
+import { sanitizeAiWindowOpeningProposal } from "./ai-window-opening-sanitizer";
 import { DEFAULT_OPENING_ANALYSIS_OPTIONS } from "./opening-analysis";
 
 const FORBIDDEN_LOCAL_EVIDENCE = [
@@ -93,6 +94,10 @@ function matchingForbiddenEvidence(input: SanitizeAiOpeningProposalInput): boole
 export function sanitizeAiOpeningProposal(
   input: SanitizeAiOpeningProposalInput,
 ): SanitizedAiOpeningProposal {
+  if (input.proposal.openingKind === "window") {
+    return sanitizeAiWindowOpeningProposal(input);
+  }
+
   const result = sanitizeAiOpeningProposalBase(input);
   if (result.state === "eligible") return result;
   if (invalidWidth(input)) return blockedWithReason(result, "invalid-opening-width");
