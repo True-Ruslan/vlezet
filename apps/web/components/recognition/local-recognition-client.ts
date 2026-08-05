@@ -1,4 +1,9 @@
-import { validateRecognitionDraft, type RecognitionDraft } from "@vlezet/recognition";
+import {
+  inflateAiLocalEvidenceTransfer,
+  registerAiLocalEvidenceForDraft,
+  validateRecognitionDraft,
+  type RecognitionDraft,
+} from "@vlezet/recognition";
 import { recognitionError, recognitionInfo } from "./recognition-debug";
 import type {
   LocalRecognitionInput,
@@ -104,6 +109,12 @@ export function runLocalRecognition(
       }
       try {
         const draft = validateRecognitionDraft(message.draft);
+        if (message.evidence) {
+          registerAiLocalEvidenceForDraft(
+            draft,
+            inflateAiLocalEvidenceTransfer(message.evidence),
+          );
+        }
         recognitionInfo("local.complete", {
           walls: draft.walls.length,
           openings: draft.openings.length,
