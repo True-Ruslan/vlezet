@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LOCAL_RECOGNITION_ENGINE_VERSION,
   MemoryRecognitionSessionRepository,
-  type RecognitionDraft,
   type RecognitionSessionRecord,
+  type ValidatedRecognitionDraft,
 } from "@vlezet/recognition";
 import { RecognitionController } from "./recognition-controller";
 
@@ -13,7 +13,7 @@ function fakeImageData(width = 1, height = 1): ImageData {
   return { width, height, data: new Uint8ClampedArray(width * height * 4), colorSpace: "srgb" } as ImageData;
 }
 
-function draft(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): RecognitionDraft {
+function draft(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): ValidatedRecognitionDraft {
   return {
     id: "draft", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion,
     status: "local-complete",
@@ -24,7 +24,7 @@ function draft(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): Recogn
   };
 }
 
-function overloadedDraft(): RecognitionDraft {
+function overloadedDraft(): ValidatedRecognitionDraft {
   const base = draft();
   const walls = Array.from({ length: 81 }, (_, index) => ({
     ...base.walls[0]!,
