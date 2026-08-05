@@ -28,6 +28,7 @@ class FakeWorker implements RecognitionWorkerLike {
           createdAt: request.input.now,
           updatedAt: request.input.now,
         },
+        evidence: null,
       }));
     });
   });
@@ -70,7 +71,7 @@ describe("local recognition client", () => {
   it("rejects malformed worker results", async () => {
     const worker = new FakeWorker();
     worker.postMessage.mockImplementation((request: RecognitionWorkerRequest) => {
-      queueMicrotask(() => worker.onmessage?.(workerEvent({ type: "result", requestId: request.requestId, draft: { nope: true } } as unknown as RecognitionWorkerMessage)));
+      queueMicrotask(() => worker.onmessage?.(workerEvent({ type: "result", requestId: request.requestId, draft: { nope: true }, evidence: null } as unknown as RecognitionWorkerMessage)));
     });
     await expect(runLocalRecognition(input(), { workerFactory: () => worker })).rejects.toThrow(/некорректный черновик/i);
   });
