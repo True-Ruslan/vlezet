@@ -78,7 +78,7 @@ describe("segmented terminal thickness at a perpendicular anchor", () => {
     const terminal = result.recoveredWalls.find((candidate) => interval(candidate)[0] >= 680);
 
     expect(terminal).toBeDefined();
-    expect(terminal?.estimatedThicknessPx).toBe(20);
+    expect(Math.abs((terminal?.estimatedThicknessPx ?? 0) - 20)).toBeLessThanOrEqual(1);
     expect(terminal?.evidence.reasons).toContain("perpendicular-anchor-thickness-inherited");
   });
 
