@@ -255,6 +255,7 @@ export class RecognitionController {
       }
 
       const currentSession = this.#state.session;
+      if (!currentSession) return;
       const reconciled = reconcileAiProposalBatch({
         localDraft: currentSession.draft,
         sanitized: result.sanitized,
@@ -287,6 +288,7 @@ export class RecognitionController {
         localDraftFingerprint,
       )) return;
       const currentSession = this.#state.session;
+      if (!currentSession) return;
       const now = new Date().toISOString();
       const failedDraft = validateRecognitionDraft({
         ...currentSession.draft,
