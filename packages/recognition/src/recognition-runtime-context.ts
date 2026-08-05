@@ -138,6 +138,13 @@ export function registerPendingAiLocalEvidenceContext(
   }
 }
 
+export function peekPendingAiOpeningRejectionsForWalls(
+  activeWallIds: readonly string[],
+): readonly OpeningHypothesisRejection[] {
+  const pending = pendingAiEvidenceByWallSignature.get(wallSignature(activeWallIds));
+  return pending?.openingRejections ?? [];
+}
+
 export function takePendingAiLocalEvidenceContext(
   activeWallIds: readonly string[],
 ): PendingAiLocalEvidenceContext | null {
