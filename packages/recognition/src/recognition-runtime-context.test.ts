@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
+import type { OpeningHypothesisRejection } from "./opening-analysis";
 import {
+  peekPendingAiOpeningRejectionsForWalls,
   registerPendingAiLocalEvidenceContext,
   takePendingAiLocalEvidenceContext,
   takeStructuralMaskForWalls,
@@ -33,6 +35,31 @@ function wall(
     },
     origin: "local",
     conflict: null,
+  };
+}
+
+function rejectedDoor(): OpeningHypothesisRejection {
+  return {
+    candidateId: "rejected-door-1",
+    hostWallCandidateId: "retained-mask-wall",
+    code: "opening-end-margin",
+    message: "Проём расположен слишком близко к окончанию стены.",
+    candidate: {
+      id: "rejected-door-1",
+      kind: "door",
+      hostWallCandidateId: "retained-mask-wall",
+      center: { x: 0.42, y: 0.5 },
+      widthPx: 80,
+      orientationDeg: 0,
+      confidence: "low",
+      evidence: {
+        localScore: 0.62,
+        cloudScore: null,
+        reasons: ["door-leaf", "visible-gap"],
+      },
+      origin: "local",
+      conflict: "invalid-host",
+    },
   };
 }
 
@@ -113,13 +140,33 @@ describe("recognition runtime structural-mask context", () => {
     registerPendingAiLocalEvidenceContext(
       [wall("retained-mask-wall", 100, 100, 900, 100)],
       ephemeralMask,
+      [rejectedDoor()],
     );
     sourceAlive = false;
 
+    expect(peekPendingAiOpeningRejectionsForWalls(["retained-mask-wall"])).toEqual([rejectedDoor()]);
     const pending = takePendingAiLocalEvidenceContext(["retained-mask-wall"]);
     expect(pending).not.toBeNull();
     expect(pending?.structuralMask.isStructural(1, 0)).toBe(true);
     expect(pending?.structuralMask.isStructural(0, 0)).toBe(false);
+    expect(pending?.openingRejections).toEqual([rejectedDoor()]);
+    expect(peekPendingAiOpeningRejectionsForWalls(["retained-mask-wall"])).toEqual([]);
     expect(takePendingAiLocalEvidenceContext(["retained-mask-wall"])).toBeNull();
+  });
+
+  it("fails closed instead of truncating excessive rejected opening evidence", () => {
+    const activeWall = wall("retained-mask-wall", 100, 100, 900, 100);
+    registerPendingAiLocalEvidenceContext(
+      [activeWall],
+      mask,
+      Array.from({ length: 49 }, (_, index) => ({
+        ...rejectedDoor(),
+        candidateId: `rejected-door-${index}`,
+        candidate: { ...rejectedDoor().candidate, id: `rejected-door-${index}` },
+      })),
+    );
+
+    expect(peekPendingAiOpeningRejectionsForWalls([activeWall.id])).toEqual([]);
+    expect(takePendingAiLocalEvidenceContext([activeWall.id])).toBeNull();
   });
 });
