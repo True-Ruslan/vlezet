@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vlezet.dev/schemas/recognition-recorded-ai-proposals-v1.json",
+  "title": "Vlezet recorded AI proposal corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "fixtures"],
+  "properties": {
+    "schemaVersion": {
+      "const": "recognition-recorded-ai-proposals-v1"
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/fixture"
+      }
+    }
+  },
+  "$defs": {
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "analogueFixtureId", "mode", "responsePath", "expected"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "analogueFixtureId": {
+          "type": "string",
+          "pattern": "^real-plan-[0-9]{3}-anonymized$"
+        },
+        "mode": {
+          "const": "stage1-proposal-discovery"
+        },
+        "responsePath": {
+          "type": "string",
+          "pattern": "^fixtures/[a-z0-9-]+\\.json$"
+        },
+        "expected": {
+          "$ref": "#/$defs/expected"
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligibleDoorsMinimum",
+        "eligibleWindowsMinimum",
+        "eligibleWashbasinAdvisory",
+        "eligibleUnknownHostOpenings",
+        "eligibleOutsideHostOpenings",
+        "directLocalMutationCount",
+        "protectedStrongWallAdvisories",
+        "forbiddenRegionEligibleProposals"
+      ],
+      "properties": {
+        "eligibleDoorsMinimum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eligibleWindowsMinimum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eligibleWashbasinAdvisory": {
+          "const": true
+        },
+        "eligibleUnknownHostOpenings": {
+          "const": 0
+        },
+        "eligibleOutsideHostOpenings": {
+          "const": 0
+        },
+        "directLocalMutationCount": {
+          "const": 0
+        },
+        "protectedStrongWallAdvisories": {
+          "const": 0
+        },
+        "forbiddenRegionEligibleProposals": {
+          "const": 0
+        }
+      }
+    },
+    "recordedBatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "requestId",
+        "referenceRevision",
+        "localDraftFingerprint",
+        "proposals",
+        "diagnostics"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "recognition-ai-proposals-v1"
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "referenceRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "localDraftFingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "proposals": {
+          "type": "array",
+          "maxItems": 24
+        },
+        "diagnostics": {
+          "type": "array",
+          "maxItems": 20
+        }
+      }
+    }
+  }
+}
