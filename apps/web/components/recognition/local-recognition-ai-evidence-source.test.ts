@@ -15,26 +15,42 @@ describe("local recognition AI evidence source contract", () => {
     expect(returnIndex).toBeGreaterThan(draftIndex);
   });
 
-  it("materializes bounded evidence after the engine result and before posting it", () => {
+  it("materializes rejected openings before the consuming structural evidence transfer and before posting", () => {
     const engineIndex = workerSource.indexOf("await runLocalRecognitionEngine");
-    const evidenceIndex = workerSource.indexOf("materializePendingAiLocalEvidenceForDraft(", engineIndex);
-    const postIndex = workerSource.indexOf('post({ type: "result"', evidenceIndex);
+    const rejectedIndex = workerSource.indexOf(
+      "materializePendingAiRejectedOpeningEvidenceForDraft(",
+      engineIndex,
+    );
+    const evidenceIndex = workerSource.indexOf(
+      "materializePendingAiLocalEvidenceForDraft(",
+      rejectedIndex,
+    );
+    const postIndex = workerSource.indexOf("type: \"result\"", evidenceIndex);
     expect(engineIndex).toBeGreaterThan(-1);
-    expect(evidenceIndex).toBeGreaterThan(engineIndex);
+    expect(rejectedIndex).toBeGreaterThan(engineIndex);
+    expect(evidenceIndex).toBeGreaterThan(rejectedIndex);
     expect(postIndex).toBeGreaterThan(evidenceIndex);
   });
 
-  it("validates the Draft and registers transferred evidence before resolving", () => {
+  it("validates the Draft and registers both evidence transfers before resolving", () => {
     const validationIndex = clientSource.indexOf("validateRecognitionDraft(message.draft)");
-    const registrationIndex = clientSource.indexOf("registerAiLocalEvidenceForDraft(", validationIndex);
-    const resolveIndex = clientSource.indexOf("resolve(draft)", registrationIndex);
+    const localRegistrationIndex = clientSource.indexOf(
+      "registerAiLocalEvidenceForDraft(",
+      validationIndex,
+    );
+    const rejectedRegistrationIndex = clientSource.indexOf(
+      "registerAiRejectedOpeningEvidenceForDraft(",
+      localRegistrationIndex,
+    );
+    const resolveIndex = clientSource.indexOf("resolve(draft)", rejectedRegistrationIndex);
     expect(validationIndex).toBeGreaterThan(-1);
-    expect(registrationIndex).toBeGreaterThan(validationIndex);
-    expect(resolveIndex).toBeGreaterThan(registrationIndex);
+    expect(localRegistrationIndex).toBeGreaterThan(validationIndex);
+    expect(rejectedRegistrationIndex).toBeGreaterThan(localRegistrationIndex);
+    expect(resolveIndex).toBeGreaterThan(rejectedRegistrationIndex);
   });
 
-  it("does not persist or log structural mask bytes", () => {
+  it("does not persist or log structural mask or rejected-opening payload bytes", () => {
     expect(engineSource).not.toContain("aiLocalEvidence:");
-    expect(clientSource).not.toMatch(/recognitionInfo\([^)]*(bits|structuralMask)/s);
+    expect(clientSource).not.toMatch(/recognitionInfo\([^)]*(bits|structuralMask|rejectedOpeningEvidence)/s);
   });
 });
