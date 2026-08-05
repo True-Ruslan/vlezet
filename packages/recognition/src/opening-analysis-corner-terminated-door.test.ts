@@ -37,7 +37,7 @@ function doorCandidate(exactProposal = true): RecognitionOpeningCandidate {
     id: exactProposal ? "corner-door-proposal" : "ordinary-corner-door",
     kind: "door",
     hostWallCandidateId: "vertical-host",
-    center: { x: 0.85, y: 365 / HEIGHT },
+    center: { x: 0.85, y: 392 / HEIGHT },
     widthPx: 90,
     orientationDeg: 90,
     confidence: "medium",
