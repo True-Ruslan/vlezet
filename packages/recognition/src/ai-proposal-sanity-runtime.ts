@@ -28,7 +28,7 @@ export function sanitizeAiProposalBatch(
   const sanitized: SanitizedRecognitionProposal[] = [];
   for (const candidate of preliminary.sanitized) {
     const raw = rawById.get(candidate.rawProposalId);
-    if (raw?.kind === "opening-addition" && raw.openingKind === "door") {
+    if (raw?.kind === "opening-addition") {
       sanitized.push(sanitizeAiOpeningProposal({
         proposal: raw,
         localDraft: input.localDraft,
