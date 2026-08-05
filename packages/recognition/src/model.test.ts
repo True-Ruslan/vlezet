@@ -31,6 +31,9 @@ function draftFixture(): RecognitionDraft {
     diagnostics: [],
     decisions: { "wall-1": "pending" },
     source: { local: true, cloud: false },
+    aiProposals: [],
+    proposalDecisions: {},
+    aiProposalMetadata: null,
     createdAt: "2026-07-22T00:00:00.000Z",
     updatedAt: "2026-07-22T00:00:00.000Z",
   };
