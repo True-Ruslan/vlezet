@@ -10,9 +10,14 @@ import type {
 import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
 
 type Point = Readonly<{ x: number; y: number }>;
+type Interval = Readonly<{ minimum: number; maximum: number }>;
 type HostExtension = Readonly<{
   startExtensionPx: number;
   endExtensionPx: number;
+}>;
+type RetryPlan = Readonly<{
+  extension: HostExtension;
+  validationReason: "host-wall-chain-validated" | "perpendicular-far-side-terminated";
 }>;
 
 const MAX_VALIDATION_WALLS = 128;
@@ -23,6 +28,11 @@ const MAX_ENDPOINT_TOLERANCE_PX = 16;
 const MIN_AXIS_TOLERANCE_PX = 4;
 const MAX_AXIS_TOLERANCE_PX = 16;
 const MAX_FAR_SIDE_MARGIN_PX = 96;
+const MAX_HOST_CHAIN_GAP_PX = 16;
+const MAX_HOST_CHAIN_ANGLE_DELTA_DEG = 8;
+const MIN_HOST_CHAIN_AXIS_TOLERANCE_PX = 4;
+const MAX_HOST_CHAIN_AXIS_TOLERANCE_PX = 8;
+const MIN_HOST_CHAIN_THICKNESS_TOLERANCE_PX = 8;
 const EPSILON = 1e-7;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -76,6 +86,70 @@ function exactTerminalDoor(rejection: OpeningHypothesisRejection): boolean {
     && reasons.includes("terminal-host-mask-door-gap");
 }
 
+function openingSpanOnHost(
+  rejection: OpeningHypothesisRejection,
+  host: RecognitionWallCandidate,
+  input: ValidateOpeningHypothesesInput,
+): Readonly<{
+  hostStart: Point;
+  hostVector: Point;
+  hostLengthPx: number;
+  tangent: Point;
+  normal: Point;
+  openingStartAlongPx: number;
+  openingEndAlongPx: number;
+  startOutside: boolean;
+  endOutside: boolean;
+}> | null {
+  if (!exactTerminalDoor(rejection) || input.wallCandidates.length > MAX_VALIDATION_WALLS) return null;
+
+  const hostStart = pixelPoint(host.start, input.widthPx, input.heightPx);
+  const hostEnd = pixelPoint(host.end, input.widthPx, input.heightPx);
+  const hostVector = subtract(hostEnd, hostStart);
+  const hostLengthPx = vectorLength(hostVector);
+  const openingWidthPx = rejection.candidate.widthPx;
+  if (
+    !Number.isFinite(hostLengthPx)
+    || hostLengthPx <= EPSILON
+    || openingWidthPx === null
+    || !Number.isFinite(openingWidthPx)
+    || openingWidthPx <= 0
+  ) return null;
+
+  const tangent = { x: hostVector.x / hostLengthPx, y: hostVector.y / hostLengthPx };
+  const normal = { x: -tangent.y, y: tangent.x };
+  const center = pixelPoint(rejection.candidate.center, input.widthPx, input.heightPx);
+  const centerAlongPx = dot(subtract(center, hostStart), tangent);
+  const halfWidthPx = openingWidthPx / 2;
+  const openingStartAlongPx = centerAlongPx - halfWidthPx;
+  const openingEndAlongPx = centerAlongPx + halfWidthPx;
+  const startOutside = openingStartAlongPx < -EPSILON;
+  const endOutside = openingEndAlongPx > hostLengthPx + EPSILON;
+  if (startOutside === endOutside) return null;
+
+  const endpointTolerancePx = Math.max(
+    MIN_ENDPOINT_TOLERANCE_PX,
+    Math.min(MAX_ENDPOINT_TOLERANCE_PX, (host.estimatedThicknessPx ?? 16) / 2 + 2),
+  );
+  if (
+    startOutside
+      ? Math.abs(openingEndAlongPx) > endpointTolerancePx
+      : Math.abs(openingStartAlongPx - hostLengthPx) > endpointTolerancePx
+  ) return null;
+
+  return {
+    hostStart,
+    hostVector,
+    hostLengthPx,
+    tangent,
+    normal,
+    openingStartAlongPx,
+    openingEndAlongPx,
+    startOutside,
+    endOutside,
+  };
+}
+
 function perpendicularIntersectionAlong(
   host: RecognitionWallCandidate,
   candidate: RecognitionWallCandidate,
@@ -120,46 +194,13 @@ function perpendicularIntersectionAlong(
   return dot(subtract(intersection, hostStart), tangent);
 }
 
-function extensionForRejection(
+function perpendicularExtensionForRejection(
   rejection: OpeningHypothesisRejection,
   host: RecognitionWallCandidate,
   input: ValidateOpeningHypothesesInput,
 ): HostExtension | null {
-  if (!exactTerminalDoor(rejection) || input.wallCandidates.length > MAX_VALIDATION_WALLS) return null;
-
-  const hostStart = pixelPoint(host.start, input.widthPx, input.heightPx);
-  const hostEnd = pixelPoint(host.end, input.widthPx, input.heightPx);
-  const hostVector = subtract(hostEnd, hostStart);
-  const hostLengthPx = vectorLength(hostVector);
-  const openingWidthPx = rejection.candidate.widthPx;
-  if (
-    !Number.isFinite(hostLengthPx)
-    || hostLengthPx <= EPSILON
-    || openingWidthPx === null
-    || !Number.isFinite(openingWidthPx)
-    || openingWidthPx <= 0
-  ) return null;
-
-  const tangent = { x: hostVector.x / hostLengthPx, y: hostVector.y / hostLengthPx };
-  const normal = { x: -tangent.y, y: tangent.x };
-  const center = pixelPoint(rejection.candidate.center, input.widthPx, input.heightPx);
-  const centerAlongPx = dot(subtract(center, hostStart), tangent);
-  const halfWidthPx = openingWidthPx / 2;
-  const openingStartAlongPx = centerAlongPx - halfWidthPx;
-  const openingEndAlongPx = centerAlongPx + halfWidthPx;
-  const startOutside = openingStartAlongPx < -EPSILON;
-  const endOutside = openingEndAlongPx > hostLengthPx + EPSILON;
-  if (startOutside === endOutside) return null;
-
-  const endpointTolerancePx = Math.max(
-    MIN_ENDPOINT_TOLERANCE_PX,
-    Math.min(MAX_ENDPOINT_TOLERANCE_PX, (host.estimatedThicknessPx ?? 16) / 2 + 2),
-  );
-  if (
-    startOutside
-      ? Math.abs(openingEndAlongPx) > endpointTolerancePx
-      : Math.abs(openingStartAlongPx - hostLengthPx) > endpointTolerancePx
-  ) return null;
+  const span = openingSpanOnHost(rejection, host, input);
+  if (!span) return null;
 
   const minimumEndMarginPx = input.options?.minimumEndMarginPx
     ?? DEFAULT_OPENING_ANALYSIS_OPTIONS.minimumEndMarginPx;
@@ -167,19 +208,19 @@ function extensionForRejection(
     .map((candidate) => perpendicularIntersectionAlong(
       host,
       candidate,
-      hostStart,
-      hostVector,
-      tangent,
-      normal,
+      span.hostStart,
+      span.hostVector,
+      span.tangent,
+      span.normal,
       input.widthPx,
       input.heightPx,
     ))
     .filter((alongPx): alongPx is number => alongPx !== null && Number.isFinite(alongPx))
     .map((alongPx) => ({
       alongPx,
-      marginPx: startOutside
-        ? openingStartAlongPx - alongPx
-        : alongPx - openingEndAlongPx,
+      marginPx: span.startOutside
+        ? span.openingStartAlongPx - alongPx
+        : alongPx - span.openingEndAlongPx,
     }))
     .filter(({ marginPx }) =>
       marginPx + EPSILON >= minimumEndMarginPx
@@ -188,15 +229,142 @@ function extensionForRejection(
   const anchor = eligibleIntersections[0];
   if (!anchor) return null;
 
-  return startOutside
+  return span.startOutside
     ? {
         startExtensionPx: Math.max(0, -anchor.alongPx),
         endExtensionPx: 0,
       }
     : {
         startExtensionPx: 0,
-        endExtensionPx: Math.max(0, anchor.alongPx - hostLengthPx),
+        endExtensionPx: Math.max(0, anchor.alongPx - span.hostLengthPx),
       };
+}
+
+function thicknessCompatible(
+  first: RecognitionWallCandidate,
+  second: RecognitionWallCandidate,
+): boolean {
+  const firstThickness = first.estimatedThicknessPx;
+  const secondThickness = second.estimatedThicknessPx;
+  if (
+    firstThickness === null
+    || secondThickness === null
+    || !Number.isFinite(firstThickness)
+    || !Number.isFinite(secondThickness)
+  ) return true;
+  return Math.abs(firstThickness - secondThickness)
+    <= Math.max(
+      MIN_HOST_CHAIN_THICKNESS_TOLERANCE_PX,
+      Math.min(firstThickness, secondThickness) * 0.5,
+    );
+}
+
+function eligibleDoorChainWall(candidate: RecognitionWallCandidate): boolean {
+  const reasons = candidate.evidence.reasons;
+  return reasons.includes("topology-mask-opening-gap-confidence-capped")
+    && reasons.includes("bounded-opening-gap-bridge");
+}
+
+function chainExtensionForRejection(
+  rejection: OpeningHypothesisRejection,
+  host: RecognitionWallCandidate,
+  input: ValidateOpeningHypothesesInput,
+): HostExtension | null {
+  if (!rejection.candidate.evidence.reasons.includes("door-host-residual")) return null;
+  const span = openingSpanOnHost(rejection, host, input);
+  if (!span || host.conflict !== null) return null;
+
+  const hostThicknessPx = host.estimatedThicknessPx ?? 16;
+  const intervals: Interval[] = [{ minimum: 0, maximum: span.hostLengthPx }];
+  for (const candidate of input.wallCandidates) {
+    if (
+      candidate.id === host.id
+      || candidate.conflict !== null
+      || !eligibleDoorChainWall(candidate)
+      || !thicknessCompatible(host, candidate)
+    ) continue;
+
+    const candidateStart = pixelPoint(candidate.start, input.widthPx, input.heightPx);
+    const candidateEnd = pixelPoint(candidate.end, input.widthPx, input.heightPx);
+    const candidateVector = subtract(candidateEnd, candidateStart);
+    if (angleDeltaDeg(span.hostVector, candidateVector) > MAX_HOST_CHAIN_ANGLE_DELTA_DEG) continue;
+
+    const candidateThicknessPx = candidate.estimatedThicknessPx ?? 16;
+    const axisTolerancePx = Math.max(
+      MIN_HOST_CHAIN_AXIS_TOLERANCE_PX,
+      Math.min(
+        MAX_HOST_CHAIN_AXIS_TOLERANCE_PX,
+        Math.min(hostThicknessPx, candidateThicknessPx) * 0.25,
+      ),
+    );
+    const firstRelative = subtract(candidateStart, span.hostStart);
+    const secondRelative = subtract(candidateEnd, span.hostStart);
+    if (
+      Math.abs(dot(firstRelative, span.normal)) > axisTolerancePx
+      || Math.abs(dot(secondRelative, span.normal)) > axisTolerancePx
+    ) continue;
+
+    const firstAlongPx = dot(firstRelative, span.tangent);
+    const secondAlongPx = dot(secondRelative, span.tangent);
+    intervals.push({
+      minimum: Math.min(firstAlongPx, secondAlongPx),
+      maximum: Math.max(firstAlongPx, secondAlongPx),
+    });
+  }
+
+  let chainMinimum = 0;
+  let chainMaximum = span.hostLengthPx;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const interval of intervals) {
+      if (
+        interval.maximum < chainMinimum - MAX_HOST_CHAIN_GAP_PX
+        || interval.minimum > chainMaximum + MAX_HOST_CHAIN_GAP_PX
+      ) continue;
+      const nextMinimum = Math.min(chainMinimum, interval.minimum);
+      const nextMaximum = Math.max(chainMaximum, interval.maximum);
+      if (nextMinimum < chainMinimum - EPSILON || nextMaximum > chainMaximum + EPSILON) {
+        chainMinimum = nextMinimum;
+        chainMaximum = nextMaximum;
+        changed = true;
+      }
+    }
+  }
+
+  const minimumEndMarginPx = input.options?.minimumEndMarginPx
+    ?? DEFAULT_OPENING_ANALYSIS_OPTIONS.minimumEndMarginPx;
+  if (
+    span.startOutside
+      ? chainMinimum > span.openingStartAlongPx - minimumEndMarginPx + EPSILON
+      : chainMaximum < span.openingEndAlongPx + minimumEndMarginPx - EPSILON
+  ) return null;
+
+  return {
+    startExtensionPx: Math.max(0, -chainMinimum),
+    endExtensionPx: Math.max(0, chainMaximum - span.hostLengthPx),
+  };
+}
+
+function retryPlanForRejection(
+  rejection: OpeningHypothesisRejection,
+  host: RecognitionWallCandidate,
+  input: ValidateOpeningHypothesesInput,
+): RetryPlan | null {
+  const perpendicular = perpendicularExtensionForRejection(rejection, host, input);
+  if (perpendicular) {
+    return {
+      extension: perpendicular,
+      validationReason: "perpendicular-far-side-terminated",
+    };
+  }
+  const chain = chainExtensionForRejection(rejection, host, input);
+  return chain
+    ? {
+        extension: chain,
+        validationReason: "host-wall-chain-validated",
+      }
+    : null;
 }
 
 function extendedHost(
@@ -226,14 +394,17 @@ function extendedHost(
   };
 }
 
-function markValidated(candidate: RecognitionOpeningCandidate): RecognitionOpeningCandidate {
+function markValidated(
+  candidate: RecognitionOpeningCandidate,
+  validationReason: RetryPlan["validationReason"],
+): RecognitionOpeningCandidate {
   return {
     ...candidate,
     evidence: {
       ...candidate.evidence,
       reasons: [...new Set([
         ...candidate.evidence.reasons,
-        "perpendicular-far-side-terminated",
+        validationReason,
       ])].sort(),
     },
   };
@@ -245,6 +416,7 @@ export function retryTerminalDoorHostValidation(
 ): OpeningAnalysisResult {
   const wallsById = new Map(input.wallCandidates.map((wall) => [wall.id, wall]));
   const extensionsById = new Map<string, HostExtension>();
+  const validationReasonByCandidateId = new Map<string, RetryPlan["validationReason"]>();
   const retryCandidates: RecognitionOpeningCandidate[] = [];
   const retryIds = new Set<string>();
 
@@ -253,16 +425,17 @@ export function retryTerminalDoorHostValidation(
     if (hostId === null) continue;
     const host = wallsById.get(hostId);
     if (!host) continue;
-    const extension = extensionForRejection(rejection, host, input);
-    if (!extension) continue;
+    const plan = retryPlanForRejection(rejection, host, input);
+    if (!plan) continue;
     const current = extensionsById.get(hostId) ?? {
       startExtensionPx: 0,
       endExtensionPx: 0,
     };
     extensionsById.set(hostId, {
-      startExtensionPx: Math.max(current.startExtensionPx, extension.startExtensionPx),
-      endExtensionPx: Math.max(current.endExtensionPx, extension.endExtensionPx),
+      startExtensionPx: Math.max(current.startExtensionPx, plan.extension.startExtensionPx),
+      endExtensionPx: Math.max(current.endExtensionPx, plan.extension.endExtensionPx),
     });
+    validationReasonByCandidateId.set(rejection.candidateId, plan.validationReason);
     retryCandidates.push(rejection.candidate);
     retryIds.add(rejection.candidateId);
   }
@@ -282,7 +455,10 @@ export function retryTerminalDoorHostValidation(
     options: input.options,
   });
   const candidates = retried.candidates
-    .map((candidate) => retryIds.has(candidate.id) ? markValidated(candidate) : candidate)
+    .map((candidate) => {
+      const validationReason = validationReasonByCandidateId.get(candidate.id);
+      return validationReason ? markValidated(candidate, validationReason) : candidate;
+    })
     .sort((first, second) => first.id.localeCompare(second.id));
   const retainedRejections = result.rejections.filter((rejection) => !retryIds.has(rejection.candidateId));
   const rejections = [...retainedRejections, ...retried.rejections]
