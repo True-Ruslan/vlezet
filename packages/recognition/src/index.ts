@@ -13,6 +13,7 @@ export type {
   DoorOpeningEligibility,
 } from "./door-host-consolidation";
 export { consolidateDoorHostWalls } from "./door-host-consolidation-runtime";
+export * from "./draft-fingerprint";
 export { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 export {
   analyzeWallCandidates,
