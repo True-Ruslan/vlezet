@@ -72,11 +72,18 @@ export class OpenRouterRecognitionError extends Error {
 
 class RepairableProposalResponseError extends OpenRouterRecognitionError {
   readonly repairCode: "invalid-json" | "invalid-structure";
+  readonly invalidContent: string;
 
-  constructor(repairCode: RepairableProposalResponseError["repairCode"], message: string, options?: ErrorOptions) {
+  constructor(
+    repairCode: RepairableProposalResponseError["repairCode"],
+    invalidContent: string,
+    message: string,
+    options?: ErrorOptions,
+  ) {
     super("invalid-response", message, options);
     this.name = "RepairableProposalResponseError";
     this.repairCode = repairCode;
+    this.invalidContent = invalidContent;
   }
 }
 
@@ -443,6 +450,7 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
         if (repairable) {
           throw new RepairableProposalResponseError(
             "invalid-json",
+            content,
             "OpenRouter вернул некорректный Stage 1 JSON.",
           );
         }
@@ -455,6 +463,7 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
         if (repairable) {
           throw new RepairableProposalResponseError(
             "invalid-structure",
+            content,
             "Ответ OpenRouter не прошёл строгую Stage 1 schema.",
           );
         }
@@ -531,7 +540,7 @@ export class OpenRouterDirectProvider implements RecognitionProvider {
           request,
           signal,
           OPENROUTER_PROPOSAL_SCHEMA_REPAIR_TIMEOUT_MS,
-          repairProposalBody(this.#modelId, request, cause.repairCode, cause.message),
+          repairProposalBody(this.#modelId, request, cause.repairCode, cause.invalidContent),
           false,
         );
         const latencyMs = Math.round(performance.now() - startedAt);
