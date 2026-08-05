@@ -198,9 +198,13 @@ function timestamp(value: unknown, label: string): string {
 }
 
 function fingerprint(value: unknown, label: string): string {
-  const result = text(value, label, 64);
-  if (!/^[a-f0-9]{64}$/.test(result)) {
-    throw new AiProposalValidationError(`${label} должен быть SHA-256 в нижнем регистре.`);
+  const result = text(value, label, 96);
+  const isLegacyDigest = /^[a-f0-9]{64}$/.test(result);
+  const isVersionedDigest = /^recognition-local-draft-v1:[a-f0-9]{64}$/.test(result);
+  if (!isLegacyDigest && !isVersionedDigest) {
+    throw new AiProposalValidationError(
+      `${label} должен быть versioned local Draft fingerprint или SHA-256 в нижнем регистре.`,
+    );
   }
   return result;
 }
