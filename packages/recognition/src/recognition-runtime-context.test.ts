@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 import {
+  registerPendingAiLocalEvidenceContext,
+  takePendingAiLocalEvidenceContext,
   takeStructuralMaskForWalls,
 } from "./recognition-runtime-context";
 import { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime";
@@ -95,5 +97,29 @@ describe("recognition runtime structural-mask context", () => {
 
     expect(takeStructuralMaskForWalls(activeWalls, WIDTH + 1, HEIGHT)).toBeNull();
     expect(takeStructuralMaskForWalls(activeWalls, WIDTH, HEIGHT)).toBe(mask);
+  });
+
+  it("retains pending AI evidence independently from the source mask lifecycle", () => {
+    let sourceAlive = true;
+    const ephemeralMask: StructuralMaskView = {
+      widthPx: 3,
+      heightPx: 2,
+      isStructural(x, y): boolean {
+        if (!sourceAlive) throw new Error("source mask was released");
+        return Math.floor(x) === 1 && Math.floor(y) === 0;
+      },
+    };
+
+    registerPendingAiLocalEvidenceContext(
+      [wall("retained-mask-wall", 100, 100, 900, 100)],
+      ephemeralMask,
+    );
+    sourceAlive = false;
+
+    const pending = takePendingAiLocalEvidenceContext(["retained-mask-wall"]);
+    expect(pending).not.toBeNull();
+    expect(pending?.structuralMask.isStructural(1, 0)).toBe(true);
+    expect(pending?.structuralMask.isStructural(0, 0)).toBe(false);
+    expect(takePendingAiLocalEvidenceContext(["retained-mask-wall"])).toBeNull();
   });
 });
