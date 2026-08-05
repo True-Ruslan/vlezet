@@ -1,32 +1,36 @@
-# Hybrid AI Geometry Proposals — Design
+# M7.8C.1 Hybrid AI Proposal Recovery — Design
 
 Date: 2026-08-05  
 Status: product direction approved; written specification pending final product-owner review  
 Repository: `True-Ruslan/vlezet`  
 Current integration branch: `feat/m7-9-real-fixture-ai-benchmark` / PR #44  
-Related base: PR #42, M7.8C opening classification and host-wall validation
+Related base: PR #42, M7.8C opening classification and host-wall validation  
+Canonical slice label: **M7.8C.1 Hybrid AI Proposal Recovery**
 
-## 1. Decision summary
+The M7.8C.1 label avoids colliding with canonical roadmap milestone M7.9 Accessibility and Responsive Hardening. The existing branch name may remain until branch sequencing is resolved, but product documentation and PR metadata must use the canonical label before merge.
 
-Vlezet will move from a verification-only AI workflow to a conservative hybrid recognition workflow:
+## 1. Decision
+
+Vlezet will replace verification-only AI with a conservative hybrid recognition workflow:
 
 1. the local engine builds a deterministic high-precision structural Draft;
-2. AI may discover omissions and question suspicious local candidates, but cannot mutate the Draft or `VlezetDocument`;
-3. every AI result is represented as a separate untrusted proposal;
-4. deterministic validation converts only sufficiently supported proposals into reviewable candidates;
-5. the user remains the final authority and only explicit Apply mutates the apartment document.
+2. AI may discover omissions and question suspicious local candidates;
+3. every raw AI result is a separate untrusted proposal, never ordinary Draft geometry;
+4. deterministic validation converts only sufficiently supported proposals into reviewable suggestions;
+5. the user explicitly accepts or rejects suggestions;
+6. only explicit Apply may mutate `VlezetDocument`, after full revalidation.
 
 Delivery is staged:
 
 - **Stage 1:** missing door/window proposals and exact-ID false-wall review suggestions;
-- **Stage 2:** missing thin-wall proposals, initially limited to balcony/loggia and short partition cases;
-- **Stage 3:** bounded multi-proposal reconciliation for a connected structural fragment.
+- **Stage 2:** narrowly validated missing thin walls, initially balcony/loggia boundaries and short anchored partitions;
+- **Stage 3:** bounded reconciliation of several connected proposals, requiring a separate design amendment.
 
-This design deliberately rejects both extremes: continuing to encode one local heuristic per screenshot, and allowing a vision model to author authoritative geometry.
+This rejects both unsafe full-plan AI generation and the current architecture in which AI can only downgrade geometry that local recognition already found.
 
-## 2. Product evidence and problem statement
+## 2. Product evidence
 
-The product-owner retest on the current exact PR #44 implementation returned:
+The product-owner retest on the current PR #44 result produced:
 
 ```text
 Local Draft:
@@ -44,193 +48,146 @@ After AI verification:
 
 Observed defects:
 
-- some doors are still missing;
-- no windows were detected;
-- a sanitary symbol near the washbasin was interpreted as an extra wall;
-- the thin balcony/loggia wall was not detected;
-- AI did not recover any missing geometry and mainly downgraded local confidence;
-- the visual result was not materially better than the earlier product result.
+- only some doors were found;
+- no windows were found;
+- a sanitary symbol near the washbasin became an extra wall;
+- the thin balcony/loggia wall was missed;
+- AI recovered no missing geometry and mainly reduced confidence;
+- the result was not materially better for the real plan.
 
-The current behaviour is expected from the existing contract. `sanitizeCloudRecognitionResult` rejects unknown wall and opening IDs, while reconciliation defers every cloud-only opening or wall. AI can therefore verify only hypotheses already created locally. When local recall is poor, a stronger model still has no legal path to help.
+The current code behaves this way by design: cloud results with unknown local IDs are rejected or deferred, and cloud geometry cannot change local coordinates. Therefore a model cannot recover an object absent from the local Draft.
 
-The current public real-fixture benchmark improved to wall F1 `0.839858` and opening F1 `0.750000`, but the product-owner plan demonstrates that aggregate analogue progress does not yet represent the critical real workflow. The retest is therefore a product acceptance failure, not an accepted limitation.
+The public analogue benchmark improved to wall F1 `0.839858` and opening F1 `0.750000`, but the real product flow still failed. The retest is recorded as a product acceptance failure, not an accepted limitation.
 
 ## 3. Goals
 
-### 3.1 Primary goals
+- preserve a deterministic local structural baseline;
+- recover missing doors and windows through separately reviewable AI proposals;
+- let AI identify a specific local candidate as likely sanitary/furniture clutter without deleting it;
+- later recover narrowly scoped thin walls;
+- expose provider origin, model confidence, deterministic confidence and validation reasons;
+- keep all provider failures non-destructive;
+- retain explicit review, Apply, Undo and Redo authority;
+- measure local quality and AI-proposal quality independently.
 
-- preserve a deterministic, high-precision local structural baseline;
-- let AI discover missing doors and windows that do not exist in the local Draft;
-- let AI point to a specific local wall that is likely furniture, sanitary notation or other clutter;
-- later let AI propose narrowly scoped missing thin walls;
-- show AI origin, confidence, evidence and deterministic validation outcome clearly;
-- guarantee that AI cannot silently create, move, delete, resize or apply apartment geometry;
-- keep errors, timeouts and weak model results non-destructive;
-- measure proposal usefulness separately from local recognition quality.
+A successful workflow must make four states visually and semantically distinct:
 
-### 3.2 Success from the user’s perspective
-
-After local recognition and AI assistance, the user should be able to distinguish:
-
-- reliable local geometry;
-- uncertain local geometry requiring review;
-- new AI-discovered proposals that passed local validation;
-- AI proposals blocked by deterministic validation;
-- local candidates questioned by AI but not automatically rejected.
-
-The workflow must explain what the system found, what evidence supports it, what remains uncertain and what will happen on Apply.
+1. reliable local geometry;
+2. uncertain local geometry;
+3. eligible AI proposals that passed deterministic validation;
+4. blocked AI proposals with explicit reasons.
 
 ## 4. Non-goals
 
-The first delivery does not include:
+The first delivery excludes:
 
-- AI-authored authoritative coordinates;
-- full-plan generation from a vision model;
-- automatic deletion of local walls;
-- automatic acceptance of AI proposals;
-- room polygons, OCR labels or area reconciliation;
-- arbitrary diagonal or curved wall generation;
-- door swing-direction acceptance as a blocking criterion;
+- authoritative AI coordinates;
+- full-plan AI generation;
+- automatic deletion or movement of local candidates;
+- automatic proposal acceptance;
+- room faces, OCR labels or area reconciliation;
+- door swing direction as a blocking acceptance criterion;
+- arbitrary long or diagonal AI walls;
 - perspective-photo reconstruction;
-- autonomous correction of existing `VlezetDocument` entities;
-- live paid AI calls in pull-request CI;
-- lowering existing Core, Source or real-fixture thresholds.
+- live paid AI in pull-request CI;
+- lowering any existing benchmark threshold or reviewed baseline.
 
-## 5. Considered approaches
-
-### 5.1 Selected: conservative local baseline plus AI proposals
-
-The local engine owns high-confidence structural evidence. AI returns separate discovery and review proposals. A deterministic sanitizer decides whether each proposal is eligible for human review.
-
-Benefits:
-
-- improves recall without surrendering geometry authority;
-- failures remain inspectable and reversible;
-- providers can be compared using a stable contract;
-- local-only operation remains fully functional;
-- the same proposal validator can be tested without live AI.
-
-Cost:
-
-- requires a new proposal model, validator, review UX and benchmark layer.
-
-### 5.2 Rejected: AI only classifies existing local candidates
-
-This is the current verifier-only architecture. It is safe but cannot recover omissions. The product retest proves that it does not satisfy the recognition goal.
-
-### 5.3 Rejected: AI generates the complete plan and local code validates it
-
-This can increase recall but creates unstable coordinates, model dependence, large validation ambiguity, higher cost and weak reproducibility. It conflicts with Vlezet’s deterministic authority and local-first product principles.
-
-## 6. Architectural invariants
-
-The following rules are mandatory:
+## 5. Architectural invariants
 
 1. `VlezetDocument` remains the only persistent apartment source of truth.
-2. Raw AI output is never a `RecognitionWallCandidate` or `RecognitionOpeningCandidate`.
-3. Raw AI proposals are runtime-only and cannot be applied.
-4. Every proposal is bound to the exact reference revision and exact local Draft fingerprint used in the request.
-5. A stale proposal batch is rejected as a whole.
-6. AI cannot mutate local candidate IDs, coordinates, thickness, type, host or decisions.
-7. A proposed opening must obtain exactly one known active host wall through deterministic validation.
-8. AI confidence alone can never produce high confidence.
-9. A local candidate questioned by AI remains unchanged until the user explicitly changes its Draft decision.
-10. Accepted proposal review decisions do not mutate the apartment until explicit Apply.
-11. Apply revalidates against the current document and current accepted host mapping.
-12. Errors leave the existing local Draft byte-equivalent except for an append-only diagnostic.
-13. Candidate and proposal budgets fail closed.
-14. No hidden provider fallback or silent model substitution is allowed.
-15. Existing local-only, Apply, Undo, Redo, persistence and recovery paths must continue to work without a provider key.
+2. Raw provider output is never represented as `RecognitionWallCandidate` or `RecognitionOpeningCandidate`.
+3. Raw proposals are runtime-only and cannot be applied.
+4. Every batch is bound to the exact request ID, reference revision and local Draft fingerprint.
+5. A stale revision or fingerprint rejects the entire batch.
+6. AI cannot mutate local IDs, geometry, thickness, classification, host or decisions.
+7. Every eligible opening has exactly one deterministically selected active host wall.
+8. AI confidence alone never produces high confidence.
+9. A false-wall suggestion remains advisory until the user explicitly changes the Draft decision.
+10. Apply revalidates all accepted geometry against the current document and host mapping.
+11. Provider errors leave the local Draft byte-equivalent except for append-only diagnostics.
+12. Candidate, token, response-size and retry budgets fail closed.
+13. No hidden provider or model substitution is allowed.
+14. Local-only recognition remains fully usable without network access or a provider key.
+15. Existing project schema, document migrations and ordinary apartment geometry remain unchanged until explicit Apply.
 
-## 7. Component boundaries
+## 6. Components and responsibilities
 
-### 7.1 Local recognition engine
+### 6.1 Local recognition engine
 
-Responsibilities:
+Creates deterministic walls/openings and exposes bounded supporting evidence needed by the sanitizer:
 
-- create wall and opening candidates from deterministic image evidence;
-- retain diagnostic candidates when review is useful;
-- expose structural masks, active wall topology and bounded evidence summaries needed by proposal validation;
-- compute deterministic unresolved regions and candidate fingerprints.
+- structural masks;
+- active wall topology;
+- window rail and door leaf/gap evidence;
+- symbol-clutter evidence;
+- plan bounds;
+- exact candidate fingerprint.
 
-It does not know provider schemas or provider confidence.
+It does not parse provider responses or use provider confidence.
 
-### 7.2 AI request builder
+### 6.2 AI request builder
 
-Responsibilities:
+Creates a provider-neutral request containing:
 
-- create a bounded provider-neutral request;
-- include the original plan image, a labelled local overlay and structured local candidate summaries;
-- declare allowed proposal types for the current stage;
-- include coordinate-system, Draft fingerprint and reference-revision contracts;
-- omit runtime secrets and unrelated project/document data.
+- the bounded original source image;
+- an aligned overlay with stable candidate IDs;
+- structured local candidates and compact evidence codes;
+- plan bounds and coordinate convention;
+- exact allowed proposal types and budgets;
+- request ID, reference revision and Draft fingerprint;
+- strict JSON schema.
 
-It does not validate returned geometry.
+It must state that text, dimensions, furniture and sanitary symbols are not walls, and that existing correct candidates must not be repeated as new geometry.
 
-### 7.3 Provider adapter
+### 6.3 Provider adapter
 
-Responsibilities:
+- maps the provider-neutral request to OpenRouter or another provider;
+- enforces provider/model identity, timeout and response limits;
+- parses only the exact schema;
+- returns an untrusted `AiProposalBatch`;
+- records safe route, model, latency and usage metadata.
 
-- translate the provider-neutral request to OpenRouter or another provider;
-- enforce timeout, response-size and token budgets;
-- parse only the exact response schema;
-- return an untrusted `AiProposalBatch`;
-- record safe provider/model metadata.
+It cannot snap, reconcile or apply geometry.
 
-It does not reconcile, snap or apply proposals.
+### 6.4 Proposal sanitizer
 
-### 7.4 AI proposal sanitizer
+The sanitizer is the only authority that may convert a raw AI proposal into a reviewable suggestion. It validates:
 
-Responsibilities:
+- schema and batch identity;
+- supported proposal type;
+- coordinate bounds and finite values;
+- exact local target IDs;
+- host selection and span;
+- local raster evidence;
+- topology, overlap and duplicate safety;
+- confidence caps;
+- proposal budgets.
 
-- validate schema, budgets, IDs, coordinates and batch freshness;
-- reject unsupported proposal kinds;
-- bind proposed openings to an exact active local host;
-- snap only within fixed tolerances and preserve both raw and normalized geometry;
-- corroborate the proposal using local raster and topology evidence;
-- detect duplicates and conflicts;
-- cap confidence;
-- emit an immutable `SanitizedRecognitionProposal` with explicit validation reasons;
-- preserve rejected proposals as diagnostics without exposing them as applicable geometry.
+It preserves raw and normalized evidence separately and emits an immutable `SanitizedRecognitionProposal` in state `eligible`, `blocked` or `duplicate`.
 
-This component is the sole authority that may convert raw AI output into a reviewable proposal.
+### 6.5 Proposal reconciliation
 
-### 7.5 Proposal reconciliation
+Adds sanitized proposals to separate Draft collections without changing local walls, openings or decisions. Proposal decisions have their own namespace and are invalidated when the reference or local Draft changes.
 
-Responsibilities:
+### 6.6 Review UI
 
-- combine sanitized proposals with the local Draft without mutating local candidates;
-- deduplicate proposals against local candidates and other proposals;
-- preserve proposal provenance and validation state;
-- expose review decisions separately from local candidate decisions;
-- invalidate proposal decisions when the reference revision or local Draft fingerprint changes.
+The UI must distinguish:
 
-### 7.6 Review UI
+- Local;
+- Local + AI verification of immutable geometry;
+- AI proposal;
+- Local candidate questioned by AI;
+- Blocked AI suggestion in diagnostics.
 
-Responsibilities:
+Eligible proposals use a distinct dashed treatment and explicit “AI suggestion” label. Blocked proposals never render as normal selectable geometry.
 
-- visually distinguish Local, Local + AI verification and AI proposal sources;
-- show proposal type, model confidence, deterministic confidence and validation explanation;
-- provide explicit actions such as “Accept proposal”, “Reject proposal” and “Agree that local wall is suspicious”;
-- show blocked proposals in diagnostics, not as selectable geometry;
-- explain that accepting a false-wall suggestion changes only the Draft decision;
-- keep local-only operation and previous Draft restoration available.
+### 6.7 Apply adapter
 
-### 7.7 Apply adapter
+Converts accepted sanitized proposals to ordinary domain commands only during Apply. It resolves hosts, reruns all validators, uses deterministic IDs, preserves idempotence and participates in semantic Undo/Redo.
 
-Responsibilities:
+## 7. Data contract
 
-- convert accepted sanitized proposals into ordinary domain commands only at Apply time;
-- resolve the accepted host wall to the current document wall or the wall created in the same atomic batch;
-- re-run geometry, overlap, host-span and document-conflict validation;
-- fail the whole dependent proposal operation if its host cannot be resolved;
-- preserve semantic Undo/Redo and idempotence.
-
-## 8. Data model
-
-### 8.1 Raw provider batch
-
-Raw provider output must use a new contract rather than `RecognitionProviderResult` geometry arrays.
+### 7.1 Raw provider batch
 
 ```ts
 type AiProposalBatch = Readonly<{
@@ -243,7 +200,7 @@ type AiProposalBatch = Readonly<{
 }>;
 ```
 
-### 8.2 Stage 1 proposal union
+### 7.2 Stage 1 proposals
 
 ```ts
 type AiRecognitionProposal =
@@ -274,11 +231,9 @@ type AiLocalWallReviewProposal = Readonly<{
 }>;
 ```
 
-Provider reason codes are an allow-listed vocabulary. Free-form prose may be retained only as truncated diagnostic text and is never used for validation.
+Reason codes are allow-listed. Free-form provider prose may be retained only as bounded diagnostic text and never drives validation.
 
-### 8.3 Stage 2 extension
-
-Stage 2 extends the union with:
+### 7.3 Stage 2 proposal
 
 ```ts
 type AiThinWallAdditionProposal = Readonly<{
@@ -295,9 +250,9 @@ type AiThinWallAdditionProposal = Readonly<{
 }>;
 ```
 
-This type is forbidden by the Stage 1 request and sanitizer.
+The Stage 1 request and sanitizer reject this type.
 
-### 8.4 Sanitized proposal
+### 7.4 Sanitized proposal
 
 ```ts
 type SanitizedRecognitionProposal = Readonly<{
@@ -308,7 +263,11 @@ type SanitizedRecognitionProposal = Readonly<{
   geometry: SanitizedProposalGeometry | null;
   targetLocalCandidateId: string | null;
   hostWallCandidateId: string | null;
-  provider: Readonly<{ providerId: string; modelId: string; requestId: string }>;
+  provider: Readonly<{
+    providerId: string;
+    modelId: string;
+    requestId: string;
+  }>;
   modelConfidence: number;
   deterministicConfidence: "medium" | "low";
   sourceRegion: NormalizedBox;
@@ -320,509 +279,442 @@ type SanitizedRecognitionProposal = Readonly<{
 }>;
 ```
 
-No sanitized proposal can be `high`. High confidence remains reserved for strong local evidence or explicit local-plus-AI agreement on existing immutable geometry.
+No AI-created proposal may be high confidence.
 
-### 8.5 Draft integration
+### 7.5 Draft integration
 
-`RecognitionDraft` gains separate collections:
+`RecognitionDraft` gains separate fields:
 
 ```ts
 aiProposals: readonly SanitizedRecognitionProposal[];
-proposalDecisions: Readonly<Record<string, "pending" | "accepted" | "rejected">>;
+proposalDecisions: Readonly<
+  Record<string, "pending" | "accepted" | "rejected">
+>;
 aiProposalMetadata: RecognitionAiProposalMetadata | null;
 ```
 
-Local `walls`, `openings` and `decisions` remain semantically unchanged. This avoids treating untrusted AI discovery as local recognition output and allows old local-only Drafts to migrate by defaulting the new fields to empty values.
+Old Drafts migrate deterministically to empty proposal collections. Local `walls`, `openings` and `decisions` retain their existing meaning.
 
-## 9. Request contract and prompt inputs
+## 8. Request budgets
 
-The provider receives three aligned inputs:
-
-1. **Original source image** — bounded and normalized for provider limits.
-2. **Labelled overlay image** — same dimensions, with stable candidate IDs and distinct wall/opening markers.
-3. **Structured local summary** — candidate IDs, normalized geometry, confidence, conflict state, active/diagnostic status and compact evidence codes.
-
-The request also contains:
-
-- exact allowed proposal types;
-- maximum result counts;
-- source coordinate convention;
-- plan bounds;
-- reference revision;
-- local Draft fingerprint;
-- explicit instructions not to repeat existing correct candidates;
-- explicit instructions that furniture, sanitary symbols, dimensions and text are not walls;
-- exact JSON schema.
-
-Stage 1 budgets:
+Stage 1 uses these default hard limits:
 
 ```text
-opening-addition proposals: maximum 12
-local-wall-review proposals: maximum 12
-provider diagnostics: maximum 20
-source images: exactly 2
-provider attempts: 1 normal attempt + at most 1 schema-repair attempt
-request timeout: bounded by provider configuration
+opening proposals:              12
+local-wall review proposals:    12
+provider diagnostics:           20
+source images:                   exactly 2
+primary timeout:                 45 seconds
+schema-repair timeout:           15 seconds
+maximum attempts:                2 total
+maximum response body:           96 KiB
+maximum generated tokens:        4096
 ```
 
-A schema-repair attempt receives no new image and only the invalid response’s structural error summary. It cannot silently switch model or provider.
+Attempt 2 is allowed only for schema repair. It receives the schema and a structural error summary, not a new image. It cannot change provider or model. Budget values are versioned configuration constants and covered by tests.
 
-## 10. Deterministic validation
+## 9. Deterministic validation
 
-### 10.1 Common validation
+### 9.1 Batch validation
 
-Every batch must pass:
+The whole batch is rejected for:
 
-- supported schema version;
-- exact request ID, reference revision and local Draft fingerprint;
-- unique bounded proposal IDs;
-- finite normalized coordinates inside plan bounds;
-- bounded result counts and source-region areas;
-- allow-listed reason codes;
-- no unknown target local candidate IDs;
-- no unsupported proposal type for the active stage.
+- unsupported schema;
+- mismatched request ID, revision or Draft fingerprint;
+- duplicate proposal IDs;
+- category overload;
+- unsupported proposal type;
+- structurally invalid top-level response.
 
-A stale fingerprint or revision rejects the whole batch. Individual invalid proposals are blocked while valid independent proposals may continue, unless the budget or identity contract is violated.
+An independently malformed proposal is blocked while other valid proposals may continue only when batch identity and budgets remain valid.
 
-### 10.2 Door proposal validation
+### 9.2 Door proposal
 
-A proposed door becomes eligible only when all mandatory conditions pass:
+A door is eligible only when:
 
 - exactly one active host wall is selected deterministically;
-- the proposed centre projects inside the host span with the existing end-margin invariant;
-- orientation is compatible with the host;
-- width is within architectural and calibrated bounds;
-- local evidence supports a gap, leaf, arc or equivalent bounded door notation;
-- structural support exists on the required sides of the opening;
-- it does not overlap an existing opening or eligible proposal;
-- it does not create a corner/junction topology conflict;
-- it is not explained better by text, dimension or sanitary-symbol evidence.
+- its centre and width fit the valid host span with the existing end margin;
+- orientation and calibrated width are compatible;
+- local evidence supports a bounded gap plus leaf, arc or equivalent door notation;
+- structural support exists on required sides;
+- no existing opening or eligible proposal overlaps it;
+- it creates no corner or junction conflict;
+- text, dimensions and sanitary/furniture notation do not explain it better.
 
-Host hints may narrow candidates but never override deterministic host selection.
+Host hints only narrow search. They never override geometry.
 
-### 10.3 Window proposal validation
+### 9.3 Window proposal
 
-A proposed window becomes eligible only when:
+A window is eligible only when:
 
 - exactly one active exterior or balcony-compatible host is selected;
-- the centre and width lie inside the valid host chain;
-- local evidence contains a mask-supported gap and window-rail/frame evidence, or another explicitly versioned window evidence contract;
-- the proposal is not a door gap;
-- the proposal is not an interior furniture/sanitary symbol;
-- overlap, duplicate and host validity checks pass.
+- centre and width lie within the valid host chain;
+- local evidence supports a gap plus rails/frame or another versioned window contract;
+- the evidence is not a door gap;
+- no interior furniture/sanitary explanation dominates;
+- duplicate, overlap and host checks pass.
 
-AI alone cannot classify an unexplained arbitrary gap as a window.
+An arbitrary unexplained gap cannot become a window from AI confidence alone.
 
-### 10.4 Local false-wall review validation
+### 9.4 False-wall review suggestion
 
-A `local-wall-review` proposal never deletes or changes a local candidate. It is eligible as an advisory review action only when:
+The suggestion never removes or mutates a local wall. It is eligible only when:
 
-- the target ID exists and is still the exact same local candidate;
-- the target has weak structural-mask support, topology conflict or existing symbol-clutter evidence;
-- the target is short or otherwise within the bounded clutter-review profile;
-- the target is not a long, strongly mask-backed or two-anchor structural wall;
-- the proposal source region overlaps the target geometry.
+- the exact target candidate still exists unchanged;
+- the source region overlaps it;
+- structural-mask support is weak or the candidate already has topology/symbol-clutter evidence;
+- it lies inside the bounded clutter-review profile;
+- it is not a long, strongly supported or two-anchor structural wall.
 
-If deterministic evidence strongly supports the wall, the AI suggestion is blocked and a diagnostic explains why.
+Strong deterministic wall evidence blocks the AI suggestion and explains why.
 
-### 10.5 Thin-wall validation in Stage 2
+### 9.5 Thin-wall proposal
 
-A thin-wall proposal is eligible only when:
+Stage 2 permits a wall only when:
 
-- it is horizontal, vertical or within an explicitly calibrated axis tolerance;
-- length and thickness are within the versioned thin-wall profile;
-- at least one endpoint attaches to active structural geometry, and the second endpoint is anchored or mask-supported;
-- the source region contains continuous thin structural evidence rather than furniture, window rails or dimensions;
-- topology does not create an isolated micro-wall or duplicate an existing wall;
-- balcony/loggia proposals agree with exterior-boundary context;
-- all candidate and comparison budgets pass.
+- it follows a calibrated architectural axis;
+- length and thickness match the versioned thin-wall profile;
+- at least one endpoint connects to active structure and the other is anchored or mask-supported;
+- evidence is continuous and not a window rail, furniture edge or dimension line;
+- it is not detached, duplicate or topology-degenerate;
+- balcony/loggia role agrees with exterior-boundary context.
 
-Stage 2 initially excludes arbitrary long interior walls and diagonal reconstruction.
+Long arbitrary interior walls and unsupported diagonals remain forbidden.
 
-## 11. Confidence policy
+## 10. Confidence policy
 
-Confidence is computed from two independent dimensions:
+Two confidences are shown separately:
 
-- `modelConfidence`: normalized provider confidence, displayed but never authoritative;
-- `deterministicConfidence`: the sanitizer’s bounded result.
+- provider `modelConfidence`;
+- sanitizer `deterministicConfidence`.
 
 Rules:
 
-- AI proposal without sufficient local corroboration is blocked;
-- eligible AI proposal is at most `medium`;
-- partially corroborated but reviewable advisory information is `low`;
-- repeated model agreement does not raise confidence by itself;
-- user acceptance does not rewrite evidence confidence;
-- Apply always revalidates regardless of displayed confidence.
+- insufficient local corroboration means blocked;
+- eligible AI geometry is at most medium;
+- partial advisory evidence is low;
+- repeated model agreement alone never raises confidence;
+- user acceptance does not rewrite evidence;
+- Apply always revalidates.
 
-## 12. Review workflow
+## 11. Review and Apply semantics
 
-The user-visible sequence is:
+User flow:
 
 ```text
 Local recognition
-→ reviewable local Draft
+→ local Draft review
 → optional “Find omissions with AI”
-→ AI request progress with provider/model shown
-→ sanitized proposal results
+→ provider/model progress
+→ sanitized proposal result
 → combined review with source filters
 → explicit decisions
 → Apply
 ```
 
-Source filters:
+For a false-wall suggestion the UI must state:
 
-- `Local`;
-- `AI proposals`;
-- `Local candidates questioned by AI`;
-- `Blocked AI suggestions` in diagnostics.
+> AI considers this local line likely to be a sanitary or furniture symbol. Agreeing rejects only the local Draft candidate; it does not remove an existing apartment wall.
 
-Visual language must not imply that AI proposals already exist in the apartment. Proposed geometry uses a distinct dashed treatment and a clear “AI suggestion” label. Blocked proposals do not render as normal candidates.
+Apply is strictly atomic for geometry:
 
-For a false-wall review suggestion, the action text must be explicit:
+1. all accepted local geometry and accepted AI geometry are prevalidated against the current document;
+2. dependent host mappings are resolved before any command executes;
+3. if any accepted geometry item is invalid or stale, no geometry mutation occurs;
+4. the UI identifies invalid items and asks the user to reject, correct or rerun them;
+5. after a valid Apply, deterministic IDs make repeated Apply a no-op;
+6. each successful Apply batch is one semantic Undo/Redo unit;
+7. accepting a false-wall advisory creates no domain command.
 
-> AI considers this local line likely to be a sanitary/furniture symbol. Agreeing will reject the local Draft candidate; it will not remove an existing apartment wall.
+This removes ambiguity about partial application and prevents orphan openings.
 
-## 13. Apply, Undo and Redo
-
-Apply rules:
-
-- local candidates and sanitized proposals may be accepted in one atomic batch;
-- an accepted proposed opening can depend on a local wall accepted in the same batch;
-- proposal-to-document IDs are generated deterministically from Draft ID and proposal ID;
-- an already applied proposal is an idempotent no-op;
-- a proposal with an unresolved or changed host is rejected before mutation;
-- accepting a false-wall review suggestion only changes the ephemeral Draft decision and does not create a domain command;
-- every actual geometry mutation participates in semantic Undo/Redo;
-- repeated Apply, Undo and Redo must not duplicate or orphan openings.
-
-## 14. Error handling and recovery
+## 12. Error handling
 
 ### Missing key or disabled provider
 
-- local recognition remains available;
-- the AI action explains that no provider is configured;
-- no Draft fields are cleared.
+Local recognition remains available. The AI action reports that no provider is configured and changes no Draft data.
 
-### Timeout, provider error or rate limit
+### Timeout, rate limit or provider failure
 
-- stop the request;
-- retain the local Draft and earlier proposal batch;
-- append one safe diagnostic with provider/model and category, not raw secrets or full response bodies;
-- allow an explicit retry.
+The request stops, the local Draft and previous proposal batch remain intact, and one redacted diagnostic is appended. Retry is explicit.
 
 ### Invalid JSON or schema
 
-- perform at most one bounded schema-repair attempt;
-- if still invalid, reject the batch;
-- do not partially parse prose or infer omitted coordinates.
+At most one bounded schema-repair attempt is made. A second failure rejects the batch. Prose is never heuristically parsed into geometry.
 
-### Stale reference or Draft
+### Stale Draft or reference
 
-- reject the whole batch;
-- explain that local recognition changed and AI must be run again;
-- preserve the stale batch only as non-applicable diagnostic metadata if useful.
+The batch is rejected in full and marked non-applicable. The user must rerun AI against the new local Draft.
 
-### Proposal overload
+### Overload
 
-- reject the affected proposal category or entire batch according to the violated identity/budget rule;
-- never truncate silently and treat the truncated result as complete.
+The affected batch is rejected. Results are never silently truncated and treated as complete.
 
-### Apply-time conflict
+### Apply conflict
 
-- block the dependent proposal;
-- do not partially create an orphan opening;
-- leave unrelated independently valid accepted items eligible according to the existing atomic-batch policy selected in the implementation plan.
+No accepted geometry is applied. Invalid items are identified while the document remains unchanged.
 
-## 15. Security, privacy and cost controls
+## 13. Security, privacy and cost controls
 
-- `OPENROUTER_API_KEY` remains server-side or in explicit local developer configuration and is never serialized into the browser Draft;
-- request and response logs redact authorization data;
-- base64 image data and raw provider bodies are not written to ordinary logs;
-- public CI uses only repository-owned redrawn analogues;
-- private source images remain outside git and are used only with explicit local opt-in;
-- provider workflow permissions remain read-only;
+- `OPENROUTER_API_KEY` remains server-side or in explicit local developer configuration;
+- secrets, authorization headers, base64 images and raw provider bodies are excluded from ordinary logs;
+- public CI uses repository-owned redrawn analogues only;
+- private source rasters remain outside git and require explicit local opt-in;
 - live paid AI never runs automatically on pull requests;
-- model, fixture, repetition, image, token, response-size and timeout limits are hard-coded and tested;
-- no provider result promotes a benchmark baseline automatically;
-- model substitution and fallback routing are reported explicitly;
-- artifacts have bounded retention and contain sanitized proposal records rather than secrets.
+- provider workflows retain read-only repository permissions;
+- model, image, token, response, retry and timeout limits are hard-coded and tested;
+- model substitution and provider routing are reported explicitly;
+- no result updates a baseline automatically;
+- artifacts contain sanitized proposal records and bounded retention only.
 
-## 16. Test strategy
+## 14. Test strategy
 
-Implementation follows strict RED → GREEN slices. No production path is added without focused failing contracts first.
+Implementation uses strict RED → GREEN slices. No production path is added before its focused failing contracts.
 
-### 16.1 Schema and model tests
-
-Required tests:
+### 14.1 Schema and migration tests
 
 - valid Stage 1 batch parses;
-- unsupported schema version fails;
-- duplicate proposal IDs fail;
-- non-finite and out-of-range geometry fails;
+- unsupported version fails;
+- duplicate IDs fail;
+- non-finite/out-of-range geometry fails;
 - unknown reason code fails;
-- unsupported Stage 2 proposal in Stage 1 fails;
-- stale request ID, reference revision or Draft fingerprint rejects the batch;
-- old Drafts migrate to empty proposal collections;
+- Stage 2 type fails in Stage 1;
+- stale request/revision/fingerprint rejects the batch;
+- old Drafts migrate to empty proposal fields;
 - proposal decisions cannot reference unknown proposals.
 
-### 16.2 Provider adapter tests
+### 14.2 Request and provider tests
 
-Required tests:
+- request contains exactly source image, aligned overlay and structured summary;
+- IDs and coordinate conventions are stable;
+- secrets never appear in logs or errors;
+- timeout, abort, response size and token limits are enforced;
+- only one schema-repair attempt is allowed;
+- model/provider identity is explicit;
+- invalid output never becomes a candidate.
 
-- exact provider-neutral request is generated from source, overlay and local summary;
-- secret is never present in serialized logs or errors;
-- timeout and abort are handled;
-- response-size and token budgets are enforced;
-- one schema-repair attempt is allowed and no more;
-- model/provider fallback metadata is explicit;
-- invalid provider output never becomes a candidate.
+### 14.3 Door/window sanitizer tests
 
-### 16.3 Opening sanitizer tests
+Positive:
 
-Positive contracts:
-
-- missing door with one exact host and local leaf/gap evidence becomes eligible;
+- missing door with one host and leaf/gap evidence becomes eligible;
 - missing window with one exterior host and rail/gap evidence becomes eligible;
-- host hint may select among otherwise equivalent candidates only when deterministic geometry confirms it;
-- normalized geometry snaps within tolerance while preserving raw geometry in evidence;
-- duplicate AI and local opening collapses to a duplicate diagnostic.
+- bounded snapping preserves raw geometry as evidence;
+- duplicate of a local opening becomes `duplicate`.
 
-Negative contracts:
+Negative:
 
-- no host, unknown host, ambiguous two-host result;
-- outside host span or insufficient end margin;
-- unsupported width or orientation;
-- no local gap/leaf/rail evidence;
-- door proposed on window evidence and vice versa;
-- text, dimension, furniture or sanitary-symbol false proposal;
+- missing, unknown or ambiguous host;
+- outside host span or end margin;
+- invalid width/orientation;
+- absent local evidence;
+- door/window evidence mismatch;
+- text, dimension, furniture or sanitary false proposal;
 - corner/junction conflict;
-- overlap with existing opening;
-- proposal count overload;
-- provider confidence cannot bypass any validator.
+- opening overlap;
+- overload;
+- confidence cannot bypass validation.
 
-### 16.4 False-wall review tests
+### 14.4 False-wall advisory tests
 
-Positive contract:
+Positive:
 
-- short washbasin/sanitary contour with weak mask support and symbol evidence becomes an eligible advisory review suggestion.
+- the known washbasin/sanitary contour profile becomes an eligible advisory suggestion when mask and symbol evidence agree.
 
-Negative contracts:
+Negative:
 
-- long structural wall remains protected;
-- strongly mask-backed wall remains protected;
-- two-anchor partition remains protected;
-- unknown or geometrically changed target ID is rejected;
-- accepting the suggestion changes only the Draft decision;
-- no existing document wall is removed.
+- long structural wall protected;
+- strongly mask-backed wall protected;
+- two-anchor partition protected;
+- unknown or changed target rejected;
+- accepting advisory changes only the Draft decision;
+- existing document walls remain untouched.
 
-### 16.5 Stage 2 thin-wall tests
+### 14.5 Thin-wall tests
 
-Positive contracts:
+Positive:
 
-- thin balcony/loggia boundary with structural continuity and endpoint anchors becomes eligible;
-- short thin partition with two valid anchors becomes eligible.
+- thin balcony/loggia boundary with continuity and anchors becomes eligible;
+- short thin partition with two anchors becomes eligible.
 
-Negative contracts:
+Negative:
 
-- window rail is not a wall;
-- furniture edge is not a wall;
-- dimension line is not a wall;
-- detached micro-segment is blocked;
-- duplicate and overlapping walls are blocked;
-- long arbitrary AI wall is blocked;
-- diagonal unsupported geometry is blocked.
+- window rail, furniture edge and dimension line rejected;
+- detached micro-segment rejected;
+- duplicate/overlap rejected;
+- long arbitrary or unsupported diagonal wall rejected.
 
-### 16.6 Reconciliation and Draft tests
+### 14.6 Reconciliation tests
 
-Required tests:
+- local candidates remain byte-equivalent after AI reconciliation;
+- eligible, blocked and duplicate states remain separate;
+- local and proposal decisions cannot collide;
+- identical batch is deterministic and idempotent;
+- changed local Draft invalidates old decisions;
+- provider failure preserves local state;
+- rerun creates no stale decisions.
 
-- local candidates are byte-equivalent before and after AI proposal reconciliation;
-- eligible, blocked and duplicate proposals remain distinct;
-- local and proposal decisions use separate namespaces;
-- repeated identical batch is deterministic and idempotent;
-- a changed local Draft invalidates old proposal decisions;
-- provider failure preserves the prior local Draft and prior accepted decisions;
-- no stale decisions remain after rerun.
+### 14.7 Apply and history tests
 
-### 16.7 Apply/history tests
+- proposed opening applies to an existing accepted wall;
+- local wall and dependent proposal apply in one atomic batch;
+- unresolved host blocks the entire geometry batch;
+- repeated Apply creates no duplicates;
+- two successful Apply batches Undo/Redo independently;
+- document changes between review and Apply are detected;
+- false-wall advisory creates no document mutation;
+- failed prevalidation leaves the document byte-equivalent.
 
-Required tests:
+### 14.8 Browser tests
 
-- accepted proposed opening applies to an existing accepted wall;
-- accepted wall and dependent proposed opening apply in one batch;
-- unresolved host blocks the opening;
-- second Apply does not duplicate geometry;
-- two Apply batches undo and redo independently;
-- proposal revalidation catches document changes between review and Apply;
-- false-wall advisory acceptance creates no document mutation;
-- rollback after a failed dependent proposal leaves the document consistent.
+Chromium full flow and WebKit representative flow cover:
 
-### 16.8 Browser tests
-
-Chromium full-flow and WebKit representative tests must cover:
-
-- local-only workflow without provider key;
-- AI progress, cancellation and retry;
-- source filters and distinct proposal styling;
-- explanation of eligible and blocked proposals;
-- explicit false-wall advisory action;
+- local-only operation without a key;
+- progress, cancellation and retry;
+- source filters and distinct proposal visuals;
+- eligible/blocked explanations;
+- false-wall advisory wording and action;
 - Apply, Undo and Redo with a proposed opening;
-- restored Draft with proposal metadata;
-- narrow viewport and keyboard operation for the proposal review controls.
+- restored Draft proposal metadata;
+- keyboard and narrow-viewport operation.
 
-### 16.9 Deterministic benchmark tests
+### 14.9 Deterministic benchmark
 
-Pull-request CI uses recorded/fake provider batches and public redrawn analogues. It must measure:
+Pull-request CI uses recorded provider batches and public analogues. It measures:
 
-- local wall and opening metrics unchanged from the current exact baseline unless intentionally improved;
-- AI proposal precision and recall separately from local metrics;
+- local wall/opening metrics separately and unchanged unless explicitly improved;
+- proposal precision and recall;
 - sanitizer acceptance precision;
-- recovered missing door/window count;
+- recovered missing openings;
 - false proposal count;
-- unknown-host eligible proposals = 0;
-- outside-host eligible proposals = 0;
-- direct geometry mutation count = 0;
+- eligible unknown-host openings = 0;
+- eligible outside-host openings = 0;
+- direct local mutation count = 0;
 - stale proposal decisions = 0;
-- protected strong-wall false-rejection suggestions = 0;
-- forbidden-region proposals and accepted candidates = 0;
+- protected strong-wall false advisory count = 0;
+- forbidden-region eligible proposals = 0;
 - determinism across repeated recorded runs.
 
-The corpus must include intentionally suppressed local ground truth so that AI omission recovery is tested rather than accidentally receiving already complete local candidates.
+Fixtures must intentionally suppress selected true local openings so omission recovery is actually tested.
 
-### 16.10 Manual live-model benchmark
+### 14.10 Manual live-model benchmark
 
-The existing cost-bounded manual OpenRouter benchmark is extended to proposal mode. Qualification requires:
+The cost-bounded OpenRouter benchmark runs manually with at least three repetitions per selected fixture. Qualification requires stable normalized proposals, no contract violation, measurable sanitized recall improvement, acceptable false-proposal rate, and reviewed latency/cost. No model becomes default from one run.
 
-- at least three repetitions per selected fixture;
-- representative doors, windows, sanitary clutter and later thin-wall cases;
-- stable proposal identity after deterministic normalization;
-- no schema, budget or security violation;
-- measurable recall improvement after sanitation;
-- acceptable false-proposal rate;
-- reviewed latency and cost;
-- no product default promotion from a single model run.
+## 15. Acceptance gates
 
-## 17. Acceptance gates
+### 15.1 Stage 1 automated
 
-### 17.1 Stage 1 automated gates
-
-- all existing Standard CI, Core and Source gates pass;
-- current local-only predictions remain unchanged unless a separately reviewed local fix is included;
-- eligible AI openings have 100% known valid hosts;
-- eligible AI openings outside host span: 0;
-- AI direct local-candidate mutations: 0;
-- protected structural walls incorrectly eligible for rejection: 0;
+- Standard CI, Core and Source gates pass;
+- current local-only predictions remain unchanged unless a separate reviewed local fix is included;
+- eligible AI openings have known valid hosts: 100%;
+- eligible openings outside host span: 0;
+- direct AI mutation of local candidates: 0;
+- protected structural walls eligible for rejection: 0;
 - stale proposal decisions: 0;
-- proposal sanitizer deterministic across repeated recorded runs;
-- Apply/Undo/Redo proposal tests pass;
-- Chromium full flow and WebKit representative flow pass.
+- recorded proposal replay is deterministic;
+- atomic Apply/history tests pass;
+- Chromium and WebKit gates pass.
 
-A numerical proposal F1 threshold will be promoted only after the first reviewed recorded-provider baseline. Until then, scenario-specific gates are merge-blocking and no baseline may be weakened to make a pull request green.
+A numerical proposal F1 threshold is promoted only after the first reviewed recorded-provider baseline. Scenario-specific safety gates are merge-blocking from the first implementation commit and cannot be weakened to make CI green.
 
-### 17.2 Stage 1 product-owner gate on the current real plan
+### 15.2 Stage 1 product-owner retest
 
-The product-owner retest must demonstrate:
+On the current real plan:
 
-- at least one previously missing real door is presented as an eligible AI proposal when supported by local evidence;
-- missing visible windows are either presented as eligible proposals or explicitly blocked with a truthful validator reason;
-- the extra washbasin wall is presented as an advisory false-wall review suggestion or is removed by an independent local fix;
-- no existing local geometry moves after AI;
-- no AI proposal is applied automatically;
-- source and confidence are understandable in the UI;
-- local-only Draft remains recoverable after AI failure;
+- at least one previously missing unambiguous door is recovered as an eligible proposal;
+- at least one previously missing unambiguous window is recovered as an eligible proposal;
+- every other product-owner-marked unambiguous window is either eligible or has a specific validator blocker reviewed by the product owner;
+- the extra washbasin wall is identified by an eligible advisory suggestion or removed by an independently tested local fix;
+- no local geometry moves after AI;
+- no proposal applies automatically;
+- proposal source, confidence and evidence are understandable;
+- local Draft survives provider failure;
 - Apply, repeated Apply, Undo and Redo remain correct.
 
-The thin balcony/loggia wall is not a Stage 1 acceptance requirement; it is the principal Stage 2 product gate.
+This gate requires material improvement; returning only blocked explanations cannot count as Stage 1 acceptance.
 
-### 17.3 Stage 2 gates
+The thin balcony/loggia wall is the main Stage 2 product gate, not a Stage 1 requirement.
 
-- current Stage 1 gates remain green;
-- the known thin balcony/loggia wall is proposed and passes deterministic validation on the product-owner plan;
+### 15.3 Stage 2
+
+- all Stage 1 gates remain green;
+- the known thin balcony/loggia wall becomes an eligible validated proposal;
 - window rails, furniture and dimensions do not become eligible walls;
-- no arbitrary long or detached AI wall is eligible;
-- topology, Apply and history remain consistent.
+- no arbitrary long, detached or unsupported diagonal wall is eligible;
+- topology, atomic Apply and history remain consistent.
 
-## 18. Delivery sequence
+## 16. Delivery sequence
 
 ### Stage 0 — documentation and benchmark contract
 
-- preserve this specification and the product-owner FAIL evidence;
-- resolve milestone naming so recognition work does not collide with roadmap M7.9 Accessibility;
-- add recorded proposal fixtures and scenario expectations before production behaviour.
+- preserve product-owner FAIL evidence;
+- adopt canonical M7.8C.1 naming;
+- add recorded proposal fixtures and scenario expectations before changing production behaviour.
 
-### Stage 1A — proposal schema and provider-neutral request
+### Stage 1A — proposal schema and request
 
-- introduce new runtime proposal types and validators;
-- add Draft migration defaults;
-- generate labelled overlay and structured local summary;
-- preserve existing verifier-only path behind a compatibility boundary during transition.
+- add raw/sanitized proposal types and Draft migration defaults;
+- add labelled overlay and structured summary;
+- preserve verifier-only compatibility during transition.
 
-### Stage 1B — door/window sanitizer
+### Stage 1B — opening sanitizer
 
-- implement opening host selection, snapping, corroboration, dedupe and confidence caps;
-- keep all Apply behaviour disabled until sanitizer tests pass.
+- implement host selection, snapping, evidence validation, dedupe and confidence caps;
+- keep proposal Apply disabled until all sanitizer contracts pass.
 
-### Stage 1C — local false-wall advisory
+### Stage 1C — false-wall advisory
 
-- implement exact-ID advisory proposals with structural protection rules;
-- ensure accepting the advisory changes only Draft review state.
+- implement exact-ID advisory proposals and structural protection rules;
+- verify that advisory acceptance changes only Draft state.
 
-### Stage 1D — review UI and Apply integration
+### Stage 1D — UI and Apply
 
-- expose source filters, evidence and blocked reasons;
-- add proposal decisions and dependent Apply mapping;
+- expose sources, evidence and blocked reasons;
+- add proposal decisions and atomic Apply mapping;
 - complete history and browser tests.
 
-### Stage 1E — recorded and live benchmark
+### Stage 1E — benchmark and product retest
 
 - run exact-head deterministic gates;
-- manually run bounded OpenRouter comparisons;
-- perform product-owner retest on the original plan;
-- retain Draft status until explicit acceptance.
+- run bounded live-model comparisons manually;
+- retest the original plan;
+- keep PR Draft until explicit acceptance.
 
-### Stage 2 — thin-wall proposals
+### Stage 2 — thin walls
 
-- add the proposal type only after Stage 1 acceptance;
+- add the new type only after Stage 1 acceptance;
 - implement balcony/loggia-first validation;
-- expand benchmark and product acceptance separately.
+- expand benchmark and acceptance independently.
 
-### Stage 3 — connected proposal reconciliation
+## 17. Branch and merge strategy
 
-- considered only after Stages 1 and 2 provide evidence that isolated proposal validation is reliable;
-- requires a separate design amendment before implementation.
-
-## 19. Branch and merge strategy
-
-- PR #42 remains unmerged and requires independent acceptance or an explicit decision to supersede it.
-- PR #44 remains Draft and currently contains the real-fixture benchmark and recognition experiments.
-- this design is committed to PR #44 because its evidence directly motivates the change;
-- production implementation should use a dedicated stacked branch created from the reviewed exact PR #44 head after this specification is approved;
-- no implementation commit is added before written-spec approval and an implementation plan;
-- no PR is marked Ready or merged until automated gates and product-owner acceptance pass;
+- PR #42 remains unmerged and requires either independent acceptance or an explicit supersession decision;
+- PR #44 remains Draft and contains the real-fixture evidence motivating this design;
+- this specification is committed to PR #44;
+- production implementation uses a dedicated stacked branch from the reviewed exact PR #44 head after specification approval;
+- no implementation starts before a written implementation plan;
+- no PR is marked Ready or merged before automated and product-owner acceptance;
 - protected squash merge remains mandatory;
-- canonical `PROJECT_STATE`, `ROADMAP` and changelog updates occur only after accepted merge sequencing is resolved.
+- `PROJECT_STATE`, `ROADMAP` and changelog update only after accepted merge sequencing is resolved.
 
-## 20. Observability and evidence
+## 18. Observability
 
-Every AI run records safe, bounded metadata:
+Every run records bounded safe metadata:
 
 - request ID;
-- local Draft fingerprint;
-- reference revision;
+- reference revision and Draft fingerprint;
 - provider and actual routed model;
 - duration, token usage and estimated cost when available;
-- proposal counts by type and sanitizer state;
-- rejection reason counts;
-- exact deterministic validator version;
-- proposal result hash.
+- proposal counts by type/state;
+- validator reason counts;
+- validator version;
+- deterministic result hash.
 
-The UI exposes a user-readable subset. Benchmark artifacts contain the complete sanitized record. Raw secrets, authorization headers and private raster bytes are excluded.
+The UI exposes a readable subset. Artifacts contain sanitized records, not secrets or private raster bytes.
 
-## 21. Final design decision
-
-The accepted product direction is:
+## 19. Final design statement
 
 > Local recognition supplies a conservative structural baseline. AI may discover omissions and question suspicious local candidates through separate proposals. Deterministic validation remains the only authority that can turn an AI suggestion into reviewable geometry, and the user remains the only authority that can Apply it.
 
-Stage 1 will deliver doors, windows and false-wall advisory suggestions. Stage 2 will add narrowly validated thin walls. The system will prefer transparent omission over unsupported geometry and will never trade deterministic safety for a higher aggregate recall number.
+Stage 1 delivers doors, windows and false-wall advisory suggestions. Stage 2 adds narrowly validated thin walls. The system prefers a transparent omission over unsupported geometry and never trades deterministic safety for a higher aggregate recall number.
