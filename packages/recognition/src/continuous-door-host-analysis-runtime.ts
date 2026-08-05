@@ -5,8 +5,9 @@ import type {
 import {
   detectContinuousHostDoorOpenings as detectContinuousHostDoorOpeningsBase,
 } from "./continuous-door-host-analysis";
+import { detectTerminalHostDoorOpenings } from "./continuous-door-terminal-host";
 import type { DetectedLineSegment } from "./local-lines";
-import type { RecognitionWallCandidate } from "./model";
+import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
 
 const EVIDENCE_SPAN_TOLERANCE_PX = 2;
 const BORDER_SYMBOL_MARGIN_PX = 2;
@@ -97,14 +98,59 @@ function isDoorLeafCandidate(
     && structuralSupportRatio(segment, input) <= MAX_LEAF_STRUCTURAL_SUPPORT_RATIO;
 }
 
+function openingKey(
+  candidate: RecognitionOpeningCandidate,
+  widthPx: number,
+  heightPx: number,
+): string {
+  return [
+    candidate.kind,
+    candidate.hostWallCandidateId ?? "unknown-host",
+    Math.round(candidate.center.x * widthPx / 4),
+    Math.round(candidate.center.y * heightPx / 4),
+    Math.round((candidate.widthPx ?? 0) / 4),
+  ].join("|");
+}
+
+function mergeResults(
+  first: ContinuousDoorHostAnalysisResult,
+  second: ContinuousDoorHostAnalysisResult,
+  widthPx: number,
+  heightPx: number,
+): ContinuousDoorHostAnalysisResult {
+  const byKey = new Map<string, RecognitionOpeningCandidate>();
+  for (const candidate of [...first.openingHypotheses, ...second.openingHypotheses]) {
+    const key = openingKey(candidate, widthPx, heightPx);
+    const existing = byKey.get(key);
+    if (
+      !existing
+      || (candidate.evidence.localScore ?? 0) > (existing.evidence.localScore ?? 0)
+      || (
+        candidate.evidence.localScore === existing.evidence.localScore
+        && candidate.id.localeCompare(existing.id) < 0
+      )
+    ) byKey.set(key, candidate);
+  }
+  return {
+    openingHypotheses: [...byKey.values()].sort((left, right) => left.id.localeCompare(right.id)),
+    diagnostics: [...new Set([...first.diagnostics, ...second.diagnostics])].sort(),
+  };
+}
+
 export function detectContinuousHostDoorOpenings(
   input: ContinuousDoorHostAnalysisInput,
 ): ContinuousDoorHostAnalysisResult {
-  return detectContinuousHostDoorOpeningsBase({
+  const symbolSegments = input.symbolSegments.filter((segment) =>
+    isDoorLeafCandidate(segment, input));
+  const continuous = detectContinuousHostDoorOpeningsBase({
     ...input,
     wallCandidates: input.wallCandidates.map((candidate) =>
       extendForEvidence(candidate, input.widthPx, input.heightPx)),
-    symbolSegments: input.symbolSegments.filter((segment) =>
-      isDoorLeafCandidate(segment, input)),
+    symbolSegments,
   });
+  const terminal = detectTerminalHostDoorOpenings({
+    ...input,
+    symbolSegments,
+  });
+  return mergeResults(continuous, terminal, input.widthPx, input.heightPx);
 }
