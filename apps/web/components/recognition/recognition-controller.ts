@@ -125,6 +125,7 @@ export class RecognitionController {
   #state: RecognitionControllerState = { kind: "idle", session: null };
   #abortController: AbortController | null = null;
   #requestGeneration = 0;
+  #persistenceTail: Promise<void> = Promise.resolve();
 
   constructor(options: RecognitionControllerOptions) {
     this.#repository = options.repository;
@@ -137,6 +138,27 @@ export class RecognitionController {
   #setState(state: RecognitionControllerState): void {
     this.#state = state;
     this.#onState(state);
+  }
+
+  #enqueuePersistence<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.#persistenceTail.then(operation, operation);
+    this.#persistenceTail = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
+  #putSession(
+    session: RecognitionSessionRecord,
+    guard?: () => boolean,
+  ): Promise<boolean> {
+    return this.#enqueuePersistence(async () => {
+      if (guard && !guard()) return false;
+      await this.#repository.put(session);
+      return true;
+    });
+  }
+
+  #deleteProject(projectId: string): Promise<void> {
+    return this.#enqueuePersistence(() => this.#repository.deleteForProject(projectId));
   }
 
   #isCurrentAiProposalRun(
@@ -159,6 +181,7 @@ export class RecognitionController {
 
   async restore(projectId: string, reference: RecognitionReferenceIdentity | null): Promise<void> {
     this.cancelRunning();
+    await this.#persistenceTail;
     const session = await this.#repository.getForProject(projectId);
     if (!session) { this.#setState({ kind: "idle", session: null }); return; }
     if (isRecognitionSessionStale(session, reference) || session.engineVersion !== LOCAL_RECOGNITION_ENGINE_VERSION) {
@@ -176,7 +199,7 @@ export class RecognitionController {
       cloudMetadata: null,
       updatedAt: reviewableDraft.updatedAt,
     };
-    await this.#repository.put(reviewableSession);
+    await this.#putSession(reviewableSession);
     this.#setState({ kind: "review", session: reviewableSession });
   }
 
@@ -202,7 +225,7 @@ export class RecognitionController {
       });
       const reviewableDraft = enforceReviewableLocalDraft(localDraft);
       const session = { ...sessionFromDraft(reviewableDraft, previous), cloudMetadata: null };
-      await this.#repository.put(session);
+      await this.#putSession(session);
       if (abortController.signal.aborted || this.#abortController !== abortController) return;
       this.#setState({ kind: "review", session });
     } catch (cause) {
@@ -233,6 +256,14 @@ export class RecognitionController {
       localDraftFingerprint,
     });
 
+    const isCurrent = () => this.#isCurrentAiProposalRun(
+      generation,
+      abortController,
+      requestId,
+      referenceRevision,
+      localDraftFingerprint,
+    );
+
     try {
       const result = await run({
         session,
@@ -241,13 +272,7 @@ export class RecognitionController {
         localDraftFingerprint,
         signal: abortController.signal,
       });
-      if (!this.#isCurrentAiProposalRun(
-        generation,
-        abortController,
-        requestId,
-        referenceRevision,
-        localDraftFingerprint,
-      )) return;
+      if (!isCurrent()) return;
 
       if (!result) {
         this.#setState({ kind: "review", session });
@@ -263,30 +288,12 @@ export class RecognitionController {
         now: new Date().toISOString(),
       });
       const updated = sessionFromDraft(reconciled, currentSession);
-      if (!this.#isCurrentAiProposalRun(
-        generation,
-        abortController,
-        requestId,
-        referenceRevision,
-        localDraftFingerprint,
-      )) return;
-      await this.#repository.put(updated);
-      if (!this.#isCurrentAiProposalRun(
-        generation,
-        abortController,
-        requestId,
-        referenceRevision,
-        localDraftFingerprint,
-      )) return;
+      if (!isCurrent()) return;
+      const persisted = await this.#putSession(updated, isCurrent);
+      if (!persisted || !isCurrent()) return;
       this.#setState({ kind: "review", session: updated });
     } catch {
-      if (!this.#isCurrentAiProposalRun(
-        generation,
-        abortController,
-        requestId,
-        referenceRevision,
-        localDraftFingerprint,
-      )) return;
+      if (!isCurrent()) return;
       const currentSession = this.#state.session;
       if (!currentSession) return;
       const now = new Date().toISOString();
@@ -299,14 +306,8 @@ export class RecognitionController {
         updatedAt: now,
       });
       const updated = sessionFromDraft(failedDraft, currentSession);
-      await this.#repository.put(updated);
-      if (!this.#isCurrentAiProposalRun(
-        generation,
-        abortController,
-        requestId,
-        referenceRevision,
-        localDraftFingerprint,
-      )) return;
+      const persisted = await this.#putSession(updated, isCurrent);
+      if (!persisted || !isCurrent()) return;
       this.#setState({ kind: "review", session: updated });
     } finally {
       if (this.#abortController === abortController) this.#abortController = null;
@@ -396,7 +397,7 @@ export class RecognitionController {
     this.cancelRunning();
     const current = this.#state.session;
     const session = { ...sessionFromDraft(validateRecognitionDraft(draft), current), cloudMetadata };
-    await this.#repository.put(session);
+    await this.#putSession(session);
     this.#setState({ kind: "review", session });
   }
 
@@ -412,7 +413,7 @@ export class RecognitionController {
 
   async discard(projectId: string): Promise<void> {
     this.cancelRunning();
-    await this.#repository.deleteForProject(projectId);
+    await this.#deleteProject(projectId);
     this.#setState({ kind: "idle", session: null });
   }
 
@@ -425,7 +426,7 @@ export class RecognitionController {
     const updatedAt = new Date().toISOString();
     const draft: ValidatedRecognitionDraft = { ...session.draft, status, updatedAt };
     const updated = { ...session, draft, updatedAt };
-    await this.#repository.put(updated);
+    await this.#putSession(updated);
     this.#setState({ kind: "review", session: updated });
   }
 
@@ -452,7 +453,7 @@ export class RecognitionController {
     const draft = validateRecognitionDraft(reviewable);
     if (draft === session.draft) return;
     const updated = { ...session, draft, updatedAt: draft.updatedAt };
-    await this.#repository.put(updated);
+    await this.#putSession(updated);
     this.#setState({ kind: "review", session: updated });
   }
 }
