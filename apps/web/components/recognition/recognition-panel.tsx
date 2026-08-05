@@ -56,6 +56,7 @@ export function recognitionWorkflowPhase(state: RecognitionControllerState): str
   switch (state.kind) {
     case "idle": return "Готово к локальному анализу";
     case "running-local": return "Локальный анализ";
+    case "running-ai-proposals": return "AI-поиск пропущенных элементов";
     case "running-cloud": return "AI-проверка черновика";
     case "review": return state.session?.draft.status === "applied" ? "Черновик применён" : "Проверка черновика";
     case "stale": return "Черновик устарел";
