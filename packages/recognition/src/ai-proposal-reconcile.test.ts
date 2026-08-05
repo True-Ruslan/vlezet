@@ -242,9 +242,9 @@ describe("AI proposal reconciliation", () => {
 
     expect(localStateSnapshot(result)).toBe(localStateSnapshot(draft));
     expect(result.aiProposals.map(({ id, state }) => [id, state])).toEqual([
-      [window.id, "blocked"],
-      [review.id, "duplicate"],
       [door.id, "eligible"],
+      [review.id, "duplicate"],
+      [window.id, "blocked"],
     ]);
     expect(result.proposalDecisions).toEqual({ [door.id]: "pending" });
     expect(result.aiProposalMetadata).toEqual(metadata(draft));
