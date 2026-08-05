@@ -21,7 +21,9 @@ function localDraft(): RecognitionDraft {
   return {
     id: "draft", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion: "1",
     status: "local-complete", walls: [wall("local-1", 0.2)], openings: [], roomLabels: [], diagnostics: [],
-    decisions: { "local-1": "accepted" }, source: { local: true, cloud: false }, createdAt: now, updatedAt: now,
+    decisions: { "local-1": "accepted" }, source: { local: true, cloud: false },
+    aiProposals: [], proposalDecisions: {}, aiProposalMetadata: null,
+    createdAt: now, updatedAt: now,
   };
 }
 
