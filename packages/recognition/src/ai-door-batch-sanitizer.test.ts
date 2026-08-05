@@ -128,7 +128,7 @@ beforeEach(() => {
 });
 
 describe("AI door batch sanitation", () => {
-  it("delegates a valid door while keeping unsupported categories blocked and local Draft immutable", () => {
+  it("delegates a valid door while keeping an unevidenced window blocked and local Draft immutable", () => {
     const localDraft = draft();
     const before = JSON.stringify(localDraft);
     registerAiRejectedOpeningEvidenceForDraft(localDraft, createRejectedOpeningEvidenceTransfer({
@@ -170,7 +170,7 @@ describe("AI door batch sanitation", () => {
       rawProposalId: "raw-window-1",
       kind: "window",
       state: "blocked",
-      evidence: { validatorReasons: ["opening-sanitizer-pending"] },
+      evidence: { validatorReasons: ["provider-window-evidence-incomplete"] },
     });
     expect(JSON.stringify(localDraft)).toBe(before);
   });
