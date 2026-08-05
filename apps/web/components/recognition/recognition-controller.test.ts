@@ -18,7 +18,9 @@ function draft(engineVersion: string = LOCAL_RECOGNITION_ENGINE_VERSION): Recogn
     id: "draft", projectId: "project", referenceAssetId: "asset", referenceRevision: "revision", engineVersion,
     status: "local-complete",
     walls: [{ id: "w1", start: { x: 0.1, y: 0.1 }, end: { x: 0.9, y: 0.1 }, estimatedThicknessPx: 20, confidence: "high", evidence: { localScore: 0.9, cloudScore: null, reasons: ["parallel-edges"] }, origin: "local", conflict: null }],
-    openings: [], roomLabels: [], diagnostics: [], decisions: { w1: "pending" }, source: { local: true, cloud: false }, createdAt: NOW, updatedAt: NOW,
+    openings: [], roomLabels: [], diagnostics: [], decisions: { w1: "pending" }, source: { local: true, cloud: false },
+    aiProposals: [], proposalDecisions: {}, aiProposalMetadata: null,
+    createdAt: NOW, updatedAt: NOW,
   };
 }
 
