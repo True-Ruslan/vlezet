@@ -5,6 +5,7 @@ import {
   type SanitizeAiProposalBatchInput,
   type SanitizeAiProposalBatchResult,
 } from "./ai-proposal-sanity";
+import { sanitizeAiLocalWallReviewProposal } from "./ai-wall-review-sanitizer";
 
 function isWholeBatchRejection(result: SanitizeAiProposalBatchResult): boolean {
   return result.sanitized.length === 0
@@ -35,6 +36,15 @@ export function sanitizeAiProposalBatch(
         localEvidence: input.localEvidence,
         provider: input.provider,
         acceptedSiblingProposals: sanitized,
+      }));
+      continue;
+    }
+    if (raw?.kind === "local-wall-review") {
+      sanitized.push(sanitizeAiLocalWallReviewProposal({
+        proposal: raw,
+        localDraft: input.localDraft,
+        localEvidence: input.localEvidence,
+        provider: input.provider,
       }));
       continue;
     }
