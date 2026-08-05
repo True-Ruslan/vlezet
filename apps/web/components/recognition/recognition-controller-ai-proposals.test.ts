@@ -94,12 +94,16 @@ function session(value: ValidatedRecognitionDraft = draft()): RecognitionSession
 
 class DelayedRecognitionSessionRepository implements RecognitionSessionRepository {
   #current: RecognitionSessionRecord | null;
-  #putCount = 0;
-  readonly firstPutStarted = deferred<void>();
-  readonly releaseFirstPut = deferred<void>();
+  #blockNextPut = false;
+  readonly blockedPutStarted = deferred<void>();
+  readonly releaseBlockedPut = deferred<void>();
 
   constructor(initial: RecognitionSessionRecord) {
     this.#current = structuredClone(initial);
+  }
+
+  blockNextPut(): void {
+    this.#blockNextPut = true;
   }
 
   async getForProject(projectId: string): Promise<RecognitionSessionRecord | null> {
@@ -107,10 +111,10 @@ class DelayedRecognitionSessionRepository implements RecognitionSessionRepositor
   }
 
   async put(value: RecognitionSessionRecord): Promise<void> {
-    this.#putCount += 1;
-    if (this.#putCount === 1) {
-      this.firstPutStarted.resolve();
-      await this.releaseFirstPut.promise;
+    if (this.#blockNextPut) {
+      this.#blockNextPut = false;
+      this.blockedPutStarted.resolve();
+      await this.releaseBlockedPut.promise;
     }
     this.#current = structuredClone(value);
   }
@@ -271,6 +275,7 @@ describe("recognition controller AI proposals", () => {
   it("keeps the newer request final when an older persistence is already in flight", async () => {
     const repository = new DelayedRecognitionSessionRepository(session());
     const controller = await controllerWithRepository(repository);
+    repository.blockNextPut();
     const requestIds: string[] = [];
     const run: RecognitionAiProposalRunner = async (input) => {
       requestIds.push(input.requestId);
@@ -278,10 +283,10 @@ describe("recognition controller AI proposals", () => {
     };
 
     const firstRun = controller.startAiProposalDiscovery(run);
-    await repository.firstPutStarted.promise;
+    await repository.blockedPutStarted.promise;
     const secondRun = controller.startAiProposalDiscovery(run);
     await Promise.resolve();
-    repository.releaseFirstPut.resolve();
+    repository.releaseBlockedPut.resolve();
     await Promise.all([firstRun, secondRun]);
 
     const persisted = await repository.getForProject("project");
@@ -292,13 +297,14 @@ describe("recognition controller AI proposals", () => {
   it("keeps a local edit final when proposal persistence is already in flight", async () => {
     const repository = new DelayedRecognitionSessionRepository(session());
     const controller = await controllerWithRepository(repository);
+    repository.blockNextPut();
     const running = controller.startAiProposalDiscovery(async (input) =>
       result(input.session.draft, input.requestId));
-    await repository.firstPutStarted.promise;
+    await repository.blockedPutStarted.promise;
 
     const editing = controller.editWall("wall-1", { end: { x: 0.85, y: 0.2 } });
     await Promise.resolve();
-    repository.releaseFirstPut.resolve();
+    repository.releaseBlockedPut.resolve();
     await Promise.all([running, editing]);
 
     const persisted = await repository.getForProject("project");
