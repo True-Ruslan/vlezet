@@ -211,6 +211,7 @@ function localStateSnapshot(draft: ValidatedRecognitionDraft): string {
     aiProposals: _aiProposals,
     proposalDecisions: _proposalDecisions,
     aiProposalMetadata: _aiProposalMetadata,
+    diagnostics: _diagnostics,
     updatedAt: _updatedAt,
     ...localState
   } = draft;
@@ -241,6 +242,7 @@ describe("AI proposal reconciliation", () => {
     const result = reconcile(draft, [door, review, window], metadata(draft));
 
     expect(localStateSnapshot(result)).toBe(localStateSnapshot(draft));
+    expect(result.diagnostics).toEqual(draft.diagnostics);
     expect(result.aiProposals.map(({ id, state }) => [id, state])).toEqual([
       [door.id, "eligible"],
       [review.id, "duplicate"],
