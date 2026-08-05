@@ -231,12 +231,13 @@ function gapFromRecoveredToCandidate(
 
 function nearestUpstreamHost(
   recovered: PixelWall,
-  originalWalls: readonly PixelWall[],
+  contextWalls: readonly PixelWall[],
 ): UpstreamHost | null {
   const candidates: UpstreamHost[] = [];
-  for (const wall of originalWalls) {
+  for (const wall of contextWalls) {
     if (
-      wall.candidate.conflict !== null
+      wall.candidate.id === recovered.candidate.id
+      || wall.candidate.conflict !== null
       || wall.lengthPx < MIN_UPSTREAM_HOST_LENGTH_PX
       || !collinearWith(recovered, wall)
     ) continue;
@@ -250,6 +251,7 @@ function nearestUpstreamHost(
   }
   return candidates.sort((first, second) =>
     first.gapPx - second.gapPx
+    || first.wall.thicknessPx - second.wall.thicknessPx
     || first.wall.candidate.id.localeCompare(second.wall.candidate.id))[0] ?? null;
 }
 
@@ -303,6 +305,7 @@ function geometryId(
 
 function normalizePerpendicularAnchorThickness(
   candidate: RecognitionWallCandidate,
+  contextWalls: readonly PixelWall[],
   originalWalls: readonly PixelWall[],
   widthPx: number,
   heightPx: number,
@@ -310,7 +313,7 @@ function normalizePerpendicularAnchorThickness(
   if (!candidate.evidence.reasons.includes("segmented-structural-boundary")) return candidate;
   const recovered = pixelWall(candidate, widthPx, heightPx);
   if (!recovered) return candidate;
-  const upstream = nearestUpstreamHost(recovered, originalWalls);
+  const upstream = nearestUpstreamHost(recovered, contextWalls);
   if (!upstream) return candidate;
   const maximumTerminalLengthPx = Math.max(
     MAX_TERMINAL_LENGTH_PX,
@@ -346,9 +349,13 @@ export function recoverSegmentedBoundaryWalls(
   const originalWalls = input.wallCandidates
     .map((candidate) => pixelWall(candidate, input.widthPx, input.heightPx))
     .filter((wall): wall is PixelWall => wall !== null);
+  const recoveryContextWalls = [...input.wallCandidates, ...base.recoveredWalls]
+    .map((candidate) => pixelWall(candidate, input.widthPx, input.heightPx))
+    .filter((wall): wall is PixelWall => wall !== null);
   const normalizedRecoveredWalls = base.recoveredWalls
     .map((candidate) => normalizePerpendicularAnchorThickness(
       candidate,
+      recoveryContextWalls,
       originalWalls,
       input.widthPx,
       input.heightPx,
