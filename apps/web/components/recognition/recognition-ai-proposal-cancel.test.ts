@@ -51,20 +51,25 @@ function session(): RecognitionSessionRecord {
   };
 }
 
+async function restoredController() {
+  const repository = new MemoryRecognitionSessionRepository();
+  const initial = session();
+  await repository.put(initial);
+  const controller = new RecognitionController({
+    repository,
+    runLocal: vi.fn(),
+    onState: vi.fn(),
+  });
+  await controller.restore(initial.projectId, {
+    assetId: initial.referenceAssetId,
+    referenceRevision: initial.referenceRevision,
+  });
+  return { controller, repository, initial };
+}
+
 describe("AI proposal discovery cancellation", () => {
   it("aborts the current request, returns to review and preserves the session", async () => {
-    const repository = new MemoryRecognitionSessionRepository();
-    const initial = session();
-    await repository.put(initial);
-    const controller = new RecognitionController({
-      repository,
-      runLocal: vi.fn(),
-      onState: vi.fn(),
-    });
-    await controller.restore(initial.projectId, {
-      assetId: initial.referenceAssetId,
-      referenceRevision: initial.referenceRevision,
-    });
+    const { controller, repository, initial } = await restoredController();
 
     let signal: AbortSignal | null = null;
     const running = controller.startAiProposalDiscovery(async (input) => {
@@ -79,6 +84,15 @@ describe("AI proposal discovery cancellation", () => {
     await running;
 
     expect(signal?.aborted).toBe(true);
+    expect(controller.state.kind).toBe("review");
+    expect(await repository.getForProject(initial.projectId)).toEqual(initial);
+  });
+
+  it("is a no-op when proposal discovery is not running", async () => {
+    const { controller, repository, initial } = await restoredController();
+
+    controller.cancelAiProposalDiscovery();
+
     expect(controller.state.kind).toBe("review");
     expect(await repository.getForProject(initial.projectId)).toEqual(initial);
   });
