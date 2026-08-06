@@ -1,0 +1,308 @@
+--- a/apps/web/components/recognition/recognition-apply.ts
++++ b/apps/web/components/recognition/recognition-apply.ts
+@@ -16,6 +16,7 @@
+ } from "@vlezet/geometry";
+ import type { ReferencePlan } from "@vlezet/projects";
+ import {
++  prepareAtomicRecognitionApply,
+   sanitizeRecognitionWallTopology,
+   type NormalizedPoint,
+   type RecognitionDraft,
+@@ -383,12 +384,12 @@
+   for (const candidate of draft.walls) {
+     if (!accepted(draft, candidate.id)) continue;
+     if (candidate.conflict && candidate.conflict !== "duplicate-existing") {
+-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Кандидат стены содержит конфликт и не был применён." });
++      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Кандидат стены содержит конфликт и не был применён." });
+       continue;
+     }
+     const { start, end } = candidateWorldEndpoints(candidate, reference, canonicalEndpoints);
+     if (distance(start, end) < MIN_RECOGNIZED_WALL_LENGTH_MM) {
+-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Слишком короткая стена пропущена." });
++      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Слишком короткая стена пропущена." });
+       continue;
+     }
+     const duplicateWallId = findDuplicateWallId(document, start, end);
+@@ -475,21 +476,21 @@
+   for (const candidate of draft.openings) {
+     if (!accepted(draft, candidate.id)) continue;
+     if (candidate.kind === "unknown-opening") {
+-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Неизвестный тип проёма нужно сначала классифицировать как дверь или окно." });
++      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Неизвестный тип проёма нужно сначала классифицировать как дверь или окно." });
+       continue;
+     }
+     if (!candidate.hostWallCandidateId) {
+-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Для проёма не определена стена." });
++      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Для проёма не определена стена." });
+       continue;
+     }
+     const wallId = candidateToWallId.get(candidate.hostWallCandidateId);
+     if (!wallId) {
+-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Стена для проёма не была применена или сопоставлена, поэтому проём пропущен." });
++      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Стена для проёма не была применена или сопоставлена, поэтому проём пропущен." });
+       continue;
+     }
+     const width = openingWidthMm(candidate, reference);
+     if (!width) {
+-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Не удалось определить ширину проёма." });
++      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Не удалось определить ширину проёма." });
+       continue;
+     }
+     try {
+@@ -513,7 +514,7 @@
+       }
+       if (disposition === "conflict") {
+         diagnostics.push({
+           candidateId: candidate.id,
+-          severity: "warning",
++          severity: "error",
+           message: "Кандидат перекрывает существующий проём на этой стене и оставлен без применения.",
+         });
+         continue;
+@@ -549,29 +550,59 @@
+     throw new Error("Черновик распознавания относится к другой версии подложки.");
+   }
+ 
++  const preflight = prepareAtomicRecognitionApply({
++    draft: input.draft,
++    referencePlan: input.referencePlan,
++    document: input.document,
++  });
++  if (preflight.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
++    return {
++      document: input.document,
++      appliedCandidateIds: [],
++      diagnostics: preflight.diagnostics,
++    };
++  }
++
+   const topologySanity = sanitizeRecognitionWallTopology({
+     widthPx: input.referencePlan.widthPx,
+     heightPx: input.referencePlan.heightPx,
+     millimetersPerPixel: input.referencePlan.transform.millimetersPerPixel,
+-    wallCandidates: input.draft.walls,
++    wallCandidates: preflight.applicableDraft.walls,
+   });
+   const sanitizedById = new Map(topologySanity.walls.map((candidate) => [candidate.id, candidate]));
+   const sanitizedDraft: RecognitionDraft = {
+-    ...input.draft,
+-    walls: input.draft.walls.map((candidate) => sanitizedById.get(candidate.id) ?? candidate),
++    ...preflight.applicableDraft,
++    walls: preflight.applicableDraft.walls.map(
++      (candidate) => sanitizedById.get(candidate.id) ?? candidate,
++    ),
+   };
+   const topologyDiagnostics: RecognitionApplyDiagnostic[] = topologySanity.diagnostics.map((diagnostic) => ({
+     candidateId: diagnostic.candidateId ?? "topology",
+     severity: diagnostic.severity,
+     message: diagnostic.message,
+   }));
+ 
+   const walls = applyWalls(sanitizedDraft, input.referencePlan, input.document, input.idFactory);
+-  const openings = applyOpenings(sanitizedDraft, input.referencePlan, walls.document, walls.candidateToWallId, input.idFactory);
++  const openings = applyOpenings(
++    sanitizedDraft,
++    input.referencePlan,
++    walls.document,
++    walls.candidateToWallId,
++    input.idFactory,
++  );
++  const diagnostics = [
++    ...preflight.diagnostics,
++    ...topologyDiagnostics,
++    ...walls.diagnostics,
++    ...openings.diagnostics,
++  ];
++  if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
++    return {
++      document: input.document,
++      appliedCandidateIds: [],
++      diagnostics,
++    };
++  }
++
+   return {
+     document: openings.document,
+     appliedCandidateIds: [...walls.appliedCandidateIds, ...openings.appliedCandidateIds],
+-    diagnostics: [...topologyDiagnostics, ...walls.diagnostics, ...openings.diagnostics],
++    diagnostics,
+   };
+ }
+--- a/apps/web/components/projects/project-app.tsx
++++ b/apps/web/components/projects/project-app.tsx
+@@ -22,7 +22,10 @@
+ } from "@vlezet/projects";
+ import {
++  AI_PROPOSAL_SCHEMA_VERSION,
++  peekAiLocalEvidenceForDraft,
+   reconcileRecognition,
++  sanitizeAiProposalBatch,
+   type NormalizedPoint,
+   type RecognitionDecision,
+   type RecognitionOpeningCandidate,
+@@ -34,6 +37,7 @@
+ import { existingWallsInReferenceSpace } from "../recognition/existing-geometry";
+ import { runLocalRecognition } from "../recognition/local-recognition-client";
+ import { OpenRouterDirectProvider } from "../recognition/openrouter-provider";
++import { buildRecognitionAiProposalRequest } from "../recognition/recognition-ai-request";
+ import { planRecognitionApply } from "../recognition/recognition-apply";
+ import { RecognitionController, type RecognitionControllerState } from "../recognition/recognition-controller";
+ import { commitRecognitionDocument } from "../recognition/recognition-editor-apply";
+@@ -76,6 +80,7 @@
+   const [recognitionPanelOpen, setRecognitionPanelOpen] = useState(false);
+   const [selectedRecognitionCandidateId, setSelectedRecognitionCandidateId] = useState<string | null>(null);
+   const [cloudDialogOpen, setCloudDialogOpen] = useState(false);
++  const [cloudDialogPurpose, setCloudDialogPurpose] = useState<"verification" | "proposals">("verification");
+   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ kind: "idle" });
+   const [error, setError] = useState<string | null>(null);
+   const [toast, setToast] = useState<string | null>(null);
+@@ -558,6 +563,87 @@
+     }
+   };
+ 
++  const runAiProposalDiscovery = async (request: CloudRecognitionRequest) => {
++    const project = activeProjectRef.current;
++    const controller = ensureRecognitionController();
++    const session = controller.state.session;
++    if (!project?.referencePlan || !referenceAsset || !session) {
++      throw new Error("Сначала выполните локальное распознавание.");
++    }
++    const evidence = peekAiLocalEvidenceForDraft(session.draft);
++    if (!evidence) {
++      throw new Error("Локальные проверочные данные устарели. Повторите локальное распознавание.");
++    }
++
++    setCloudDialogOpen(false);
++    const provider = new OpenRouterDirectProvider({
++      apiKey: request.apiKey,
++      modelId: request.modelId,
++    });
++    const referencePlan = project.referencePlan;
++    const sourceAsset = referenceAsset;
++
++    await controller.startAiProposalDiscovery(async ({
++      session: currentSession,
++      requestId,
++      referenceRevision,
++      localDraftFingerprint,
++      signal,
++    }) => {
++      const currentEvidence = peekAiLocalEvidenceForDraft(currentSession.draft);
++      if (
++        !currentEvidence
++        || currentEvidence.localDraftFingerprint !== localDraftFingerprint
++        || referencePlan.referenceRevision !== referenceRevision
++      ) {
++        return null;
++      }
++
++      const sourceImage = await createImageBitmap(sourceAsset.blob);
++      try {
++        const proposalRequest = buildRecognitionAiProposalRequest({
++          requestId,
++          sourceImageDataUrl: await blobToDataUrl(sourceAsset.blob),
++          sourceImage,
++          sourceWidthPx: sourceAsset.widthPx,
++          sourceHeightPx: sourceAsset.heightPx,
++          referenceRevision,
++          localDraft: currentSession.draft,
++          evidence: currentEvidence,
++        });
++        const providerResult = await provider.recognizeProposals(proposalRequest, signal);
++        const sanitizedResult = sanitizeAiProposalBatch({
++          batch: providerResult.batch,
++          expectedIdentity: {
++            requestId,
++            referenceRevision,
++            localDraftFingerprint,
++          },
++          provider: {
++            providerId: providerResult.providerId,
++            modelId: providerResult.modelId,
++            requestId,
++          },
++          localDraft: currentSession.draft,
++          localEvidence: currentEvidence,
++        });
++        if (sanitizedResult.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
++          throw new Error("AI-пакет предложений не прошёл детерминированную проверку.");
++        }
++        return { sanitized: sanitizedResult.sanitized, metadata: {
++          schemaVersion: AI_PROPOSAL_SCHEMA_VERSION,
++          requestId,
++          referenceRevision,
++          localDraftFingerprint,
++          providerId: providerResult.providerId,
++          modelId: providerResult.modelId,
++          completedAt: new Date().toISOString(),
++        } };
++      } finally {
++        sourceImage.close();
++      }
++    });
++
++    if (
++      controller.state.kind === "review"
++      && controller.state.session?.draft.aiProposalMetadata
++    ) {
++      showToast("AI-поиск завершён. Проверьте предложения перед применением.");
++    }
++  };
++
+   const applyRecognition = async () => {
+     const project = activeProjectRef.current;
+     const controller = ensureRecognitionController();
+@@ -642,7 +728,15 @@
+         onEditRecognitionWall={editRecognitionWall}
+         onReclassifyRecognitionOpening={reclassifyRecognitionOpening}
+         onAcceptHighConfidenceRecognition={acceptHighConfidenceRecognition}
+-        onRunCloudRecognition={() => setCloudDialogOpen(true)}
++        onRunCloudRecognition={() => {
++          setCloudDialogPurpose("verification");
++          setCloudDialogOpen(true);
++        }}
++        onFindAiProposals={() => {
++          setCloudDialogPurpose("proposals");
++          setCloudDialogOpen(true);
++        }}
++        aiProposalDiscoveryAvailable={Boolean(activeProject.referencePlan && referenceAsset && recognitionState.session)}
+         onApplyRecognition={() => void applyRecognition()}
+         onDiscardRecognition={() => void discardRecognition()}
+         onReferenceMoveEnd={(originWorld) => {
+@@ -652,13 +746,14 @@
+       />
+       <CloudDialog
+         open={cloudDialogOpen}
+-        busy={recognitionState.kind === "running-cloud"}
++        busy={recognitionState.kind === "running-cloud" || recognitionState.kind === "running-ai-proposals"}
+         onClose={() => {
++          if (cloudDialogPurpose === "proposals") recognitionControllerRef.current?.cancelRunning();
+           cloudAbortRef.current?.abort();
+           cloudAbortRef.current = null;
+           setCloudDialogOpen(false);
+         }}
+-        onRun={runCloudRecognition}
++        onRun={cloudDialogPurpose === "proposals" ? runAiProposalDiscovery : runCloudRecognition}
+       />
+       {error ? <div className="global-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError(null)}>Закрыть</button></div> : null}
+       {toast ? <div className="toast" role="status">{toast}</div> : null}
+--- a/apps/web/components/editor/apartment-editor.tsx
++++ b/apps/web/components/editor/apartment-editor.tsx
+@@ -77,6 +77,8 @@
+   onReclassifyRecognitionOpening: (candidateId: string, kind: RecognitionOpeningCandidate["kind"]) => void;
+   onAcceptHighConfidenceRecognition: () => void;
+   onRunCloudRecognition: () => void;
++  onFindAiProposals: () => void;
++  aiProposalDiscoveryAvailable: boolean;
+   onApplyRecognition: () => void;
+   onDiscardRecognition: () => void;
+ }>;
+@@ -362,6 +364,8 @@
+       onReclassifyOpening={props.onReclassifyRecognitionOpening}
+       onAcceptHighConfidence={props.onAcceptHighConfidenceRecognition}
+       onRunCloud={props.onRunCloudRecognition}
++      onFindAiProposals={props.onFindAiProposals}
++      aiProposalDiscoveryAvailable={props.aiProposalDiscoveryAvailable}
+       onApply={props.onApplyRecognition}
+       onDiscard={props.onDiscardRecognition}
+     />
