@@ -17,6 +17,7 @@ export function buildAiBenchmarkReport({ config, runs, commitSha = null }) {
     expectedOpeningKinds: run.expectedOpeningKinds,
     schemaFailure: Boolean(run.schemaFailure),
     safetyViolations: [...(run.safetyViolations ?? [])].map(redactAiBenchmarkText),
+    proposalEvaluation: run.proposalEvaluation ?? null,
     error: safeError(run.error),
   })).sort((first, second) =>
     first.modelId.localeCompare(second.modelId)
