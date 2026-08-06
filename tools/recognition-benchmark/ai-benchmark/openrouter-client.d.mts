@@ -1,5 +1,24 @@
 import type { AiBenchmarkProviderMaxPrice } from "./cost-budget.mjs";
 
+export type AiBenchmarkFetchInit = Readonly<{
+  method?: string;
+  headers?: Readonly<Record<string, string>>;
+  signal?: AbortSignal;
+  body?: string;
+}>;
+
+export type AiBenchmarkFetchResponse = Readonly<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+  json(): Promise<unknown>;
+}>;
+
+export type AiBenchmarkFetcher = (
+  input: string,
+  init?: AiBenchmarkFetchInit,
+) => Promise<AiBenchmarkFetchResponse>;
+
 export type AiVerificationWall = Readonly<{
   id: string;
   confidence: "high" | "medium" | "low";
@@ -47,7 +66,7 @@ export function redactAiBenchmarkText(value: unknown): string;
 
 export function createOpenRouterBenchmarkClient(input: Readonly<{
   apiKey: string;
-  fetcher?: typeof fetch;
+  fetcher?: AiBenchmarkFetcher;
 }>): Readonly<{
   describeModel(input: Readonly<{
     modelId: string;
