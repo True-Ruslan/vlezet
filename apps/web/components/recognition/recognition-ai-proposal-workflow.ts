@@ -15,8 +15,6 @@ export type RecognitionAiProposalCredentials = Readonly<{
 
 export type RecognitionAiProposalSourceAsset = Readonly<{
   blob: Blob;
-  widthPx: number;
-  heightPx: number;
 }>;
 
 export type RunRecognitionAiProposalDiscoveryInput = Readonly<{
@@ -70,8 +68,8 @@ export async function runRecognitionAiProposalDiscovery(
         requestId,
         sourceImageDataUrl: await input.blobToDataUrl(input.sourceAsset.blob),
         sourceImage,
-        sourceWidthPx: input.sourceAsset.widthPx,
-        sourceHeightPx: input.sourceAsset.heightPx,
+        sourceWidthPx: input.referencePlan.widthPx,
+        sourceHeightPx: input.referencePlan.heightPx,
         referenceRevision,
         localDraft: currentSession.draft,
         evidence: currentEvidence,
