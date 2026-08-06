@@ -2,8 +2,6 @@ name: M7 Browser Audit
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - "apps/web/**"
       - "packages/**"
