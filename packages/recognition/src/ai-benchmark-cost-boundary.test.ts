@@ -7,8 +7,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { validateAiBenchmarkConfig } from "../../../tools/recognition-benchmark/ai-benchmark/config.mjs";
+import type {
+  AiBenchmarkFetchInit,
+  AiBenchmarkFetcher,
+} from "../../../tools/recognition-benchmark/ai-benchmark/openrouter-client.mjs";
 import { runAiBenchmark } from "../../../tools/recognition-benchmark/ai-benchmark/run.mjs";
 
 const temporaryDirectories: string[] = [];
@@ -59,7 +63,9 @@ function jsonResponse(body: unknown): Response {
 describe("manual AI benchmark hard cost boundary", () => {
   it("preflights model context and sends every paid request through a no-fallback max-price allocation", async () => {
     const workspace = createFixtureWorkspace();
-    const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+    const calls: Array<readonly [string, AiBenchmarkFetchInit | undefined]> = [];
+    const fetcher: AiBenchmarkFetcher = async (url, init) => {
+      calls.push([url, init]);
       if ((init?.method ?? "GET") === "GET") {
         return jsonResponse({
           data: {
@@ -73,10 +79,10 @@ describe("manual AI benchmark hard cost boundary", () => {
       }
       return jsonResponse({
         provider: "bounded-provider",
-        choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) } }],
+        choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) }],
         usage: { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110, cost: 0.001 },
       });
-    });
+    };
 
     await runAiBenchmark({
       config: validateAiBenchmarkConfig({
@@ -96,12 +102,16 @@ describe("manual AI benchmark hard cost boundary", () => {
       commitSha: "cost-boundary-red",
     });
 
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    const [modelUrl, modelInit] = fetcher.mock.calls[0]!;
-    expect(String(modelUrl)).toContain("/api/v1/model/google/gemini-2.5-flash");
+    expect(calls).toHaveLength(2);
+    const modelCall = calls[0];
+    const paidCall = calls[1];
+    expect(modelCall).toBeDefined();
+    expect(paidCall).toBeDefined();
+    const [modelUrl, modelInit] = modelCall!;
+    expect(modelUrl).toContain("/api/v1/model/google/gemini-2.5-flash");
     expect(modelInit?.method ?? "GET").toBe("GET");
 
-    const [, paidInit] = fetcher.mock.calls[1]!;
+    const [, paidInit] = paidCall!;
     expect(paidInit?.method).toBe("POST");
     const request = JSON.parse(String(paidInit?.body));
     expect(request.reasoning).toEqual({ effort: "none", exclude: true });
