@@ -7,7 +7,7 @@ import {
   type SanitizedRecognitionProposal,
 } from "@vlezet/recognition";
 import { describe, expect, it } from "vitest";
-import { RecognitionController, type RecognitionControllerState } from "./recognition-controller";
+import { RecognitionController } from "./recognition-controller";
 
 const now = "2026-08-06T07:00:00.000Z";
 
@@ -125,11 +125,10 @@ describe("controller-owned proposal review actions", () => {
     const repository = new MemoryRecognitionSessionRepository();
     const initial = createSession();
     await repository.put(initial);
-    let observed: RecognitionControllerState = { kind: "idle", session: null };
     const controller = new RecognitionController({
       repository,
       runLocal: async () => { throw new Error("not used"); },
-      onState: (state) => { observed = state; },
+      onState: () => undefined,
     });
 
     await controller.restore(initial.projectId, {
@@ -137,17 +136,19 @@ describe("controller-owned proposal review actions", () => {
       referenceRevision: initial.referenceRevision,
     });
 
-    expect(observed.kind).toBe("review");
-    if (observed.kind !== "review") throw new Error("Expected review state");
-    expect(observed.proposalActions).toBeDefined();
+    const restored = controller.state;
+    expect(restored.kind).toBe("review");
+    if (restored.kind !== "review") throw new Error("Expected review state");
+    expect(restored.proposalActions).toBeDefined();
 
-    await observed.proposalActions?.updateDecision("eligible-door", "accepted");
+    await restored.proposalActions?.updateDecision("eligible-door", "accepted");
     const afterDoor = await repository.getForProject(initial.projectId);
     expect(afterDoor?.draft.proposalDecisions["eligible-door"]).toBe("accepted");
 
-    expect(controller.state.kind).toBe("review");
-    if (controller.state.kind !== "review") throw new Error("Expected updated review state");
-    await controller.state.proposalActions?.agreeWithWallAdvisory("eligible-wall-review");
+    const updated = controller.state;
+    expect(updated.kind).toBe("review");
+    if (updated.kind !== "review") throw new Error("Expected updated review state");
+    await updated.proposalActions?.agreeWithWallAdvisory("eligible-wall-review");
 
     const persisted = await repository.getForProject(initial.projectId);
     expect(persisted?.draft.proposalDecisions["eligible-wall-review"]).toBe("accepted");
