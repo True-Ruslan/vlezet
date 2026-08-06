@@ -56,7 +56,8 @@
 }
 
 .recognition-bulk-actions,
-.recognition-inline-actions {
+.recognition-inline-actions,
+.recognition-proposal-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -64,15 +65,56 @@
 }
 
 .recognition-bulk-actions .ui-button,
-.recognition-inline-actions .ui-button {
+.recognition-inline-actions .ui-button,
+.recognition-proposal-actions .ui-button {
   flex: 1 1 132px;
 }
 
-.recognition-candidate-list {
+.recognition-source-filters {
+  display: flex;
+  gap: var(--space-2);
+  padding: 2px 2px var(--space-1);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.recognition-source-filter {
+  flex: none;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-helper);
+  cursor: pointer;
+}
+
+.recognition-source-filter[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-weight: 700;
+}
+
+.recognition-source-filter:focus-visible,
+.recognition-proposal-select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.recognition-candidate-list,
+.recognition-proposal-list {
   display: grid;
   gap: var(--space-2);
-  max-height: 280px;
+  max-height: 360px;
   overflow: auto;
+}
+
+.recognition-proposal-list {
+  margin-top: var(--space-3);
 }
 
 .recognition-candidate-card {
@@ -122,6 +164,108 @@
   grid-column: 1 / -1;
 }
 
+.recognition-proposal-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid #c4b5fd;
+  border-left: 4px solid #7c3aed;
+  border-radius: var(--radius-lg);
+  background: #faf8ff;
+}
+
+.recognition-proposal-card--blocked {
+  border-color: #fecaca;
+  border-left-color: var(--color-danger);
+  background: #fffafa;
+}
+
+.recognition-proposal-card--duplicate {
+  border-color: #fde68a;
+  border-left-color: #d97706;
+  background: #fffdf7;
+}
+
+.recognition-proposal-heading {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recognition-proposal-heading > em {
+  color: var(--color-text-muted);
+  font-size: var(--font-helper);
+  font-style: normal;
+}
+
+.recognition-proposal-select {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.recognition-proposal-select:disabled {
+  cursor: default;
+}
+
+.recognition-proposal-select > span:first-child {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.recognition-proposal-select small {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-overflow: ellipsis;
+}
+
+.recognition-proposal-evidence,
+.recognition-proposal-reasons {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recognition-proposal-confidence {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-helper);
+}
+
+.recognition-proposal-reasons ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: 20px;
+}
+
+.recognition-proposal-reasons li {
+  display: grid;
+  gap: 2px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-helper);
+}
+
+.recognition-proposal-reasons code,
+.recognition-proposal-evidence code {
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
 .recognition-detail {
   display: grid;
   gap: var(--space-3);
@@ -160,5 +304,20 @@
 
   .recognition-candidate {
     grid-template-columns: 1fr;
+  }
+
+  .recognition-source-filters {
+    margin-inline: calc(var(--space-2) * -1);
+    padding-inline: var(--space-2);
+  }
+
+  .recognition-proposal-select {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .recognition-proposal-actions .ui-button {
+    flex-basis: 100%;
+    width: 100%;
   }
 }
