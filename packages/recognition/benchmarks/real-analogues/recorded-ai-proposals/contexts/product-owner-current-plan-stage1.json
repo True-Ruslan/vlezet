@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "recognition-ai-proposal-context-v1",
+  "provider": {
+    "providerId": "openrouter-direct",
+    "modelId": "recorded/provider-model"
+  },
+  "localDraft": {
+    "id": "recorded-product-owner-current-plan-stage1-draft",
+    "projectId": "recorded-public-analogue",
+    "referenceAssetId": "real-plan-001-anonymized-asset",
+    "referenceRevision": "real-plan-001-anonymized-v1",
+    "engineVersion": "5",
+    "status": "local-complete",
+    "walls": [
+      {
+        "id": "wall-door-host",
+        "start": { "x": 0.1, "y": 0.5 },
+        "end": { "x": 0.9, "y": 0.5 },
+        "estimatedThicknessPx": 20,
+        "confidence": "high",
+        "evidence": {
+          "localScore": 0.91,
+          "cloudScore": null,
+          "reasons": ["filled-wall-region-evidence"]
+        },
+        "origin": "local",
+        "conflict": null
+      },
+      {
+        "id": "wall-window-host",
+        "start": { "x": 0.1, "y": 0.08 },
+        "end": { "x": 0.9, "y": 0.08 },
+        "estimatedThicknessPx": 20,
+        "confidence": "high",
+        "evidence": {
+          "localScore": 0.91,
+          "cloudScore": null,
+          "reasons": ["filled-wall-region-evidence", "exterior-boundary-host-bridge"]
+        },
+        "origin": "local",
+        "conflict": null
+      },
+      {
+        "id": "anchor-left",
+        "start": { "x": 0.45, "y": 0.55 },
+        "end": { "x": 0.45, "y": 0.75 },
+        "estimatedThicknessPx": 24,
+        "confidence": "medium",
+        "evidence": {
+          "localScore": 0.72,
+          "cloudScore": null,
+          "reasons": ["filled-wall-region-evidence"]
+        },
+        "origin": "local",
+        "conflict": null
+      },
+      {
+        "id": "wall-washbasin",
+        "start": { "x": 0.45, "y": 0.75 },
+        "end": { "x": 0.55, "y": 0.75 },
+        "estimatedThicknessPx": 36,
+        "confidence": "low",
+        "evidence": {
+          "localScore": 0.48,
+          "cloudScore": null,
+          "reasons": ["filled-wall-region-evidence", "structural-clutter-veto"]
+        },
+        "origin": "local",
+        "conflict": "unsupported"
+      }
+    ],
+    "openings": [],
+    "roomLabels": [],
+    "diagnostics": [],
+    "decisions": {
+      "wall-door-host": "pending",
+      "wall-window-host": "pending",
+      "anchor-left": "pending",
+      "wall-washbasin": "pending"
+    },
+    "source": { "local": true, "cloud": false },
+    "createdAt": "2026-08-05T00:00:00.000Z",
+    "updatedAt": "2026-08-05T00:00:00.000Z"
+  },
+  "localEvidence": {
+    "widthPx": 1000,
+    "heightPx": 600,
+    "activeWallIds": ["anchor-left", "wall-door-host", "wall-window-host"],
+    "planBounds": { "x": 0.08, "y": 0.04, "width": 0.84, "height": 0.84 },
+    "structuralRegions": [
+      { "minimumX": 100, "minimumY": 294, "maximumX": 444, "maximumY": 306 },
+      { "minimumX": 556, "minimumY": 294, "maximumX": 900, "maximumY": 306 },
+      { "minimumX": 100, "minimumY": 42, "maximumX": 434, "maximumY": 54 },
+      { "minimumX": 566, "minimumY": 42, "maximumX": 900, "maximumY": 54 },
+      { "minimumX": 444, "minimumY": 330, "maximumX": 456, "maximumY": 450 },
+      { "minimumX": 445, "minimumY": 432, "maximumX": 555, "maximumY": 436 },
+      { "minimumX": 445, "minimumY": 464, "maximumX": 555, "maximumY": 468 }
+    ],
+    "doorEvidence": [],
+    "windowEvidence": [],
+    "clutterEvidence": [
+      {
+        "wallCandidateId": "wall-washbasin",
+        "reasonCodes": ["filled-wall-region-evidence", "structural-clutter-veto"]
+      }
+    ]
+  },
+  "rejectedOpenings": [
+    {
+      "candidateId": "local-rejected-door-1",
+      "hostWallCandidateId": "wall-door-host",
+      "code": "opening-end-margin",
+      "message": "Public analogue door hypothesis suppressed by a strict local filter.",
+      "candidate": {
+        "id": "local-rejected-door-1",
+        "kind": "door",
+        "hostWallCandidateId": "wall-door-host",
+        "center": { "x": 0.5, "y": 0.5 },
+        "widthPx": 100,
+        "orientationDeg": 0,
+        "confidence": "low",
+        "evidence": {
+          "localScore": 0.64,
+          "cloudScore": null,
+          "reasons": ["door-leaf-anchored", "wall-gap"]
+        },
+        "origin": "local",
+        "conflict": "invalid-host"
+      }
+    },
+    {
+      "candidateId": "local-rejected-window-1",
+      "hostWallCandidateId": "wall-window-host",
+      "code": "opening-end-margin",
+      "message": "Public analogue window hypothesis suppressed by a strict local filter.",
+      "candidate": {
+        "id": "local-rejected-window-1",
+        "kind": "window",
+        "hostWallCandidateId": "wall-window-host",
+        "center": { "x": 0.5, "y": 0.08 },
+        "widthPx": 120,
+        "orientationDeg": 0,
+        "confidence": "low",
+        "evidence": {
+          "localScore": 0.66,
+          "cloudScore": null,
+          "reasons": ["wall-gap", "paired-window-rails", "paired-cross-lines"]
+        },
+        "origin": "local",
+        "conflict": "invalid-host"
+      }
+    }
+  ],
+  "groundTruth": {
+    "recoveredDoorProposalIds": ["raw-door-living"],
+    "recoveredWindowProposalIds": ["raw-window-living"],
+    "washbasinAdvisoryProposalIds": ["raw-wall-washbasin"],
+    "protectedStrongWallIds": ["wall-door-host", "wall-window-host"],
+    "forbiddenRegions": [
+      { "x": 0.8, "y": 0.8, "width": 0.1, "height": 0.1 }
+    ]
+  }
+}
