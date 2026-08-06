@@ -206,7 +206,7 @@ function ProposalEvidence({ proposal }: Readonly<{ proposal: SanitizedRecognitio
     <div className="recognition-proposal-evidence">
       {proposal.hostWallCandidateId ? (
         <UiNotice tone="success" title="Стена-хозяин подтверждена">
-          Кандидат привязан к локальной стене <code>{proposal.hostWallCandidateId}</code> и проверен относительно её пролёта.
+          Кандидат привязан к существующей локальной стене и проверен относительно её пролёта.
         </UiNotice>
       ) : proposal.kind !== "local-wall-review" ? (
         <UiNotice tone="warning" title="Стена-хозяин не подтверждена">
@@ -249,7 +249,8 @@ function ProposalCard(props: Readonly<{
   const advisory = proposal.kind === "local-wall-review";
   return (
     <article
-      data-proposal-id={proposal.id}
+      data-proposal-kind={proposal.kind}
+      data-proposal-state={proposal.state}
       className={`recognition-proposal-card recognition-proposal-card--${proposal.state}`}
     >
       <div className="recognition-proposal-heading">
@@ -260,7 +261,7 @@ function ProposalCard(props: Readonly<{
           disabled={!eligible}
           onClick={() => props.onSelect(proposal.id)}
         >
-          <span><strong>{proposalKindLabel(proposal)}</strong><small>{proposal.id}</small></span>
+          <span><strong>{proposalKindLabel(proposal)}</strong><small>{proposalStateLabel(proposal)}</small></span>
           <UiBadge tone={proposalStateTone(proposal)}>{proposalStateLabel(proposal)}</UiBadge>
         </button>
         <em>{eligible ? decisionLabel(props.decision) : proposalStateLabel(proposal)}</em>
@@ -323,6 +324,9 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
   const selected = candidates.find((candidate) => candidate.id === props.selectedCandidateId) ?? null;
   const selectedOpening = selected && "kind" in selected ? selected as RecognitionOpeningCandidate : null;
   const reviewFilter = props.reviewFilter ?? sharedReviewFilter;
+  const stateProposalActions = props.state.kind === "review" ? props.state.proposalActions : undefined;
+  const proposalDecisionAction = props.onProposalDecision ?? stateProposalActions?.updateDecision;
+  const wallAdvisoryAction = props.onAgreeWithWallAdvisory ?? stateProposalActions?.agreeWithWallAdvisory;
   const questionedLocalIds = new Set(
     draft?.aiProposals
       .filter((proposal) => proposal.kind === "local-wall-review" && proposal.targetLocalCandidateId)
@@ -484,7 +488,7 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
               return (
                 <UiCard
                   key={candidate.id}
-                  data-local-candidate-id={candidate.id}
+                  data-local-candidate-kind="wall"
                   variant="selectable"
                   selected={selectedCandidate}
                   className="recognition-candidate-card"
@@ -503,7 +507,7 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
               return (
                 <UiCard
                   key={candidate.id}
-                  data-local-candidate-id={candidate.id}
+                  data-local-candidate-kind="opening"
                   variant="selectable"
                   selected={selectedCandidate}
                   className="recognition-candidate-card"
@@ -527,8 +531,8 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
                   decision={draft.proposalDecisions[proposal.id]}
                   selected={props.selectedCandidateId === proposal.id}
                   onSelect={props.onSelect}
-                  onDecision={props.onProposalDecision}
-                  onAgreeWithWallAdvisory={props.onAgreeWithWallAdvisory}
+                  onDecision={proposalDecisionAction}
+                  onAgreeWithWallAdvisory={wallAdvisoryAction}
                 />
               ))}
             </div>
@@ -542,7 +546,7 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
                 {conflictOf(selected) ? <span className="recognition-conflict-label">Конфликт: {conflictOf(selected)}</span> : null}
               </div>
               {selectedOpening ? <>
-                <UiField id={`recognition-opening-${selectedOpening.id}`} label="Тип проёма">
+                <UiField id="recognition-opening-kind" label="Тип проёма">
                   <select value={selectedOpening.kind} onChange={(event) => props.onReclassifyOpening(selectedOpening.id, event.target.value as RecognitionOpeningCandidate["kind"])}>
                     <option value="unknown-opening">Неизвестный</option>
                     <option value="door">Дверь</option>
