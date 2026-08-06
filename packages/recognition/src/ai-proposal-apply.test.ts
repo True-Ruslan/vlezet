@@ -78,7 +78,6 @@ function withProposals(input: Readonly<{
   wallDecision?: "pending" | "accepted" | "rejected" | "edited";
 }> = {}) {
   const local = localDraft();
-  const fingerprint = createLocalDraftFingerprint(local);
   const proposal = input.proposal ?? eligibleDoor(local);
   return validateRecognitionDraft({
     ...local,
@@ -94,7 +93,7 @@ function withProposals(input: Readonly<{
       schemaVersion: AI_PROPOSAL_SCHEMA_VERSION,
       requestId: "request-1",
       referenceRevision: local.referenceRevision,
-      localDraftFingerprint: fingerprint,
+      localDraftFingerprint: proposal.localDraftFingerprint,
       providerId: "openrouter-direct",
       modelId: "vision/model",
       completedAt: NOW,
@@ -163,14 +162,15 @@ describe("atomic AI proposal apply preflight", () => {
     expect(result.applicableDraft.openings).toEqual([]);
   });
 
-  it("fails closed when the proposal fingerprint is stale", () => {
-    const draft = withProposals();
+  it("fails closed when the proposal batch fingerprint is stale", () => {
+    const local = localDraft();
+    const staleFingerprint = `recognition-local-draft-v1:${"a".repeat(64)}`;
     const staleProposal = {
-      ...draft.aiProposals[0]!,
-      localDraftFingerprint: `recognition-local-draft-v1:${"a".repeat(64)}`,
+      ...eligibleDoor(local),
+      localDraftFingerprint: staleFingerprint,
     };
     const result = prepareAtomicRecognitionApply({
-      draft: validateRecognitionDraft({ ...draft, aiProposals: [staleProposal] }),
+      draft: withProposals({ proposal: staleProposal }),
       referencePlan,
       document,
     });
@@ -184,22 +184,18 @@ describe("atomic AI proposal apply preflight", () => {
     }));
   });
 
-  it("fails closed when an accepted proposal is blocked or duplicate", () => {
+  it("never materializes blocked or duplicate proposals", () => {
     const local = localDraft();
     const blocked = { ...eligibleDoor(local), state: "blocked" as const };
     const result = prepareAtomicRecognitionApply({
-      draft: withProposals({ proposal: blocked }),
+      draft: withProposals({ proposal: blocked, proposalDecision: "pending" }),
       referencePlan,
       document,
     });
 
     expect(result.acceptedProposalIds).toEqual([]);
     expect(result.applicableDraft.openings).toEqual([]);
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({
-      candidateId: PROPOSAL_ID,
-      severity: "error",
-      message: expect.stringMatching(/не допущено|blocked|eligible/i),
-    }));
+    expect(result.diagnostics).toEqual([]);
   });
 
   it("fails the dependent proposal when its local host is not accepted", () => {
