@@ -22,6 +22,8 @@ import { UiBadge, UiEmptyState, UiNotice } from "../ui/ui-feedback";
 import type { RecognitionControllerState } from "./recognition-controller";
 import {
   RECOGNITION_REVIEW_FILTERS,
+  setRecognitionReviewFilter,
+  useRecognitionReviewFilter,
   type RecognitionReviewFilter,
 } from "./recognition-review-filter";
 
@@ -314,12 +316,13 @@ function ProposalCard(props: Readonly<{
 }
 
 export function RecognitionPanel(props: RecognitionPanelProps) {
+  const sharedReviewFilter = useRecognitionReviewFilter();
   const session = sessionFromState(props.state);
   const draft = session?.draft ?? null;
   const candidates = draft ? [...draft.walls, ...draft.openings, ...draft.roomLabels] : [];
   const selected = candidates.find((candidate) => candidate.id === props.selectedCandidateId) ?? null;
   const selectedOpening = selected && "kind" in selected ? selected as RecognitionOpeningCandidate : null;
-  const reviewFilter = props.reviewFilter ?? "all";
+  const reviewFilter = props.reviewFilter ?? sharedReviewFilter;
   const questionedLocalIds = new Set(
     draft?.aiProposals
       .filter((proposal) => proposal.kind === "local-wall-review" && proposal.targetLocalCandidateId)
@@ -462,7 +465,10 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
                 type="button"
                 className="recognition-source-filter"
                 aria-pressed={reviewFilter === filter.value}
-                onClick={() => props.onReviewFilterChange?.(filter.value)}
+                onClick={() => {
+                  setRecognitionReviewFilter(filter.value);
+                  props.onReviewFilterChange?.(filter.value);
+                }}
               >
                 {filter.label}
               </button>
