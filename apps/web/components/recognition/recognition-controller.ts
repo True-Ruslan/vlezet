@@ -37,10 +37,22 @@ export type RecognitionAiProposalRunner = (
   input: RecognitionAiProposalRunnerInput,
 ) => Promise<RecognitionAiProposalRunResult | null>;
 
+export type RecognitionProposalReviewActions = Readonly<{
+  updateDecision: (
+    proposalId: string,
+    decision: RecognitionProposalDecision,
+  ) => Promise<void>;
+  agreeWithWallAdvisory: (proposalId: string) => Promise<void>;
+}>;
+
 export type RecognitionControllerState =
   | Readonly<{ kind: "idle"; session: null }>
   | Readonly<{ kind: "running-local"; session: RecognitionSessionRecord | null; progress: LocalRecognitionProgress }>
-  | Readonly<{ kind: "review"; session: RecognitionSessionRecord }>
+  | Readonly<{
+      kind: "review";
+      session: RecognitionSessionRecord;
+      proposalActions?: RecognitionProposalReviewActions;
+    }>
   | Readonly<{
       kind: "running-ai-proposals";
       session: RecognitionSessionRecord;
@@ -122,6 +134,7 @@ export class RecognitionController {
   readonly #repository: RecognitionSessionRepository;
   readonly #runLocal: RecognitionControllerOptions["runLocal"];
   readonly #onState: RecognitionControllerOptions["onState"];
+  readonly #proposalReviewActions: RecognitionProposalReviewActions;
   #state: RecognitionControllerState = { kind: "idle", session: null };
   #abortController: AbortController | null = null;
   #requestGeneration = 0;
@@ -131,6 +144,10 @@ export class RecognitionController {
     this.#repository = options.repository;
     this.#runLocal = options.runLocal;
     this.#onState = options.onState;
+    this.#proposalReviewActions = Object.freeze({
+      updateDecision: (proposalId, decision) => this.updateProposalDecision(proposalId, decision),
+      agreeWithWallAdvisory: (proposalId) => this.agreeWithWallAdvisory(proposalId),
+    });
   }
 
   get state(): RecognitionControllerState { return this.#state; }
@@ -138,6 +155,14 @@ export class RecognitionController {
   #setState(state: RecognitionControllerState): void {
     this.#state = state;
     this.#onState(state);
+  }
+
+  #setReviewState(session: RecognitionSessionRecord): void {
+    this.#setState({
+      kind: "review",
+      session,
+      proposalActions: this.#proposalReviewActions,
+    });
   }
 
   #enqueuePersistence<T>(operation: () => Promise<T>): Promise<T> {
@@ -190,7 +215,7 @@ export class RecognitionController {
     }
     const reviewableDraft = enforceReviewableLocalDraft(validateRecognitionDraft(session.draft));
     if (reviewableDraft === session.draft) {
-      this.#setState({ kind: "review", session });
+      this.#setReviewState(session);
       return;
     }
     const reviewableSession = {
@@ -200,7 +225,7 @@ export class RecognitionController {
       updatedAt: reviewableDraft.updatedAt,
     };
     await this.#putSession(reviewableSession);
-    this.#setState({ kind: "review", session: reviewableSession });
+    this.#setReviewState(reviewableSession);
   }
 
   async startLocal(input: LocalRecognitionInput): Promise<void> {
@@ -227,7 +252,7 @@ export class RecognitionController {
       const session = { ...sessionFromDraft(reviewableDraft, previous), cloudMetadata: null };
       await this.#putSession(session);
       if (abortController.signal.aborted || this.#abortController !== abortController) return;
-      this.#setState({ kind: "review", session });
+      this.#setReviewState(session);
     } catch (cause) {
       if (abortController.signal.aborted || this.#abortController !== abortController) return;
       const message = cause instanceof Error ? cause.message : "Не удалось выполнить локальное распознавание.";
@@ -275,7 +300,7 @@ export class RecognitionController {
       if (!isCurrent()) return;
 
       if (!result) {
-        this.#setState({ kind: "review", session });
+        this.#setReviewState(session);
         return;
       }
 
@@ -291,7 +316,7 @@ export class RecognitionController {
       if (!isCurrent()) return;
       const persisted = await this.#putSession(updated, isCurrent);
       if (!persisted || !isCurrent()) return;
-      this.#setState({ kind: "review", session: updated });
+      this.#setReviewState(updated);
     } catch {
       if (!isCurrent()) return;
       const currentSession = this.#state.session;
@@ -308,7 +333,7 @@ export class RecognitionController {
       const updated = sessionFromDraft(failedDraft, currentSession);
       const persisted = await this.#putSession(updated, isCurrent);
       if (!persisted || !isCurrent()) return;
-      this.#setState({ kind: "review", session: updated });
+      this.#setReviewState(updated);
     } finally {
       if (this.#abortController === abortController) this.#abortController = null;
     }
@@ -398,7 +423,7 @@ export class RecognitionController {
     const current = this.#state.session;
     const session = { ...sessionFromDraft(validateRecognitionDraft(draft), current), cloudMetadata };
     await this.#putSession(session);
-    this.#setState({ kind: "review", session });
+    this.#setReviewState(session);
   }
 
   setRunningCloud(): void {
@@ -427,7 +452,7 @@ export class RecognitionController {
     const draft: ValidatedRecognitionDraft = { ...session.draft, status, updatedAt };
     const updated = { ...session, draft, updatedAt };
     await this.#putSession(updated);
-    this.#setState({ kind: "review", session: updated });
+    this.#setReviewState(updated);
   }
 
   async markApplied(): Promise<void> {
@@ -454,6 +479,6 @@ export class RecognitionController {
     if (draft === session.draft) return;
     const updated = { ...session, draft, updatedAt: draft.updatedAt };
     await this.#putSession(updated);
-    this.#setState({ kind: "review", session: updated });
+    this.#setReviewState(updated);
   }
 }
