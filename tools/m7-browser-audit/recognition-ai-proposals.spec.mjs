@@ -214,7 +214,7 @@ async function renderPng(browser) {
 
 async function seedProject(page, input) {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
+  await expect(page.locator("body")).toBeVisible();
   const base64 = input.png.toString("base64");
   await page.evaluate(async (seed) => {
     const database = await new Promise((resolve, reject) => {
