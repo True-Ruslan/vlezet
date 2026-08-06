@@ -45,6 +45,7 @@ export async function runRecognitionAiProposalDiscovery(
   });
   const createSourceImage = input.createSourceImage ?? createImageBitmap;
   const now = input.now ?? (() => new Date().toISOString());
+  let completedRequestId: string | null = null;
 
   await input.controller.startAiProposalDiscovery(async ({
     session: currentSession,
@@ -93,6 +94,7 @@ export async function runRecognitionAiProposalDiscovery(
       if (sanitizedResult.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
         throw new Error("AI-пакет предложений не прошёл детерминированную проверку.");
       }
+      completedRequestId = requestId;
       return {
         sanitized: sanitizedResult.sanitized,
         metadata: {
@@ -109,4 +111,11 @@ export async function runRecognitionAiProposalDiscovery(
       sourceImage.close();
     }
   });
+
+  const appliedRequestId = input.controller.state.session?.draft.aiProposalMetadata?.requestId ?? null;
+  if (completedRequestId === null || appliedRequestId !== completedRequestId) {
+    throw new Error(
+      "AI-поиск предложений не завершён. Локальный черновик и предыдущие валидные предложения сохранены.",
+    );
+  }
 }
