@@ -21,6 +21,26 @@ export type AiBenchmarkResponse = Readonly<{
   }>[];
 }>;
 
+export type AiProposalEvaluation = Readonly<{
+  recoveredDoorTruePositiveCount: number;
+  recoveredDoorFalsePositiveCount: number;
+  recoveredDoorFalseNegativeCount: number;
+  recoveredWindowTruePositiveCount: number;
+  recoveredWindowFalsePositiveCount: number;
+  recoveredWindowFalseNegativeCount: number;
+  eligibleWashbasinAdvisoryCount: number;
+  sanitizerAcceptedCount: number;
+  sanitizerTruePositiveCount: number;
+  eligibleUnknownHostOpeningCount: number;
+  eligibleOutsideHostOpeningCount: number;
+  directLocalMutationCount: number;
+  staleDecisionCount: number;
+  protectedStrongWallAdvisoryCount: number;
+  forbiddenRegionEligibleProposalCount: number;
+  replayCount: number;
+  replayMismatchCount: number;
+}>;
+
 export type AiBenchmarkRun = Readonly<{
   modelId: string;
   fixtureId: string;
@@ -32,6 +52,7 @@ export type AiBenchmarkRun = Readonly<{
   expectedOpeningKinds: Readonly<Record<string, string>>;
   schemaFailure: boolean;
   safetyViolations: readonly string[];
+  proposalEvaluation?: AiProposalEvaluation | null;
 }>;
 
 export type AiBenchmarkScore = Readonly<{
@@ -49,6 +70,25 @@ export type AiBenchmarkScore = Readonly<{
   totalCompletionTokens: number;
   totalTokens: number;
   totalCostUsd: number | null;
+  recoveredDoorTruePositiveCount: number;
+  recoveredDoorFalsePositiveCount: number;
+  recoveredDoorFalseNegativeCount: number;
+  recoveredWindowTruePositiveCount: number;
+  recoveredWindowFalsePositiveCount: number;
+  recoveredWindowFalseNegativeCount: number;
+  eligibleWashbasinAdvisoryCount: number;
+  sanitizerAcceptedCount: number;
+  sanitizerTruePositiveCount: number;
+  sanitizerAcceptancePrecision: number;
+  eligibleUnknownHostOpeningCount: number;
+  eligibleOutsideHostOpeningCount: number;
+  directLocalMutationCount: number;
+  staleDecisionCount: number;
+  protectedStrongWallAdvisoryCount: number;
+  forbiddenRegionEligibleProposalCount: number;
+  replayCount: number;
+  replayMismatchCount: number;
+  replayDeterminismRate: number;
   qualified: false;
 }>;
 
