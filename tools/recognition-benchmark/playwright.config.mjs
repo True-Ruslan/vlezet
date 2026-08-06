@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: /recognition-(?:real-)?source\.spec\.mjs/,
+  testMatch: /recognition-(?:ai-proposal-live|(?:real-)?source)\.spec\.mjs/,
   timeout: 120_000,
   expect: { timeout: 20_000 },
   workers: 1,

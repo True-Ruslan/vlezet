@@ -155,6 +155,7 @@
     "recoveredDoorProposalIds": ["raw-door-living"],
     "recoveredWindowProposalIds": ["raw-window-living"],
     "washbasinAdvisoryProposalIds": ["raw-wall-washbasin"],
+    "washbasinWallCandidateIds": ["wall-washbasin"],
     "protectedStrongWallIds": ["wall-door-host", "wall-window-host"],
     "forbiddenRegions": [
       { "x": 0.8, "y": 0.8, "width": 0.1, "height": 0.1 }

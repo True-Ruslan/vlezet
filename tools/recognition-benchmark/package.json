@@ -9,6 +9,7 @@
     "verify:real-fixtures": "node verify-real-fixtures.mjs",
     "gate:real": "node real-fixture-gate.mjs",
     "benchmark:ai": "node ai-benchmark/run.mjs",
+    "test:ai-proposal-live": "node --test ai-benchmark/proposal-live-runner.test.mjs ai-benchmark/proposal-live-integration.test.mjs",
     "score:source": "node run-source-score.mjs",
     "score:real-source": "node run-real-source-score.mjs"
   },

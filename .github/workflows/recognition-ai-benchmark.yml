@@ -9,12 +9,17 @@ on:
         default: "google/gemini-2.5-flash"
         type: string
       fixtures:
-        description: "Comma-separated public fixture IDs (maximum 12)"
+        description: "Comma-separated public verification fixture IDs (maximum 12)"
         required: true
         default: "real-plan-001-anonymized,real-plan-002-anonymized,real-plan-008-anonymized"
         type: string
+      proposal_fixtures:
+        description: "Comma-separated reviewed Stage 1 proposal fixture IDs (maximum 12)"
+        required: true
+        default: "real-plan-001-anonymized"
+        type: string
       repetitions:
-        description: "Repeated verification runs per model and fixture (1-5)"
+        description: "Repeated runs per model and fixture (1-5; Stage 1 requires at least 3)"
         required: true
         default: "3"
         type: string
@@ -77,6 +82,9 @@ jobs:
         working-directory: tools/recognition-benchmark
         run: npx playwright install --with-deps chromium
 
+      - name: Verify live proposal runner contracts without paid requests
+        run: pnpm test:recognition:ai-proposal-live
+
       - name: Generate public real-plan analogue fixtures
         run: pnpm benchmark:recognition:real:generate
 
@@ -87,6 +95,8 @@ jobs:
         run: node tools/recognition-benchmark/private-source-check.mjs assert-repository .
 
       - name: Start benchmark-only Vlezet harness
+        env:
+          OPENROUTER_API_KEY: ${{ inputs.mode == 'proposal-discovery-stage1' && secrets.OPENROUTER_API_KEY || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -113,7 +123,8 @@ jobs:
           RECOGNITION_BENCHMARK_COMMIT_SHA: ${{ github.sha }}
         run: pnpm benchmark:recognition:real-source-score
 
-      - name: Run bounded OpenRouter benchmark
+      - name: Run bounded OpenRouter verification benchmark
+        if: ${{ inputs.mode != 'proposal-discovery-stage1' }}
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           AI_BENCHMARK_MODELS: ${{ inputs.models }}
@@ -126,19 +137,66 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: pnpm benchmark:recognition:ai
 
-      - name: Assert AI artifact contains no secrets or source bytes
+      - name: Run bounded Stage 1 live proposal benchmark
+        if: ${{ inputs.mode == 'proposal-discovery-stage1' }}
+        working-directory: tools/recognition-benchmark
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          RECOGNITION_BENCHMARK_BASE_URL: http://127.0.0.1:3000
+          AI_BENCHMARK_MODELS: ${{ inputs.models }}
+          AI_BENCHMARK_FIXTURES: ${{ inputs.proposal_fixtures }}
+          AI_BENCHMARK_REPETITIONS: ${{ inputs.repetitions }}
+          AI_BENCHMARK_MODE: proposal-discovery-stage1
+          AI_BENCHMARK_MAX_TOKENS: "2048"
+          AI_BENCHMARK_TIMEOUT_MS: "90000"
+          AI_BENCHMARK_MAX_COST_USD: "5"
+          GITHUB_SHA: ${{ github.sha }}
+        run: npx playwright test recognition-ai-proposal-live.spec.mjs --config=playwright.config.mjs --workers=1
+
+      - name: Prepare Stage 1 proposal qualification artifact
+        if: ${{ inputs.mode == 'proposal-discovery-stage1' }}
+        run: pnpm benchmark:recognition:ai-proposal-qualify
+
+      - name: Require at least one model eligible for explicit manual review
+        if: ${{ inputs.mode == 'proposal-discovery-stage1' }}
         shell: bash
         run: |
           set -euo pipefail
-          artifact="tools/recognition-benchmark/artifacts/ai/recognition-ai-benchmark.json"
-          test -s "$artifact"
-          if grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-|data:image|base64|provider_headers|sourceImageDataUrl|overlayImageDataUrl|rawProviderResponse' "$artifact"; then
+          node - <<'NODE'
+          const { readFileSync } = require('node:fs');
+          const path = 'tools/recognition-benchmark/artifacts/ai/recognition-ai-proposal-qualification.json';
+          const report = JSON.parse(readFileSync(path, 'utf8'));
+          const eligible = Array.isArray(report.models)
+            ? report.models.filter((model) => model.eligibleForManualReview === true)
+            : [];
+          if (eligible.length === 0) {
+            throw new Error('No model qualified for explicit manual review. Inspect the uploaded sanitized artifact.');
+          }
+          if (report.qualified !== false || report.selectedModelId !== null || report.automaticModelSelectionAllowed !== false) {
+            throw new Error('Qualification artifact attempted to select or promote a model automatically.');
+          }
+          console.log(`${eligible.length} model(s) are eligible for explicit manual review; automatic selection remains disabled.`);
+          NODE
+
+      - name: Assert produced evidence contains no secrets or source bytes
+        id: artifact_safety
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          artifacts=(tools/recognition-benchmark/artifacts/ai/*.json)
+          if [ "${#artifacts[@]}" -gt 0 ] && grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-|data:image|base64|provider_headers|sourceImageDataUrl|overlayImageDataUrl|rawProviderResponse' "${artifacts[@]}"; then
             echo "AI benchmark artifact contains secret-like, provider-header, raw response or source-image material" >&2
+            exit 1
+          fi
+          if [ -f /tmp/vlezet-recognition-ai-benchmark.log ] && grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-' /tmp/vlezet-recognition-ai-benchmark.log; then
+            echo "Benchmark log contains secret-like material" >&2
             exit 1
           fi
 
       - name: Upload AI benchmark evidence
-        if: always()
+        if: ${{ always() && steps.artifact_safety.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: recognition-ai-benchmark-evidence
