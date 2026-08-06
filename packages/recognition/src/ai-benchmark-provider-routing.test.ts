@@ -1,4 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import type {
+  AiBenchmarkFetchInit,
+  AiBenchmarkFetcher,
+} from "../../../tools/recognition-benchmark/ai-benchmark/openrouter-client.mjs";
 import { createOpenRouterBenchmarkClient } from "../../../tools/recognition-benchmark/ai-benchmark/openrouter-client.mjs";
 
 function jsonResponse(body: unknown): Response {
@@ -10,10 +14,14 @@ function jsonResponse(body: unknown): Response {
 
 describe("OpenRouter paid benchmark routing boundary", () => {
   it("disables fallback and reasoning, enforces max prices and performs no hidden repair request", async () => {
-    const fetcher = vi.fn(async () => jsonResponse({
-      choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) } }],
-      usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cost: 0.001 },
-    }));
+    const calls: Array<readonly [string, AiBenchmarkFetchInit | undefined]> = [];
+    const fetcher: AiBenchmarkFetcher = async (url, init) => {
+      calls.push([url, init]);
+      return jsonResponse({
+        choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) }],
+        usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cost: 0.001 },
+      });
+    };
     const client = createOpenRouterBenchmarkClient({ apiKey: "test-key", fetcher });
 
     await client.verify({
@@ -32,8 +40,10 @@ describe("OpenRouter paid benchmark routing boundary", () => {
       disableReasoning: true,
     });
 
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    const [, init] = fetcher.mock.calls[0]!;
+    expect(calls).toHaveLength(1);
+    const call = calls[0];
+    expect(call).toBeDefined();
+    const [, init] = call!;
     const request = JSON.parse(String(init?.body));
     expect(request.provider).toEqual({
       require_parameters: true,
