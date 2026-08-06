@@ -140,7 +140,7 @@ describe("incremental recognition apply", () => {
     }));
   });
 
-  it("rejects a different opening type that overlaps an existing applied opening", () => {
+  it("rolls back a batch when a different opening type overlaps an existing applied opening", () => {
     const firstSource = draft({ openings: [opening("door")] });
     const first = planRecognitionApply({
       draft: firstSource,
@@ -157,11 +157,12 @@ describe("incremental recognition apply", () => {
       idFactory: ids("second"),
     });
 
+    expect(second.document).toBe(first.document);
     expect(second.document.openings).toHaveLength(1);
     expect(second.appliedCandidateIds).toEqual([]);
     expect(second.diagnostics).toContainEqual(expect.objectContaining({
       candidateId: "window-candidate",
-      severity: "warning",
+      severity: "error",
       message: expect.stringMatching(/перекрывает существующий проём/i),
     }));
   });
