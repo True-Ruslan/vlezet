@@ -9,6 +9,10 @@ const apartmentEditorSource = readFileSync(
   new URL("../editor/apartment-editor.tsx", import.meta.url),
   "utf8",
 );
+const workflowSource = readFileSync(
+  new URL("./recognition-ai-proposal-workflow.ts", import.meta.url),
+  "utf8",
+);
 const panelSource = readFileSync(new URL("./recognition-panel.tsx", import.meta.url), "utf8");
 const applySource = readFileSync(new URL("./recognition-apply.ts", import.meta.url), "utf8");
 
@@ -22,26 +26,27 @@ function functionSlice(source: string, start: string, end: string): string {
 
 describe("hybrid AI proposal orchestration source contract", () => {
   it("routes omission discovery through the controller-owned proposal runner", () => {
-    expect(projectAppSource).toContain("startAiProposalDiscovery");
-    expect(projectAppSource).toContain("buildRecognitionAiProposalRequest");
-    expect(projectAppSource).toContain("peekAiLocalEvidenceForDraft");
-    expect(projectAppSource).toContain("recognizeProposals");
-    expect(projectAppSource).toContain("sanitizeAiProposalBatch");
-    expect(projectAppSource).toContain("AI_PROPOSAL_SCHEMA_VERSION");
+    expect(projectAppSource).toContain("runRecognitionAiProposalDiscovery");
+    expect(workflowSource).toContain("startAiProposalDiscovery");
+    expect(workflowSource).toContain("buildRecognitionAiProposalRequest");
+    expect(workflowSource).toContain("peekAiLocalEvidenceForDraft");
+    expect(workflowSource).toContain("recognizeProposals");
+    expect(workflowSource).toContain("sanitizeAiProposalBatch");
+    expect(workflowSource).toContain("AI_PROPOSAL_SCHEMA_VERSION");
   });
 
   it("never sends raw provider proposal output into Draft replacement or document mutation", () => {
     const proposalFlow = functionSlice(
-      projectAppSource,
-      "const runAiProposalDiscovery",
-      "const applyRecognition",
+      workflowSource,
+      "export async function runRecognitionAiProposalDiscovery",
+      "\n}",
     );
     expect(proposalFlow).not.toContain("replaceDraft(");
     expect(proposalFlow).not.toContain("reconcileRecognition(");
     expect(proposalFlow).not.toContain("replaceProjectDocument(");
     expect(proposalFlow).not.toContain("commitRecognitionDocument(");
     expect(proposalFlow).toContain("sanitizeAiProposalBatch");
-    expect(proposalFlow).toContain("return { sanitized:");
+    expect(proposalFlow).toContain("sanitized: sanitizedResult.sanitized");
   });
 
   it("keeps local-only recognition available while proposal discovery requires an explicit provider selection", () => {
