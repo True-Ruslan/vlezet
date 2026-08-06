@@ -2,7 +2,41 @@
   "schemaVersion": "recognition-ai-proposals-v1",
   "requestId": "recorded-product-owner-current-plan-stage1-v1",
   "referenceRevision": "real-plan-001-anonymized-v1",
-  "localDraftFingerprint": "bc629e4f0417c0a968d24b2055470f1bb02cca9509b69aa1cdae6df719fd7994",
-  "proposals": [],
+  "localDraftFingerprint": "recognition-local-draft-v1:bc170b3e112ce71ab22b8d3e66a081b70ee063c645557377b917c70bc1543abf",
+  "proposals": [
+    {
+      "id": "raw-door-living",
+      "kind": "opening-addition",
+      "openingKind": "door",
+      "center": { "x": 0.5, "y": 0.5 },
+      "widthNormalized": 0.1,
+      "orientationDeg": 0,
+      "hostWallHintIds": ["wall-door-host"],
+      "sourceRegion": { "x": 0.44, "y": 0.42, "width": 0.12, "height": 0.16 },
+      "modelConfidence": 0.94,
+      "reasonCodes": ["visible-gap", "door-leaf"]
+    },
+    {
+      "id": "raw-window-living",
+      "kind": "opening-addition",
+      "openingKind": "window",
+      "center": { "x": 0.5, "y": 0.08 },
+      "widthNormalized": 0.12,
+      "orientationDeg": 0,
+      "hostWallHintIds": ["wall-window-host"],
+      "sourceRegion": { "x": 0.43, "y": 0.02, "width": 0.14, "height": 0.12 },
+      "modelConfidence": 0.96,
+      "reasonCodes": ["visible-gap", "parallel-window-rails", "window-frame", "exterior-boundary-context"]
+    },
+    {
+      "id": "raw-wall-washbasin",
+      "kind": "local-wall-review",
+      "targetWallCandidateId": "wall-washbasin",
+      "recommendation": "likely-clutter",
+      "sourceRegion": { "x": 0.44, "y": 0.7, "width": 0.12, "height": 0.1 },
+      "modelConfidence": 0.96,
+      "reasonCodes": ["sanitary-symbol-overlap", "weak-structural-mask-support", "short-clutter-profile"]
+    }
+  ],
   "diagnostics": []
 }
