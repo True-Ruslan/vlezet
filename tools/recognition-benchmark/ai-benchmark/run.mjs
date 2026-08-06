@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateAiBenchmarkConfig } from "./config.mjs";
+import { createAiBenchmarkCostBudget } from "./cost-budget.mjs";
 import {
   createOpenRouterBenchmarkClient,
   redactAiBenchmarkText,
@@ -144,10 +145,37 @@ export async function runAiBenchmark(input = {}) {
     });
   }
 
+  const descriptors = new Map();
+  for (const modelId of config.modelIds) {
+    const descriptor = await client.describeModel({
+      modelId,
+      timeoutMs: config.timeoutMs,
+    });
+    if (descriptor.maximumCompletionTokens !== null
+      && config.maximumTokens > descriptor.maximumCompletionTokens) {
+      throw new Error(
+        `Model '${modelId}' supports at most ${descriptor.maximumCompletionTokens} completion tokens.`,
+      );
+    }
+    descriptors.set(modelId, descriptor);
+  }
+
+  const totalRequestCount = config.modelIds.length * prepared.length * config.repetitions;
+  const costBudget = createAiBenchmarkCostBudget({
+    maximumCostUsd: config.maximumCostUsd,
+    totalRequestCount,
+  });
   const runs = [];
   for (const modelId of config.modelIds) {
+    const descriptor = descriptors.get(modelId);
+    if (!descriptor) throw new Error(`Model descriptor for '${modelId}' is unavailable.`);
     for (const preparedFixture of prepared) {
       for (let repetition = 1; repetition <= config.repetitions; repetition += 1) {
+        const allocation = costBudget.next({
+          contextLength: descriptor.contextLength,
+          maximumTokens: config.maximumTokens,
+          imageCount: 1,
+        });
         const startedAt = Date.now();
         try {
           const result = await client.verify({
@@ -157,6 +185,8 @@ export async function runAiBenchmark(input = {}) {
             maximumTokens: config.maximumTokens,
             timeoutMs: config.timeoutMs,
             mode: config.mode,
+            providerMaxPrice: allocation.providerMaxPrice,
+            disableReasoning: descriptor.supportsReasoning,
           });
           runs.push({
             modelId,

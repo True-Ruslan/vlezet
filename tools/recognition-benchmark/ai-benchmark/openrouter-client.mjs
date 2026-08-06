@@ -1,8 +1,10 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODEL_URL = "https://openrouter.ai/api/v1/model";
 const CONFIDENCE_VALUES = new Set(["high", "medium", "low"]);
 const OPENING_KINDS = new Set(["door", "window", "unknown-opening"]);
 const WALL_KEYS = new Set(["id", "confidence", "score"]);
 const OPENING_KEYS = new Set(["id", "kind", "confidence", "score"]);
+const PRICE_KEYS = ["prompt", "completion", "image", "request"];
 
 function exactObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -26,6 +28,13 @@ function finiteScore(value, label) {
   return value;
 }
 
+function positiveFinite(value, label) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`${label} must be a positive finite number.`);
+  }
+  return value;
+}
+
 function candidateId(value, knownIds, label) {
   if (typeof value !== "string" || !knownIds.has(value)) {
     throw new Error(`${label} references unknown candidate '${String(value)}'.`);
@@ -38,6 +47,79 @@ function confidence(value, label) {
     throw new Error(`${label} must be high, medium or low.`);
   }
   return value;
+}
+
+function stringArray(value, label) {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    throw new Error(`${label} must be a string array.`);
+  }
+  return value;
+}
+
+function modelLookupUrl(modelId) {
+  if (typeof modelId !== "string") throw new Error("modelId must be a string.");
+  const separator = modelId.indexOf("/");
+  if (separator <= 0 || separator === modelId.length - 1) {
+    throw new Error(`Model '${modelId}' must use author/slug format.`);
+  }
+  return `${OPENROUTER_MODEL_URL}/${encodeURIComponent(modelId.slice(0, separator))}/${encodeURIComponent(modelId.slice(separator + 1))}`;
+}
+
+function normalizeProviderMaxPrice(value) {
+  const input = exactObject(value, "providerMaxPrice");
+  return Object.freeze(Object.fromEntries(
+    PRICE_KEYS.map((key) => [key, positiveFinite(input[key], `providerMaxPrice.${key}`)]),
+  ));
+}
+
+function normalizeModelDescriptor(payload, requestedModelId) {
+  const root = exactObject(payload, "OpenRouter model response");
+  const model = exactObject(root.data, "OpenRouter model response.data");
+  if (typeof model.id !== "string" || model.id.length === 0) {
+    throw new Error("OpenRouter model response.data.id must be a non-empty string.");
+  }
+  if (!Number.isInteger(model.context_length) || model.context_length <= 0) {
+    throw new Error(`Model '${requestedModelId}' has no bounded context length.`);
+  }
+  const architecture = exactObject(model.architecture, `Model '${requestedModelId}' architecture`);
+  const inputModalities = stringArray(architecture.input_modalities, `Model '${requestedModelId}' input modalities`);
+  const outputModalities = stringArray(architecture.output_modalities, `Model '${requestedModelId}' output modalities`);
+  if (!inputModalities.includes("text") || !inputModalities.includes("image")) {
+    throw new Error(`Model '${requestedModelId}' must accept text and image input.`);
+  }
+  if (!outputModalities.includes("text")) {
+    throw new Error(`Model '${requestedModelId}' must produce text output.`);
+  }
+  const supportedParameters = new Set(stringArray(
+    model.supported_parameters,
+    `Model '${requestedModelId}' supported parameters`,
+  ));
+  if (!supportedParameters.has("max_tokens")) {
+    throw new Error(`Model '${requestedModelId}' must support max_tokens.`);
+  }
+  if (!supportedParameters.has("response_format") && !supportedParameters.has("structured_outputs")) {
+    throw new Error(`Model '${requestedModelId}' must support structured output.`);
+  }
+  const reasoning = model.reasoning == null
+    ? null
+    : exactObject(model.reasoning, `Model '${requestedModelId}' reasoning`);
+  if (reasoning?.mandatory === true) {
+    throw new Error(`Model '${requestedModelId}' requires paid reasoning and is not eligible for this benchmark.`);
+  }
+  const topProvider = model.top_provider == null
+    ? null
+    : exactObject(model.top_provider, `Model '${requestedModelId}' top provider`);
+  const maximumCompletionTokens = Number.isInteger(topProvider?.max_completion_tokens)
+    && topProvider.max_completion_tokens > 0
+    ? topProvider.max_completion_tokens
+    : null;
+  return Object.freeze({
+    requestedModelId,
+    modelId: model.id,
+    contextLength: model.context_length,
+    maximumCompletionTokens,
+    supportsReasoning: supportedParameters.has("reasoning") || reasoning !== null,
+  });
 }
 
 export function normalizeVerificationResponse(payload, localSummary) {
@@ -193,41 +275,71 @@ export function createOpenRouterBenchmarkClient({ apiKey, fetcher = globalThis.f
   if (!key) throw new Error("OPENROUTER_API_KEY is required before any AI benchmark request.");
   if (typeof fetcher !== "function") throw new Error("A fetch implementation is required.");
 
+  const authorizedHeaders = { Authorization: `Bearer ${key}` };
   return Object.freeze({
+    async describeModel(input) {
+      const bounded = withTimeout(input.signal, input.timeoutMs);
+      try {
+        const response = await fetcher(modelLookupUrl(input.modelId), {
+          method: "GET",
+          headers: authorizedHeaders,
+          signal: bounded.signal,
+        });
+        if (!response.ok) {
+          const text = redactAiBenchmarkText(await response.text().catch(() => ""));
+          throw new Error(`OpenRouter model lookup HTTP ${response.status}${text ? `: ${text.slice(0, 300)}` : ""}`);
+        }
+        return normalizeModelDescriptor(await response.json(), input.modelId);
+      } catch (cause) {
+        if (bounded.timedOut()) throw new Error(`AI model lookup exceeded ${input.timeoutMs} ms.`, { cause });
+        throw new Error(redactAiBenchmarkText(cause instanceof Error ? cause.message : String(cause)), { cause });
+      } finally {
+        bounded.dispose();
+      }
+    },
+
     async verify(input) {
       const bounded = withTimeout(input.signal, input.timeoutMs);
       const startedAt = Date.now();
       try {
+        const providerMaxPrice = normalizeProviderMaxPrice(input.providerMaxPrice);
+        const body = {
+          model: input.modelId,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: verificationPrompt(input.localSummary, input.mode) },
+              { type: "image_url", image_url: { url: input.imageDataUrl } },
+            ],
+          }],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "vlezet_ai_benchmark_verification",
+              strict: true,
+              schema: structuredSchema(),
+            },
+          },
+          provider: {
+            require_parameters: true,
+            allow_fallbacks: false,
+            sort: "price",
+            max_price: providerMaxPrice,
+          },
+          ...(input.disableReasoning
+            ? { reasoning: { effort: "none", exclude: true } }
+            : {}),
+          max_tokens: input.maximumTokens,
+          stream: false,
+        };
         const response = await fetcher(OPENROUTER_URL, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${key}`,
+            ...authorizedHeaders,
             "Content-Type": "application/json",
           },
           signal: bounded.signal,
-          body: JSON.stringify({
-            model: input.modelId,
-            messages: [{
-              role: "user",
-              content: [
-                { type: "text", text: verificationPrompt(input.localSummary, input.mode) },
-                { type: "image_url", image_url: { url: input.imageDataUrl } },
-              ],
-            }],
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "vlezet_ai_benchmark_verification",
-                strict: true,
-                schema: structuredSchema(),
-              },
-            },
-            provider: { require_parameters: true },
-            plugins: [{ id: "response-healing" }],
-            temperature: 0,
-            max_tokens: input.maximumTokens,
-            stream: false,
-          }),
+          body: JSON.stringify(body),
         });
         if (!response.ok) {
           const text = redactAiBenchmarkText(await response.text().catch(() => ""));

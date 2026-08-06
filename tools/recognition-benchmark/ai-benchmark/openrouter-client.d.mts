@@ -1,3 +1,5 @@
+import type { AiBenchmarkProviderMaxPrice } from "./cost-budget.mjs";
+
 export type AiVerificationWall = Readonly<{
   id: string;
   confidence: "high" | "medium" | "low";
@@ -28,6 +30,14 @@ export type AiLocalSummary = Readonly<{
   openings: readonly (AiLocalCandidate & Readonly<{ kind: "door" | "window" | "unknown-opening" }>)[];
 }>;
 
+export type AiBenchmarkModelDescriptor = Readonly<{
+  requestedModelId: string;
+  modelId: string;
+  contextLength: number;
+  maximumCompletionTokens: number | null;
+  supportsReasoning: boolean;
+}>;
+
 export function normalizeVerificationResponse(
   payload: unknown,
   localSummary: AiLocalSummary,
@@ -39,6 +49,11 @@ export function createOpenRouterBenchmarkClient(input: Readonly<{
   apiKey: string;
   fetcher?: typeof fetch;
 }>): Readonly<{
+  describeModel(input: Readonly<{
+    modelId: string;
+    timeoutMs: number;
+    signal?: AbortSignal;
+  }>): Promise<AiBenchmarkModelDescriptor>;
   verify(input: Readonly<{
     modelId: string;
     imageDataUrl: string;
@@ -46,6 +61,8 @@ export function createOpenRouterBenchmarkClient(input: Readonly<{
     maximumTokens: number;
     timeoutMs: number;
     mode: "verification" | "disputed-zones";
+    providerMaxPrice: AiBenchmarkProviderMaxPrice;
+    disableReasoning: boolean;
     signal?: AbortSignal;
   }>): Promise<Readonly<{
     response: AiVerificationResponse;
