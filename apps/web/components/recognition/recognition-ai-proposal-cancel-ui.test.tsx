@@ -57,6 +57,7 @@ describe("AI proposal discovery progress UI", () => {
           requestId: "cancel-request",
           referenceRevision: "cancel-ui-revision",
           localDraftFingerprint: "recognition-local-draft-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          cancel: () => undefined,
         }}
         selectedCandidateId={null}
         hasReferencePlan

@@ -362,7 +362,7 @@ async function verifyCancellation(page) {
   await dialog.getByRole("button", { name: "Анализировать", exact: true }).click();
   await startedPromise;
   await expect(page.getByRole("heading", { name: "AI-поиск пропущенных элементов", exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "Отменить запрос", exact: true }).click();
+  await page.getByRole("button", { name: "Отменить AI-поиск", exact: true }).click();
   release();
   await page.unroute("https://openrouter.ai/api/v1/chat/completions", handler);
   await expect(dialog).toBeHidden();

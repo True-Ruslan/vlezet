@@ -59,6 +59,7 @@ export type RecognitionControllerState =
       requestId: string;
       referenceRevision: string;
       localDraftFingerprint: string;
+      cancel: () => void;
     }>
   | Readonly<{ kind: "running-cloud"; session: RecognitionSessionRecord }>
   | Readonly<{ kind: "stale"; session: RecognitionSessionRecord }>
@@ -279,6 +280,7 @@ export class RecognitionController {
       requestId,
       referenceRevision,
       localDraftFingerprint,
+      cancel: () => this.cancelAiProposalDiscovery(),
     });
 
     const isCurrent = () => this.#isCurrentAiProposalRun(
@@ -457,6 +459,13 @@ export class RecognitionController {
 
   async markApplied(): Promise<void> {
     await this.setAppliedState(true);
+  }
+
+  cancelAiProposalDiscovery(): void {
+    if (this.#state.kind !== "running-ai-proposals") return;
+    const session = this.#state.session;
+    this.cancelRunning();
+    this.#setReviewState(session);
   }
 
   cancelRunning(): void {

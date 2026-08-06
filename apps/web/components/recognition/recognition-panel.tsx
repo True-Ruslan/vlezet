@@ -43,6 +43,7 @@ export type RecognitionPanelProps = Readonly<{
   onRunCloud: () => void;
   onFindAiProposals?: () => void;
   aiProposalDiscoveryAvailable?: boolean;
+  onCancelAiProposalDiscovery?: () => void;
   onProposalDecision?: (proposalId: string, decision: RecognitionProposalDecision) => void;
   onAgreeWithWallAdvisory?: (proposalId: string) => void;
   onApply: () => void;
@@ -358,6 +359,8 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
     phase: recognitionWorkflowPhase(props.state),
     returnLabel: props.navigation.label,
   });
+  const cancelAiProposalDiscovery = props.onCancelAiProposalDiscovery
+    ?? (props.state.kind === "running-ai-proposals" ? props.state.cancel : undefined);
   const proposalDiscoveryEnabled = Boolean(
     props.aiProposalDiscoveryAvailable
     && props.onFindAiProposals
@@ -393,6 +396,15 @@ export function RecognitionPanel(props: RecognitionPanelProps) {
       {props.state.kind === "running-local" ? (
         <UiNotice tone="info" title={progressText(props.state)} live className="recognition-progress-card">
           <span className="recognition-progress-copy"><span className="recognition-spinner" aria-hidden="true" />Редактор остаётся доступным. Черновик появится только после проверки результата.</span>
+        </UiNotice>
+      ) : null}
+
+      {props.state.kind === "running-ai-proposals" ? (
+        <UiNotice tone="info" title="AI-поиск пропущенных элементов" live className="recognition-progress-card">
+          <span className="recognition-progress-copy"><span className="recognition-spinner" aria-hidden="true" />Локальный черновик сохранён. Результат появится только после детерминированной проверки.</span>
+          <div className="recognition-inline-actions">
+            <UiButton variant="secondary" disabled={!cancelAiProposalDiscovery} onClick={cancelAiProposalDiscovery}>Отменить AI-поиск</UiButton>
+          </div>
         </UiNotice>
       ) : null}
 
