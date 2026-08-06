@@ -1,0 +1,2 @@
+exact-head: 281fd90b8bdb7159088082ee1bb2eca4bf8f59fd
+purpose: restore GitHub Actions pull-request synchronization after lost workflow events
