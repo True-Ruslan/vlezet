@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const files = [
-  "../../apps/web/components/recognition/recognition-apply.ts",
-  "../../apps/web/components/projects/project-app.tsx",
-  "../../apps/web/components/editor/apartment-editor.tsx",
+  "../../../apps/web/components/recognition/recognition-apply.ts",
+  "../../../apps/web/components/projects/project-app.tsx",
+  "../../../apps/web/components/editor/apartment-editor.tsx",
 ] as const;
 
 describe("temporary exact source capture", () => {
