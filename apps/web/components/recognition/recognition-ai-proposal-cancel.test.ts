@@ -71,19 +71,19 @@ describe("AI proposal discovery cancellation", () => {
   it("aborts the current request, returns to review and preserves the session", async () => {
     const { controller, repository, initial } = await restoredController();
 
-    let signal: AbortSignal | null = null;
-    const running = controller.startAiProposalDiscovery(async (input) => {
-      signal = input.signal;
-      return new Promise((resolve) => {
-        input.signal.addEventListener("abort", () => resolve(null), { once: true });
-      });
-    });
+    let wasAborted = false;
+    const running = controller.startAiProposalDiscovery(async (input) => new Promise((resolve) => {
+      input.signal.addEventListener("abort", () => {
+        wasAborted = input.signal.aborted;
+        resolve(null);
+      }, { once: true });
+    }));
     expect(controller.state.kind).toBe("running-ai-proposals");
 
     controller.cancelAiProposalDiscovery();
     await running;
 
-    expect(signal?.aborted).toBe(true);
+    expect(wasAborted).toBe(true);
     expect(controller.state.kind).toBe("review");
     expect(await repository.getForProject(initial.projectId)).toEqual(initial);
   });
