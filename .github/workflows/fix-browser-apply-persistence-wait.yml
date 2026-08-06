@@ -1,6 +1,7 @@
 name: Apply guarded browser Apply persistence wait
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feat/m7-8c-1-hybrid-ai-proposal-recovery
