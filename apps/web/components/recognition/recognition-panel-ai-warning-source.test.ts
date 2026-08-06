@@ -23,6 +23,9 @@ describe("recognition AI review source contracts", () => {
     expect(panelSource).toContain('role="group"');
     expect(panelSource).toContain('aria-label="Фильтр источников распознавания"');
     expect(panelSource).toContain("aria-pressed");
+    expect(panelSource).toContain("useRecognitionReviewFilter");
+    expect(panelSource).toContain("setRecognitionReviewFilter(filter.value)");
+    expect(layerSource).toContain("useRecognitionReviewFilter");
     expect(styles).toContain(".recognition-source-filters");
     expect(styles).toContain("overflow-x: auto");
     expect(styles).toContain(".recognition-source-filter:focus-visible");
