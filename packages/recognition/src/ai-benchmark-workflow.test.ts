@@ -34,15 +34,26 @@ describe("AI benchmark workflow boundaries", () => {
     expect(paidSource).not.toContain("echo $OPENROUTER_API_KEY");
     expect(paidSource).toContain("Assert AI artifact contains no secrets or source bytes");
     expect(paidSource).toContain("grep -Eiq 'sk-or-v1-");
-    expect(paidSource).toMatch(/data:image\|base64\|Authorization\|provider_headers/i);
+    for (const marker of [
+      "Authorization",
+      "data:image",
+      "base64",
+      "provider_headers",
+      "sourceImageDataUrl",
+      "overlayImageDataUrl",
+      "rawProviderResponse",
+    ]) {
+      expect(paidSource).toContain(marker);
+    }
   });
 
-  it("keeps model, fixture, repetition, token and timeout bounds explicit", () => {
+  it("keeps model, fixture, repetition, token, timeout and cost bounds explicit", () => {
     expect(paidSource).toContain("maximum 3");
     expect(paidSource).toContain("maximum 12");
     expect(paidSource).toContain("(1-5)");
     expect(paidSource).toContain("AI_BENCHMARK_MAX_TOKENS: \"2048\"");
     expect(paidSource).toContain("AI_BENCHMARK_TIMEOUT_MS: \"90000\"");
+    expect(paidSource).toContain("AI_BENCHMARK_MAX_COST_USD: \"5\"");
   });
 
   it("generates public fixtures, runs local OpenCV first and only then permits bounded paid analysis", () => {
