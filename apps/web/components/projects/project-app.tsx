@@ -36,6 +36,7 @@ import { editorStore } from "../editor/use-editor-store";
 import { CloudDialog, type CloudRecognitionRequest } from "../recognition/cloud-dialog";
 import { existingWallsInReferenceSpace } from "../recognition/existing-geometry";
 import { runLocalRecognition } from "../recognition/local-recognition-client";
+import { runRecognitionAiProposalDiscovery } from "../recognition/recognition-ai-proposal-workflow";
 import { OpenRouterDirectProvider } from "../recognition/openrouter-provider";
 import { planRecognitionApply } from "../recognition/recognition-apply";
 import { RecognitionController, type RecognitionControllerState } from "../recognition/recognition-controller";
@@ -85,6 +86,7 @@ export function ProjectApp() {
   const [recognitionPanelOpen, setRecognitionPanelOpen] = useState(false);
   const [selectedRecognitionCandidateId, setSelectedRecognitionCandidateId] = useState<string | null>(null);
   const [cloudDialogOpen, setCloudDialogOpen] = useState(false);
+  const [cloudDialogPurpose, setCloudDialogPurpose] = useState<"verification" | "proposals">("verification");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -534,6 +536,28 @@ export function ProjectApp() {
     }
   };
 
+  const runAiProposalDiscovery = async (request: CloudRecognitionRequest) => {
+    const project = activeProjectRef.current;
+    const controller = ensureRecognitionController();
+    if (!project?.referencePlan || !referenceAsset || !controller.state.session) {
+      throw new Error("Сначала выполните локальное распознавание.");
+    }
+    setCloudDialogOpen(false);
+    await runRecognitionAiProposalDiscovery({
+      controller,
+      credentials: request,
+      referencePlan: project.referencePlan,
+      sourceAsset: referenceAsset,
+      blobToDataUrl,
+    });
+    if (
+      controller.state.kind === "review"
+      && controller.state.session?.draft.aiProposalMetadata
+    ) {
+      showToast("AI-поиск завершён. Проверьте предложения перед применением.");
+    }
+  };
+
   const applyRecognition = async () => {
     const project = activeProjectRef.current;
     const controller = ensureRecognitionController();
@@ -636,7 +660,15 @@ export function ProjectApp() {
         onEditRecognitionWall={editRecognitionWall}
         onReclassifyRecognitionOpening={reclassifyRecognitionOpening}
         onAcceptHighConfidenceRecognition={acceptHighConfidenceRecognition}
-        onRunCloudRecognition={() => setCloudDialogOpen(true)}
+        onRunCloudRecognition={() => {
+          setCloudDialogPurpose("verification");
+          setCloudDialogOpen(true);
+        }}
+        onFindAiProposals={() => {
+          setCloudDialogPurpose("proposals");
+          setCloudDialogOpen(true);
+        }}
+        aiProposalDiscoveryAvailable={Boolean(activeProject.referencePlan && referenceAsset && recognitionState.session)}
         onApplyRecognition={() => void applyRecognition()}
         onDiscardRecognition={() => void discardRecognition()}
         onReferenceMoveEnd={(originWorld) => {
@@ -646,13 +678,14 @@ export function ProjectApp() {
       />
       <CloudDialog
         open={cloudDialogOpen}
-        busy={recognitionState.kind === "running-cloud"}
+        busy={recognitionState.kind === "running-cloud" || recognitionState.kind === "running-ai-proposals"}
         onClose={() => {
+          if (cloudDialogPurpose === "proposals") recognitionControllerRef.current?.cancelRunning();
           cloudAbortRef.current?.abort();
           cloudAbortRef.current = null;
           setCloudDialogOpen(false);
         }}
-        onRun={runCloudRecognition}
+        onRun={cloudDialogPurpose === "proposals" ? runAiProposalDiscovery : runCloudRecognition}
       />
       {error ? <div className="global-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError(null)}>Закрыть</button></div> : null}
       {toast ? <div className="toast" role="status">{toast}</div> : null}

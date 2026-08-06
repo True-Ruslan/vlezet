@@ -16,6 +16,7 @@ import {
 } from "@vlezet/geometry";
 import type { ReferencePlan } from "@vlezet/projects";
 import {
+  prepareAtomicRecognitionApply,
   sanitizeRecognitionWallTopology,
   type NormalizedPoint,
   type RecognitionDraft,
@@ -383,12 +384,12 @@ function applyWalls(
   for (const candidate of draft.walls) {
     if (!accepted(draft, candidate.id)) continue;
     if (candidate.conflict && candidate.conflict !== "duplicate-existing") {
-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Кандидат стены содержит конфликт и не был применён." });
+      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Кандидат стены содержит конфликт и не был применён." });
       continue;
     }
     const { start, end } = candidateWorldEndpoints(candidate, reference, canonicalEndpoints);
     if (distance(start, end) < MIN_RECOGNIZED_WALL_LENGTH_MM) {
-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Слишком короткая стена пропущена." });
+      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Слишком короткая стена пропущена." });
       continue;
     }
     const duplicateWallId = findDuplicateWallId(document, start, end);
@@ -475,21 +476,21 @@ function applyOpenings(
   for (const candidate of draft.openings) {
     if (!accepted(draft, candidate.id)) continue;
     if (candidate.kind === "unknown-opening") {
-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Неизвестный тип проёма нужно сначала классифицировать как дверь или окно." });
+      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Неизвестный тип проёма нужно сначала классифицировать как дверь или окно." });
       continue;
     }
     if (!candidate.hostWallCandidateId) {
-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Для проёма не определена стена." });
+      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Для проёма не определена стена." });
       continue;
     }
     const wallId = candidateToWallId.get(candidate.hostWallCandidateId);
     if (!wallId) {
-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Стена для проёма не была применена или сопоставлена, поэтому проём пропущен." });
+      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Стена для проёма не была применена или сопоставлена, поэтому проём пропущен." });
       continue;
     }
     const width = openingWidthMm(candidate, reference);
     if (!width) {
-      diagnostics.push({ candidateId: candidate.id, severity: "warning", message: "Не удалось определить ширину проёма." });
+      diagnostics.push({ candidateId: candidate.id, severity: "error", message: "Не удалось определить ширину проёма." });
       continue;
     }
     try {
@@ -513,7 +514,7 @@ function applyOpenings(
       if (disposition === "conflict") {
         diagnostics.push({
           candidateId: candidate.id,
-          severity: "warning",
+          severity: "error",
           message: "Кандидат перекрывает существующий проём на этой стене и оставлен без применения.",
         });
         continue;
@@ -549,16 +550,31 @@ export function planRecognitionApply(input: Readonly<{
     throw new Error("Черновик распознавания относится к другой версии подложки.");
   }
 
+  const preflight = prepareAtomicRecognitionApply({
+    draft: input.draft,
+    referencePlan: input.referencePlan,
+    document: input.document,
+  });
+  if (preflight.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    return {
+      document: input.document,
+      appliedCandidateIds: [],
+      diagnostics: preflight.diagnostics,
+    };
+  }
+
   const topologySanity = sanitizeRecognitionWallTopology({
     widthPx: input.referencePlan.widthPx,
     heightPx: input.referencePlan.heightPx,
     millimetersPerPixel: input.referencePlan.transform.millimetersPerPixel,
-    wallCandidates: input.draft.walls,
+    wallCandidates: preflight.applicableDraft.walls,
   });
   const sanitizedById = new Map(topologySanity.walls.map((candidate) => [candidate.id, candidate]));
   const sanitizedDraft: RecognitionDraft = {
-    ...input.draft,
-    walls: input.draft.walls.map((candidate) => sanitizedById.get(candidate.id) ?? candidate),
+    ...preflight.applicableDraft,
+    walls: preflight.applicableDraft.walls.map(
+      (candidate) => sanitizedById.get(candidate.id) ?? candidate,
+    ),
   };
   const topologyDiagnostics: RecognitionApplyDiagnostic[] = topologySanity.diagnostics.map((diagnostic) => ({
     candidateId: diagnostic.candidateId ?? "topology",
@@ -567,10 +583,30 @@ export function planRecognitionApply(input: Readonly<{
   }));
 
   const walls = applyWalls(sanitizedDraft, input.referencePlan, input.document, input.idFactory);
-  const openings = applyOpenings(sanitizedDraft, input.referencePlan, walls.document, walls.candidateToWallId, input.idFactory);
+  const openings = applyOpenings(
+    sanitizedDraft,
+    input.referencePlan,
+    walls.document,
+    walls.candidateToWallId,
+    input.idFactory,
+  );
+  const diagnostics = [
+    ...preflight.diagnostics,
+    ...topologyDiagnostics,
+    ...walls.diagnostics,
+    ...openings.diagnostics,
+  ];
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    return {
+      document: input.document,
+      appliedCandidateIds: [],
+      diagnostics,
+    };
+  }
+
   return {
     document: openings.document,
     appliedCandidateIds: [...walls.appliedCandidateIds, ...openings.appliedCandidateIds],
-    diagnostics: [...topologyDiagnostics, ...walls.diagnostics, ...openings.diagnostics],
+    diagnostics,
   };
 }

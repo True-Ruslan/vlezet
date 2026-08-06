@@ -85,6 +85,8 @@ export type ApartmentEditorProps = Readonly<{
   onReclassifyRecognitionOpening: (candidateId: string, kind: RecognitionOpeningCandidate["kind"]) => void;
   onAcceptHighConfidenceRecognition: () => void;
   onRunCloudRecognition: () => void;
+  onFindAiProposals: () => void;
+  aiProposalDiscoveryAvailable: boolean;
   onApplyRecognition: () => void;
   onDiscardRecognition: () => void;
 }>;
@@ -333,6 +335,8 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       onReclassifyOpening={props.onReclassifyRecognitionOpening}
       onAcceptHighConfidence={props.onAcceptHighConfidenceRecognition}
       onRunCloud={props.onRunCloudRecognition}
+      onFindAiProposals={props.onFindAiProposals}
+      aiProposalDiscoveryAvailable={props.aiProposalDiscoveryAvailable}
       onApply={props.onApplyRecognition}
       onDiscard={props.onDiscardRecognition}
     />
