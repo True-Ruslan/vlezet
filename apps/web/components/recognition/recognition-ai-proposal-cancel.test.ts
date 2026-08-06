@@ -79,6 +79,7 @@ describe("AI proposal discovery cancellation", () => {
       }, { once: true });
     }));
     expect(controller.state.kind).toBe("running-ai-proposals");
+    expect(wasAborted).toBe(false);
 
     controller.cancelAiProposalDiscovery();
     await running;
