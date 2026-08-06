@@ -27,6 +27,10 @@ function ratio(numerator, denominator) {
   return denominator === 0 ? 0 : numerator / denominator;
 }
 
+function counter(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
 export function scoreAiBenchmarkRuns(runs) {
   if (!Array.isArray(runs) || runs.length === 0) throw new Error("AI benchmark scoring requires at least one run.");
   let schemaFailures = 0;
@@ -43,6 +47,23 @@ export function scoreAiBenchmarkRuns(runs) {
   let totalTokens = 0;
   let totalCostUsd = 0;
   let completeCost = true;
+  let recoveredDoorTruePositiveCount = 0;
+  let recoveredDoorFalsePositiveCount = 0;
+  let recoveredDoorFalseNegativeCount = 0;
+  let recoveredWindowTruePositiveCount = 0;
+  let recoveredWindowFalsePositiveCount = 0;
+  let recoveredWindowFalseNegativeCount = 0;
+  let eligibleWashbasinAdvisoryCount = 0;
+  let sanitizerAcceptedCount = 0;
+  let sanitizerTruePositiveCount = 0;
+  let eligibleUnknownHostOpeningCount = 0;
+  let eligibleOutsideHostOpeningCount = 0;
+  let directLocalMutationCount = 0;
+  let staleDecisionCount = 0;
+  let protectedStrongWallAdvisoryCount = 0;
+  let forbiddenRegionEligibleProposalCount = 0;
+  let replayCount = 0;
+  let replayMismatchCount = 0;
   const latencies = [];
 
   for (const run of runs) {
@@ -80,6 +101,27 @@ export function scoreAiBenchmarkRuns(runs) {
     for (const [candidateId, expectedKind] of Object.entries(run.expectedOpeningKinds ?? {})) {
       openingClassificationDenominator += 1;
       if (responseOpenings.get(candidateId)?.kind === expectedKind) openingClassificationCorrect += 1;
+    }
+
+    const proposal = run.proposalEvaluation;
+    if (proposal) {
+      recoveredDoorTruePositiveCount += counter(proposal.recoveredDoorTruePositiveCount);
+      recoveredDoorFalsePositiveCount += counter(proposal.recoveredDoorFalsePositiveCount);
+      recoveredDoorFalseNegativeCount += counter(proposal.recoveredDoorFalseNegativeCount);
+      recoveredWindowTruePositiveCount += counter(proposal.recoveredWindowTruePositiveCount);
+      recoveredWindowFalsePositiveCount += counter(proposal.recoveredWindowFalsePositiveCount);
+      recoveredWindowFalseNegativeCount += counter(proposal.recoveredWindowFalseNegativeCount);
+      eligibleWashbasinAdvisoryCount += counter(proposal.eligibleWashbasinAdvisoryCount);
+      sanitizerAcceptedCount += counter(proposal.sanitizerAcceptedCount);
+      sanitizerTruePositiveCount += counter(proposal.sanitizerTruePositiveCount);
+      eligibleUnknownHostOpeningCount += counter(proposal.eligibleUnknownHostOpeningCount);
+      eligibleOutsideHostOpeningCount += counter(proposal.eligibleOutsideHostOpeningCount);
+      directLocalMutationCount += counter(proposal.directLocalMutationCount);
+      staleDecisionCount += counter(proposal.staleDecisionCount);
+      protectedStrongWallAdvisoryCount += counter(proposal.protectedStrongWallAdvisoryCount);
+      forbiddenRegionEligibleProposalCount += counter(proposal.forbiddenRegionEligibleProposalCount);
+      replayCount += counter(proposal.replayCount);
+      replayMismatchCount += counter(proposal.replayMismatchCount);
     }
 
     if (run.usage) {
@@ -128,6 +170,25 @@ export function scoreAiBenchmarkRuns(runs) {
     totalCompletionTokens,
     totalTokens,
     totalCostUsd: completeCost ? totalCostUsd : null,
+    recoveredDoorTruePositiveCount,
+    recoveredDoorFalsePositiveCount,
+    recoveredDoorFalseNegativeCount,
+    recoveredWindowTruePositiveCount,
+    recoveredWindowFalsePositiveCount,
+    recoveredWindowFalseNegativeCount,
+    eligibleWashbasinAdvisoryCount,
+    sanitizerAcceptedCount,
+    sanitizerTruePositiveCount,
+    sanitizerAcceptancePrecision: ratio(sanitizerTruePositiveCount, sanitizerAcceptedCount),
+    eligibleUnknownHostOpeningCount,
+    eligibleOutsideHostOpeningCount,
+    directLocalMutationCount,
+    staleDecisionCount,
+    protectedStrongWallAdvisoryCount,
+    forbiddenRegionEligibleProposalCount,
+    replayCount,
+    replayMismatchCount,
+    replayDeterminismRate: ratio(Math.max(0, replayCount - replayMismatchCount), replayCount),
     qualified: false,
   };
 }
