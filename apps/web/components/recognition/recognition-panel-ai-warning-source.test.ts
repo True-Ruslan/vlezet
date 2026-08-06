@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const panelSource = readFileSync(new URL("./recognition-panel.tsx", import.meta.url), "utf8");
+const controllerSource = readFileSync(new URL("./recognition-controller.ts", import.meta.url), "utf8");
 const layerSource = readFileSync(new URL("./recognition-layer.tsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../../app/recognition-panel.css", import.meta.url), "utf8");
 
@@ -38,5 +39,13 @@ describe("recognition AI review source contracts", () => {
     expect(layerSource).toContain('text="Предложение AI"');
     expect(layerSource).toContain("dash={[10, 6]}");
     expect(layerSource).toContain("props.onSelect(proposal.id)");
+  });
+
+  it("routes proposal decisions through runtime-only controller actions", () => {
+    expect(controllerSource).toContain("RecognitionProposalReviewActions");
+    expect(controllerSource).toContain("proposalActions: this.#proposalReviewActions");
+    expect(panelSource).toContain('props.state.kind === "review" ? props.state.proposalActions');
+    expect(panelSource).toContain("props.onProposalDecision ?? stateProposalActions?.updateDecision");
+    expect(panelSource).toContain("props.onAgreeWithWallAdvisory ?? stateProposalActions?.agreeWithWallAdvisory");
   });
 });
