@@ -1,0 +1,58 @@
+name: Apply guarded recorded proposal geometry fix
+
+on:
+  push:
+    branches:
+      - feat/m7-8c-1-hybrid-ai-proposal-recovery
+    paths:
+      - .github/workflows/fix-browser-recorded-proposal-geometry.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/m7-8c-1-hybrid-ai-proposal-recovery
+          fetch-depth: 0
+      - name: Patch persisted blocked and duplicate geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("tools/m7-browser-audit/recognition-ai-proposals.spec.mjs")
+          source = path.read_text()
+
+          replacements = [
+            (
+              '''      kind: "door",\n      state: "duplicate",\n      hostWallCandidateId: "wall-door-host",''',
+              '''      kind: "door",\n      state: "duplicate",\n      geometry: { kind: "opening", center: { x: 0.5, y: 0.5 }, widthNormalized: 0.1, orientationDeg: 0 },\n      hostWallCandidateId: "wall-door-host",''',
+            ),
+            (
+              '''      kind: "door",\n      state: "blocked",\n      deterministicConfidence: "low",''',
+              '''      kind: "door",\n      state: "blocked",\n      geometry: { kind: "opening", center: { x: 0.9, y: 0.9 }, widthNormalized: 0.08, orientationDeg: 0 },\n      deterministicConfidence: "low",''',
+            ),
+          ]
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected exactly one geometry anchor, found {count}")
+              source = source.replace(old, new)
+          path.write_text(source)
+          PY
+          rm .github/workflows/fix-browser-recorded-proposal-geometry.yml
+          git diff --check
+      - name: Commit fix and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/m7-browser-audit/recognition-ai-proposals.spec.mjs \
+            .github/workflows/fix-browser-recorded-proposal-geometry.yml
+          git commit -m "test: persist valid blocked and duplicate proposals"
+          git push origin HEAD:feat/m7-8c-1-hybrid-ai-proposal-recovery
