@@ -233,8 +233,9 @@ test.describe.serial("M7.3 design system browser acceptance", () => {
     await page.getByRole("button", { name: "Распознать" }).click();
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Распознавание");
     await page.getByRole("button", { name: "Распознать план" }).click();
-    await expect(page.getByRole("button", { name: "Проверить с AI" }).first()).toBeVisible({ timeout: 45_000 });
-    await page.getByRole("button", { name: "Проверить с AI" }).first().click();
+    const verifyDraft = page.getByRole("button", { name: "Проверить локальный черновик с AI", exact: true }).first();
+    await expect(verifyDraft).toBeVisible({ timeout: 45_000 });
+    await verifyDraft.click();
 
     const dialog = page.getByRole("dialog", { name: "Проверить план с AI" });
     await expect(dialog).toBeVisible();
