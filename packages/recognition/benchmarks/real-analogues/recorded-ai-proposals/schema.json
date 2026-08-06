@@ -21,7 +21,7 @@
     "fixture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "analogueFixtureId", "mode", "responsePath", "expected"],
+      "required": ["id", "analogueFixtureId", "mode", "responsePath", "contextPath", "expected"],
       "properties": {
         "id": {
           "type": "string",
@@ -38,6 +38,10 @@
           "type": "string",
           "pattern": "^fixtures/[a-z0-9-]+\\.json$"
         },
+        "contextPath": {
+          "type": "string",
+          "pattern": "^contexts/[a-z0-9-]+\\.json$"
+        },
         "expected": {
           "$ref": "#/$defs/expected"
         }
@@ -53,8 +57,10 @@
         "eligibleUnknownHostOpenings",
         "eligibleOutsideHostOpenings",
         "directLocalMutationCount",
+        "staleDecisionCount",
         "protectedStrongWallAdvisories",
-        "forbiddenRegionEligibleProposals"
+        "forbiddenRegionEligibleProposals",
+        "replayMismatchCount"
       ],
       "properties": {
         "eligibleDoorsMinimum": {
@@ -77,10 +83,16 @@
         "directLocalMutationCount": {
           "const": 0
         },
+        "staleDecisionCount": {
+          "const": 0
+        },
         "protectedStrongWallAdvisories": {
           "const": 0
         },
         "forbiddenRegionEligibleProposals": {
+          "const": 0
+        },
+        "replayMismatchCount": {
           "const": 0
         }
       }
@@ -110,7 +122,7 @@
         },
         "localDraftFingerprint": {
           "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
+          "pattern": "^(recognition-local-draft-v1:)?[a-f0-9]{64}$"
         },
         "proposals": {
           "type": "array",
