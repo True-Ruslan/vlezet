@@ -92,7 +92,7 @@ describe("recorded Stage 1 AI proposal corpus", () => {
       schemaVersion: "recognition-ai-proposals-v1",
       requestId: "recorded-product-owner-current-plan-stage1-v1",
       referenceRevision: "real-plan-001-anonymized-v1",
-      localDraftFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      localDraftFingerprint: expect.stringMatching(/^(recognition-local-draft-v1:)?[a-f0-9]{64}$/),
       diagnostics: [],
     });
     expect(response.proposals.length).toBeLessThanOrEqual(24);
@@ -101,15 +101,15 @@ describe("recorded Stage 1 AI proposal corpus", () => {
     expect(committedContract).not.toMatch(/data:image|base64|private-source|private-raster|\.png|\.jpe?g/i);
   });
 
-  it.skip("requires at least one recovered eligible door", () => {
+  it("requires at least one recovered eligible door", () => {
     expect(openingCount("door")).toBeGreaterThanOrEqual(fixture.expected.eligibleDoorsMinimum);
   });
 
-  it.skip("requires at least one recovered eligible window", () => {
+  it("requires at least one recovered eligible window", () => {
     expect(openingCount("window")).toBeGreaterThanOrEqual(fixture.expected.eligibleWindowsMinimum);
   });
 
-  it.skip("requires an eligible washbasin clutter advisory", () => {
+  it("requires an eligible washbasin clutter advisory", () => {
     expect(hasWashbasinAdvisory()).toBe(fixture.expected.eligibleWashbasinAdvisory);
   });
 
