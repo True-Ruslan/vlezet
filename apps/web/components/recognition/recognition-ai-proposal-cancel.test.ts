@@ -82,6 +82,7 @@ describe("AI proposal discovery cancellation", () => {
     expect(wasAborted).toBe(false);
 
     if (controller.state.kind !== "running-ai-proposals") throw new Error("Proposal discovery did not start.");
+    expect(controller.state.session).toEqual(initial);
     controller.state.cancel();
     await running;
 
