@@ -68,7 +68,7 @@ async function restoredController() {
 }
 
 describe("AI proposal discovery cancellation", () => {
-  it("aborts the current request, returns to review and preserves the session", async () => {
+  it("aborts through the running-state action, returns to review and preserves the session", async () => {
     const { controller, repository, initial } = await restoredController();
 
     let wasAborted = false;
@@ -81,7 +81,8 @@ describe("AI proposal discovery cancellation", () => {
     expect(controller.state.kind).toBe("running-ai-proposals");
     expect(wasAborted).toBe(false);
 
-    controller.cancelAiProposalDiscovery();
+    if (controller.state.kind !== "running-ai-proposals") throw new Error("Proposal discovery did not start.");
+    controller.state.cancel();
     await running;
 
     expect(wasAborted).toBe(true);
