@@ -61,6 +61,9 @@ jobs:
       - name: Verify M7.8C gate contract
         run: node --test tools/recognition-benchmark/m7-8c-opening-gate.test.mjs
 
+      - name: Run deterministic AI proposal recovery gate
+        run: pnpm benchmark:recognition:ai-proposal-gate
+
       - name: Run Core Recognition Benchmark
         id: core_benchmark
         continue-on-error: true
