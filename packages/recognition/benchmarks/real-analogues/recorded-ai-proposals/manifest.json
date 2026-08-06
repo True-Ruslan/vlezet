@@ -6,6 +6,7 @@
       "analogueFixtureId": "real-plan-001-anonymized",
       "mode": "stage1-proposal-discovery",
       "responsePath": "fixtures/product-owner-current-plan-stage1.json",
+      "contextPath": "contexts/product-owner-current-plan-stage1.json",
       "expected": {
         "eligibleDoorsMinimum": 1,
         "eligibleWindowsMinimum": 1,
@@ -13,8 +14,10 @@
         "eligibleUnknownHostOpenings": 0,
         "eligibleOutsideHostOpenings": 0,
         "directLocalMutationCount": 0,
+        "staleDecisionCount": 0,
         "protectedStrongWallAdvisories": 0,
-        "forbiddenRegionEligibleProposals": 0
+        "forbiddenRegionEligibleProposals": 0,
+        "replayMismatchCount": 0
       }
     }
   ]
