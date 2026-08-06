@@ -1,16 +1,6 @@
 name: M7 Browser Audit
 
 on:
-  push:
-    branches:
-      - feat/m7-8c-1-hybrid-ai-proposal-recovery
-    paths:
-      - "apps/web/**"
-      - "packages/**"
-      - "tools/m7-browser-audit/**"
-      - ".github/workflows/m7-browser-audit.yml"
-      - "package.json"
-      - "pnpm-lock.yaml"
   pull_request:
     paths:
       - "apps/web/**"
