@@ -159,7 +159,35 @@ async function seedRepresentativeState(page) {
   await page.evaluate(async ({ project, session }) => {
     const database = await new Promise((resolve, reject) => {
       const request = indexedDB.open("vlezet", 3);
-      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        const transaction = request.transaction;
+        if (!transaction) throw new Error("Vlezet IndexedDB upgrade transaction is unavailable.");
+
+        const ensureStore = (name, keyPath) => database.objectStoreNames.contains(name)
+          ? transaction.objectStore(name)
+          : database.createObjectStore(name, { keyPath });
+
+        const projects = ensureStore("projects", "id");
+        if (!projects.indexNames.contains("updatedAt")) {
+          projects.createIndex("updatedAt", "updatedAt", { unique: false });
+        }
+        ensureStore("settings", "key");
+        const assets = ensureStore("assets", "id");
+        if (!assets.indexNames.contains("projectId")) {
+          assets.createIndex("projectId", "projectId", { unique: false });
+        }
+        const recognitionSessions = ensureStore("recognitionSessions", "id");
+        if (!recognitionSessions.indexNames.contains("projectId")) {
+          recognitionSessions.createIndex("projectId", "projectId", { unique: true });
+        }
+      };
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => database.close();
+        resolve(database);
+      };
+      request.onblocked = () => reject(new Error("Vlezet IndexedDB upgrade was blocked."));
       request.onerror = () => reject(request.error ?? new Error("Unable to open Vlezet IndexedDB."));
     });
 
