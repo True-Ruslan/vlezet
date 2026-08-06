@@ -397,10 +397,10 @@ async function acceptProposal(page, kind) {
   await expect(card.locator("em")).toHaveText("Принято");
 }
 
-async function applySelected(page, projectId) {
+async function applySelected(page, projectId, expectedOpeningCount) {
   await page.getByRole("button", { name: "Применить выбранное", exact: true }).click();
   await expect(page.getByRole("button", { name: "Уже применено", exact: true })).toBeDisabled();
-  await expect.poll(async () => (await readRecord(page, "projects", projectId))?.document?.walls?.length ?? 0).toBeGreaterThan(0);
+  await expect.poll(async () => (await readRecord(page, "projects", projectId))?.document?.openings?.length ?? 0).toBe(expectedOpeningCount);
   return readRecord(page, "projects", projectId);
 }
 
@@ -456,13 +456,13 @@ async function exerciseRecordedReview(page, browser, full) {
 
   await page.getByRole("button", { name: "Принять уверенные", exact: true }).click();
   await acceptProposal(page, "door");
-  const firstProject = await applySelected(page, projectId);
+  const firstProject = await applySelected(page, projectId, 1);
   const firstOpeningCount = firstProject.document.openings.length;
   expect(firstOpeningCount).toBe(1);
 
   await acceptProposal(page, "window");
   await expect(page.getByRole("button", { name: "Применить выбранное", exact: true })).toBeEnabled();
-  const secondProject = await applySelected(page, projectId);
+  const secondProject = await applySelected(page, projectId, 2);
   const secondOpeningCount = secondProject.document.openings.length;
   expect(secondOpeningCount).toBe(2);
 
