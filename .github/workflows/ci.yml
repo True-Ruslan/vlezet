@@ -19,16 +19,13 @@ jobs:
           ref: feat/m7-8c-1-hybrid-ai-proposal-recovery
           fetch-depth: 0
 
-      - name: Apply exact Tasks 14-15 patch and self-clean
+      - name: Apply checked Tasks 14-15 transformation and self-clean
         if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'feat/m7-8c-1-hybrid-ai-proposal-recovery'
         run: |
           set -euo pipefail
-          cat .github/task15-patch.b64.* | tr -d '\n' | base64 --decode > /tmp/task15.patch
-          echo "patch-bytes=$(wc -c < /tmp/task15.patch | tr -d ' ')"
-          echo "patch-sha256=$(sha256sum /tmp/task15.patch | awk '{print $1}')"
-          git apply --check /tmp/task15.patch
-          git apply /tmp/task15.patch
+          python .github/task15-apply.py
           git show b490e68e236c0811c12d11e0e84408bb6e71e2da:.github/workflows/ci.yml > .github/workflows/ci.yml
+          rm .github/task15-apply.py
           rm .github/task15-atomic.patch
           rm .github/task15-patch.b64.*
           rm .github/workflows/task15-apply-patch.yml
