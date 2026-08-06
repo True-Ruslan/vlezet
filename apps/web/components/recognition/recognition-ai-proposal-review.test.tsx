@@ -212,12 +212,15 @@ function render(filter: "all" | "local" | "ai-proposals" | "questioned-local" = 
   );
 }
 
-function taggedBlock(markup: string, attribute: string, value: string): string {
-  const marker = `${attribute}=\"${value}\"`;
+function taggedBlock(markup: string, marker: string, nextMarker = "data-proposal-kind"): string {
   const start = markup.indexOf(marker);
   expect(start).toBeGreaterThanOrEqual(0);
-  const next = markup.indexOf(attribute, start + marker.length);
+  const next = markup.indexOf(nextMarker, start + marker.length);
   return markup.slice(start, next < 0 ? markup.length : next);
+}
+
+function occurrences(markup: string, marker: string): number {
+  return markup.split(marker).length - 1;
 }
 
 describe("transparent AI proposal review", () => {
@@ -240,7 +243,7 @@ describe("transparent AI proposal review", () => {
   });
 
   it("explains an eligible opening and exposes explicit decisions", () => {
-    const card = taggedBlock(render(), "data-proposal-id", "proposal-door");
+    const card = taggedBlock(render(), 'data-proposal-kind="door" data-proposal-state="eligible"');
     expect(card).toContain("Дверь · Предложение AI");
     expect(card).toContain("Стена-хозяин подтверждена");
     expect(card).toContain("AI видит разрыв");
@@ -250,7 +253,7 @@ describe("transparent AI proposal review", () => {
   });
 
   it("shows the exact blocker and never offers Accept for a blocked proposal", () => {
-    const card = taggedBlock(render(), "data-proposal-id", "proposal-window-blocked");
+    const card = taggedBlock(render(), 'data-proposal-kind="window" data-proposal-state="blocked"');
     expect(card).toContain("Заблокировано проверкой");
     expect(card).toContain("Не найдена однозначная стена-хозяин");
     expect(card).toContain("missing-host-wall");
@@ -258,14 +261,14 @@ describe("transparent AI proposal review", () => {
   });
 
   it("explains duplicates and never renders them as acceptable geometry", () => {
-    const card = taggedBlock(render(), "data-proposal-id", "proposal-door-duplicate");
+    const card = taggedBlock(render(), 'data-proposal-kind="door" data-proposal-state="duplicate"');
     expect(card).toContain("Такая геометрия уже есть в локальном черновике");
     expect(card).toContain("opening-overlap-existing");
     expect(card).not.toContain("Принять предложение");
   });
 
   it("uses the approved false-wall advisory wording and exact action", () => {
-    const card = taggedBlock(render(), "data-proposal-id", "proposal-wall-review");
+    const card = taggedBlock(render(), 'data-proposal-kind="local-wall-review" data-proposal-state="eligible"');
     expect(card).toContain("AI считает эту локальную линию вероятным обозначением сантехники или мебели. Согласие отклонит только кандидат локального черновика и не удалит уже существующую стену квартиры.");
     expect(card).toContain("Согласиться и отклонить только локальный кандидат");
     expect(card).toContain("Оставить локальный кандидат");
@@ -273,21 +276,21 @@ describe("transparent AI proposal review", () => {
 
   it("filters local, proposal and questioned-local review surfaces deterministically", () => {
     const local = render("local");
-    expect(local).toContain('data-local-candidate-id="wall-1"');
-    expect(local).not.toContain("data-proposal-id");
+    expect(occurrences(local, 'data-local-candidate-kind="wall"')).toBe(2);
+    expect(occurrences(local, 'data-local-candidate-kind="opening"')).toBe(1);
+    expect(local).not.toContain("data-proposal-kind");
 
     const ai = render("ai-proposals");
-    expect(ai).not.toContain("data-local-candidate-id");
-    expect(ai).toContain('data-proposal-id="proposal-door"');
+    expect(ai).not.toContain("data-local-candidate-kind");
+    expect(ai).toContain('data-proposal-kind="door" data-proposal-state="eligible"');
 
     const questioned = render("questioned-local");
-    expect(questioned).toContain('data-local-candidate-id="wall-1"');
-    expect(questioned).not.toContain('data-local-candidate-id="wall-2"');
-    expect(questioned).not.toContain('data-local-candidate-id="opening-local"');
-    expect(questioned).toContain('data-proposal-id="proposal-wall-review"');
+    expect(occurrences(questioned, 'data-local-candidate-kind="wall"')).toBe(1);
+    expect(questioned).not.toContain('data-local-candidate-kind="opening"');
+    expect(questioned).toContain('data-proposal-kind="local-wall-review" data-proposal-state="eligible"');
   });
 
-  it("keeps local candidate presentation byte-equivalent after reconciliation", () => {
+  it("keeps local candidate presentation byte-equivalent and does not expose internal IDs", () => {
     const withoutProposals = renderToStaticMarkup(
       <RecognitionPanel
         state={{ kind: "review", session: session(localDraft) }}
@@ -297,7 +300,10 @@ describe("transparent AI proposal review", () => {
       />,
     );
     const withProposals = render("local");
-    expect(taggedBlock(withProposals, "data-local-candidate-id", "wall-1"))
-      .toBe(taggedBlock(withoutProposals, "data-local-candidate-id", "wall-1"));
+    expect(taggedBlock(withProposals, 'data-local-candidate-kind="wall"', "data-local-candidate-kind"))
+      .toBe(taggedBlock(withoutProposals, 'data-local-candidate-kind="wall"', "data-local-candidate-kind"));
+    for (const privateId of ["wall-1", "wall-2", "opening-local", "proposal-door", "proposal-wall-review"]) {
+      expect(render()).not.toContain(privateId);
+    }
   });
 });
