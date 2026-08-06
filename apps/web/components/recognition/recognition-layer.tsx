@@ -44,8 +44,9 @@ export type RecognitionLayerProps = Readonly<{
 export function RecognitionLayer(props: RecognitionLayerProps) {
   const sharedReviewFilter = useRecognitionReviewFilter();
   const reviewFilter = props.reviewFilter ?? sharedReviewFilter;
+  const aiProposals = props.draft.aiProposals ?? [];
   const questionedLocalIds = new Set(
-    props.draft.aiProposals
+    aiProposals
       .filter((proposal) => proposal.kind === "local-wall-review" && proposal.targetLocalCandidateId)
       .map((proposal) => proposal.targetLocalCandidateId as string),
   );
@@ -110,7 +111,7 @@ export function RecognitionLayer(props: RecognitionLayerProps) {
         <Text x={center.x - 30} y={center.y - 25} width={60} align="center" text={opening.kind === "door" ? "Д" : opening.kind === "window" ? "О" : "?"} fontSize={11} fontStyle="bold" fill={stroke} listening={false} />
       </Group>;
     })}
-    {showAiGeometry ? props.draft.aiProposals.map((proposal) => {
+    {showAiGeometry ? aiProposals.map((proposal) => {
       if (proposal.state !== "eligible") return null;
       if (proposal.geometry?.kind !== "opening") return null;
       const geometry = proposal.geometry;
