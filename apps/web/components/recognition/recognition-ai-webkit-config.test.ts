@@ -22,4 +22,11 @@ describe("WebKit AI proposal acceptance wiring", () => {
     expect(representativeSpec).not.toContain('["projects", "assets", "settings"');
     expect(representativeSpec).toContain("WebKit reviews, applies and restores an eligible recorded AI door");
   });
+
+  it("creates the production IndexedDB schema when the fixture wins the version upgrade race", () => {
+    expect(representativeSpec).toContain("request.onupgradeneeded = () =>");
+    expect(representativeSpec).toContain('ensureStore("projects", "id")');
+    expect(representativeSpec).toContain('ensureStore("recognitionSessions", "id")');
+    expect(representativeSpec).toContain('createIndex("projectId", "projectId", { unique: true })');
+  });
 });
