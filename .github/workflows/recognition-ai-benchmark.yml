@@ -19,13 +19,14 @@ on:
         default: "3"
         type: string
       mode:
-        description: "Verification scope"
+        description: "Verification or bounded Stage 1 proposal scope"
         required: true
         default: "disputed-zones"
         type: choice
         options:
           - disputed-zones
           - verification
+          - proposal-discovery-stage1
 
 permissions:
   contents: read
@@ -53,6 +54,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.16.0
+
+      - name: Validate OpenRouter secret before paid setup
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "OPENROUTER_API_KEY is required; no paid benchmark request was sent." >&2
+            exit 1
+          fi
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
@@ -110,17 +122,18 @@ jobs:
           AI_BENCHMARK_MODE: ${{ inputs.mode }}
           AI_BENCHMARK_MAX_TOKENS: "2048"
           AI_BENCHMARK_TIMEOUT_MS: "90000"
+          AI_BENCHMARK_MAX_COST_USD: "5"
           GITHUB_SHA: ${{ github.sha }}
         run: pnpm benchmark:recognition:ai
 
-      - name: Assert AI artifact contains no secrets
+      - name: Assert AI artifact contains no secrets or source bytes
         shell: bash
         run: |
           set -euo pipefail
           artifact="tools/recognition-benchmark/artifacts/ai/recognition-ai-benchmark.json"
           test -s "$artifact"
-          if grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-' "$artifact"; then
-            echo "AI benchmark artifact contains secret-like material" >&2
+          if grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-|data:image|base64|provider_headers|sourceImageDataUrl|overlayImageDataUrl|rawProviderResponse' "$artifact"; then
+            echo "AI benchmark artifact contains secret-like, provider-header, raw response or source-image material" >&2
             exit 1
           fi
 
