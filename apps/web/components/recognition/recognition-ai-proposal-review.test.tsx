@@ -1,6 +1,7 @@
 import {
   AI_PROPOSAL_SCHEMA_VERSION,
   createLocalDraftFingerprint,
+  validateRecognitionDraft,
   type RecognitionDraft,
   type RecognitionSessionRecord,
   type SanitizedRecognitionProposal,
@@ -169,16 +170,17 @@ const proposalDraft: RecognitionDraft = {
 };
 
 function session(draft: RecognitionDraft): RecognitionSessionRecord {
+  const validated = validateRecognitionDraft(draft);
   return {
     id: "session-1",
-    projectId: draft.projectId,
-    referenceAssetId: draft.referenceAssetId,
-    referenceRevision: draft.referenceRevision,
-    engineVersion: draft.engineVersion,
-    draft,
+    projectId: validated.projectId,
+    referenceAssetId: validated.referenceAssetId,
+    referenceRevision: validated.referenceRevision,
+    engineVersion: validated.engineVersion,
+    draft: validated,
     cloudMetadata: null,
     createdAt: now,
-    updatedAt: draft.updatedAt,
+    updatedAt: validated.updatedAt,
   };
 }
 
