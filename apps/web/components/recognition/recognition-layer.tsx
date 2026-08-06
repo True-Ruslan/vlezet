@@ -5,7 +5,10 @@ import type { ReferencePlan } from "@vlezet/projects";
 import type { NormalizedPoint, RecognitionDraft } from "@vlezet/recognition";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Circle, Group, Line, Text } from "react-konva";
-import type { RecognitionReviewFilter } from "./recognition-review-filter";
+import {
+  useRecognitionReviewFilter,
+  type RecognitionReviewFilter,
+} from "./recognition-review-filter";
 
 const CONFIDENCE_STROKE = {
   high: "#16a34a",
@@ -39,7 +42,8 @@ export type RecognitionLayerProps = Readonly<{
 }>;
 
 export function RecognitionLayer(props: RecognitionLayerProps) {
-  const reviewFilter = props.reviewFilter ?? "all";
+  const sharedReviewFilter = useRecognitionReviewFilter();
+  const reviewFilter = props.reviewFilter ?? sharedReviewFilter;
   const questionedLocalIds = new Set(
     props.draft.aiProposals
       .filter((proposal) => proposal.kind === "local-wall-review" && proposal.targetLocalCandidateId)
