@@ -4,6 +4,7 @@ export type {
   SanitizedAiOpeningProposal,
 } from "./ai-opening-sanitizer";
 export { sanitizeAiOpeningProposal } from "./ai-opening-sanitizer-runtime";
+export * from "./ai-proposal-apply";
 export * from "./ai-proposal-reconcile";
 export type {
   RecognitionAiProviderIdentity,
