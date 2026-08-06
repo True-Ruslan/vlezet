@@ -1,15 +1,20 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
 export type UiCardVariant = "neutral" | "selectable" | "result" | "evidence";
 
-export type UiCardProps = Readonly<{
+export type UiCardProps = Readonly<Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   variant?: UiCardVariant;
   selected?: boolean;
   children: ReactNode;
-  className?: string;
 }>;
 
-export function UiCard({ variant = "neutral", selected = false, children, className }: UiCardProps) {
+export function UiCard({
+  variant = "neutral",
+  selected = false,
+  children,
+  className,
+  ...attributes
+}: UiCardProps) {
   const classes = [
     "ui-card",
     `ui-card-${variant}`,
@@ -18,7 +23,12 @@ export function UiCard({ variant = "neutral", selected = false, children, classN
   ].filter(Boolean).join(" ");
 
   return (
-    <div className={classes} data-variant={variant} data-selected={selected || undefined}>
+    <div
+      {...attributes}
+      className={classes}
+      data-variant={variant}
+      data-selected={selected || undefined}
+    >
       {children}
     </div>
   );
