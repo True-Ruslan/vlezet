@@ -49,6 +49,15 @@ describe("hybrid AI proposal orchestration source contract", () => {
     expect(proposalFlow).toContain("sanitized: sanitizedResult.sanitized");
   });
 
+  it("requires exact new request metadata before reporting proposal discovery success", () => {
+    expect(workflowSource).toContain("completedRequestId = requestId");
+    expect(workflowSource).toContain("appliedRequestId !== completedRequestId");
+    expect(workflowSource).toContain("предыдущие валидные предложения сохранены");
+    expect(projectAppSource).toContain("await runRecognitionAiProposalDiscovery");
+    expect(projectAppSource.indexOf("await runRecognitionAiProposalDiscovery"))
+      .toBeLessThan(projectAppSource.indexOf("AI-поиск завершён"));
+  });
+
   it("keeps local-only recognition available while proposal discovery requires an explicit provider selection", () => {
     expect(projectAppSource).toContain('"verification" | "proposals"');
     expect(projectAppSource).toContain("setCloudDialogPurpose(\"proposals\")");
