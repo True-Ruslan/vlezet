@@ -17,6 +17,7 @@
     "benchmark:recognition:real-source-score": "node tools/recognition-benchmark/run-real-source-score.mjs",
     "benchmark:recognition:m7-8c-gate": "node tools/recognition-benchmark/m7-8c-opening-gate.mjs",
     "benchmark:recognition:ai-proposal-gate": "node tools/recognition-benchmark/ai-proposal-gate.mjs",
+    "benchmark:recognition:ai-proposal-qualify": "node tools/recognition-benchmark/ai-benchmark/proposal-qualification.mjs",
     "benchmark:recognition:real:generate": "node tools/recognition-benchmark/generate-real-fixture-assets.mjs",
     "benchmark:recognition:real:verify": "node tools/recognition-benchmark/verify-real-fixtures.mjs",
     "benchmark:recognition:real:gate": "node tools/recognition-benchmark/real-fixture-gate.mjs",
