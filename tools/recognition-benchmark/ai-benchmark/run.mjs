@@ -25,6 +25,7 @@ const DEFAULT_REPRESENTATIVE_FIXTURES = [
   "real-plan-002-anonymized",
   "real-plan-008-anonymized",
 ];
+const AI_BENCHMARK_MODES = new Set(["verification", "disputed-zones", "proposal-discovery-stage1"]);
 
 function commaList(value, fallback) {
   if (typeof value !== "string" || value.trim().length === 0) return fallback;
@@ -36,6 +37,20 @@ function integerEnvironment(value, fallback) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) throw new Error(`Expected an integer, received '${value}'.`);
   return parsed;
+}
+
+function numberEnvironment(value, fallback) {
+  if (typeof value !== "string" || value.trim().length === 0) return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error(`Expected a finite number, received '${value}'.`);
+  return parsed;
+}
+
+function modeEnvironment(value) {
+  if (typeof value !== "string" || value.trim().length === 0) return "disputed-zones";
+  const mode = value.trim();
+  if (!AI_BENCHMARK_MODES.has(mode)) throw new Error(`Unsupported AI benchmark mode '${mode}'.`);
+  return mode;
 }
 
 async function readJson(path, label) {
@@ -93,12 +108,18 @@ export function configFromEnvironment(environment = process.env) {
     repetitions: integerEnvironment(environment.AI_BENCHMARK_REPETITIONS, 3),
     maximumTokens: integerEnvironment(environment.AI_BENCHMARK_MAX_TOKENS, 2048),
     timeoutMs: integerEnvironment(environment.AI_BENCHMARK_TIMEOUT_MS, 90_000),
-    mode: environment.AI_BENCHMARK_MODE === "verification" ? "verification" : "disputed-zones",
+    maximumCostUsd: numberEnvironment(environment.AI_BENCHMARK_MAX_COST_USD, 5),
+    mode: modeEnvironment(environment.AI_BENCHMARK_MODE),
   });
 }
 
 export async function runAiBenchmark(input = {}) {
   const config = input.config ?? configFromEnvironment(input.environment);
+  if (config.mode === "proposal-discovery-stage1") {
+    throw new Error(
+      "proposal-discovery-stage1 requires the dedicated live proposal qualification harness; no paid request was sent.",
+    );
+  }
   const fixturesRoot = resolve(input.fixturesRoot ?? DEFAULT_FIXTURES_ROOT);
   const predictionsRoot = resolve(input.predictionsRoot ?? DEFAULT_PREDICTIONS_ROOT);
   const outputPath = resolve(input.outputPath ?? DEFAULT_OUTPUT_PATH);
