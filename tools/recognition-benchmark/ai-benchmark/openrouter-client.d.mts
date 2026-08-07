@@ -28,6 +28,18 @@ export type AiLocalSummary = Readonly<{
   openings: readonly (AiLocalCandidate & Readonly<{ kind: "door" | "window" | "unknown-opening" }>)[];
 }>;
 
+export type AiBenchmarkFetchResponse = Readonly<{
+  ok: boolean;
+  status?: number;
+  json(): Promise<unknown>;
+  text(): Promise<string>;
+}>;
+
+export type AiBenchmarkFetcher = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<AiBenchmarkFetchResponse>;
+
 export function normalizeVerificationResponse(
   payload: unknown,
   localSummary: AiLocalSummary,
@@ -37,7 +49,7 @@ export function redactAiBenchmarkText(value: unknown): string;
 
 export function createOpenRouterBenchmarkClient(input: Readonly<{
   apiKey: string;
-  fetcher?: typeof fetch;
+  fetcher?: AiBenchmarkFetcher;
 }>): Readonly<{
   verify(input: Readonly<{
     modelId: string;
@@ -46,6 +58,8 @@ export function createOpenRouterBenchmarkClient(input: Readonly<{
     maximumTokens: number;
     timeoutMs: number;
     mode: "verification" | "disputed-zones";
+    maximumPromptPricePerMillionUsd: number;
+    maximumCompletionPricePerMillionUsd: number;
     signal?: AbortSignal;
   }>): Promise<Readonly<{
     response: AiVerificationResponse;
