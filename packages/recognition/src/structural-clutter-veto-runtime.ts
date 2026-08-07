@@ -4,6 +4,7 @@ import {
   takeStructuralSegmentsForWalls,
 } from "./recognition-runtime-context";
 import { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime";
+import { recoverStrongMaskRotatedDoorHosts } from "./strong-mask-rotated-door-host-recovery";
 import { recoverStrongMaskRotatedWalls } from "./strong-mask-rotated-wall-recovery";
 import {
   applyStructuralClutterVeto as applyStructuralClutterVetoBase,
@@ -57,7 +58,22 @@ export function applyStructuralClutterVeto(
         recoveredCount: 0,
         diagnostics: [],
       };
-  const initialExtension = extend(input, rotated.walls);
+  const rotatedDoorHosts = structuralSegments
+    ? recoverStrongMaskRotatedDoorHosts({
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        primaryWalls: rotated.walls,
+        structuralSegments,
+        symbolSegments: input.symbolSegments,
+        mask: input.mask,
+      })
+    : {
+        walls: rotated.walls,
+        recoveredWalls: [],
+        recoveredCount: 0,
+        diagnostics: [],
+      };
+  const initialExtension = extend(input, rotatedDoorHosts.walls);
   const segmented = recoverSegmentedBoundaryWalls({
     widthPx: input.widthPx,
     heightPx: input.heightPx,
@@ -69,6 +85,7 @@ export function applyStructuralClutterVeto(
     + finalExtension.acceptedExtensionCount;
   if (
     rotated.recoveredCount === 0
+    && rotatedDoorHosts.recoveredCount === 0
     && segmented.recoveredWalls.length === 0
     && acceptedExtensionCount === 0
   ) return withRuntimeMask(base, input);
@@ -76,6 +93,7 @@ export function applyStructuralClutterVeto(
   const diagnostics: RecognitionDiagnostic[] = [
     ...base.diagnostics,
     ...rotated.diagnostics,
+    ...rotatedDoorHosts.diagnostics,
     ...segmented.diagnostics,
   ];
   if (acceptedExtensionCount > 0) {
