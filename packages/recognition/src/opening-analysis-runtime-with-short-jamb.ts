@@ -6,6 +6,7 @@ import type {
   OpeningHypothesisRejection,
   ValidateOpeningHypothesesInput,
 } from "./opening-analysis";
+import { deduplicateOpeningCandidatesAcrossHosts } from "./opening-cross-host-dedup";
 import { retryRemoteTerminalDoor } from "./opening-analysis-remote-terminal-door-retry";
 import { retryTerminalPartitionDoor } from "./opening-analysis-terminal-partition-door-retry";
 import {
@@ -254,10 +255,16 @@ export function analyzeOpeningHypotheses(input: AnalyzeOpeningHypothesesInput): 
     if (candidate) recovered.set(rejection.candidateId, candidate);
   }
   if (recovered.size === 0) return base;
-  return {
+  const merged = {
     candidates: [...base.candidates, ...recovered.values()].sort((first, second) => first.id.localeCompare(second.id)),
     rejections: base.rejections.filter(({ candidateId }) => !recovered.has(candidateId)),
   };
+  return deduplicateOpeningCandidatesAcrossHosts(
+    merged,
+    input.wallCandidates,
+    input.widthPx,
+    input.heightPx,
+  );
 }
 
 export function validateOpeningHypotheses(input: ValidateOpeningHypothesesInput): OpeningAnalysisResult {
