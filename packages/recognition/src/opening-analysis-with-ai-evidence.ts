@@ -6,7 +6,7 @@ import type {
 import {
   analyzeOpeningHypotheses as analyzeOpeningHypothesesBase,
   validateOpeningHypotheses,
-} from "./opening-analysis-runtime-with-window-proposals";
+} from "./opening-analysis-runtime-with-short-jamb";
 import { registerPendingAiLocalEvidenceContext } from "./recognition-runtime-context";
 
 export { validateOpeningHypotheses };
