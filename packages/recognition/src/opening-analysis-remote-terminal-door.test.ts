@@ -4,8 +4,12 @@ import type {
   RecognitionOpeningCandidate,
   RecognitionWallCandidate,
 } from "./model";
+import { retryRemoteTerminalDoor } from "./opening-analysis-remote-terminal-door-retry";
+import {
+  analyzeOpeningHypotheses,
+  validateOpeningHypotheses,
+} from "./opening-analysis-runtime-with-short-jamb";
 import type { StructuralMaskView } from "./wall-completion";
-import { analyzeOpeningHypotheses } from "./opening-analysis-runtime-with-short-jamb";
 
 const WIDTH = 1000;
 const HEIGHT = 600;
@@ -119,10 +123,28 @@ describe("remote terminal door validation retry", () => {
   });
 
   it("keeps outside-host rejection without the exact short-jamb provenance", () => {
-    const result = analyze({ opening: candidate(false) });
+    const generic = candidate(false);
+    const validation = validateOpeningHypotheses({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [wall()],
+      hypotheses: [generic],
+    });
+    expect(validation.candidates).toEqual([]);
+    const rejection = validation.rejections.find(({ candidateId }) => candidateId === generic.id);
+    expect(rejection?.code).toBe("opening-outside-host-span");
+    expect(rejection).toBeDefined();
 
-    expect(result.candidates).toEqual([]);
-    expect(result.rejections.some(({ code }) => code === "opening-outside-host-span")).toBe(true);
+    const retried = retryRemoteTerminalDoor({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [wall()],
+      symbolSegments: [leaf],
+      structuralMask: mask(),
+      additionalHypotheses: [generic],
+    }, rejection!);
+
+    expect(retried).toBeNull();
   });
 
   it("keeps outside-host rejection when remote structural support is absent", () => {
