@@ -8,6 +8,7 @@ import type {
   AnalyzeOpeningHypothesesInput,
   OpeningHypothesisRejection,
 } from "./opening-analysis";
+import { retryPairedBoundaryDoor } from "./opening-analysis-paired-boundary-door-retry";
 
 const EPSILON = 1e-7;
 const MAX_WALLS = 128;
@@ -156,11 +157,12 @@ export function retryExteriorTerminalDoor(
   input: AnalyzeOpeningHypothesesInput,
   rejection: OpeningHypothesisRejection,
 ): RecognitionOpeningCandidate | null {
+  if (!reasonsAreExact(rejection)) return retryPairedBoundaryDoor(input, rejection);
+
   const mask = input.structuralMask;
   const segments = input.symbolSegments;
   if (
-    !reasonsAreExact(rejection)
-    || !mask
+    !mask
     || mask.widthPx !== input.widthPx
     || mask.heightPx !== input.heightPx
     || !segments?.length
