@@ -155,6 +155,8 @@ export async function runAiBenchmark(input = {}) {
             maximumTokens: config.maximumTokens,
             timeoutMs: config.timeoutMs,
             mode: config.mode,
+            maximumPromptPricePerMillionUsd: config.maximumPromptPricePerMillionUsd,
+            maximumCompletionPricePerMillionUsd: config.maximumCompletionPricePerMillionUsd,
           });
           runs.push({
             modelId,
