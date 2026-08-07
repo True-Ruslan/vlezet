@@ -293,7 +293,7 @@ function recover(
     id,
     start: { x: clamp(startPx.x / widthPx, 0, 1), y: clamp(startPx.y / heightPx, 0, 1) },
     end: { x: clamp(endPx.x / widthPx, 0, 1), y: clamp(endPx.y / heightPx, 0, 1) },
-    estimatedThicknessPx: clamp((jamb.thicknessPx + downstream.thicknessPx) / 2, 8, 80),
+    estimatedThicknessPx: clamp(downstream.thicknessPx, 8, 80),
     confidence: "medium",
     evidence: {
       localScore: 0.76,
@@ -342,9 +342,12 @@ export function recoverWindowBoundaryBands(input: Readonly<{
     recovered.push(value);
   }
   recovered.sort((a, b) => a.wall.id.localeCompare(b.wall.id));
+  const recoveredWalls = recovered.map((item) => item.wall);
   return {
-    walls: recovered.length ? [...input.wallCandidates, ...recovered.map((item) => item.wall)] : input.wallCandidates,
-    recoveredWalls: recovered.map((item) => item.wall),
+    walls: recovered.length
+      ? [...input.wallCandidates, ...recoveredWalls].sort((a, b) => a.id.localeCompare(b.id))
+      : input.wallCandidates,
+    recoveredWalls,
     proposalEvidence: recovered.map((item) => item.evidence),
     diagnostics: recovered.length >= MAX_RECOVERIES ? ["window-boundary-band-recovery-budget-reached"] : [],
   };
