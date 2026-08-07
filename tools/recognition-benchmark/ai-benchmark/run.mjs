@@ -27,6 +27,7 @@ const DEFAULT_REPRESENTATIVE_FIXTURES = [
   "real-plan-008-anonymized",
 ];
 const AI_BENCHMARK_MODES = new Set(["verification", "disputed-zones", "proposal-discovery-stage1"]);
+const COST_EPSILON_USD = 1e-9;
 
 function commaList(value, fallback) {
   if (typeof value !== "string" || value.trim().length === 0) return fallback;
@@ -102,6 +103,25 @@ function safetyViolationsFromError(error) {
   return { message, violations };
 }
 
+function observedRequestCost(usage) {
+  const cost = usage?.costUsd;
+  return typeof cost === "number" && Number.isFinite(cost) && cost >= 0 ? cost : null;
+}
+
+function boundedProviderMaxPrice(allocation, config) {
+  return Object.freeze({
+    ...allocation.providerMaxPrice,
+    prompt: Math.min(
+      allocation.providerMaxPrice.prompt,
+      config.maximumPromptPricePerMillionUsd,
+    ),
+    completion: Math.min(
+      allocation.providerMaxPrice.completion,
+      config.maximumCompletionPricePerMillionUsd,
+    ),
+  });
+}
+
 export function configFromEnvironment(environment = process.env) {
   return validateAiBenchmarkConfig({
     modelIds: commaList(environment.AI_BENCHMARK_MODELS, ["google/gemini-2.5-flash"]),
@@ -160,12 +180,16 @@ export async function runAiBenchmark(input = {}) {
     descriptors.set(modelId, descriptor);
   }
 
-  const totalRequestCount = config.modelIds.length * prepared.length * config.repetitions;
+  const plannedRunCount = config.modelIds.length * prepared.length * config.repetitions;
   const costBudget = createAiBenchmarkCostBudget({
     maximumCostUsd: config.maximumCostUsd,
-    totalRequestCount,
+    totalRequestCount: plannedRunCount,
   });
   const runs = [];
+  let observedCostUsd = 0;
+  let stopReason = null;
+
+  benchmarkLoop:
   for (const modelId of config.modelIds) {
     const descriptor = descriptors.get(modelId);
     if (!descriptor) throw new Error(`Model descriptor for '${modelId}' is unavailable.`);
@@ -185,7 +209,7 @@ export async function runAiBenchmark(input = {}) {
             maximumTokens: config.maximumTokens,
             timeoutMs: config.timeoutMs,
             mode: config.mode,
-            providerMaxPrice: allocation.providerMaxPrice,
+            providerMaxPrice: boundedProviderMaxPrice(allocation, config),
             disableReasoning: descriptor.supportsReasoning,
           });
           runs.push({
@@ -201,6 +225,24 @@ export async function runAiBenchmark(input = {}) {
             safetyViolations: [],
             error: null,
           });
+
+          const requestCostUsd = observedRequestCost(result.usage);
+          if (requestCostUsd === null) {
+            stopReason = "usage-cost-missing";
+            break benchmarkLoop;
+          }
+          observedCostUsd += requestCostUsd;
+          if (observedCostUsd > config.maximumCostUsd + COST_EPSILON_USD) {
+            stopReason = "cost-budget-exceeded";
+            break benchmarkLoop;
+          }
+          if (
+            observedCostUsd >= config.maximumCostUsd - COST_EPSILON_USD
+            && runs.length < plannedRunCount
+          ) {
+            stopReason = "cost-budget-reached";
+            break benchmarkLoop;
+          }
         } catch (cause) {
           const failure = safetyViolationsFromError(cause);
           runs.push({
@@ -216,14 +258,25 @@ export async function runAiBenchmark(input = {}) {
             safetyViolations: failure.violations,
             error: failure.message,
           });
+          stopReason = "usage-cost-unobservable-after-request-error";
+          break benchmarkLoop;
         }
       }
     }
   }
 
+  const execution = {
+    plannedRunCount,
+    completedRunCount: runs.length,
+    maximumCostUsd: config.maximumCostUsd,
+    observedCostUsd,
+    complete: stopReason === null && runs.length === plannedRunCount,
+    stopReason,
+  };
   const report = buildAiBenchmarkReport({
     config,
     runs,
+    execution,
     commitSha: input.commitSha ?? input.environment?.GITHUB_SHA ?? process.env.GITHUB_SHA ?? null,
   });
   await mkdir(dirname(outputPath), { recursive: true });
@@ -237,6 +290,12 @@ async function main() {
     process.stdout.write(
       `${model.modelId}: stable=${model.score.stableDecisionRate.toFixed(3)}, schema-fail=${model.score.schemaFailureRate.toFixed(3)}, safety=${model.score.safetyViolationCount}, qualified=false\n`,
     );
+  }
+  process.stdout.write(
+    `AI benchmark spend: observed=$${report.execution.observedCostUsd.toFixed(6)}, cap=$${report.execution.maximumCostUsd.toFixed(2)}, completed=${report.execution.completedRunCount}/${report.execution.plannedRunCount}\n`,
+  );
+  if (!report.execution.complete) {
+    throw new Error(`AI benchmark stopped fail-closed: ${report.execution.stopReason ?? "incomplete-execution"}.`);
   }
 }
 
