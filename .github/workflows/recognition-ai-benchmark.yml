@@ -137,6 +137,16 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: pnpm benchmark:recognition:ai
 
+      - name: Evaluate verification benchmark qualification
+        if: ${{ always() && inputs.mode != 'proposal-discovery-stage1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm benchmark:recognition:ai-qualify
+          review="tools/recognition-benchmark/artifacts/ai/recognition-ai-verification-qualification.md"
+          test -s "$review"
+          cat "$review" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run bounded Stage 1 live proposal benchmark
         if: ${{ inputs.mode == 'proposal-discovery-stage1' }}
         working-directory: tools/recognition-benchmark
@@ -185,7 +195,10 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          artifacts=(tools/recognition-benchmark/artifacts/ai/*.json)
+          artifacts=(
+            tools/recognition-benchmark/artifacts/ai/*.json
+            tools/recognition-benchmark/artifacts/ai/*.md
+          )
           if [ "${#artifacts[@]}" -gt 0 ] && grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-|data:image|base64|provider_headers|sourceImageDataUrl|overlayImageDataUrl|rawProviderResponse' "${artifacts[@]}"; then
             echo "AI benchmark artifact contains secret-like, provider-header, raw response or source-image material" >&2
             exit 1
