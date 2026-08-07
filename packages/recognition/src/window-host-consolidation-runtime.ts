@@ -154,7 +154,9 @@ function filterTerminalRecovery(
   result: WindowTerminalHostRecoveryResult,
   input: WindowHostConsolidationInput,
 ): WindowTerminalHostRecoveryResult {
-  if (result.proposalEvidence.length === 0) return result;
+  if (result.proposalEvidence.length === 0) {
+    return { ...result, walls: input.wallCandidates };
+  }
   const byId = new Map(input.wallCandidates.map((candidate) => [candidate.id, candidate]));
   const acceptedEvidence: WindowHostProposalEvidence[] = [];
   const diagnostics = [...result.diagnostics];
@@ -177,10 +179,11 @@ function filterTerminalRecovery(
     acceptedEvidence.push(evidence);
   }
   const acceptedIds = new Set(acceptedEvidence.map((evidence) => evidence.generatedHost.candidateId));
-  const originalIds = new Set(input.wallCandidates.map((candidate) => candidate.id));
-  const recoveredHosts = result.recoveredHosts.filter((candidate) => acceptedIds.has(candidate.id));
+  const recoveredHosts = result.recoveredHosts
+    .filter((candidate) => acceptedIds.has(candidate.id))
+    .sort((first, second) => first.id.localeCompare(second.id));
   return {
-    walls: result.walls.filter((candidate) => originalIds.has(candidate.id) || acceptedIds.has(candidate.id)),
+    walls: [...input.wallCandidates, ...recoveredHosts],
     recoveredHosts,
     recoveredHostCount: recoveredHosts.length,
     proposalEvidence: acceptedEvidence,
