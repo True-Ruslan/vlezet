@@ -18,7 +18,7 @@ describe("OpenRouter paid benchmark routing boundary", () => {
     const fetcher: AiBenchmarkFetcher = async (url, init) => {
       calls.push([url, init]);
       return jsonResponse({
-        choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) }],
+        choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) } }],
         usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cost: 0.001 },
       });
     };

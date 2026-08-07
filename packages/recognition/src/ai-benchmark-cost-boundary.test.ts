@@ -79,7 +79,7 @@ describe("manual AI benchmark hard cost boundary", () => {
       }
       return jsonResponse({
         provider: "bounded-provider",
-        choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) }],
+        choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) } }],
         usage: { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110, cost: 0.001 },
       });
     };

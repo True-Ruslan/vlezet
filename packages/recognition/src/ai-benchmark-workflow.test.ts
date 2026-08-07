@@ -32,7 +32,8 @@ describe("AI benchmark workflow boundaries", () => {
     expect(paidSource).toContain("OPENROUTER_API_KEY:");
     expect(paidSource).not.toMatch(/sk-or-v1-[A-Za-z0-9_-]{16,}/);
     expect(paidSource).not.toContain("echo $OPENROUTER_API_KEY");
-    expect(paidSource).toContain("Assert AI artifact contains no secrets or source bytes");
+    expect(paidSource).toContain("Assert produced evidence contains no secrets or source bytes");
+    expect(paidSource).toContain("steps.artifact_safety.outcome == 'success'");
     expect(paidSource).toContain("grep -Eiq 'sk-or-v1-");
     for (const marker of [
       "Authorization",
@@ -50,18 +51,30 @@ describe("AI benchmark workflow boundaries", () => {
   it("keeps model, fixture, repetition, token, timeout and cost bounds explicit", () => {
     expect(paidSource).toContain("maximum 3");
     expect(paidSource).toContain("maximum 12");
-    expect(paidSource).toContain("(1-5)");
+    expect(paidSource).toContain("1-5");
+    expect(paidSource).toContain("Stage 1 requires at least 3");
     expect(paidSource).toContain("AI_BENCHMARK_MAX_TOKENS: \"2048\"");
     expect(paidSource).toContain("AI_BENCHMARK_TIMEOUT_MS: \"90000\"");
     expect(paidSource).toContain("AI_BENCHMARK_MAX_COST_USD: \"5\"");
   });
 
   it("generates public fixtures, runs local OpenCV first and only then permits bounded paid analysis", () => {
-    expect(paidSource).toContain("Generate public real-plan analogue fixtures");
-    expect(paidSource).toContain("Verify public real-plan analogue fixtures");
-    expect(paidSource).toContain("Assert no private source bytes are committed");
-    expect(paidSource).toContain("Run real source OpenCV benchmark");
-    expect(paidSource).toContain("Run bounded OpenRouter benchmark");
+    for (const marker of [
+      "Generate public real-plan analogue fixtures",
+      "Verify public real-plan analogue fixtures",
+      "Assert no private source bytes are committed",
+      "Run real source OpenCV benchmark",
+      "Run bounded OpenRouter verification benchmark",
+      "Run bounded Stage 1 live proposal benchmark",
+    ]) {
+      expect(paidSource).toContain(marker);
+    }
+    const localIndex = paidSource.indexOf("Run real source OpenCV benchmark");
+    const verificationIndex = paidSource.indexOf("Run bounded OpenRouter verification benchmark");
+    const proposalIndex = paidSource.indexOf("Run bounded Stage 1 live proposal benchmark");
+    expect(localIndex).toBeGreaterThanOrEqual(0);
+    expect(verificationIndex).toBeGreaterThan(localIndex);
+    expect(proposalIndex).toBeGreaterThan(localIndex);
   });
 
   it("uploads only normalized evidence with finite retention", () => {
