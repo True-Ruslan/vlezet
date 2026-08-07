@@ -30,10 +30,10 @@ export type {
   DoorOpeningEligibility,
 } from "./door-host-consolidation";
 export { consolidateDoorHostWalls } from "./door-host-consolidation-runtime";
+export * from "./door-host-residual-reconsolidation";
 export * from "./draft-fingerprint";
 export { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 export {
-  analyzeWallCandidates,
   buildWallCandidates,
   createAdaptiveLocalRecognitionOptions,
   DEFAULT_LOCAL_RECOGNITION_OPTIONS,
@@ -45,6 +45,7 @@ export type {
   LocalRecognitionOptions,
   LocalWallCandidateAnalysis,
 } from "./local-lines";
+export { analyzeWallCandidates } from "./local-lines-runtime";
 export * from "./model";
 export { DEFAULT_OPENING_ANALYSIS_OPTIONS } from "./opening-analysis";
 export type {
@@ -68,7 +69,9 @@ export * from "./review-selection";
 export type { SegmentedBoundaryRecoveryResult } from "./segmented-boundary-recovery";
 export { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime";
 export * from "./session";
-export * from "./source-scale";
+export { sourceRasterPixelScale } from "./source-scale";
+export { rescaleRecognitionPixelEvidence } from "./source-scale-runtime";
+export * from "./strong-mask-rotated-wall-recovery";
 export type {
   StructuralClutterCandidateAnalysis,
   StructuralClutterVetoResult,
@@ -95,6 +98,7 @@ export { completeWallCenterlines } from "./wall-completion-runtime";
 export * from "./wall-evidence-filter";
 export * from "./wall-evidence-fusion";
 export * from "./wall-topology";
+export * from "./window-boundary-band-recovery";
 export type { WindowHostConsolidationInput } from "./window-host-consolidation";
 export type {
   WindowHostAnnotatedWallCandidate,
