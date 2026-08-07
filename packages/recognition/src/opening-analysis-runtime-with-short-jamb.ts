@@ -15,6 +15,7 @@ import {
   validateOpeningHypotheses as validateOpeningHypothesesBase,
 } from "./opening-analysis-runtime-with-window-proposals";
 import { vetoNarrowStructuralBoundaryFallbackWindows } from "./opening-structural-boundary-fallback-veto";
+import { detectPairedBoundaryDoorGaps } from "./paired-boundary-door-gap";
 import type { StructuralMaskView } from "./wall-completion";
 
 const REQUIRED_MARGIN_PX = 24;
@@ -254,7 +255,22 @@ function applyFinalFallbackPolicy(
 }
 
 export function analyzeOpeningHypotheses(input: AnalyzeOpeningHypothesesInput): OpeningAnalysisResult {
-  const base = analyzeOpeningHypothesesBase(input);
+  const pairedBoundaryHypotheses = input.structuralMask && input.symbolSegments?.length
+    ? detectPairedBoundaryDoorGaps({
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        wallCandidates: input.wallCandidates,
+        symbolSegments: input.symbolSegments,
+        mask: input.structuralMask,
+      })
+    : [];
+  const base = analyzeOpeningHypothesesBase({
+    ...input,
+    additionalHypotheses: [
+      ...(input.additionalHypotheses ?? []),
+      ...pairedBoundaryHypotheses,
+    ],
+  });
   if (!input.structuralMask || !input.symbolSegments?.length || base.rejections.length === 0) {
     return applyFinalFallbackPolicy(base, input);
   }
