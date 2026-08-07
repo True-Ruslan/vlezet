@@ -90,6 +90,33 @@ describe("exterior terminal door recovery", () => {
     expect(opening?.orientationDeg).toBeCloseTo(90, 0);
   });
 
+  it("keeps one representative leaf when opposite host faces produce the same terminal opening", () => {
+    const shortFaceLeaf: DetectedLineSegment = {
+      x1: HOST_X - 14,
+      y1: HINGE_Y,
+      x2: HOST_X - 14 - 78,
+      y2: HINGE_Y,
+    };
+    const fullFaceLeaf: DetectedLineSegment = {
+      x1: HOST_X + 14,
+      y1: HINGE_Y + 1,
+      x2: HOST_X + 14 - 103,
+      y2: HINGE_Y + 1,
+    };
+    const result = detectContinuousHostDoorOpenings({
+      widthPx: WIDTH,
+      heightPx: HEIGHT,
+      wallCandidates: [host()],
+      symbolSegments: [shortFaceLeaf, fullFaceLeaf],
+      mask: mask(),
+    });
+    const exterior = result.openingHypotheses.filter((candidate) =>
+      candidate.evidence.reasons.includes("exterior-terminal-door-leaf"));
+
+    expect(exterior).toHaveLength(1);
+    expect(exterior[0]?.widthPx).toBeCloseTo(103, 0);
+  });
+
   it("rejects the exterior door when the short continuation is not structural", () => {
     expect(detect({ structuralMask: mask({ continuation: false }) }).openingHypotheses
       .some((candidate) => candidate.evidence.reasons.includes("exterior-terminal-door-leaf")))
