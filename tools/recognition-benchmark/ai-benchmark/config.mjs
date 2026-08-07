@@ -5,6 +5,8 @@ export const DEFAULT_AI_BENCHMARK_LIMITS = Object.freeze({
   maximumTokens: 2048,
   timeoutMs: 90_000,
   maximumCostUsd: 5,
+  maximumPromptPricePerMillionUsd: 3,
+  maximumCompletionPricePerMillionUsd: 15,
 });
 
 const ALLOWED_MODES = new Set(["verification", "disputed-zones", "proposal-discovery-stage1"]);
@@ -16,9 +18,14 @@ function boundedInteger(value, label, minimum, maximum) {
   return value;
 }
 
-function boundedNumber(value, label, minimum, maximum) {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) {
-    throw new Error(`${label} must be a number between ${minimum} and ${maximum}.`);
+function boundedNumber(value, label, minimumExclusive, maximum) {
+  if (
+    typeof value !== "number"
+    || !Number.isFinite(value)
+    || value <= minimumExclusive
+    || value > maximum
+  ) {
+    throw new Error(`${label} cost must be a finite number greater than ${minimumExclusive} and at most ${maximum}.`);
   }
   return value;
 }
@@ -66,7 +73,7 @@ export function validateAiBenchmarkConfig(input) {
   const maximumCostUsd = boundedNumber(
     input.maximumCostUsd ?? DEFAULT_AI_BENCHMARK_LIMITS.maximumCostUsd,
     "maximumCostUsd",
-    0.01,
+    0,
     DEFAULT_AI_BENCHMARK_LIMITS.maximumCostUsd,
   );
   if (!ALLOWED_MODES.has(input.mode)) {
@@ -80,6 +87,8 @@ export function validateAiBenchmarkConfig(input) {
     maximumTokens,
     timeoutMs,
     maximumCostUsd,
+    maximumPromptPricePerMillionUsd: DEFAULT_AI_BENCHMARK_LIMITS.maximumPromptPricePerMillionUsd,
+    maximumCompletionPricePerMillionUsd: DEFAULT_AI_BENCHMARK_LIMITS.maximumCompletionPricePerMillionUsd,
     mode: input.mode,
     qualified: false,
   });
