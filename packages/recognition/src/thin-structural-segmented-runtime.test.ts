@@ -8,7 +8,7 @@ const runtimeSource = readFileSync(
 );
 
 describe("segmented boundary production runtime", () => {
-  it("runs between the existing and follow-up one-sided extension passes", () => {
+  it("runs after rotated wall and door-host recovery, between the two one-sided extension passes", () => {
     expect(indexSource).toContain(
       'export { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime"',
     );
@@ -21,15 +21,26 @@ describe("segmented boundary production runtime", () => {
     expect(indexSource).toContain('export * from "./thin-structural-recovery"');
     expect(runtimeSource).toContain("applyStructuralClutterVetoBase");
     expect(runtimeSource).toContain("recoverStrongMaskRotatedWalls");
-    expect(runtimeSource).toContain("const initialExtension = extend(input, rotated.walls)");
+    expect(runtimeSource).toContain("recoverStrongMaskRotatedDoorHosts");
+    expect(runtimeSource).toContain("primaryWalls: rotated.walls");
+    expect(runtimeSource).toContain("const initialExtension = extend(input, rotatedDoorHosts.walls)");
     expect(runtimeSource).toContain("recoverSegmentedBoundaryWalls");
     expect(runtimeSource).toContain("wallCandidates: initialExtension.walls");
     expect(runtimeSource).toContain("const finalExtension = extend(input, segmented.walls)");
-    expect(runtimeSource.indexOf("recoverStrongMaskRotatedWalls")).toBeLessThan(
-      runtimeSource.indexOf("const initialExtension = extend(input, rotated.walls)"),
+
+    const rotatedIndex = runtimeSource.indexOf("recoverStrongMaskRotatedWalls({");
+    const doorHostIndex = runtimeSource.indexOf("recoverStrongMaskRotatedDoorHosts({");
+    const initialExtensionIndex = runtimeSource.indexOf(
+      "const initialExtension = extend(input, rotatedDoorHosts.walls)",
     );
-    expect(runtimeSource.indexOf("const initialExtension = extend(input, rotated.walls)")).toBeLessThan(
-      runtimeSource.indexOf("recoverSegmentedBoundaryWalls({"),
+    const segmentedIndex = runtimeSource.indexOf("recoverSegmentedBoundaryWalls({");
+    const finalExtensionIndex = runtimeSource.indexOf(
+      "const finalExtension = extend(input, segmented.walls)",
     );
+    expect(rotatedIndex).toBeGreaterThanOrEqual(0);
+    expect(rotatedIndex).toBeLessThan(doorHostIndex);
+    expect(doorHostIndex).toBeLessThan(initialExtensionIndex);
+    expect(initialExtensionIndex).toBeLessThan(segmentedIndex);
+    expect(segmentedIndex).toBeLessThan(finalExtensionIndex);
   });
 });
