@@ -25,6 +25,7 @@ const DEFAULT_REPRESENTATIVE_FIXTURES = [
   "real-plan-002-anonymized",
   "real-plan-008-anonymized",
 ];
+const COST_EPSILON_USD = 1e-9;
 
 function commaList(value, fallback) {
   if (typeof value !== "string" || value.trim().length === 0) return fallback;
@@ -35,6 +36,13 @@ function integerEnvironment(value, fallback) {
   if (typeof value !== "string" || value.trim().length === 0) return fallback;
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) throw new Error(`Expected an integer, received '${value}'.`);
+  return parsed;
+}
+
+function numberEnvironment(value, fallback) {
+  if (typeof value !== "string" || value.trim().length === 0) return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error(`Expected a finite number, received '${value}'.`);
   return parsed;
 }
 
@@ -86,6 +94,11 @@ function safetyViolationsFromError(error) {
   return { message, violations };
 }
 
+function observedRequestCost(usage) {
+  const cost = usage?.costUsd;
+  return typeof cost === "number" && Number.isFinite(cost) && cost >= 0 ? cost : null;
+}
+
 export function configFromEnvironment(environment = process.env) {
   return validateAiBenchmarkConfig({
     modelIds: commaList(environment.AI_BENCHMARK_MODELS, ["google/gemini-2.5-flash"]),
@@ -93,6 +106,7 @@ export function configFromEnvironment(environment = process.env) {
     repetitions: integerEnvironment(environment.AI_BENCHMARK_REPETITIONS, 3),
     maximumTokens: integerEnvironment(environment.AI_BENCHMARK_MAX_TOKENS, 2048),
     timeoutMs: integerEnvironment(environment.AI_BENCHMARK_TIMEOUT_MS, 90_000),
+    maximumCostUsd: numberEnvironment(environment.AI_BENCHMARK_MAX_COST_USD, 5),
     mode: environment.AI_BENCHMARK_MODE === "verification" ? "verification" : "disputed-zones",
   });
 }
@@ -123,7 +137,12 @@ export async function runAiBenchmark(input = {}) {
     });
   }
 
+  const plannedRunCount = config.modelIds.length * prepared.length * config.repetitions;
   const runs = [];
+  let observedCostUsd = 0;
+  let stopReason = null;
+
+  benchmarkLoop:
   for (const modelId of config.modelIds) {
     for (const preparedFixture of prepared) {
       for (let repetition = 1; repetition <= config.repetitions; repetition += 1) {
@@ -150,6 +169,24 @@ export async function runAiBenchmark(input = {}) {
             safetyViolations: [],
             error: null,
           });
+
+          const requestCostUsd = observedRequestCost(result.usage);
+          if (requestCostUsd === null) {
+            stopReason = "usage-cost-missing";
+            break benchmarkLoop;
+          }
+          observedCostUsd += requestCostUsd;
+          if (observedCostUsd > config.maximumCostUsd + COST_EPSILON_USD) {
+            stopReason = "cost-budget-exceeded";
+            break benchmarkLoop;
+          }
+          if (
+            observedCostUsd >= config.maximumCostUsd - COST_EPSILON_USD
+            && runs.length < plannedRunCount
+          ) {
+            stopReason = "cost-budget-reached";
+            break benchmarkLoop;
+          }
         } catch (cause) {
           const failure = safetyViolationsFromError(cause);
           runs.push({
@@ -165,14 +202,25 @@ export async function runAiBenchmark(input = {}) {
             safetyViolations: failure.violations,
             error: failure.message,
           });
+          stopReason = "usage-cost-unobservable-after-request-error";
+          break benchmarkLoop;
         }
       }
     }
   }
 
+  const execution = {
+    plannedRunCount,
+    completedRunCount: runs.length,
+    maximumCostUsd: config.maximumCostUsd,
+    observedCostUsd,
+    complete: stopReason === null && runs.length === plannedRunCount,
+    stopReason,
+  };
   const report = buildAiBenchmarkReport({
     config,
     runs,
+    execution,
     commitSha: input.commitSha ?? input.environment?.GITHUB_SHA ?? process.env.GITHUB_SHA ?? null,
   });
   await mkdir(dirname(outputPath), { recursive: true });
@@ -186,6 +234,12 @@ async function main() {
     process.stdout.write(
       `${model.modelId}: stable=${model.score.stableDecisionRate.toFixed(3)}, schema-fail=${model.score.schemaFailureRate.toFixed(3)}, safety=${model.score.safetyViolationCount}, qualified=false\n`,
     );
+  }
+  process.stdout.write(
+    `AI benchmark spend: observed=$${report.execution.observedCostUsd.toFixed(6)}, cap=$${report.execution.maximumCostUsd.toFixed(2)}, completed=${report.execution.completedRunCount}/${report.execution.plannedRunCount}\n`,
+  );
+  if (!report.execution.complete) {
+    throw new Error(`AI benchmark stopped fail-closed: ${report.execution.stopReason ?? "incomplete-execution"}.`);
   }
 }
 
