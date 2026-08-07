@@ -24,6 +24,18 @@ const MAX_WALL_CANDIDATES = 96;
 const MAX_SYMBOL_SEGMENTS = 512;
 const SHORT_WALL_RATIO = 0.22;
 const DISCONNECTED_BLOB_MAX_LENGTH_TO_THICKNESS_RATIO = 0.75;
+const PRIMARY_BLOB_MAX_LENGTH_TO_THICKNESS_RATIO = 0.8;
+const PRIMARY_BLOB_INDEPENDENT_SUPPORT_REASONS = [
+  "bounded-by-structural-anchors",
+  "bounded-opening-gap-bridge",
+  "collinear-centerline-merge",
+  "collinear-merge",
+  "door-leaf-anchored",
+  "door-symbol-host-bridge",
+  "mask-supported-wall-run",
+  "perpendicular-anchor-thickness-inherited",
+  "segmented-structural-boundary",
+] as const;
 const MIN_STRUCTURAL_SUPPORT_RATIO = 0.62;
 const MIN_NEARBY_SYMBOL_COUNT = 2;
 const MAX_ALONG_SAMPLES = 48;
@@ -135,6 +147,23 @@ function isRetainedDisconnectedBlob(
     && wall.lengthPx <= thicknessPx * DISCONNECTED_BLOB_MAX_LENGTH_TO_THICKNESS_RATIO;
 }
 
+function isUnsupportedPrimaryStructuralBlob(
+  candidate: RecognitionWallCandidate,
+  wall: PixelWall,
+): boolean {
+  const thicknessPx = candidate.estimatedThicknessPx;
+  const reasons = candidate.evidence.reasons;
+  return reasons.includes("primary-structural-component")
+    && reasons.includes("junction-degree:1")
+    && reasons.includes("filled-wall-region-evidence")
+    && reasons.includes("paired-parallel-edges")
+    && !PRIMARY_BLOB_INDEPENDENT_SUPPORT_REASONS.some((reason) => reasons.includes(reason))
+    && thicknessPx !== null
+    && Number.isFinite(thicknessPx)
+    && thicknessPx > 0
+    && wall.lengthPx <= thicknessPx * PRIMARY_BLOB_MAX_LENGTH_TO_THICKNESS_RATIO;
+}
+
 function preserveResult(
   candidates: readonly RecognitionWallCandidate[],
   diagnostic: RecognitionDiagnostic | null,
@@ -216,6 +245,29 @@ export function applyStructuralClutterVeto(input: Readonly<{
           reasons: [...new Set([
             ...candidate.evidence.reasons,
             "disconnected-structural-blob-veto",
+          ])].sort(),
+        },
+      };
+    }
+
+    if (isUnsupportedPrimaryStructuralBlob(candidate, wall)) {
+      blockedCount += 1;
+      diagnostics.push({
+        code: "primary-structural-blob-veto",
+        severity: "warning",
+        message: "Короткий односторонний компонент первичного структурного контура без независимой опоры оставлен только для диагностики и не считается стеной.",
+        candidateId: candidate.id,
+      });
+      return {
+        ...candidate,
+        confidence: "low" as const,
+        conflict: "unsupported" as const,
+        evidence: {
+          ...candidate.evidence,
+          localScore: Math.min(candidate.evidence.localScore ?? 0.5, 0.5),
+          reasons: [...new Set([
+            ...candidate.evidence.reasons,
+            "primary-structural-blob-veto",
           ])].sort(),
         },
       };
