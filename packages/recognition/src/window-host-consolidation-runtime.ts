@@ -10,6 +10,7 @@ import {
   consolidateWindowHostWalls as consolidateWindowHostWallsBase,
 } from "./window-host-consolidation";
 import { recoverWindowHostSegmentedWalls } from "./window-host-segmented-recovery-runtime";
+import { recoverWindowTerminalHosts } from "./window-terminal-host-recovery";
 
 export type { WindowHostProposalEvidence } from "./window-host-consolidation";
 
@@ -68,6 +69,25 @@ export function windowHostProposalEvidenceListForWall(
   return annotated.windowHostProposalEvidence ? [annotated.windowHostProposalEvidence] : [];
 }
 
+function annotateTerminalResult(
+  walls: readonly RecognitionWallCandidate[],
+  evidence: readonly WindowHostProposalEvidence[],
+): readonly WindowHostAnnotatedWallCandidate[] {
+  const directById = new Map(evidence.map((item) => [item.generatedHost.candidateId, item]));
+  return walls.map((candidate): WindowHostAnnotatedWallCandidate => {
+    const direct = directById.get(candidate.id);
+    if (!direct) return candidate;
+    return {
+      ...candidate,
+      windowHostProposalEvidence: direct,
+      windowHostProposalEvidenceList: mergeEvidence(
+        windowHostProposalEvidenceListForWall(candidate),
+        [direct],
+      ),
+    };
+  });
+}
+
 function annotateResult(
   base: BaseWindowHostConsolidationResult,
   inputWalls: readonly RecognitionWallCandidate[],
@@ -104,11 +124,14 @@ function annotateResult(
   });
 }
 
-function baseInput(input: WindowHostConsolidationInput): BaseWindowHostConsolidationInput {
+function baseInput(
+  input: WindowHostConsolidationInput,
+  wallCandidates: readonly RecognitionWallCandidate[] = input.wallCandidates,
+): BaseWindowHostConsolidationInput {
   return {
     widthPx: input.widthPx,
     heightPx: input.heightPx,
-    wallCandidates: input.wallCandidates,
+    wallCandidates,
     symbolSegments: input.symbolSegments,
   };
 }
@@ -121,12 +144,21 @@ export function consolidateWindowHostWalls(
     input.widthPx,
     input.heightPx,
   );
-  const firstBase = consolidateWindowHostWallsBase(baseInput(input));
-  const firstWalls = annotateResult(firstBase, input.wallCandidates);
-  if (!structuralMask || firstBase.proposalEvidence.length === 0) {
+  const terminal = recoverWindowTerminalHosts(baseInput(input));
+  const terminalWalls = annotateTerminalResult(terminal.walls, terminal.proposalEvidence);
+  const firstBase = consolidateWindowHostWallsBase(baseInput(input, terminalWalls));
+  const firstWalls = annotateResult(firstBase, terminalWalls);
+  const firstEvidence = mergeEvidence(terminal.proposalEvidence, firstBase.proposalEvidence);
+  const firstDiagnostics = mergeDiagnostics(terminal.diagnostics, firstBase.diagnostics);
+  const firstAcceptedBridgeCount = terminal.recoveredHostCount + firstBase.acceptedBridgeCount;
+
+  if (!structuralMask || firstEvidence.length === 0) {
     return {
       ...firstBase,
       walls: firstWalls,
+      acceptedBridgeCount: firstAcceptedBridgeCount,
+      proposalEvidence: firstEvidence,
+      diagnostics: firstDiagnostics,
       segmentedRecoveredWallCount: 0,
     };
   }
@@ -141,6 +173,9 @@ export function consolidateWindowHostWalls(
     return {
       ...firstBase,
       walls: firstWalls,
+      acceptedBridgeCount: firstAcceptedBridgeCount,
+      proposalEvidence: firstEvidence,
+      diagnostics: firstDiagnostics,
       segmentedRecoveredWallCount: 0,
     };
   }
@@ -154,9 +189,9 @@ export function consolidateWindowHostWalls(
   const secondWalls = annotateResult(secondBase, segmented.walls);
   return {
     walls: secondWalls,
-    acceptedBridgeCount: firstBase.acceptedBridgeCount + secondBase.acceptedBridgeCount,
-    proposalEvidence: mergeEvidence(firstBase.proposalEvidence, secondBase.proposalEvidence),
-    diagnostics: mergeDiagnostics(firstBase.diagnostics, secondBase.diagnostics),
+    acceptedBridgeCount: firstAcceptedBridgeCount + secondBase.acceptedBridgeCount,
+    proposalEvidence: mergeEvidence(firstEvidence, secondBase.proposalEvidence),
+    diagnostics: mergeDiagnostics(firstDiagnostics, secondBase.diagnostics),
     segmentedRecoveredWallCount: segmented.recoveredWalls.length,
   };
 }
