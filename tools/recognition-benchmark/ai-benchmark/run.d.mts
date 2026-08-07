@@ -8,6 +8,8 @@ export type AiBenchmarkConfig = Readonly<{
   maximumTokens: number;
   timeoutMs: number;
   maximumCostUsd: number;
+  maximumPromptPricePerMillionUsd: number;
+  maximumCompletionPricePerMillionUsd: number;
   mode: AiBenchmarkMode;
   qualified: false;
 }>;
