@@ -57,6 +57,7 @@ describe("M7.9 bounded AI benchmark", () => {
       maximumRepetitions: 5,
       maximumTokens: 2048,
       timeoutMs: 90_000,
+      maximumCostUsd: 5,
     }));
     expect(validateAiBenchmarkConfig({
       modelIds: ["google/gemini-2.5-flash"],
@@ -64,14 +65,21 @@ describe("M7.9 bounded AI benchmark", () => {
       repetitions: 3,
       maximumTokens: 2048,
       timeoutMs: 90_000,
+      maximumCostUsd: 5,
       mode: "disputed-zones",
-    })).toMatchObject({ repetitions: 3, maximumTokens: 2048, qualified: false });
+    })).toMatchObject({
+      repetitions: 3,
+      maximumTokens: 2048,
+      maximumCostUsd: 5,
+      qualified: false,
+    });
     expect(() => validateAiBenchmarkConfig({
       modelIds: ["a", "b", "c", "d"],
       fixtureIds: ["fixture"],
       repetitions: 1,
       maximumTokens: 512,
       timeoutMs: 10_000,
+      maximumCostUsd: 1,
       mode: "verification",
     })).toThrow(/models/i);
     expect(() => validateAiBenchmarkConfig({
@@ -80,8 +88,20 @@ describe("M7.9 bounded AI benchmark", () => {
       repetitions: 6,
       maximumTokens: 2048,
       timeoutMs: 90_000,
+      maximumCostUsd: 1,
       mode: "verification",
     })).toThrow(/repetitions/i);
+    for (const maximumCostUsd of [0, -1, 5.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => validateAiBenchmarkConfig({
+        modelIds: ["model"],
+        fixtureIds: ["fixture"],
+        repetitions: 1,
+        maximumTokens: 512,
+        timeoutMs: 10_000,
+        maximumCostUsd,
+        mode: "verification",
+      })).toThrow(/cost/i);
+    }
   });
 
   it("fails before any network request when the secret is absent", async () => {
