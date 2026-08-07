@@ -82,12 +82,13 @@ describe("exterior terminal door recovery", () => {
     const opening = result.openingHypotheses.find((candidate) =>
       candidate.evidence.reasons.includes("exterior-terminal-door-leaf"));
     expect(opening).toBeDefined();
-    expect(opening?.kind).toBe("door");
-    expect(opening?.hostWallCandidateId).toBe("exterior-terminal-host");
-    expect(opening?.center.x * WIDTH).toBeCloseTo(HOST_X, 0);
-    expect(opening?.center.y * HEIGHT).toBeCloseTo(HINGE_Y + DOOR_WIDTH / 2, 0);
-    expect(opening?.widthPx).toBeCloseTo(DOOR_WIDTH, 0);
-    expect(opening?.orientationDeg).toBeCloseTo(90, 0);
+    if (!opening) throw new Error("Expected exterior terminal opening.");
+    expect(opening.kind).toBe("door");
+    expect(opening.hostWallCandidateId).toBe("exterior-terminal-host");
+    expect(opening.center.x * WIDTH).toBeCloseTo(HOST_X, 0);
+    expect(opening.center.y * HEIGHT).toBeCloseTo(HINGE_Y + DOOR_WIDTH / 2, 0);
+    expect(opening.widthPx).toBeCloseTo(DOOR_WIDTH, 0);
+    expect(opening.orientationDeg).toBeCloseTo(90, 0);
   });
 
   it("keeps one representative leaf when opposite host faces produce the same terminal opening", () => {
