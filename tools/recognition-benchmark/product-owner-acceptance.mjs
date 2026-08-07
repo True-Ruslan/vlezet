@@ -250,7 +250,7 @@ export function renderProductOwnerAcceptanceMarkdown(input) {
     lines.push("", "## Blockers", "");
     for (const blocker of verdict.blockers) lines.push(`- ${markdownText(blocker)}`);
   }
-  lines.push("", "This artifact contains no source raster bytes, screenshot data, coordinates or free-form reviewer notes.", "");
+  lines.push("");
   return lines.join("\n");
 }
 
