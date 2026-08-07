@@ -18,7 +18,7 @@ describe("M7.9 AI benchmark workflow", () => {
     expect(source).toContain("OPENROUTER_API_KEY:");
     expect(source).not.toMatch(/sk-or-v1-[A-Za-z0-9_-]{16,}/);
     expect(source).not.toContain("echo $OPENROUTER_API_KEY");
-    expect(source).toContain("Assert AI artifact contains no secrets");
+    expect(source).toContain("Assert produced evidence contains no secrets or source bytes");
     expect(source).toContain("grep -Eiq 'sk-or-v1-");
   });
 
@@ -26,7 +26,7 @@ describe("M7.9 AI benchmark workflow", () => {
     expect(source).toContain("Generate public real-plan analogue fixtures");
     expect(source).toContain("Verify public real-plan analogue fixtures");
     expect(source).toContain("Run real source OpenCV benchmark");
-    expect(source).toContain("Run bounded OpenRouter benchmark");
+    expect(source).toContain("Run bounded OpenRouter verification benchmark");
     expect(source).toContain("AI_BENCHMARK_MAX_TOKENS: \"2048\"");
     expect(source).toContain("AI_BENCHMARK_TIMEOUT_MS: \"90000\"");
     expect(source).toContain("AI_BENCHMARK_MAX_COST_USD: \"5\"");
