@@ -222,7 +222,16 @@ export function createOpenRouterBenchmarkClient({ apiKey, fetcher = globalThis.f
                 schema: structuredSchema(),
               },
             },
-            provider: { require_parameters: true },
+            provider: {
+              sort: "price",
+              allow_fallbacks: false,
+              data_collection: "deny",
+              require_parameters: true,
+              max_price: {
+                prompt: input.maximumPromptPricePerMillionUsd,
+                completion: input.maximumCompletionPricePerMillionUsd,
+              },
+            },
             plugins: [{ id: "response-healing" }],
             temperature: 0,
             max_tokens: input.maximumTokens,
