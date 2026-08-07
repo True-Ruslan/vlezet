@@ -270,7 +270,9 @@ export function consolidateWindowHostWalls(
   const terminalWalls = annotateTerminalResult(terminal.walls, terminal.proposalEvidence);
   const firstBase = consolidateWindowHostWallsBase(baseInput(input, terminalWalls));
   const firstWalls = annotateResult(firstBase, terminalWalls);
-  const firstEvidence = mergeEvidence(terminal.proposalEvidence, firstBase.proposalEvidence);
+  const firstEvidence = terminal.proposalEvidence.length > 0
+    ? mergeEvidence(terminal.proposalEvidence, firstBase.proposalEvidence)
+    : firstBase.proposalEvidence;
   const firstDiagnostics = mergeDiagnostics(terminal.diagnostics, firstBase.diagnostics);
   const firstAcceptedBridgeCount = terminal.recoveredHostCount + firstBase.acceptedBridgeCount;
 
