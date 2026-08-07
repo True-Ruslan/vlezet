@@ -38,5 +38,6 @@ export type VerificationQualificationResult = Readonly<{
 }>;
 
 export function evaluateVerificationBenchmarkQualification(input: unknown): VerificationQualificationResult;
+export function renderVerificationQualificationMarkdown(result: VerificationQualificationResult): string;
 export function canonicalVerificationQualificationJson(result: VerificationQualificationResult): string;
 export function runVerificationQualificationCli(args?: readonly string[]): Promise<void>;
