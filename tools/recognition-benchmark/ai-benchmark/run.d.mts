@@ -1,3 +1,7 @@
+import type { AiBenchmarkFetcher } from "./openrouter-client.mjs";
+
+export type { AiBenchmarkFetcher, AiBenchmarkFetchResponse } from "./openrouter-client.mjs";
+
 export type AiBenchmarkMode = "verification" | "disputed-zones" | "proposal-discovery-stage1";
 
 export type AiBenchmarkConfig = Readonly<{
@@ -43,18 +47,6 @@ export type AiBenchmarkReport = Readonly<{
   execution: AiBenchmarkExecution;
   models: readonly AiBenchmarkModelSummary[];
 }> & Readonly<Record<string, unknown>>;
-
-export type AiBenchmarkFetchResponse = Readonly<{
-  ok: boolean;
-  status?: number;
-  json(): Promise<unknown>;
-  text(): Promise<string>;
-}>;
-
-export type AiBenchmarkFetcher = (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => Promise<AiBenchmarkFetchResponse>;
 
 export type RunAiBenchmarkInput = Readonly<{
   config?: AiBenchmarkConfig;
