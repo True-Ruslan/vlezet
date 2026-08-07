@@ -18,6 +18,8 @@ export type AiBenchmarkConfig = Readonly<{
   maximumTokens: number;
   timeoutMs: number;
   maximumCostUsd: number;
+  maximumPromptPricePerMillionUsd: number;
+  maximumCompletionPricePerMillionUsd: number;
   mode: AiBenchmarkMode;
   qualified: false;
 }>;
@@ -29,6 +31,8 @@ export const DEFAULT_AI_BENCHMARK_LIMITS: Readonly<{
   maximumTokens: number;
   timeoutMs: number;
   maximumCostUsd: number;
+  maximumPromptPricePerMillionUsd: number;
+  maximumCompletionPricePerMillionUsd: number;
 }>;
 
 export function validateAiBenchmarkConfig(input: AiBenchmarkConfigInput): AiBenchmarkConfig;
