@@ -50,6 +50,8 @@ function config(maximumCostUsd: number) {
     maximumTokens: 128,
     timeoutMs: 10_000,
     maximumCostUsd,
+    maximumPromptPricePerMillionUsd: 3,
+    maximumCompletionPricePerMillionUsd: 15,
     mode: "verification",
     qualified: false,
   });
