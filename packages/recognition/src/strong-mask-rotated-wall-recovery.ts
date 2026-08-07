@@ -21,12 +21,29 @@ type PixelWall = Readonly<{
   thicknessPx: number;
   angleDeg: number;
 }>;
+type SegmentGeometry = Readonly<{
+  start: Point;
+  end: Point;
+  tangent: Point;
+  normal: Point;
+  lengthPx: number;
+  angleDeg: number;
+}>;
 
 const MAX_WALL_CANDIDATES = 128;
 const MAX_SEGMENTS = 512;
+const MAX_PARTIAL_PAIR_RECOVERIES = 4;
 const MIN_ROTATED_AXIS_DELTA_DEG = 20;
 const MAX_DUPLICATE_ANGLE_DELTA_DEG = 8;
+const MAX_PARTIAL_PAIR_ANGLE_DELTA_DEG = 5;
 const MIN_LENGTH_SHORT_SIDE_RATIO = 0.35;
+const MIN_PARTIAL_PAIR_LONG_LENGTH_SHORT_SIDE_RATIO = 0.45;
+const MIN_PARTIAL_PAIR_MATE_LENGTH_RATIO = 0.5;
+const MAX_PARTIAL_PAIR_MATE_LENGTH_RATIO = 0.85;
+const MIN_PARTIAL_PAIR_PROJECTED_OVERLAP_RATIO = 0.9;
+const MIN_PARTIAL_PAIR_THICKNESS_PX = 8;
+const MAX_PARTIAL_PAIR_THICKNESS_PX = 90;
+const MAX_PARTIAL_PAIR_OFFSET_DRIFT_RATIO = 0.15;
 const MIN_MASK_OCCUPANCY = 0.95;
 const MIN_MASK_CONTINUITY = 0.95;
 const MAX_ALONG_SAMPLES = 224;
@@ -68,6 +85,40 @@ function angleDelta(first: number, second: number): number {
 
 function axisDelta(angle: number): number {
   return Math.min(angle, Math.abs(90 - angle), Math.abs(180 - angle));
+}
+
+function canonicalPoints(first: Point, second: Point): readonly [Point, Point] {
+  return first.x < second.x || (first.x === second.x && first.y <= second.y)
+    ? [first, second]
+    : [second, first];
+}
+
+function segmentGeometry(segment: DetectedLineSegment): SegmentGeometry | null {
+  if (![segment.x1, segment.y1, segment.x2, segment.y2].every(Number.isFinite)) return null;
+  const [start, end] = canonicalPoints(
+    { x: segment.x1, y: segment.y1 },
+    { x: segment.x2, y: segment.y2 },
+  );
+  const vector = subtract(end, start);
+  const lengthPx = Math.hypot(vector.x, vector.y);
+  if (lengthPx <= EPSILON) return null;
+  const tangent = { x: vector.x / lengthPx, y: vector.y / lengthPx };
+  return {
+    start,
+    end,
+    tangent,
+    normal: { x: -tangent.y, y: tangent.x },
+    lengthPx,
+    angleDeg: angleDeg(start, end),
+  };
+}
+
+function compareSegmentGeometry(first: SegmentGeometry, second: SegmentGeometry): number {
+  return first.start.x - second.start.x
+    || first.start.y - second.start.y
+    || first.end.x - second.end.x
+    || first.end.y - second.end.y
+    || first.lengthPx - second.lengthPx;
 }
 
 function pixelPoint(
@@ -209,6 +260,165 @@ function recoveredCandidate(candidate: RecognitionWallCandidate): RecognitionWal
   };
 }
 
+function partialPairCandidate(input: Readonly<{
+  long: SegmentGeometry;
+  mate: SegmentGeometry;
+  widthPx: number;
+  heightPx: number;
+  shortSide: number;
+}>): RecognitionWallCandidate | null {
+  if (input.long.lengthPx < input.shortSide * MIN_PARTIAL_PAIR_LONG_LENGTH_SHORT_SIDE_RATIO) return null;
+  if (axisDelta(input.long.angleDeg) < MIN_ROTATED_AXIS_DELTA_DEG) return null;
+  if (angleDelta(input.long.angleDeg, input.mate.angleDeg) > MAX_PARTIAL_PAIR_ANGLE_DELTA_DEG) return null;
+
+  const mateRatio = input.mate.lengthPx / input.long.lengthPx;
+  if (
+    mateRatio < MIN_PARTIAL_PAIR_MATE_LENGTH_RATIO
+    || mateRatio > MAX_PARTIAL_PAIR_MATE_LENGTH_RATIO
+  ) return null;
+
+  const mateStartAlong = dot(subtract(input.mate.start, input.long.start), input.long.tangent);
+  const mateEndAlong = dot(subtract(input.mate.end, input.long.start), input.long.tangent);
+  const overlap = Math.max(
+    0,
+    Math.min(input.long.lengthPx, Math.max(mateStartAlong, mateEndAlong))
+      - Math.max(0, Math.min(mateStartAlong, mateEndAlong)),
+  );
+  if (overlap / input.mate.lengthPx < MIN_PARTIAL_PAIR_PROJECTED_OVERLAP_RATIO) return null;
+
+  const firstOffset = dot(subtract(input.mate.start, input.long.start), input.long.normal);
+  const secondOffset = dot(subtract(input.mate.end, input.long.start), input.long.normal);
+  if (firstOffset * secondOffset <= 0) return null;
+  const signedOffset = (firstOffset + secondOffset) / 2;
+  const thicknessPx = Math.abs(signedOffset);
+  const maximumThicknessPx = Math.min(
+    MAX_PARTIAL_PAIR_THICKNESS_PX,
+    input.shortSide * 0.08,
+  );
+  if (
+    thicknessPx < MIN_PARTIAL_PAIR_THICKNESS_PX
+    || thicknessPx > maximumThicknessPx
+  ) return null;
+  const maximumOffsetDriftPx = Math.max(3, thicknessPx * MAX_PARTIAL_PAIR_OFFSET_DRIFT_RATIO);
+  if (Math.abs(firstOffset - secondOffset) > maximumOffsetDriftPx) return null;
+
+  const shift = scale(input.long.normal, signedOffset / 2);
+  const untrimmedStart = add(input.long.start, shift);
+  const untrimmedEnd = add(input.long.end, shift);
+  const endTrimPx = thicknessPx / 2;
+  if (input.long.lengthPx <= endTrimPx * 2 + EPSILON) return null;
+  const start = add(untrimmedStart, scale(input.long.tangent, endTrimPx));
+  const end = add(untrimmedEnd, scale(input.long.tangent, -endTrimPx));
+  const geometryKey = [
+    Math.round(start.x),
+    Math.round(start.y),
+    Math.round(end.x),
+    Math.round(end.y),
+    Math.round(thicknessPx),
+  ].join("-");
+
+  return {
+    id: `strong-mask-rotated-partial-${geometryKey}`,
+    start: { x: start.x / input.widthPx, y: start.y / input.heightPx },
+    end: { x: end.x / input.widthPx, y: end.y / input.heightPx },
+    estimatedThicknessPx: thicknessPx,
+    confidence: "medium",
+    evidence: {
+      localScore: 0.76,
+      cloudScore: null,
+      reasons: [
+        "architectural-line-filter",
+        "paired-parallel-edges",
+        "strong-mask-rotated-partial-pair",
+        "strong-mask-rotated-wall-chain",
+      ],
+    },
+    origin: "local",
+    conflict: null,
+  };
+}
+
+function recoverStrongMaskRotatedPartialPairs(input: Readonly<{
+  widthPx: number;
+  heightPx: number;
+  primaryWalls: readonly RecognitionWallCandidate[];
+  segments: readonly DetectedLineSegment[];
+  mask: StructuralMaskView;
+}>): StrongMaskRotatedWallRecoveryResult {
+  if (
+    input.primaryWalls.length > MAX_WALL_CANDIDATES
+    || input.segments.length > MAX_SEGMENTS
+    || input.mask.widthPx !== input.widthPx
+    || input.mask.heightPx !== input.heightPx
+  ) {
+    return {
+      walls: [...input.primaryWalls],
+      recoveredWalls: [],
+      recoveredCount: 0,
+      diagnostics: [],
+    };
+  }
+
+  const shortSide = Math.min(input.widthPx, input.heightPx);
+  const segmentGeometries = input.segments
+    .map(segmentGeometry)
+    .filter((segment): segment is SegmentGeometry => segment !== null)
+    .sort(compareSegmentGeometry);
+  const acceptedPixelWalls = input.primaryWalls
+    .map((candidate) => pixelWall(candidate, input.widthPx, input.heightPx))
+    .filter((wall): wall is PixelWall => wall !== null);
+  const recovered: RecognitionWallCandidate[] = [];
+  const recoveredPixelWalls: PixelWall[] = [];
+  const diagnostics: RecognitionDiagnostic[] = [];
+
+  for (let longIndex = 0; longIndex < segmentGeometries.length; longIndex += 1) {
+    if (recovered.length >= MAX_PARTIAL_PAIR_RECOVERIES) break;
+    const long = segmentGeometries[longIndex]!;
+    for (let mateIndex = 0; mateIndex < segmentGeometries.length; mateIndex += 1) {
+      if (longIndex === mateIndex) continue;
+      const mate = segmentGeometries[mateIndex]!;
+      if (mate.lengthPx > long.lengthPx + EPSILON) continue;
+      const candidate = partialPairCandidate({
+        long,
+        mate,
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        shortSide,
+      });
+      if (!candidate) continue;
+      const wall = pixelWall(candidate, input.widthPx, input.heightPx);
+      if (!wall) continue;
+      if (wall.lengthPx < shortSide * MIN_PARTIAL_PAIR_LONG_LENGTH_SHORT_SIDE_RATIO) continue;
+      if (isPhysicalDuplicate(wall, [...acceptedPixelWalls, ...recoveredPixelWalls])) continue;
+      if (!anchoredToPrimary(wall, acceptedPixelWalls)) continue;
+      const support = maskSupport(wall, input.mask);
+      if (support.occupancy < MIN_MASK_OCCUPANCY || support.continuity < MIN_MASK_CONTINUITY) continue;
+
+      recovered.push(candidate);
+      recoveredPixelWalls.push(wall);
+      diagnostics.push({
+        code: "strong-mask-rotated-partial-pair",
+        severity: "info",
+        message: "Полный диагональный стеновой span восстановлен по длинной границе только после подтверждения частичной парной границы, непрерывного structural mask и связи с принятой сетью стен.",
+        candidateId: candidate.id,
+      });
+      break;
+    }
+  }
+
+  const byId = new Map<string, RecognitionWallCandidate>();
+  for (const candidate of [...input.primaryWalls, ...recovered]) {
+    if (!byId.has(candidate.id)) byId.set(candidate.id, candidate);
+  }
+  return {
+    walls: [...byId.values()].sort((first, second) => first.id.localeCompare(second.id)),
+    recoveredWalls: [...recovered].sort((first, second) => first.id.localeCompare(second.id)),
+    recoveredCount: recovered.length,
+    diagnostics: diagnostics.sort((first, second) =>
+      (first.candidateId ?? "").localeCompare(second.candidateId ?? "")),
+  };
+}
+
 export function selectStrongMaskRotatedWallRecoveries(input: Readonly<{
   widthPx: number;
   heightPx: number;
@@ -330,11 +540,27 @@ export function recoverStrongMaskRotatedWalls(input: Readonly<{
       endpointExtensionTolerancePx: clamp(shortSide * 0.045, 32, 64),
     },
   });
-  return selectStrongMaskRotatedWallRecoveries({
+  const replayRecovery = selectStrongMaskRotatedWallRecoveries({
     widthPx: input.widthPx,
     heightPx: input.heightPx,
     primaryWalls: input.primaryWalls,
     replayWalls: replay.candidates,
     mask: input.mask,
   });
+  const partialPairRecovery = recoverStrongMaskRotatedPartialPairs({
+    widthPx: input.widthPx,
+    heightPx: input.heightPx,
+    primaryWalls: replayRecovery.walls,
+    segments: input.segments,
+    mask: input.mask,
+  });
+
+  return {
+    walls: partialPairRecovery.walls,
+    recoveredWalls: [...replayRecovery.recoveredWalls, ...partialPairRecovery.recoveredWalls]
+      .sort((first, second) => first.id.localeCompare(second.id)),
+    recoveredCount: replayRecovery.recoveredCount + partialPairRecovery.recoveredCount,
+    diagnostics: [...replayRecovery.diagnostics, ...partialPairRecovery.diagnostics]
+      .sort((first, second) => (first.candidateId ?? "").localeCompare(second.candidateId ?? "")),
+  };
 }
