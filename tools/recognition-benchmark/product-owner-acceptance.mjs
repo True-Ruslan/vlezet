@@ -8,7 +8,9 @@ const VERDICT_SCHEMA = "recognition-product-owner-acceptance-v1";
 const SHA_PATTERN = /^[a-f0-9]{40}$/i;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const REVIEW_STATUSES = new Set(["pass", "fail", "not-reviewed"]);
+const SUBMISSION_STATUSES = new Set(["pass", "fail"]);
 const DECISIONS = new Set(["accept", "reject", "pending"]);
+const SUBMISSION_DECISIONS = new Set(["accept", "reject"]);
 const REVIEW_KEYS = new Set([
   "schemaVersion",
   "commitSha",
@@ -54,6 +56,15 @@ export const PRODUCT_OWNER_ACCEPTANCE_CASES = Object.freeze([
     label: "Plan orientation is preserved without unintended rotation",
   }),
 ]);
+
+const SUBMISSION_ENVIRONMENT = Object.freeze({
+  "missed-true-door-recovered": "OWNER_REVIEW_MISSED_TRUE_DOOR_RECOVERED",
+  "missed-true-window-recovered": "OWNER_REVIEW_MISSED_TRUE_WINDOW_RECOVERED",
+  "thin-balcony-wall-recovered": "OWNER_REVIEW_THIN_BALCONY_WALL_RECOVERED",
+  "fixture-symbol-not-wall": "OWNER_REVIEW_FIXTURE_SYMBOL_NOT_WALL",
+  "thick-load-bearing-wall-single-axis": "OWNER_REVIEW_THICK_LOAD_BEARING_WALL_SINGLE_AXIS",
+  "plan-orientation-preserved": "OWNER_REVIEW_PLAN_ORIENTATION_PRESERVED",
+});
 
 function record(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -167,6 +178,49 @@ export function createProductOwnerAcceptanceTemplate({ commitSha: inputCommitSha
   };
 }
 
+export function createProductOwnerReviewSubmission({
+  commitSha: inputCommitSha,
+  manifest,
+  reviewedAt,
+  decision: inputDecision,
+  statuses,
+}) {
+  const source = registeredCurrentRegressionSource(manifest);
+  const requiredIds = PRODUCT_OWNER_ACCEPTANCE_CASES.map(({ id }) => id);
+  const requiredSet = new Set(requiredIds);
+  const statusRecord = record(statuses, "Product-owner submission statuses");
+  const providedKeys = Object.keys(statusRecord);
+  if (
+    providedKeys.length !== requiredIds.length
+    || providedKeys.some((key) => !requiredSet.has(key))
+    || requiredIds.some((id) => !Object.hasOwn(statusRecord, id))
+  ) {
+    throw new Error("Product-owner submission must contain the exact required status set.");
+  }
+  const ownerDecision = typeof inputDecision === "string" ? inputDecision : "";
+  if (!SUBMISSION_DECISIONS.has(ownerDecision)) {
+    throw new Error("Product-owner submission decision must be accept or reject.");
+  }
+  const normalizedTimestamp = reviewTimestamp(reviewedAt, ownerDecision);
+  const cases = PRODUCT_OWNER_ACCEPTANCE_CASES.map(({ id }) => {
+    const status = statusRecord[id];
+    if (typeof status !== "string" || !SUBMISSION_STATUSES.has(status)) {
+      throw new Error(`Product-owner submission status '${id}' must be pass or fail.`);
+    }
+    return { id, status };
+  });
+  return {
+    schemaVersion: REVIEW_SCHEMA,
+    commitSha: commitSha(inputCommitSha),
+    batchId: source.batchId,
+    sourceId: source.sourceId,
+    sourceSha256: source.sourceSha256,
+    reviewedAt: normalizedTimestamp,
+    cases,
+    decision: ownerDecision,
+  };
+}
+
 export function evaluateProductOwnerAcceptance(input, { expectedCommitSha, manifest }) {
   const source = registeredCurrentRegressionSource(manifest);
   const review = record(input, "Product-owner review");
@@ -181,7 +235,7 @@ export function evaluateProductOwnerAcceptance(input, { expectedCommitSha, manif
   if (reviewSourceSha !== source.sourceSha256) throw new Error("Review source SHA does not match the registered private source digest.");
 
   const ownerDecision = decision(review.decision);
-  const reviewedAt = reviewTimestamp(review.reviewedAt, ownerDecision);
+  const normalizedReviewedAt = reviewTimestamp(review.reviewedAt, ownerDecision);
   const cases = normalizedCases(review.cases);
   const blockers = [];
   const exactHead = reviewCommitSha === expectedHead;
@@ -202,7 +256,7 @@ export function evaluateProductOwnerAcceptance(input, { expectedCommitSha, manif
     batchId: source.batchId,
     sourceId: source.sourceId,
     sourceSha256: source.sourceSha256,
-    reviewedAt,
+    reviewedAt: normalizedReviewedAt,
     accepted: exactHead && allRequiredCasesPassed && ownerDecision === "accept" && blockers.length === 0,
     exactHead,
     sourceIdentityMatched: true,
@@ -262,6 +316,13 @@ async function loadManifest(path) {
   return JSON.parse(await readFile(resolve(path ?? DEFAULT_MANIFEST_PATH), "utf8"));
 }
 
+function submissionStatusesFromEnvironment(environment = process.env) {
+  return Object.fromEntries(PRODUCT_OWNER_ACCEPTANCE_CASES.map(({ id }) => [
+    id,
+    environment[SUBMISSION_ENVIRONMENT[id]],
+  ]));
+}
+
 export async function runProductOwnerAcceptanceCli(args = process.argv.slice(2)) {
   const [command, ...rest] = args;
   if (command === "template") {
@@ -274,6 +335,25 @@ export async function runProductOwnerAcceptanceCli(args = process.argv.slice(2))
     const outputPath = resolve(outputPathValue);
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, `${JSON.stringify(template, null, 2)}\n`, "utf8");
+    return;
+  }
+
+  if (command === "submit") {
+    const [head, ownerDecision, outputPathValue, manifestPath] = rest;
+    if (!head || !ownerDecision || !outputPathValue) {
+      throw new Error("Usage: product-owner-acceptance.mjs submit <commit-sha> <accept|reject> <output.json> [manifest.json]");
+    }
+    const manifest = await loadManifest(manifestPath);
+    const submission = createProductOwnerReviewSubmission({
+      commitSha: head,
+      manifest,
+      reviewedAt: process.env.OWNER_REVIEWED_AT ?? new Date().toISOString(),
+      decision: ownerDecision,
+      statuses: submissionStatusesFromEnvironment(),
+    });
+    const outputPath = resolve(outputPathValue);
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, `${JSON.stringify(submission, null, 2)}\n`, "utf8");
     return;
   }
 
@@ -295,7 +375,7 @@ export async function runProductOwnerAcceptanceCli(args = process.argv.slice(2))
     return;
   }
 
-  throw new Error("First argument must be template or evaluate.");
+  throw new Error("First argument must be template, submit or evaluate.");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
