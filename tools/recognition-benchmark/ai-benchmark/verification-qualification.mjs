@@ -306,17 +306,115 @@ export function evaluateVerificationBenchmarkQualification(input) {
   };
 }
 
+function markdownText(value) {
+  return String(value ?? "—")
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, "Bearer [REDACTED]")
+    .replace(/sk-or-v1-[A-Za-z0-9_-]+/gi, "[REDACTED]")
+    .replace(/sk-[A-Za-z0-9_-]{12,}/gi, "[REDACTED]")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\|/g, "\\|")
+    .replace(/`/g, "'")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .trim();
+}
+
+function percent(value) {
+  return typeof value === "number" && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
+}
+
+function latency(value) {
+  return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)} ms` : "—";
+}
+
+function cost(value) {
+  return typeof value === "number" && Number.isFinite(value) ? `$${value.toFixed(6)}` : "—";
+}
+
+function markdownBlockers(lines, title, blockers) {
+  if (!Array.isArray(blockers) || blockers.length === 0) return;
+  lines.push("", `### ${title}`);
+  for (const blocker of blockers) lines.push(`- ${markdownText(blocker)}`);
+}
+
+export function renderVerificationQualificationMarkdown(input) {
+  const result = object(input, "Verification qualification result");
+  if (result.schemaVersion !== OUTPUT_SCHEMA) {
+    throw new Error(`Verification qualification result must use ${OUTPUT_SCHEMA}.`);
+  }
+  if (result.qualified !== false || result.selectedModelId !== null || result.automaticModelSelectionAllowed !== false) {
+    throw new Error("Verification review summary accepts only non-selecting qualification results.");
+  }
+  const execution = object(result.execution, "Verification qualification execution");
+  const models = Array.isArray(result.models) ? result.models : [];
+  const mechanicalStatus = result.reportMechanicallyComplete === true
+    ? "Mechanically eligible for manual review"
+    : "Mechanically blocked";
+  const lines = [
+    "# Vlezet AI verification review",
+    "",
+    `- Source commit: \`${markdownText(result.sourceCommitSha ?? "unknown")}\``,
+    `- Mechanical status: **${mechanicalStatus}**`,
+    `- Spend: **${cost(execution.observedCostUsd)} / $${Number(execution.maximumCostUsd).toFixed(2)}**`,
+    `- Runs: **${markdownText(execution.completedRunCount)} / ${markdownText(execution.plannedRunCount)}**`,
+    "",
+    "> Manual product review is required. No model is selected automatically.",
+    "> Stability, classification, confirmation, downgrade and latency values below are review evidence, not automatic acceptance thresholds.",
+    "",
+    "## Models",
+    "",
+    "| Model | Mechanical status | Runs | Fixtures | Cost | Stability | Opening classification | High-confidence confirmation | False downgrade | Median latency |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+  ];
+
+  for (const rawModel of models) {
+    const model = object(rawModel, "Verification qualification model");
+    const metrics = object(model.reviewMetrics, "Verification qualification review metrics");
+    lines.push([
+      `| ${markdownText(model.modelId)}`,
+      model.eligibleForManualReview === true ? "eligible" : "blocked",
+      markdownText(model.runCount),
+      `${markdownText(model.completeFixtureCount)}/${markdownText(model.fixtureCount)}`,
+      cost(model.costUsd),
+      percent(metrics.stableDecisionRate),
+      percent(metrics.openingClassificationAccuracy),
+      percent(metrics.highConfidenceConfirmationRate),
+      percent(metrics.falseDowngradeRate),
+      latency(metrics.medianLatencyMs),
+      "|",
+    ].join(" | "));
+  }
+
+  markdownBlockers(lines, "Report blockers", result.blockers);
+  for (const rawModel of models) {
+    const model = object(rawModel, "Verification qualification model");
+    markdownBlockers(lines, `Model blockers — ${markdownText(model.modelId)}`, model.blockers);
+  }
+
+  lines.push("", "Human decision required before any model can become a product default.", "");
+  return lines.join("\n");
+}
+
 export function canonicalVerificationQualificationJson(result) {
   return `${JSON.stringify(result, null, 2)}\n`;
+}
+
+function markdownPathFor(outputPath) {
+  return /\.json$/i.test(outputPath) ? outputPath.replace(/\.json$/i, ".md") : `${outputPath}.md`;
 }
 
 export async function runVerificationQualificationCli(args = process.argv.slice(2)) {
   const inputPath = resolve(args[0] ?? DEFAULT_INPUT_PATH);
   const outputPath = resolve(args[1] ?? DEFAULT_OUTPUT_PATH);
+  const markdownPath = resolve(args[2] ?? markdownPathFor(outputPath));
   const report = JSON.parse(await readFile(inputPath, "utf8"));
   const result = evaluateVerificationBenchmarkQualification(report);
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, canonicalVerificationQualificationJson(result), "utf8");
+  await mkdir(dirname(markdownPath), { recursive: true });
+  await Promise.all([
+    writeFile(outputPath, canonicalVerificationQualificationJson(result), "utf8"),
+    writeFile(markdownPath, renderVerificationQualificationMarkdown(result), "utf8"),
+  ]);
 }
 
 async function main() {
