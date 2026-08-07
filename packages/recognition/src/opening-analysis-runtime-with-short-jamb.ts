@@ -7,6 +7,7 @@ import type {
   ValidateOpeningHypothesesInput,
 } from "./opening-analysis";
 import { deduplicateOpeningCandidatesAcrossHosts } from "./opening-cross-host-dedup";
+import { retryExteriorTerminalDoor } from "./opening-analysis-exterior-terminal-door-retry";
 import { retryRemoteTerminalDoor } from "./opening-analysis-remote-terminal-door-retry";
 import { retryTerminalPartitionDoor } from "./opening-analysis-terminal-partition-door-retry";
 import {
@@ -261,7 +262,8 @@ export function analyzeOpeningHypotheses(input: AnalyzeOpeningHypothesesInput): 
   for (const rejection of base.rejections) {
     const candidate = retryShortJamb(input, rejection)
       ?? retryRemoteTerminalDoor(input, rejection)
-      ?? retryTerminalPartitionDoor(input, rejection);
+      ?? retryTerminalPartitionDoor(input, rejection)
+      ?? retryExteriorTerminalDoor(input, rejection);
     if (candidate) recovered.set(rejection.candidateId, candidate);
   }
   if (recovered.size === 0) return applyFinalFallbackPolicy(base, input);
