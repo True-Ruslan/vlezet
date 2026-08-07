@@ -209,8 +209,11 @@ describe("verification benchmark qualification", () => {
   });
 
   it("rejects duplicate repetitions instead of silently deduplicating them", () => {
-    const duplicate = report();
-    duplicate.runs.push({ ...duplicate.runs[0] });
+    const base = report();
+    const duplicate = {
+      ...base,
+      runs: [...base.runs, { ...base.runs[0] }],
+    };
     expect(() => evaluateVerificationBenchmarkQualification(duplicate)).toThrow(/duplicate repetition/i);
   });
 
