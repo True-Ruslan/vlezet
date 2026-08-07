@@ -40,12 +40,16 @@ function host(reasons: readonly string[] = [
   };
 }
 
-const leaf: DetectedLineSegment = {
-  x1: HOST_X,
-  y1: HINGE_Y,
-  x2: HOST_X - DOOR_WIDTH,
-  y2: HINGE_Y,
-};
+function terminalLeaf(widthPx = DOOR_WIDTH): DetectedLineSegment {
+  return {
+    x1: HOST_X,
+    y1: HINGE_Y,
+    x2: HOST_X - widthPx,
+    y2: HINGE_Y,
+  };
+}
+
+const leaf = terminalLeaf();
 
 function mask(options: Readonly<{
   continuation?: boolean;
@@ -116,6 +120,14 @@ describe("exterior terminal door validation retry", () => {
     expect(recovered[0]?.evidence.reasons).toContain("opening-span-validated");
     expect(JSON.stringify(sourceHost)).toBe(before);
     expect(result.rejections.some(({ candidateId }) => candidateId === recovered[0]?.id)).toBe(false);
+  });
+
+  it("rejects a terminal leaf that is too short relative to host thickness", () => {
+    expect(validatedExterior(analyze({ symbolSegments: [terminalLeaf(70)] }))).toEqual([]);
+  });
+
+  it("rejects a terminal leaf that is too wide relative to host thickness", () => {
+    expect(validatedExterior(analyze({ symbolSegments: [terminalLeaf(190)] }))).toEqual([]);
   });
 
   it("keeps the common validator fail-closed for the same outside-host candidate", () => {
