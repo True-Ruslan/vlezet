@@ -4,6 +4,7 @@ export const DEFAULT_AI_BENCHMARK_LIMITS = Object.freeze({
   maximumRepetitions: 5,
   maximumTokens: 2048,
   timeoutMs: 90_000,
+  maximumCostUsd: 5,
 });
 
 const ALLOWED_MODES = new Set(["verification", "disputed-zones"]);
@@ -11,6 +12,18 @@ const ALLOWED_MODES = new Set(["verification", "disputed-zones"]);
 function boundedInteger(value, label, minimum, maximum) {
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
     throw new Error(`${label} must be an integer between ${minimum} and ${maximum}.`);
+  }
+  return value;
+}
+
+function boundedNumber(value, label, minimumExclusive, maximum) {
+  if (
+    typeof value !== "number"
+    || !Number.isFinite(value)
+    || value <= minimumExclusive
+    || value > maximum
+  ) {
+    throw new Error(`${label} cost must be a finite number greater than ${minimumExclusive} and at most ${maximum}.`);
   }
   return value;
 }
@@ -55,6 +68,12 @@ export function validateAiBenchmarkConfig(input) {
     1_000,
     DEFAULT_AI_BENCHMARK_LIMITS.timeoutMs,
   );
+  const maximumCostUsd = boundedNumber(
+    input.maximumCostUsd,
+    "maximumCostUsd",
+    0,
+    DEFAULT_AI_BENCHMARK_LIMITS.maximumCostUsd,
+  );
   if (!ALLOWED_MODES.has(input.mode)) {
     throw new Error(`mode must be one of: ${[...ALLOWED_MODES].join(", ")}.`);
   }
@@ -65,6 +84,7 @@ export function validateAiBenchmarkConfig(input) {
     repetitions,
     maximumTokens,
     timeoutMs,
+    maximumCostUsd,
     mode: input.mode,
     qualified: false,
   });
