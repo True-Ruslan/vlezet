@@ -29,10 +29,7 @@ async function prepareWorkspace(): Promise<Readonly<{
     expectedOpenings: [],
   }), "utf8");
   await writeFile(join(fixtureDirectory, "source.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-  await writeFile(join(predictionsRoot, "fixture-a.json"), JSON.stringify({
-    walls: [],
-    openings: [],
-  }), "utf8");
+  await writeFile(join(predictionsRoot, "fixture-a.json"), JSON.stringify({ walls: [], openings: [] }), "utf8");
   return {
     root,
     fixturesRoot,
@@ -57,9 +54,29 @@ function config(maximumCostUsd: number) {
   });
 }
 
+function modelResponse() {
+  return {
+    ok: true,
+    status: 200,
+    async json() {
+      return {
+        data: {
+          id: "test/model",
+          context_length: 16_384,
+          architecture: { input_modalities: ["text", "image"], output_modalities: ["text"] },
+          supported_parameters: ["max_tokens", "response_format", "reasoning"],
+          reasoning: { mandatory: false },
+        },
+      };
+    },
+    async text() { return ""; },
+  };
+}
+
 function successfulResponse(cost: number | null) {
   return {
     ok: true,
+    status: 200,
     async json() {
       return {
         choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) } }],
@@ -71,9 +88,7 @@ function successfulResponse(cost: number | null) {
         },
       };
     },
-    async text() {
-      return "";
-    },
+    async text() { return ""; },
   };
 }
 
@@ -84,7 +99,12 @@ afterEach(async () => {
 describe("AI benchmark observed-cost guard", () => {
   it("stops before the next paid request once the observed budget is consumed", async () => {
     const workspace = await prepareWorkspace();
-    const fetcher = vi.fn(async () => successfulResponse(0.01));
+    let paidCalls = 0;
+    const fetcher = vi.fn(async (_url: unknown, init?: { method?: string }) => {
+      if ((init?.method ?? "GET") === "GET") return modelResponse();
+      paidCalls += 1;
+      return successfulResponse(0.01);
+    });
     const report = await runAiBenchmark({
       config: config(0.01),
       fixturesRoot: workspace.fixturesRoot,
@@ -95,7 +115,8 @@ describe("AI benchmark observed-cost guard", () => {
       commitSha: "test-sha",
     });
 
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(paidCalls).toBe(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
     expect(report.execution).toEqual({
       plannedRunCount: 3,
       completedRunCount: 1,
@@ -109,7 +130,12 @@ describe("AI benchmark observed-cost guard", () => {
 
   it("fails closed and sends no further paid requests when usage cost is missing", async () => {
     const workspace = await prepareWorkspace();
-    const fetcher = vi.fn(async () => successfulResponse(null));
+    let paidCalls = 0;
+    const fetcher = vi.fn(async (_url: unknown, init?: { method?: string }) => {
+      if ((init?.method ?? "GET") === "GET") return modelResponse();
+      paidCalls += 1;
+      return successfulResponse(null);
+    });
     const report = await runAiBenchmark({
       config: config(1),
       fixturesRoot: workspace.fixturesRoot,
@@ -120,7 +146,8 @@ describe("AI benchmark observed-cost guard", () => {
       commitSha: "test-sha",
     });
 
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(paidCalls).toBe(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
     expect(report.execution).toEqual({
       plannedRunCount: 3,
       completedRunCount: 1,
