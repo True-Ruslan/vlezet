@@ -39,7 +39,7 @@ function wall(input: Readonly<{
             "architectural-line-filter",
             "collinear-centerline-merge",
             "dominant-wall-thickness-band",
-            "evidence:2",
+            "evidence:1",
             "paired-parallel-edges",
             "topology-edge",
           ],
