@@ -118,7 +118,7 @@ jobs:
         if: always()
         run: pnpm benchmark:recognition:ai-qualify
 
-      - name: Assert AI artifacts contain no secrets
+      - name: Assert AI artifact contains no secrets
         if: always()
         shell: bash
         run: |
