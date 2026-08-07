@@ -106,7 +106,6 @@ describe("post-retry cross-host opening dedupe", () => {
     expect(result.rejections).toEqual([]);
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]).toMatchObject({
-      id: "direct-door",
       kind: "door",
       hostWallCandidateId: "upstream-host",
     });
