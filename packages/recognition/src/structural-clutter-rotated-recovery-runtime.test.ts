@@ -38,10 +38,10 @@ function wall(id: string, start: Point, end: Point): RecognitionWallCandidate {
 
 const anchor = wall("accepted-anchor", { x: 645, y: 645 }, { x: 760, y: 760 });
 const structuralSegments: DetectedLineSegment[] = [
-  { x1: 93, y1: 107, x2: 293, y2: 307 },
-  { x1: 107, y1: 93, x2: 307, y2: 293 },
-  { x1: 413, y1: 427, x2: 643, y2: 657 },
-  { x1: 427, y1: 413, x2: 657, y2: 643 },
+  { x1: 93, y1: 107, x2: 313, y2: 327 },
+  { x1: 107, y1: 93, x2: 327, y2: 313 },
+  { x1: 383, y1: 397, x2: 643, y2: 657 },
+  { x1: 397, y1: 383, x2: 657, y2: 643 },
 ];
 
 function mask(): StructuralMaskView {
