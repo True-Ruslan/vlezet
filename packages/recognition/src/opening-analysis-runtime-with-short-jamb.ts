@@ -13,6 +13,7 @@ import {
   analyzeOpeningHypotheses as analyzeOpeningHypothesesBase,
   validateOpeningHypotheses as validateOpeningHypothesesBase,
 } from "./opening-analysis-runtime-with-window-proposals";
+import { vetoNarrowStructuralBoundaryFallbackWindows } from "./opening-structural-boundary-fallback-veto";
 import type { StructuralMaskView } from "./wall-completion";
 
 const REQUIRED_MARGIN_PX = 24;
@@ -244,9 +245,18 @@ function retryShortJamb(
   return retried.candidates.length === 1 ? markShortJamb(retried.candidates[0]!) : null;
 }
 
+function applyFinalFallbackPolicy(
+  result: OpeningAnalysisResult,
+  input: AnalyzeOpeningHypothesesInput,
+): OpeningAnalysisResult {
+  return vetoNarrowStructuralBoundaryFallbackWindows(result, input.wallCandidates);
+}
+
 export function analyzeOpeningHypotheses(input: AnalyzeOpeningHypothesesInput): OpeningAnalysisResult {
   const base = analyzeOpeningHypothesesBase(input);
-  if (!input.structuralMask || !input.symbolSegments?.length || base.rejections.length === 0) return base;
+  if (!input.structuralMask || !input.symbolSegments?.length || base.rejections.length === 0) {
+    return applyFinalFallbackPolicy(base, input);
+  }
   const recovered = new Map<string, RecognitionOpeningCandidate>();
   for (const rejection of base.rejections) {
     const candidate = retryShortJamb(input, rejection)
@@ -254,17 +264,18 @@ export function analyzeOpeningHypotheses(input: AnalyzeOpeningHypothesesInput): 
       ?? retryTerminalPartitionDoor(input, rejection);
     if (candidate) recovered.set(rejection.candidateId, candidate);
   }
-  if (recovered.size === 0) return base;
+  if (recovered.size === 0) return applyFinalFallbackPolicy(base, input);
   const merged = {
     candidates: [...base.candidates, ...recovered.values()].sort((first, second) => first.id.localeCompare(second.id)),
     rejections: base.rejections.filter(({ candidateId }) => !recovered.has(candidateId)),
   };
-  return deduplicateOpeningCandidatesAcrossHosts(
+  const deduplicated = deduplicateOpeningCandidatesAcrossHosts(
     merged,
     input.wallCandidates,
     input.widthPx,
     input.heightPx,
   );
+  return applyFinalFallbackPolicy(deduplicated, input);
 }
 
 export function validateOpeningHypotheses(input: ValidateOpeningHypothesesInput): OpeningAnalysisResult {
