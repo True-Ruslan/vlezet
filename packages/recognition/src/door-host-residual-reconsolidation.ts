@@ -3,6 +3,7 @@ import type {
   RecognitionOpeningCandidate,
   RecognitionWallCandidate,
 } from "./model";
+import { cleanupStrongMaskDoorHostResidualOverlaps } from "./strong-mask-door-host-residual-overlap";
 
 export type DoorHostResidualReconsolidationResult = Readonly<{
   walls: readonly RecognitionWallCandidate[];
@@ -268,13 +269,20 @@ export function reconsolidateDoorHostResiduals(input: Readonly<{
     };
   }
 
-  const pixelWalls = input.wallCandidates
+  const overlapCleanup = cleanupStrongMaskDoorHostResidualOverlaps({
+    widthPx,
+    heightPx,
+    wallCandidates: input.wallCandidates,
+    openings: input.openings,
+  });
+  const workingWalls = overlapCleanup.walls;
+  const pixelWalls = workingWalls
     .map((candidate) => pixelWall(candidate, widthPx, heightPx))
     .filter((wall): wall is PixelWall => wall !== null);
-  const existingIds = new Set(input.wallCandidates.map((candidate) => candidate.id));
+  const existingIds = new Set(workingWalls.map((candidate) => candidate.id));
   const replacements = new Map<string, readonly RecognitionWallCandidate[]>();
   const openingRebinds = new Map<string, string>();
-  const diagnostics: RecognitionDiagnostic[] = [];
+  const diagnostics: RecognitionDiagnostic[] = [...overlapCleanup.diagnostics];
 
   for (const residual of pixelWalls) {
     if (
@@ -309,14 +317,14 @@ export function reconsolidateDoorHostResiduals(input: Readonly<{
 
   if (replacements.size === 0) {
     return {
-      walls: [...input.wallCandidates],
+      walls: [...workingWalls],
       openings: [...input.openings],
-      reconsolidatedCount: 0,
-      diagnostics: [],
+      reconsolidatedCount: overlapCleanup.blockedCount,
+      diagnostics,
     };
   }
 
-  const walls = input.wallCandidates.flatMap((candidate) => replacements.get(candidate.id) ?? [candidate]);
+  const walls = workingWalls.flatMap((candidate) => replacements.get(candidate.id) ?? [candidate]);
   const openings = input.openings.map((candidate) => {
     const host = openingRebinds.get(candidate.id);
     return host ? reboundOpening(candidate, host) : candidate;
@@ -324,7 +332,7 @@ export function reconsolidateDoorHostResiduals(input: Readonly<{
   return {
     walls,
     openings,
-    reconsolidatedCount: replacements.size,
+    reconsolidatedCount: overlapCleanup.blockedCount + replacements.size,
     diagnostics: diagnostics.sort((first, second) =>
       (first.candidateId ?? "").localeCompare(second.candidateId ?? "")),
   };
