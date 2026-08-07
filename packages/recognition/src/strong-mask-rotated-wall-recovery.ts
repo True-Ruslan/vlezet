@@ -1,6 +1,7 @@
 import type { DetectedLineSegment } from "./local-lines";
 import { analyzeWallCandidates } from "./local-lines";
 import type { RecognitionDiagnostic, RecognitionWallCandidate } from "./model";
+import { recoverStrongMaskRotatedSegmentedPairs } from "./strong-mask-rotated-segmented-pair-recovery";
 import type { StructuralMaskView } from "./wall-completion";
 
 export type StrongMaskRotatedWallRecoveryResult = Readonly<{
@@ -554,13 +555,28 @@ export function recoverStrongMaskRotatedWalls(input: Readonly<{
     segments: input.segments,
     mask: input.mask,
   });
+  const segmentedPairRecovery = recoverStrongMaskRotatedSegmentedPairs({
+    widthPx: input.widthPx,
+    heightPx: input.heightPx,
+    primaryWalls: partialPairRecovery.walls,
+    segments: input.segments,
+    mask: input.mask,
+  });
 
   return {
-    walls: partialPairRecovery.walls,
-    recoveredWalls: [...replayRecovery.recoveredWalls, ...partialPairRecovery.recoveredWalls]
-      .sort((first, second) => first.id.localeCompare(second.id)),
-    recoveredCount: replayRecovery.recoveredCount + partialPairRecovery.recoveredCount,
-    diagnostics: [...replayRecovery.diagnostics, ...partialPairRecovery.diagnostics]
-      .sort((first, second) => (first.candidateId ?? "").localeCompare(second.candidateId ?? "")),
+    walls: segmentedPairRecovery.walls,
+    recoveredWalls: [
+      ...replayRecovery.recoveredWalls,
+      ...partialPairRecovery.recoveredWalls,
+      ...segmentedPairRecovery.recoveredWalls,
+    ].sort((first, second) => first.id.localeCompare(second.id)),
+    recoveredCount: replayRecovery.recoveredCount
+      + partialPairRecovery.recoveredCount
+      + segmentedPairRecovery.recoveredCount,
+    diagnostics: [
+      ...replayRecovery.diagnostics,
+      ...partialPairRecovery.diagnostics,
+      ...segmentedPairRecovery.diagnostics,
+    ].sort((first, second) => (first.candidateId ?? "").localeCompare(second.candidateId ?? "")),
   };
 }
