@@ -61,8 +61,8 @@ export function createProductOwnerReviewSubmission(input: Readonly<{
   commitSha: string;
   manifest: unknown;
   reviewedAt: string;
-  decision: ProductOwnerSubmissionDecision;
-  statuses: Readonly<Record<ProductOwnerAcceptanceCaseId, ProductOwnerSubmissionStatus>>;
+  decision: string;
+  statuses: Readonly<Record<string, unknown>>;
 }>): ProductOwnerReview;
 
 export function evaluateProductOwnerAcceptance(
