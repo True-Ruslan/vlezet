@@ -15,7 +15,6 @@ export { consolidateDoorHostWalls } from "./door-host-consolidation-runtime";
 export * from "./door-host-residual-reconsolidation";
 export { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 export {
-  analyzeWallCandidates,
   buildWallCandidates,
   createAdaptiveLocalRecognitionOptions,
   DEFAULT_LOCAL_RECOGNITION_OPTIONS,
@@ -27,6 +26,7 @@ export type {
   LocalRecognitionOptions,
   LocalWallCandidateAnalysis,
 } from "./local-lines";
+export { analyzeWallCandidates } from "./local-lines-runtime";
 export * from "./model";
 export { DEFAULT_OPENING_ANALYSIS_OPTIONS } from "./opening-analysis";
 export type {
@@ -55,6 +55,7 @@ export { rescaleRecognitionPixelEvidence } from "./source-scale-runtime";
 export type { StructuralClutterVetoResult } from "./structural-clutter-veto";
 export { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime";
 export * from "./structural-regions";
+export * from "./strong-mask-rotated-wall-recovery";
 export * from "./thick-wall-consolidation";
 export * from "./thin-structural-recovery";
 export * from "./topology-sanity";
