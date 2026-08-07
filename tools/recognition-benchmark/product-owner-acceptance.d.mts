@@ -7,7 +7,9 @@ export type ProductOwnerAcceptanceCaseId =
   | "plan-orientation-preserved";
 
 export type ProductOwnerReviewStatus = "pass" | "fail" | "not-reviewed";
+export type ProductOwnerSubmissionStatus = "pass" | "fail";
 export type ProductOwnerDecision = "accept" | "reject" | "pending";
+export type ProductOwnerSubmissionDecision = "accept" | "reject";
 
 export const PRODUCT_OWNER_ACCEPTANCE_CASES: readonly Readonly<{
   id: ProductOwnerAcceptanceCaseId;
@@ -53,6 +55,14 @@ export type ProductOwnerAcceptanceVerdict = Readonly<{
 export function createProductOwnerAcceptanceTemplate(input: Readonly<{
   commitSha: string;
   manifest: unknown;
+}>): ProductOwnerReview;
+
+export function createProductOwnerReviewSubmission(input: Readonly<{
+  commitSha: string;
+  manifest: unknown;
+  reviewedAt: string;
+  decision: ProductOwnerSubmissionDecision;
+  statuses: Readonly<Record<ProductOwnerAcceptanceCaseId, ProductOwnerSubmissionStatus>>;
 }>): ProductOwnerReview;
 
 export function evaluateProductOwnerAcceptance(
