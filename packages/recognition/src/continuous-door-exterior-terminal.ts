@@ -35,6 +35,7 @@ const MAX_LEAF_ALONG_DRIFT_RATIO = 0.28;
 const MIN_CONTINUATION_PX = 4;
 const MIN_CONTINUATION_SUPPORT_RATIO = 0.6;
 const MAX_OPENING_SUPPORT_RATIO = 0.28;
+const MAX_TERMINAL_STATION_DELTA_PX = 12;
 const EPSILON = 1e-7;
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -267,8 +268,13 @@ function createOpening(
 function equivalent(first: TerminalEvidence, second: TerminalEvidence): boolean {
   return first.host.candidate.id === second.host.candidate.id
     && first.direction === second.direction
-    && distance(first.hinge, second.hinge) <= 12
-    && Math.abs(first.leafLengthPx - second.leafLengthPx) <= 16;
+    && Math.abs(first.continuationPx - second.continuationPx) <= MAX_TERMINAL_STATION_DELTA_PX;
+}
+
+function preferCandidate(candidate: TerminalEvidence, existing: TerminalEvidence): boolean {
+  if (candidate.leafLengthPx > existing.leafLengthPx + EPSILON) return true;
+  if (existing.leafLengthPx > candidate.leafLengthPx + EPSILON) return false;
+  return candidate.key.localeCompare(existing.key) < 0;
 }
 
 export function detectExteriorTerminalDoorOpenings(
@@ -305,7 +311,7 @@ export function detectExteriorTerminalDoorOpenings(
       if (!candidate) continue;
       const existingIndex = evidence.findIndex((existing) => equivalent(existing, candidate));
       if (existingIndex < 0) evidence.push(candidate);
-      else if (candidate.key.localeCompare(evidence[existingIndex]!.key) < 0) evidence[existingIndex] = candidate;
+      else if (preferCandidate(candidate, evidence[existingIndex]!)) evidence[existingIndex] = candidate;
       if (evidence.length >= MAX_OPENING_HYPOTHESES) break;
     }
     if (evidence.length >= MAX_OPENING_HYPOTHESES) break;
