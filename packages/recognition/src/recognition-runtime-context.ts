@@ -1,8 +1,14 @@
+import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
 import type { OpeningHypothesisRejection } from "./opening-analysis";
 import type { StructuralMaskView } from "./wall-completion";
 
 const structuralMasksByWall = new WeakMap<RecognitionWallCandidate, StructuralMaskView>();
+const structuralSegmentsByWall = new WeakMap<RecognitionWallCandidate, Readonly<{
+  widthPx: number;
+  heightPx: number;
+  segments: readonly DetectedLineSegment[];
+}>>();
 const MAX_PENDING_AI_EVIDENCE_CONTEXTS = 8;
 const MAX_PENDING_AI_EVIDENCE_MASK_PIXELS = 8_000_000;
 const MAX_PENDING_AI_REJECTED_OPENINGS = 48;
@@ -21,6 +27,14 @@ function matchingDimensions(
   heightPx: number,
 ): boolean {
   return mask.widthPx === widthPx && mask.heightPx === heightPx;
+}
+
+function matchingSegmentDimensions(
+  context: Readonly<{ widthPx: number; heightPx: number }>,
+  widthPx: number,
+  heightPx: number,
+): boolean {
+  return context.widthPx === widthPx && context.heightPx === heightPx;
 }
 
 function wallSignature(wallIds: readonly string[]): string {
@@ -109,6 +123,42 @@ export function takeStructuralMaskForWalls(
   if (!resolved) return null;
   for (const candidate of wallCandidates) structuralMasksByWall.delete(candidate);
   return resolved;
+}
+
+export function registerStructuralSegmentsForActiveWalls(
+  wallCandidates: readonly RecognitionWallCandidate[],
+  segments: readonly DetectedLineSegment[],
+  widthPx: number,
+  heightPx: number,
+): void {
+  if (!Number.isFinite(widthPx) || widthPx <= 0 || !Number.isFinite(heightPx) || heightPx <= 0) return;
+  const snapshot = segments.map((segment) => ({ ...segment }));
+  const context = { widthPx, heightPx, segments: snapshot } as const;
+  for (const candidate of wallCandidates) {
+    if (candidate.conflict === null) structuralSegmentsByWall.set(candidate, context);
+  }
+}
+
+export function takeStructuralSegmentsForWalls(
+  wallCandidates: readonly RecognitionWallCandidate[],
+  widthPx: number,
+  heightPx: number,
+): readonly DetectedLineSegment[] | null {
+  let resolved: Readonly<{
+    widthPx: number;
+    heightPx: number;
+    segments: readonly DetectedLineSegment[];
+  }> | null = null;
+  for (const candidate of wallCandidates) {
+    const context = structuralSegmentsByWall.get(candidate);
+    if (context && matchingSegmentDimensions(context, widthPx, heightPx)) {
+      resolved = context;
+      break;
+    }
+  }
+  if (!resolved) return null;
+  for (const candidate of wallCandidates) structuralSegmentsByWall.delete(candidate);
+  return resolved.segments.map((segment) => ({ ...segment }));
 }
 
 export function registerPendingAiLocalEvidenceContext(
