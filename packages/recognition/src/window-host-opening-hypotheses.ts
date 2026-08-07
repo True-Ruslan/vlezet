@@ -41,6 +41,18 @@ function angleDeltaDeg(first: number, second: number): number {
   return Math.min(raw, 180 - raw);
 }
 
+function shortTerminalMarginException(
+  host: RecognitionWallCandidate,
+  startMarginPx: number,
+  endMarginPx: number,
+): boolean {
+  if (!host.evidence.reasons.includes("short-terminal-jamb-evidence")) return false;
+  if (startMarginPx < -EPSILON || endMarginPx < -EPSILON) return false;
+  const startDeficient = startMarginPx < MIN_END_MARGIN_PX;
+  const endDeficient = endMarginPx < MIN_END_MARGIN_PX;
+  return startDeficient !== endDeficient;
+}
+
 function openingForEvidence(
   evidence: WindowHostProposalEvidence,
   widthPx: number,
@@ -84,16 +96,10 @@ function openingForEvidence(
 
   const start = currentHost === null
     ? evidence.generatedHost.start
-    : {
-        x: currentHost.start.x * widthPx,
-        y: currentHost.start.y * heightPx,
-      };
+    : { x: currentHost.start.x * widthPx, y: currentHost.start.y * heightPx };
   const end = currentHost === null
     ? evidence.generatedHost.end
-    : {
-        x: currentHost.end.x * widthPx,
-        y: currentHost.end.y * heightPx,
-      };
+    : { x: currentHost.end.x * widthPx, y: currentHost.end.y * heightPx };
   const vector = subtract(end, start);
   const lengthPx = Math.hypot(vector.x, vector.y);
   if (!Number.isFinite(lengthPx) || lengthPx <= EPSILON) return null;
@@ -113,8 +119,8 @@ function openingForEvidence(
   if (currentHost === null) {
     if (startMarginPx < -EPSILON || endMarginPx < -EPSILON) return null;
   } else if (
-    startMarginPx < MIN_END_MARGIN_PX
-    || endMarginPx < MIN_END_MARGIN_PX
+    (startMarginPx < MIN_END_MARGIN_PX || endMarginPx < MIN_END_MARGIN_PX)
+    && !shortTerminalMarginException(currentHost, startMarginPx, endMarginPx)
   ) return null;
 
   const hostOrientationDeg = ((Math.atan2(vector.y, vector.x) * 180 / Math.PI) + 180) % 180;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionOpeningCandidate, RecognitionWallCandidate } from "./model";
-import { analyzeOpeningHypotheses } from "./opening-analysis-runtime-with-window-proposals";
+import { analyzeOpeningHypotheses } from "./opening-analysis-runtime-with-short-jamb";
 import type { StructuralMaskView } from "./wall-completion";
 
 const WIDTH = 818;

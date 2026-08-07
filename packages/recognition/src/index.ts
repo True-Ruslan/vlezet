@@ -39,7 +39,7 @@ export type {
 export {
   analyzeOpeningHypotheses,
   validateOpeningHypotheses,
-} from "./opening-analysis-runtime-with-window-proposals";
+} from "./opening-analysis-runtime-with-short-jamb";
 export * from "./opening-host-rebinding";
 export * from "./openings";
 export * from "./provider";
@@ -72,6 +72,7 @@ export { completeWallCenterlines } from "./wall-completion-runtime";
 export * from "./wall-evidence-filter";
 export * from "./wall-evidence-fusion";
 export * from "./wall-topology";
+export * from "./window-boundary-band-recovery";
 export type { WindowHostConsolidationInput } from "./window-host-consolidation";
 export type {
   WindowHostAnnotatedWallCandidate,

@@ -1,6 +1,7 @@
 import type { RecognitionWallCandidate } from "./model";
 import { takeStructuralMaskForWalls } from "./recognition-runtime-context";
 import type { StructuralMaskView } from "./wall-completion";
+import { recoverWindowBoundaryBands } from "./window-boundary-band-recovery";
 import type {
   WindowHostConsolidationInput as BaseWindowHostConsolidationInput,
   WindowHostConsolidationResult as BaseWindowHostConsolidationResult,
@@ -268,13 +269,36 @@ export function consolidateWindowHostWalls(
   );
   const terminal = filterTerminalRecovery(recoverWindowTerminalHosts(baseInput(input)), input);
   const terminalWalls = annotateTerminalResult(terminal.walls, terminal.proposalEvidence);
-  const firstBase = consolidateWindowHostWallsBase(baseInput(input, terminalWalls));
-  const firstWalls = annotateResult(firstBase, terminalWalls);
-  const firstEvidence = terminal.proposalEvidence.length > 0
-    ? mergeEvidence(terminal.proposalEvidence, firstBase.proposalEvidence)
+  const boundary = structuralMask
+    ? recoverWindowBoundaryBands({
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        wallCandidates: terminalWalls,
+        symbolSegments: input.symbolSegments,
+        structuralMask,
+      })
+    : {
+        walls: terminalWalls,
+        recoveredWalls: [] as readonly RecognitionWallCandidate[],
+        proposalEvidence: [] as readonly WindowHostProposalEvidence[],
+        diagnostics: [] as readonly string[],
+      };
+  const firstBase = consolidateWindowHostWallsBase(baseInput(input, boundary.walls));
+  const firstWalls = annotateResult(firstBase, boundary.walls);
+  const prefixEvidence = terminal.proposalEvidence.length > 0 || boundary.proposalEvidence.length > 0
+    ? mergeEvidence(terminal.proposalEvidence, boundary.proposalEvidence)
+    : [];
+  const firstEvidence = prefixEvidence.length > 0
+    ? mergeEvidence(prefixEvidence, firstBase.proposalEvidence)
     : firstBase.proposalEvidence;
-  const firstDiagnostics = mergeDiagnostics(terminal.diagnostics, firstBase.diagnostics);
-  const firstAcceptedBridgeCount = terminal.recoveredHostCount + firstBase.acceptedBridgeCount;
+  const firstDiagnostics = mergeDiagnostics(
+    terminal.diagnostics,
+    boundary.diagnostics,
+    firstBase.diagnostics,
+  );
+  const firstAcceptedBridgeCount = terminal.recoveredHostCount
+    + boundary.recoveredWalls.length
+    + firstBase.acceptedBridgeCount;
 
   if (!structuralMask || firstEvidence.length === 0) {
     return {
