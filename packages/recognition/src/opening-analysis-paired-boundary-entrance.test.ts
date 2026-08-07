@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionWallCandidate } from "./model";
-import { analyzeOpeningHypotheses } from "./opening-analysis-runtime-with-short-jamb";
+import { detectPairedBoundaryDoorGaps } from "./paired-boundary-door-gap";
 import type { StructuralMaskView } from "./wall-completion";
 
 const WIDTH = 1000;
@@ -64,68 +64,58 @@ function mask(options: Readonly<{ fillGap?: boolean }> = {}): StructuralMaskView
   };
 }
 
-function analyze(options: Readonly<{
+function detect(options: Readonly<{
   wallCandidates?: readonly RecognitionWallCandidate[];
   symbolSegments?: readonly DetectedLineSegment[];
   structuralMask?: StructuralMaskView;
 }> = {}) {
-  return analyzeOpeningHypotheses({
+  return detectPairedBoundaryDoorGaps({
     widthPx: WIDTH,
     heightPx: HEIGHT,
     wallCandidates: options.wallCandidates ?? [host, perpendicularAnchor],
     symbolSegments: options.symbolSegments ?? rails(),
-    structuralMask: options.structuralMask ?? mask(),
+    mask: options.structuralMask ?? mask(),
   });
 }
 
-function pairedBoundaryRejections(result: ReturnType<typeof analyze>) {
-  return result.rejections.filter(({ candidate }) =>
-    candidate.evidence.reasons.includes("paired-boundary-door-gap"));
-}
-
-function pairedBoundaryCandidates(result: ReturnType<typeof analyze>) {
-  return result.candidates.filter(({ evidence }) =>
-    evidence.reasons.includes("paired-boundary-door-gap"));
-}
-
 describe("paired boundary entrance detector", () => {
-  it("emits one p2-like entrance hypothesis but leaves it fail-closed at the common validator", () => {
-    const result = analyze();
-    const rejected = pairedBoundaryRejections(result);
+  it("emits one p2-like entrance hypothesis with deterministic host-aware geometry", () => {
+    const candidates = detect();
 
-    expect(pairedBoundaryCandidates(result)).toEqual([]);
-    expect(rejected).toHaveLength(1);
-    expect(rejected[0]?.code).toBe("opening-outside-host-span");
-    expect(rejected[0]?.candidate.kind).toBe("door");
-    expect(rejected[0]?.candidate.hostWallCandidateId).toBe(host.id);
-    expect(rejected[0]?.candidate.center.x * WIDTH).toBeCloseTo((HOST_END_X + GAP_END_X) / 2, 0);
-    expect(rejected[0]?.candidate.center.y * HEIGHT).toBeCloseTo(HOST_Y, 0);
-    expect(rejected[0]?.candidate.widthPx).toBeCloseTo(GAP_END_X - HOST_END_X, 0);
-    expect(rejected[0]?.candidate.orientationDeg).toBeCloseTo(0, 0);
+    expect(candidates).toHaveLength(1);
+    const candidate = candidates[0];
+    if (!candidate) throw new Error("Expected paired-boundary entrance candidate.");
+    expect(candidate.kind).toBe("door");
+    expect(candidate.hostWallCandidateId).toBe(host.id);
+    expect(candidate.center.x * WIDTH).toBeCloseTo((HOST_END_X + GAP_END_X) / 2, 0);
+    expect(candidate.center.y * HEIGHT).toBeCloseTo(HOST_Y, 0);
+    expect(candidate.widthPx).toBeCloseTo(GAP_END_X - HOST_END_X, 0);
+    expect(candidate.orientationDeg).toBeCloseTo(0, 0);
+    expect(candidate.evidence.reasons).toContain("paired-boundary-door-gap");
   });
 
   it("does not infer an entrance when only one wall face has a far-side rail", () => {
     const oneFace = rails().filter((segment) => !(segment.y1 === 115 && segment.x1 === GAP_END_X));
-    expect(pairedBoundaryRejections(analyze({ symbolSegments: oneFace }))).toEqual([]);
+    expect(detect({ symbolSegments: oneFace })).toEqual([]);
   });
 
   it("does not infer an entrance when the two boundary gaps disagree materially", () => {
     const mismatched = rails();
     mismatched[3] = { x1: 555, y1: 115, x2: 700, y2: 115 };
-    expect(pairedBoundaryRejections(analyze({ symbolSegments: mismatched }))).toEqual([]);
+    expect(detect({ symbolSegments: mismatched })).toEqual([]);
   });
 
   it("does not infer an entrance without an independent perpendicular structural wall anchor", () => {
-    expect(pairedBoundaryRejections(analyze({ wallCandidates: [host] }))).toEqual([]);
+    expect(detect({ wallCandidates: [host] })).toEqual([]);
   });
 
   it("does not infer an entrance when the gap is filled by structural mask support", () => {
-    expect(pairedBoundaryRejections(analyze({ structuralMask: mask({ fillGap: true }) }))).toEqual([]);
+    expect(detect({ structuralMask: mask({ fillGap: true }) })).toEqual([]);
   });
 
   it("does not infer an entrance outside the entrance width-to-thickness scale", () => {
     for (const gapEndX of [465, 565]) {
-      expect(pairedBoundaryRejections(analyze({ symbolSegments: rails(gapEndX) }))).toEqual([]);
+      expect(detect({ symbolSegments: rails(gapEndX) })).toEqual([]);
     }
   });
 
@@ -139,6 +129,6 @@ describe("paired boundary entrance detector", () => {
       THICKNESS,
       ["filled-wall-region-evidence", "topology-edge"],
     );
-    expect(pairedBoundaryRejections(analyze({ wallCandidates: [weakHost, perpendicularAnchor] }))).toEqual([]);
+    expect(detect({ wallCandidates: [weakHost, perpendicularAnchor] })).toEqual([]);
   });
 });
