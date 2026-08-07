@@ -1,5 +1,6 @@
 import type { DetectedLineSegment } from "./local-lines";
 import type { RecognitionDiagnostic, RecognitionWallCandidate } from "./model";
+import { augmentRotatedCollinearRailSegments } from "./rotated-rail-fragment-merge";
 import type { StructuralMaskView } from "./wall-completion";
 
 export type StrongMaskRotatedSegmentedPairRecoveryResult = Readonly<{
@@ -477,7 +478,7 @@ export function recoverStrongMaskRotatedSegmentedPairs(input: Readonly<{
   }
 
   const shortSide = Math.min(input.widthPx, input.heightPx);
-  const segments = input.segments
+  const segments = augmentRotatedCollinearRailSegments(input.segments)
     .map(segmentGeometry)
     .filter((segment): segment is SegmentGeometry => segment !== null)
     .sort(compareSegment);
