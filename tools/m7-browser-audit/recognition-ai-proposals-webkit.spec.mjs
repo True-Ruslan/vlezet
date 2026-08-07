@@ -261,6 +261,49 @@ async function readRecord(page, storeName, key, indexName = null) {
   }, { storeName, key, indexName });
 }
 
+async function armAutosaveTransitionProbe(page) {
+  await page.evaluate(() => {
+    const root = document.querySelector(".project-title-stack");
+    if (!(root instanceof HTMLElement)) {
+      throw new Error("Project title stack is unavailable for autosave observation.");
+    }
+    const transitions = [];
+    const capture = () => {
+      const status = root.querySelector(".save-status");
+      if (!(status instanceof HTMLElement)) return;
+      transitions.push({
+        saving: status.classList.contains("is-saving"),
+        saved: status.classList.contains("is-saved"),
+        text: status.textContent?.trim() ?? "",
+      });
+    };
+    capture();
+    const observer = new MutationObserver(capture);
+    observer.observe(root, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    globalThis.__vlezetWebkitAutosaveProbe = { transitions, observer };
+  });
+}
+
+async function waitForAutosaveCycle(page) {
+  await expect.poll(async () => page.evaluate(() => {
+    const probe = globalThis.__vlezetWebkitAutosaveProbe;
+    if (!probe) return false;
+    const savingIndex = probe.transitions.findIndex((transition) => transition.saving);
+    return savingIndex >= 0
+      && probe.transitions.slice(savingIndex + 1).some((transition) => transition.saved);
+  }), { timeout: 10_000 }).toBe(true);
+  await page.evaluate(() => {
+    const probe = globalThis.__vlezetWebkitAutosaveProbe;
+    probe?.observer.disconnect();
+    delete globalThis.__vlezetWebkitAutosaveProbe;
+  });
+}
+
 async function openRecognition(page) {
   await page.getByRole("button", { name: "Распознать", exact: true }).click();
   await expect(page.locator(".context-panel-eyebrow")).toHaveText("Распознавание");
@@ -284,13 +327,13 @@ test("WebKit reviews, applies and restores an eligible recorded AI door", async 
   await proposal.getByRole("button", { name: "Принять предложение", exact: true }).click();
   await expect(proposal.locator("em")).toHaveText("Принято");
   await expect(page.getByRole("button", { name: "Применить выбранное", exact: true })).toBeEnabled();
+  await armAutosaveTransitionProbe(page);
   await page.getByRole("button", { name: "Применить выбранное", exact: true }).click();
-
-  await expect.poll(async () => {
-    const project = await readRecord(page, "projects", projectId);
-    return project?.document?.openings?.length ?? 0;
-  }).toBe(1);
   await expect(page.getByRole("button", { name: "Уже применено", exact: true })).toBeDisabled();
+  await waitForAutosaveCycle(page);
+
+  const persistedProject = await readRecord(page, "projects", projectId);
+  expect(persistedProject.document.openings).toHaveLength(1);
 
   await mkdir(artifactsDir, { recursive: true });
   await page.screenshot({

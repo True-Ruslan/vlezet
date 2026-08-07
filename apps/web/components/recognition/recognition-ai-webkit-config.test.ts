@@ -29,4 +29,14 @@ describe("WebKit AI proposal acceptance wiring", () => {
     expect(representativeSpec).toContain('ensureStore("recognitionSessions", "id")');
     expect(representativeSpec).toContain('createIndex("projectId", "projectId", { unique: true })');
   });
+
+  it("waits for the real autosave lifecycle before inspecting persisted Apply state", () => {
+    expect(representativeSpec).toContain("armAutosaveTransitionProbe");
+    expect(representativeSpec).toContain("waitForAutosaveCycle");
+    expect(representativeSpec).toContain('.project-title-stack');
+    expect(representativeSpec).toContain('.save-status');
+    expect(representativeSpec).toContain('transition.saving');
+    expect(representativeSpec).toContain('transition.saved');
+    expect(representativeSpec).not.toContain('expect.poll(async () => {\n    const project = await readRecord');
+  });
 });
