@@ -21,14 +21,7 @@ function projectRecord() {
     name: "Recorded AI Proposal WebKit",
     createdAt: now,
     updatedAt: now,
-    document: {
-      schemaVersion: 3,
-      vertices: [],
-      walls: [],
-      openings: [],
-      roomAnnotations: [],
-      placedObjects: [],
-    },
+    document: { schemaVersion: 3, vertices: [], walls: [], openings: [], roomAnnotations: [], placedObjects: [] },
     viewport: { offsetX: 140, offsetY: 140, pixelsPerMillimeter: 0.12 },
     ui: { furnitureCatalogOpen: false, referencePanelOpen: false },
     referencePlan: {
@@ -37,11 +30,7 @@ function projectRecord() {
       source: { kind: "image", originalMimeType: "image/png" },
       widthPx: 1000,
       heightPx: 600,
-      transform: {
-        originWorld: { x: 0, y: 0 },
-        millimetersPerPixel: 10,
-        rotationDeg: 0,
-      },
+      transform: { originWorld: { x: 0, y: 0 }, millimetersPerPixel: 10, rotationDeg: 0 },
       calibration: {
         pointA: { x: 100, y: 300 },
         pointB: { x: 200, y: 300 },
@@ -53,18 +42,66 @@ function projectRecord() {
   };
 }
 
+function canonicalRecordedWalls() {
+  return [
+    {
+      id: "wall-door-host",
+      start: { x: 0.1, y: 0.5 },
+      end: { x: 0.9, y: 0.5 },
+      estimatedThicknessPx: 20,
+      confidence: "high",
+      evidence: { localScore: 0.91, cloudScore: null, reasons: ["filled-wall-region-evidence"] },
+      origin: "local",
+      conflict: null,
+    },
+    {
+      id: "wall-window-host",
+      start: { x: 0.1, y: 0.08 },
+      end: { x: 0.9, y: 0.08 },
+      estimatedThicknessPx: 20,
+      confidence: "high",
+      evidence: {
+        localScore: 0.91,
+        cloudScore: null,
+        reasons: ["filled-wall-region-evidence", "exterior-boundary-host-bridge"],
+      },
+      origin: "local",
+      conflict: null,
+    },
+    {
+      id: "anchor-left",
+      start: { x: 0.45, y: 0.55 },
+      end: { x: 0.45, y: 0.75 },
+      estimatedThicknessPx: 24,
+      confidence: "medium",
+      evidence: { localScore: 0.72, cloudScore: null, reasons: ["filled-wall-region-evidence"] },
+      origin: "local",
+      conflict: null,
+    },
+    {
+      id: "wall-washbasin",
+      start: { x: 0.45, y: 0.75 },
+      end: { x: 0.55, y: 0.75 },
+      estimatedThicknessPx: 36,
+      confidence: "low",
+      evidence: {
+        localScore: 0.48,
+        cloudScore: null,
+        reasons: ["filled-wall-region-evidence", "structural-clutter-veto"],
+      },
+      origin: "local",
+      conflict: "unsupported",
+    },
+  ];
+}
+
 function sessionRecord() {
   const proposal = {
     id: proposalId,
     rawProposalId: "raw-door-living",
     kind: "door",
     state: "eligible",
-    geometry: {
-      kind: "opening",
-      center: { x: 0.5, y: 0.5 },
-      widthNormalized: 0.1,
-      orientationDeg: 0,
-    },
+    geometry: { kind: "opening", center: { x: 0.5, y: 0.5 }, widthNormalized: 0.1, orientationDeg: 0 },
     targetLocalCandidateId: null,
     hostWallCandidateId: "wall-door-host",
     provider: { providerId: "openrouter-direct", modelId, requestId },
@@ -73,11 +110,7 @@ function sessionRecord() {
     sourceRegion: { x: 0.44, y: 0.42, width: 0.12, height: 0.16 },
     evidence: {
       providerReasons: ["visible-gap", "door-leaf"],
-      validatorReasons: [
-        "host-wall-validated",
-        "opening-span-validated",
-        "local-door-evidence-validated",
-      ],
+      validatorReasons: ["host-wall-validated", "opening-span-validated", "local-door-evidence-validated"],
     },
     localDraftFingerprint: fingerprint,
   };
@@ -88,42 +121,15 @@ function sessionRecord() {
     referenceRevision,
     engineVersion: "5",
     status: "reconciled",
-    walls: [
-      {
-        id: "wall-door-host",
-        start: { x: 0.1, y: 0.5 },
-        end: { x: 0.9, y: 0.5 },
-        estimatedThicknessPx: 20,
-        confidence: "high",
-        evidence: {
-          localScore: 0.91,
-          cloudScore: null,
-          reasons: ["filled-wall-region-evidence"],
-        },
-        origin: "local",
-        conflict: null,
-      },
-      {
-        id: "wall-window-host",
-        start: { x: 0.1, y: 0.08 },
-        end: { x: 0.9, y: 0.08 },
-        estimatedThicknessPx: 20,
-        confidence: "high",
-        evidence: {
-          localScore: 0.91,
-          cloudScore: null,
-          reasons: ["filled-wall-region-evidence", "exterior-boundary-host-bridge"],
-        },
-        origin: "local",
-        conflict: null,
-      },
-    ],
+    walls: canonicalRecordedWalls(),
     openings: [],
     roomLabels: [],
     diagnostics: [],
     decisions: {
       "wall-door-host": "pending",
       "wall-window-host": "pending",
+      "anchor-left": "pending",
+      "wall-washbasin": "pending",
     },
     source: { local: true, cloud: false },
     createdAt: now,
@@ -163,20 +169,16 @@ async function seedRepresentativeState(page) {
         const database = request.result;
         const transaction = request.transaction;
         if (!transaction) throw new Error("Vlezet IndexedDB upgrade transaction is unavailable.");
-
         const ensureStore = (name, keyPath) => database.objectStoreNames.contains(name)
           ? transaction.objectStore(name)
           : database.createObjectStore(name, { keyPath });
-
         const projects = ensureStore("projects", "id");
         if (!projects.indexNames.contains("updatedAt")) {
           projects.createIndex("updatedAt", "updatedAt", { unique: false });
         }
         ensureStore("settings", "key");
         const assets = ensureStore("assets", "id");
-        if (!assets.indexNames.contains("projectId")) {
-          assets.createIndex("projectId", "projectId", { unique: false });
-        }
+        if (!assets.indexNames.contains("projectId")) assets.createIndex("projectId", "projectId", { unique: false });
         const recognitionSessions = ensureStore("recognitionSessions", "id");
         if (!recognitionSessions.indexNames.contains("projectId")) {
           recognitionSessions.createIndex("projectId", "projectId", { unique: true });
@@ -198,7 +200,6 @@ async function seedRepresentativeState(page) {
       const message = error?.message ? `: ${error.message}` : "";
       return new Error(`${label}: ${name}${message}`);
     };
-
     const write = async (stores, values, label) => {
       const transaction = database.transaction(stores, "readwrite");
       const done = new Promise((resolve, reject) => {
@@ -208,10 +209,7 @@ async function seedRepresentativeState(page) {
       });
       for (const entry of values) {
         const request = transaction.objectStore(entry.store).put(entry.value);
-        request.onerror = (event) => {
-          event.preventDefault();
-          transaction.abort();
-        };
+        request.onerror = (event) => { event.preventDefault(); transaction.abort(); };
       }
       await done;
     };
@@ -264,9 +262,7 @@ async function readRecord(page, storeName, key, indexName = null) {
 async function armAutosaveTransitionProbe(page) {
   await page.evaluate(() => {
     const root = document.querySelector(".project-title-stack");
-    if (!(root instanceof HTMLElement)) {
-      throw new Error("Project title stack is unavailable for autosave observation.");
-    }
+    if (!(root instanceof HTMLElement)) throw new Error("Project title stack is unavailable for autosave observation.");
     const transitions = [];
     const capture = () => {
       const status = root.querySelector(".save-status");
@@ -279,12 +275,7 @@ async function armAutosaveTransitionProbe(page) {
     };
     capture();
     const observer = new MutationObserver(capture);
-    observer.observe(root, {
-      attributes: true,
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
+    observer.observe(root, { attributes: true, childList: true, subtree: true, characterData: true });
     globalThis.__vlezetWebkitAutosaveProbe = { transitions, observer };
   });
 }
@@ -294,8 +285,7 @@ async function waitForAutosaveCycle(page) {
     const probe = globalThis.__vlezetWebkitAutosaveProbe;
     if (!probe) return false;
     const savingIndex = probe.transitions.findIndex((transition) => transition.saving);
-    return savingIndex >= 0
-      && probe.transitions.slice(savingIndex + 1).some((transition) => transition.saved);
+    return savingIndex >= 0 && probe.transitions.slice(savingIndex + 1).some((transition) => transition.saved);
   }), { timeout: 10_000 }).toBe(true);
   await page.evaluate(() => {
     const probe = globalThis.__vlezetWebkitAutosaveProbe;
@@ -315,10 +305,7 @@ test("WebKit reviews, applies and restores an eligible recorded AI door", async 
 
   await seedRepresentativeState(page);
   await openRecognition(page);
-
-  const proposal = page.locator(
-    '.recognition-proposal-card[data-proposal-kind="door"][data-proposal-state="eligible"]',
-  );
+  const proposal = page.locator('.recognition-proposal-card[data-proposal-kind="door"][data-proposal-state="eligible"]');
   await expect(proposal).toHaveCount(1);
   await expect(page.getByText("AI-предложения отделены от локального черновика", { exact: true })).toBeVisible();
   expect((await readRecord(page, "projects", projectId)).document.openings).toHaveLength(0);
@@ -334,22 +321,14 @@ test("WebKit reviews, applies and restores an eligible recorded AI door", async 
 
   const persistedProject = await readRecord(page, "projects", projectId);
   expect(persistedProject.document.openings).toHaveLength(1);
-
   await mkdir(artifactsDir, { recursive: true });
-  await page.screenshot({
-    path: path.join(artifactsDir, "webkit-ai-proposals-applied.png"),
-    fullPage: false,
-  });
+  await page.screenshot({ path: path.join(artifactsDir, "webkit-ai-proposals-applied.png"), fullPage: false });
 
   await page.reload();
   await expect(page.locator(".editor-project-bar")).toBeVisible();
   await openRecognition(page);
   await expect(page.locator('.recognition-proposal-card[data-proposal-kind="door"] em')).toHaveText("Принято");
   const restored = await readRecord(page, "recognitionSessions", projectId, "projectId");
-  expect(restored.draft.aiProposalMetadata).toMatchObject({
-    providerId: "openrouter-direct",
-    modelId,
-    requestId,
-  });
+  expect(restored.draft.aiProposalMetadata).toMatchObject({ providerId: "openrouter-direct", modelId, requestId });
   expect((await readRecord(page, "projects", projectId)).document.openings).toHaveLength(1);
 });

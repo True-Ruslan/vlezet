@@ -30,6 +30,17 @@ describe("WebKit AI proposal acceptance wiring", () => {
     expect(representativeSpec).toContain('createIndex("projectId", "projectId", { unique: true })');
   });
 
+  it("uses the canonical four-wall local Draft that owns the recorded fingerprint", () => {
+    for (const wallId of ["wall-door-host", "wall-window-host", "anchor-left", "wall-washbasin"]) {
+      expect(representativeSpec).toContain(`id: "${wallId}"`);
+      expect(representativeSpec).toContain(`"${wallId}": "pending"`);
+    }
+    expect(representativeSpec).toContain("structural-clutter-veto");
+    expect(representativeSpec).toContain(
+      "recognition-local-draft-v1:bc170b3e112ce71ab22b8d3e66a081b70ee063c645557377b917c70bc1543abf",
+    );
+  });
+
   it("waits for the real autosave lifecycle before inspecting persisted Apply state", () => {
     expect(representativeSpec).toContain("armAutosaveTransitionProbe");
     expect(representativeSpec).toContain("waitForAutosaveCycle");
