@@ -323,6 +323,7 @@ export function createOpenRouterBenchmarkClient({ apiKey, fetcher = globalThis.f
           provider: {
             require_parameters: true,
             allow_fallbacks: false,
+            data_collection: "deny",
             sort: "price",
             max_price: providerMaxPrice,
           },
