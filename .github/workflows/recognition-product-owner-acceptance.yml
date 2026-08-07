@@ -124,16 +124,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          artifacts=(
-            tools/recognition-benchmark/artifacts/product-owner/*.json
-            tools/recognition-benchmark/artifacts/product-owner/*.md
-          )
-          test "${#artifacts[@]}" -ge 3
-          if grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-|data:image|screenshot|coordinate' "${artifacts[@]}"; then
-            echo "Product-owner artifacts contain forbidden material" >&2
-            exit 1
-          fi
+          node tools/recognition-benchmark/product-owner-artifact-check.mjs \
+            tools/recognition-benchmark/artifacts/product-owner/product-owner-review.json \
+            tools/recognition-benchmark/artifacts/product-owner/product-owner-acceptance.json \
+            tools/recognition-benchmark/artifacts/product-owner/product-owner-acceptance.md
 
       - name: Upload product-owner acceptance evidence
         if: always()
