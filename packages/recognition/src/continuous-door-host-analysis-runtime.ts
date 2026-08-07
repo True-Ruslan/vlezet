@@ -5,6 +5,7 @@ import type {
 import {
   detectContinuousHostDoorOpenings as detectContinuousHostDoorOpeningsBase,
 } from "./continuous-door-host-analysis";
+import { detectExteriorTerminalDoorOpenings } from "./continuous-door-exterior-terminal";
 import { detectRemoteTerminalDoorOpenings } from "./continuous-door-remote-terminal-jamb";
 import { detectTerminalHostDoorOpenings } from "./continuous-door-terminal-host";
 import type { DetectedLineSegment } from "./local-lines";
@@ -157,9 +158,18 @@ export function detectContinuousHostDoorOpenings(
     ...input,
     symbolSegments,
   });
+  const exteriorTerminal = detectExteriorTerminalDoorOpenings({
+    ...input,
+    symbolSegments,
+  });
   return mergeResults(
-    mergeResults(continuous, terminal, input.widthPx, input.heightPx),
-    remoteTerminal,
+    mergeResults(
+      mergeResults(continuous, terminal, input.widthPx, input.heightPx),
+      remoteTerminal,
+      input.widthPx,
+      input.heightPx,
+    ),
+    exteriorTerminal,
     input.widthPx,
     input.heightPx,
   );
