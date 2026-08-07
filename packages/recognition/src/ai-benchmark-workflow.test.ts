@@ -29,6 +29,7 @@ describe("M7.9 AI benchmark workflow", () => {
     expect(source).toContain("Run bounded OpenRouter benchmark");
     expect(source).toContain("AI_BENCHMARK_MAX_TOKENS: \"2048\"");
     expect(source).toContain("AI_BENCHMARK_TIMEOUT_MS: \"90000\"");
+    expect(source).toContain("AI_BENCHMARK_MAX_COST_USD: \"5\"");
   });
 
   it("uploads only normalized benchmark evidence with finite retention", () => {
