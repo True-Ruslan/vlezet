@@ -108,31 +108,24 @@ describe("M7.9 bounded AI benchmark", () => {
     }
   });
 
-  it("fails before any network request when the secret is absent", async () => {
+  it("fails before any network request when the secret is absent", () => {
     const fetcher = vi.fn();
     expect(() => createOpenRouterBenchmarkClient({ apiKey: "", fetcher })).toThrow(/OPENROUTER_API_KEY/i);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("applies non-overridable provider price and routing guards before the paid request", async () => {
+  it("applies bounded provider price and routing guards before the paid request", async () => {
     let requestBody: unknown = null;
     const fetcher = vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
       requestBody = JSON.parse(String(init?.body ?? ""));
       return {
         ok: true,
         status: 200,
-        async text() {
-          return "";
-        },
+        async text() { return ""; },
         async json() {
           return {
             choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) } }],
-            usage: {
-              prompt_tokens: 10,
-              completion_tokens: 2,
-              total_tokens: 12,
-              cost: 0.001,
-            },
+            usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cost: 0.001 },
           };
         },
       };
@@ -146,8 +139,8 @@ describe("M7.9 bounded AI benchmark", () => {
       maximumTokens: 128,
       timeoutMs: 1_000,
       mode: "verification",
-      maximumPromptPricePerMillionUsd: 3,
-      maximumCompletionPricePerMillionUsd: 15,
+      providerMaxPrice: { prompt: 3, completion: 15, image: 0.01, request: 0.01 },
+      disableReasoning: true,
     });
 
     expect(fetcher).toHaveBeenCalledTimes(1);
@@ -157,11 +150,9 @@ describe("M7.9 bounded AI benchmark", () => {
         allow_fallbacks: false,
         data_collection: "deny",
         require_parameters: true,
-        max_price: {
-          prompt: 3,
-          completion: 15,
-        },
+        max_price: { prompt: 3, completion: 15, image: 0.01, request: 0.01 },
       },
+      reasoning: { effort: "none", exclude: true },
     });
   });
 
@@ -178,12 +169,7 @@ describe("M7.9 bounded AI benchmark", () => {
       openings: [],
     }, localSummary)).toThrow(/unknown-wall/i);
     expect(() => normalizeVerificationResponse({
-      walls: [{
-        id: "wall-a",
-        confidence: "high",
-        score: 0.9,
-        start: { x: 0, y: 0 },
-      }],
+      walls: [{ id: "wall-a", confidence: "high", score: 0.9, start: { x: 0, y: 0 } }],
       openings: [],
     }, localSummary)).toThrow(/geometry|start/i);
   });
