@@ -7,6 +7,7 @@ import type {
   ValidateOpeningHypothesesInput,
 } from "./opening-analysis";
 import { retryRemoteTerminalDoor } from "./opening-analysis-remote-terminal-door-retry";
+import { retryTerminalPartitionDoor } from "./opening-analysis-terminal-partition-door-retry";
 import {
   analyzeOpeningHypotheses as analyzeOpeningHypothesesBase,
   validateOpeningHypotheses as validateOpeningHypothesesBase,
@@ -248,7 +249,8 @@ export function analyzeOpeningHypotheses(input: AnalyzeOpeningHypothesesInput): 
   const recovered = new Map<string, RecognitionOpeningCandidate>();
   for (const rejection of base.rejections) {
     const candidate = retryShortJamb(input, rejection)
-      ?? retryRemoteTerminalDoor(input, rejection);
+      ?? retryRemoteTerminalDoor(input, rejection)
+      ?? retryTerminalPartitionDoor(input, rejection);
     if (candidate) recovered.set(rejection.candidateId, candidate);
   }
   if (recovered.size === 0) return base;
