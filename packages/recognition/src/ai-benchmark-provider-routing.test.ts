@@ -13,7 +13,7 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe("OpenRouter paid benchmark routing boundary", () => {
-  it("disables fallback and reasoning, enforces max prices and performs no hidden repair request", async () => {
+  it("disables fallback and data collection, disables reasoning, enforces max prices and performs no hidden repair request", async () => {
     const calls: Array<readonly [string, AiBenchmarkFetchInit | undefined]> = [];
     const fetcher: AiBenchmarkFetcher = async (url, init) => {
       calls.push([url, init]);
@@ -48,6 +48,7 @@ describe("OpenRouter paid benchmark routing boundary", () => {
     expect(request.provider).toEqual({
       require_parameters: true,
       allow_fallbacks: false,
+      data_collection: "deny",
       sort: "price",
       max_price: {
         prompt: 0.2,
