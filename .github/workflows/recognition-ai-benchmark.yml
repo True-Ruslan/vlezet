@@ -116,7 +116,13 @@ jobs:
 
       - name: Evaluate verification benchmark qualification
         if: always()
-        run: pnpm benchmark:recognition:ai-qualify
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm benchmark:recognition:ai-qualify
+          review="tools/recognition-benchmark/artifacts/ai/recognition-ai-verification-qualification.md"
+          test -s "$review"
+          cat "$review" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Assert AI artifact contains no secrets
         if: always()
@@ -126,7 +132,10 @@ jobs:
           artifact="tools/recognition-benchmark/artifacts/ai/recognition-ai-benchmark.json"
           test -s "$artifact"
           shopt -s nullglob
-          artifacts=(tools/recognition-benchmark/artifacts/ai/*.json)
+          artifacts=(
+            tools/recognition-benchmark/artifacts/ai/*.json
+            tools/recognition-benchmark/artifacts/ai/*.md
+          )
           test "${#artifacts[@]}" -gt 0
           if grep -Eiq 'sk-or-v1-|Authorization[[:space:]]*:[[:space:]]*Bearer|Bearer[[:space:]]+sk-' "${artifacts[@]}"; then
             echo "AI benchmark artifacts contain secret-like material" >&2
