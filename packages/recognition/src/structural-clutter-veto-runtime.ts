@@ -1,6 +1,11 @@
 import type { RecognitionDiagnostic } from "./model";
-import { registerStructuralMaskForActiveWalls } from "./recognition-runtime-context";
+import {
+  registerStructuralMaskForActiveWalls,
+  takeStructuralSegmentsForWalls,
+} from "./recognition-runtime-context";
 import { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime";
+import { recoverStrongMaskRotatedDoorHosts } from "./strong-mask-rotated-door-host-recovery";
+import { recoverStrongMaskRotatedWalls } from "./strong-mask-rotated-wall-recovery";
 import {
   applyStructuralClutterVeto as applyStructuralClutterVetoBase,
   type StructuralClutterVetoResult,
@@ -33,8 +38,42 @@ function withRuntimeMask(
 export function applyStructuralClutterVeto(
   input: StructuralClutterVetoInput,
 ): StructuralClutterVetoResult {
+  const structuralSegments = takeStructuralSegmentsForWalls(
+    input.wallCandidates,
+    input.widthPx,
+    input.heightPx,
+  );
   const base = applyStructuralClutterVetoBase(input);
-  const initialExtension = extend(input, base.walls);
+  const rotated = structuralSegments
+    ? recoverStrongMaskRotatedWalls({
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        primaryWalls: base.walls,
+        segments: structuralSegments,
+        mask: input.mask,
+      })
+    : {
+        walls: base.walls,
+        recoveredWalls: [],
+        recoveredCount: 0,
+        diagnostics: [],
+      };
+  const rotatedDoorHosts = structuralSegments
+    ? recoverStrongMaskRotatedDoorHosts({
+        widthPx: input.widthPx,
+        heightPx: input.heightPx,
+        primaryWalls: rotated.walls,
+        structuralSegments,
+        symbolSegments: input.symbolSegments,
+        mask: input.mask,
+      })
+    : {
+        walls: rotated.walls,
+        recoveredWalls: [],
+        recoveredCount: 0,
+        diagnostics: [],
+      };
+  const initialExtension = extend(input, rotatedDoorHosts.walls);
   const segmented = recoverSegmentedBoundaryWalls({
     widthPx: input.widthPx,
     heightPx: input.heightPx,
@@ -45,12 +84,16 @@ export function applyStructuralClutterVeto(
   const acceptedExtensionCount = initialExtension.acceptedExtensionCount
     + finalExtension.acceptedExtensionCount;
   if (
-    segmented.recoveredWalls.length === 0
+    rotated.recoveredCount === 0
+    && rotatedDoorHosts.recoveredCount === 0
+    && segmented.recoveredWalls.length === 0
     && acceptedExtensionCount === 0
   ) return withRuntimeMask(base, input);
 
   const diagnostics: RecognitionDiagnostic[] = [
     ...base.diagnostics,
+    ...rotated.diagnostics,
+    ...rotatedDoorHosts.diagnostics,
     ...segmented.diagnostics,
   ];
   if (acceptedExtensionCount > 0) {

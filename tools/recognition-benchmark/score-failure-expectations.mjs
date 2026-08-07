@@ -160,6 +160,38 @@ function predictionPixelGeometry(candidate, calibration) {
   };
 }
 
+function bestExpectedWallForPrediction(fixture, prediction) {
+  const candidates = (fixture.expectedWalls ?? []).flatMap((expectedWall) => {
+    const coverage = matchRealWallCoverage({
+      fixture,
+      expectedWall,
+      predictions: [prediction],
+    });
+    const measurement = coverage.measurements
+      .find((entry) => entry.prediction.id === prediction.id)?.measurement;
+    if (!measurement || measurement.predictionCoverageRatio < 0.6) return [];
+    return [{
+      expectedWallId: expectedWall.id,
+      offsetMm: measurement.offsetMm,
+      predictionCoverageRatio: measurement.predictionCoverageRatio,
+      expectedCoverageRatio: measurement.expectedCoverageRatio,
+    }];
+  }).sort((first, second) =>
+    first.offsetMm - second.offsetMm
+    || second.predictionCoverageRatio - first.predictionCoverageRatio
+    || second.expectedCoverageRatio - first.expectedCoverageRatio
+    || first.expectedWallId.localeCompare(second.expectedWallId));
+  return candidates[0] ?? null;
+}
+
+function pairExplainedByDistinctExpectedWalls(fixture, first, second) {
+  const firstBest = bestExpectedWallForPrediction(fixture, first);
+  const secondBest = bestExpectedWallForPrediction(fixture, second);
+  return firstBest !== null
+    && secondBest !== null
+    && firstBest.expectedWallId !== secondBest.expectedWallId;
+}
+
 function duplicateAxesForExpectedWall(expected, predictedWalls, fixture, calibration) {
   const coverage = matchRealWallCoverage({ fixture, expectedWall: expected, predictions: predictedWalls });
   const candidates = coverage.measurements
@@ -174,6 +206,11 @@ function duplicateAxesForExpectedWall(expected, predictedWalls, fixture, calibra
 
   for (let firstIndex = 0; firstIndex < candidates.length; firstIndex += 1) {
     for (let secondIndex = firstIndex + 1; secondIndex < candidates.length; secondIndex += 1) {
+      if (pairExplainedByDistinctExpectedWalls(
+        fixture,
+        candidates[firstIndex].candidate,
+        candidates[secondIndex].candidate,
+      )) continue;
       const first = candidates[firstIndex].geometry;
       const second = candidates[secondIndex].geometry;
       if (angleDelta(angleDeg(first.start, first.end), angleDeg(second.start, second.end)) > 8) continue;

@@ -1,0 +1,153 @@
+name: Recognition Product Owner Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      missed_true_door_recovered:
+        description: "Previously missed true entrance door is recovered"
+        required: true
+        default: "fail"
+        type: choice
+        options:
+          - pass
+          - fail
+      missed_true_window_recovered:
+        description: "Previously missed true loggia window is recovered"
+        required: true
+        default: "fail"
+        type: choice
+        options:
+          - pass
+          - fail
+      thin_balcony_wall_recovered:
+        description: "Thin balcony/loggia wall is recovered as structural geometry"
+        required: true
+        default: "fail"
+        type: choice
+        options:
+          - pass
+          - fail
+      fixture_symbol_not_wall:
+        description: "Kitchen/washbasin fixture symbol does not become a wall"
+        required: true
+        default: "fail"
+        type: choice
+        options:
+          - pass
+          - fail
+      thick_load_bearing_wall_single_axis:
+        description: "Thick load-bearing wall is represented by one structural axis"
+        required: true
+        default: "fail"
+        type: choice
+        options:
+          - pass
+          - fail
+      plan_orientation_preserved:
+        description: "Plan orientation is preserved without unintended rotation"
+        required: true
+        default: "fail"
+        type: choice
+        options:
+          - pass
+          - fail
+      decision:
+        description: "Explicit product-owner decision after reviewing all six checks"
+        required: true
+        default: "reject"
+        type: choice
+        options:
+          - accept
+          - reject
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recognition-product-owner-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    name: exact-head-owner-review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+
+      - name: Assert repository contains no private source bytes
+        run: node tools/recognition-benchmark/private-source-check.mjs assert-repository .
+
+      - name: Build strict product-owner review
+        env:
+          OWNER_REVIEW_MISSED_TRUE_DOOR_RECOVERED: ${{ inputs.missed_true_door_recovered }}
+          OWNER_REVIEW_MISSED_TRUE_WINDOW_RECOVERED: ${{ inputs.missed_true_window_recovered }}
+          OWNER_REVIEW_THIN_BALCONY_WALL_RECOVERED: ${{ inputs.thin_balcony_wall_recovered }}
+          OWNER_REVIEW_FIXTURE_SYMBOL_NOT_WALL: ${{ inputs.fixture_symbol_not_wall }}
+          OWNER_REVIEW_THICK_LOAD_BEARING_WALL_SINGLE_AXIS: ${{ inputs.thick_load_bearing_wall_single_axis }}
+          OWNER_REVIEW_PLAN_ORIENTATION_PRESERVED: ${{ inputs.plan_orientation_preserved }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="tools/recognition-benchmark/artifacts/product-owner/product-owner-review.json"
+          node tools/recognition-benchmark/product-owner-acceptance.mjs submit \
+            "$GITHUB_SHA" \
+            "${{ inputs.decision }}" \
+            "$output"
+
+      - name: Evaluate exact-head product-owner acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          review="tools/recognition-benchmark/artifacts/product-owner/product-owner-review.json"
+          verdict="tools/recognition-benchmark/artifacts/product-owner/product-owner-acceptance.json"
+          node tools/recognition-benchmark/product-owner-acceptance.mjs evaluate \
+            "$review" \
+            "$GITHUB_SHA" \
+            "$verdict"
+
+      - name: Publish product-owner acceptance summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary="tools/recognition-benchmark/artifacts/product-owner/product-owner-acceptance.md"
+          test -s "$summary"
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assert product-owner artifacts are privacy-safe
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/recognition-benchmark/product-owner-artifact-check.mjs \
+            tools/recognition-benchmark/artifacts/product-owner/product-owner-review.json \
+            tools/recognition-benchmark/artifacts/product-owner/product-owner-acceptance.json \
+            tools/recognition-benchmark/artifacts/product-owner/product-owner-acceptance.md
+
+      - name: Upload product-owner acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recognition-product-owner-acceptance
+          path: tools/recognition-benchmark/artifacts/product-owner
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Enforce explicit product-owner acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          verdict="tools/recognition-benchmark/artifacts/product-owner/product-owner-acceptance.json"
+          node - "$verdict" <<'NODE'
+          const fs = require("node:fs");
+          const verdict = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          if (verdict.accepted !== true) {
+            console.error("Product-owner acceptance is blocked.");
+            process.exit(1);
+          }
+          NODE

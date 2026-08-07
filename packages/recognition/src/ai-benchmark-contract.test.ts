@@ -57,6 +57,9 @@ describe("M7.9 bounded AI benchmark", () => {
       maximumRepetitions: 5,
       maximumTokens: 2048,
       timeoutMs: 90_000,
+      maximumCostUsd: 5,
+      maximumPromptPricePerMillionUsd: 3,
+      maximumCompletionPricePerMillionUsd: 15,
     }));
     expect(validateAiBenchmarkConfig({
       modelIds: ["google/gemini-2.5-flash"],
@@ -64,14 +67,23 @@ describe("M7.9 bounded AI benchmark", () => {
       repetitions: 3,
       maximumTokens: 2048,
       timeoutMs: 90_000,
+      maximumCostUsd: 5,
       mode: "disputed-zones",
-    })).toMatchObject({ repetitions: 3, maximumTokens: 2048, qualified: false });
+    })).toMatchObject({
+      repetitions: 3,
+      maximumTokens: 2048,
+      maximumCostUsd: 5,
+      maximumPromptPricePerMillionUsd: 3,
+      maximumCompletionPricePerMillionUsd: 15,
+      qualified: false,
+    });
     expect(() => validateAiBenchmarkConfig({
       modelIds: ["a", "b", "c", "d"],
       fixtureIds: ["fixture"],
       repetitions: 1,
       maximumTokens: 512,
       timeoutMs: 10_000,
+      maximumCostUsd: 1,
       mode: "verification",
     })).toThrow(/models/i);
     expect(() => validateAiBenchmarkConfig({
@@ -80,14 +92,77 @@ describe("M7.9 bounded AI benchmark", () => {
       repetitions: 6,
       maximumTokens: 2048,
       timeoutMs: 90_000,
+      maximumCostUsd: 1,
       mode: "verification",
     })).toThrow(/repetitions/i);
+    for (const maximumCostUsd of [0, -1, 5.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => validateAiBenchmarkConfig({
+        modelIds: ["model"],
+        fixtureIds: ["fixture"],
+        repetitions: 1,
+        maximumTokens: 512,
+        timeoutMs: 10_000,
+        maximumCostUsd,
+        mode: "verification",
+      })).toThrow(/cost/i);
+    }
   });
 
   it("fails before any network request when the secret is absent", async () => {
     const fetcher = vi.fn();
     expect(() => createOpenRouterBenchmarkClient({ apiKey: "", fetcher })).toThrow(/OPENROUTER_API_KEY/i);
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("applies non-overridable provider price and routing guards before the paid request", async () => {
+    let requestBody: unknown = null;
+    const fetcher = vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
+      requestBody = JSON.parse(String(init?.body ?? ""));
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return "";
+        },
+        async json() {
+          return {
+            choices: [{ message: { content: JSON.stringify({ walls: [], openings: [] }) } }],
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 2,
+              total_tokens: 12,
+              cost: 0.001,
+            },
+          };
+        },
+      };
+    });
+    const client = createOpenRouterBenchmarkClient({ apiKey: "test-key", fetcher });
+
+    await client.verify({
+      modelId: "google/gemini-2.5-flash",
+      imageDataUrl: "data:image/png;base64,AA==",
+      localSummary,
+      maximumTokens: 128,
+      timeoutMs: 1_000,
+      mode: "verification",
+      maximumPromptPricePerMillionUsd: 3,
+      maximumCompletionPricePerMillionUsd: 15,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(requestBody).toMatchObject({
+      provider: {
+        sort: "price",
+        allow_fallbacks: false,
+        data_collection: "deny",
+        require_parameters: true,
+        max_price: {
+          prompt: 3,
+          completion: 15,
+        },
+      },
+    });
   });
 
   it("normalizes verification-only responses without permitting geometry mutation", () => {

@@ -202,6 +202,40 @@ describe("M7.9 real fixture failure expectations", () => {
     }));
   });
 
+  it("does not call two nearby physical walls duplicate axes when each prediction is best explained by a distinct expected wall", () => {
+    const closeFixture = {
+      ...fixture,
+      tags: [],
+      expectedWalls: [
+        ...fixture.expectedWalls,
+        {
+          id: "nearby-parallel-partition",
+          startMm: { x: 1000, y: 3800 },
+          endMm: { x: 6500, y: 3800 },
+          thicknessMm: 250,
+          kind: "partition",
+        },
+      ],
+    } as const;
+    const recognitionResult = cleanRecognition();
+    recognitionResult.walls = [
+      thinWall,
+      thickWall,
+      wall("nearby-parallel-prediction", { x: 0.1, y: 0.475 }, { x: 0.65, y: 0.475 }, 25),
+    ];
+
+    const score = scoreFailureExpectations({ fixture: closeFixture, recognitionResult });
+
+    expect(score.failures).not.toContainEqual(expect.objectContaining({
+      code: "duplicate-thick-wall-axis",
+      expectationId: "thick-load-bearing-wall",
+    }));
+    expect(score.failures).not.toContainEqual(expect.objectContaining({
+      code: "duplicate-thick-wall-axis",
+      expectationId: "nearby-parallel-partition",
+    }));
+  });
+
   it("fails when an accepted opening has no existing host wall", () => {
     const recognitionResult = cleanRecognition();
     recognitionResult.openings = [opening("unknown-wall")];
