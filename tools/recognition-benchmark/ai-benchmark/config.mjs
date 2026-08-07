@@ -5,6 +5,8 @@ export const DEFAULT_AI_BENCHMARK_LIMITS = Object.freeze({
   maximumTokens: 2048,
   timeoutMs: 90_000,
   maximumCostUsd: 5,
+  maximumPromptPricePerMillionUsd: 3,
+  maximumCompletionPricePerMillionUsd: 15,
 });
 
 const ALLOWED_MODES = new Set(["verification", "disputed-zones"]);
@@ -85,6 +87,8 @@ export function validateAiBenchmarkConfig(input) {
     maximumTokens,
     timeoutMs,
     maximumCostUsd,
+    maximumPromptPricePerMillionUsd: DEFAULT_AI_BENCHMARK_LIMITS.maximumPromptPricePerMillionUsd,
+    maximumCompletionPricePerMillionUsd: DEFAULT_AI_BENCHMARK_LIMITS.maximumCompletionPricePerMillionUsd,
     mode: input.mode,
     qualified: false,
   });
