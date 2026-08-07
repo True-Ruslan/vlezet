@@ -110,6 +110,7 @@ jobs:
           AI_BENCHMARK_MODE: ${{ inputs.mode }}
           AI_BENCHMARK_MAX_TOKENS: "2048"
           AI_BENCHMARK_TIMEOUT_MS: "90000"
+          AI_BENCHMARK_MAX_COST_USD: "5"
           GITHUB_SHA: ${{ github.sha }}
         run: pnpm benchmark:recognition:ai
 
