@@ -20,9 +20,16 @@ describe("segmented boundary production runtime", () => {
     );
     expect(indexSource).toContain('export * from "./thin-structural-recovery"');
     expect(runtimeSource).toContain("applyStructuralClutterVetoBase");
-    expect(runtimeSource).toContain("const initialExtension = extend(input, base.walls)");
+    expect(runtimeSource).toContain("recoverStrongMaskRotatedWalls");
+    expect(runtimeSource).toContain("const initialExtension = extend(input, rotated.walls)");
     expect(runtimeSource).toContain("recoverSegmentedBoundaryWalls");
     expect(runtimeSource).toContain("wallCandidates: initialExtension.walls");
     expect(runtimeSource).toContain("const finalExtension = extend(input, segmented.walls)");
+    expect(runtimeSource.indexOf("recoverStrongMaskRotatedWalls")).toBeLessThan(
+      runtimeSource.indexOf("const initialExtension = extend(input, rotated.walls)"),
+    );
+    expect(runtimeSource.indexOf("const initialExtension = extend(input, rotated.walls)")).toBeLessThan(
+      runtimeSource.indexOf("recoverSegmentedBoundaryWalls({"),
+    );
   });
 });
