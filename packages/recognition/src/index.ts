@@ -12,6 +12,7 @@ export type {
   DoorOpeningEligibility,
 } from "./door-host-consolidation";
 export { consolidateDoorHostWalls } from "./door-host-consolidation-runtime";
+export * from "./door-host-residual-reconsolidation";
 export { LOCAL_RECOGNITION_ENGINE_VERSION } from "./engine-version";
 export {
   analyzeWallCandidates,
@@ -49,7 +50,8 @@ export * from "./review-selection";
 export type { SegmentedBoundaryRecoveryResult } from "./segmented-boundary-recovery";
 export { recoverSegmentedBoundaryWalls } from "./segmented-boundary-recovery-runtime";
 export * from "./session";
-export * from "./source-scale";
+export { sourceRasterPixelScale } from "./source-scale";
+export { rescaleRecognitionPixelEvidence } from "./source-scale-runtime";
 export type { StructuralClutterVetoResult } from "./structural-clutter-veto";
 export { applyStructuralClutterVeto } from "./structural-clutter-veto-runtime";
 export * from "./structural-regions";
