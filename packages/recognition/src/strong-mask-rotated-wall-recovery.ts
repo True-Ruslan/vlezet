@@ -27,7 +27,6 @@ const MAX_SEGMENTS = 512;
 const MIN_ROTATED_AXIS_DELTA_DEG = 20;
 const MAX_DUPLICATE_ANGLE_DELTA_DEG = 8;
 const MIN_LENGTH_SHORT_SIDE_RATIO = 0.35;
-const MIN_EVIDENCE_COUNT = 2;
 const MIN_MASK_OCCUPANCY = 0.95;
 const MIN_MASK_CONTINUITY = 0.95;
 const MAX_ALONG_SAMPLES = 224;
@@ -114,16 +113,6 @@ function pointToSegmentDistance(point: Point, start: Point, end: Point): number 
   if (lengthSquared <= EPSILON) return distance(point, start);
   const ratio = clamp(dot(subtract(point, start), vector) / lengthSquared, 0, 1);
   return distance(point, add(start, scale(vector, ratio)));
-}
-
-function evidenceCount(candidate: RecognitionWallCandidate): number {
-  let maximum = 0;
-  for (const reason of candidate.evidence.reasons) {
-    const match = /^evidence:(\d+)$/.exec(reason);
-    if (!match) continue;
-    maximum = Math.max(maximum, Number.parseInt(match[1] ?? "0", 10));
-  }
-  return maximum;
 }
 
 function maskSupport(wall: PixelWall, mask: StructuralMaskView): Readonly<{
@@ -276,7 +265,6 @@ export function selectStrongMaskRotatedWallRecoveries(input: Readonly<{
     if (candidate.conflict !== null) continue;
     if (!candidate.evidence.reasons.includes("paired-parallel-edges")) continue;
     if (!candidate.evidence.reasons.includes("collinear-centerline-merge")) continue;
-    if (evidenceCount(candidate) < MIN_EVIDENCE_COUNT) continue;
     const wall = pixelWall(candidate, input.widthPx, input.heightPx);
     if (!wall) continue;
     if (wall.lengthPx < minimumLengthPx) continue;
