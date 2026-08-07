@@ -15,6 +15,8 @@ const MAX_SEGMENTS = 512;
 const MAX_CENTER_DELTA_PX = 0.75;
 const MAX_WIDTH_DELTA_PX = 0.75;
 const MAX_ANGLE_DELTA_DEG = 0.25;
+const MIN_ENTRANCE_WIDTH_TO_THICKNESS_RATIO = 2.75;
+const MAX_ENTRANCE_WIDTH_TO_THICKNESS_RATIO = 4.75;
 
 function reasonsAreExact(rejection: OpeningHypothesisRejection): boolean {
   const reasons = rejection.candidate.evidence.reasons;
@@ -34,6 +36,25 @@ function strongHost(host: RecognitionWallCandidate): boolean {
     && reasons.includes("topology-edge")
     && reasons.includes("paired-parallel-edges")
     && reasons.includes("primary-structural-component");
+}
+
+function entranceScaleAllowed(
+  candidate: RecognitionOpeningCandidate,
+  host: RecognitionWallCandidate,
+): boolean {
+  const widthPx = candidate.widthPx;
+  const thicknessPx = host.estimatedThicknessPx;
+  if (
+    widthPx === null
+    || !Number.isFinite(widthPx)
+    || widthPx <= 0
+    || thicknessPx === null
+    || !Number.isFinite(thicknessPx)
+    || thicknessPx <= 0
+  ) return false;
+  const ratio = widthPx / thicknessPx;
+  return ratio >= MIN_ENTRANCE_WIDTH_TO_THICKNESS_RATIO
+    && ratio <= MAX_ENTRANCE_WIDTH_TO_THICKNESS_RATIO;
 }
 
 function angleDelta(first: number, second: number): number {
@@ -147,7 +168,7 @@ export function retryExteriorTerminalDoor(
     || input.wallCandidates.length > MAX_WALLS
   ) return null;
   const host = input.wallCandidates.find(({ id }) => id === rejection.hostWallCandidateId);
-  if (!host || !strongHost(host)) return null;
+  if (!host || !strongHost(host) || !entranceScaleAllowed(rejection.candidate, host)) return null;
 
   const replayed = detectContinuousHostDoorOpenings({
     widthPx: input.widthPx,
@@ -156,7 +177,7 @@ export function retryExteriorTerminalDoor(
     symbolSegments: segments,
     mask,
   }).openingHypotheses.filter((candidate) => replayMatches(rejection.candidate, candidate, input));
-  if (replayed.length !== 1) return null;
+  if (replayed.length !== 1 || !entranceScaleAllowed(replayed[0]!, host)) return null;
 
   const temporaryHost = validationHost(replayed[0]!, host, input);
   if (!temporaryHost) return null;
