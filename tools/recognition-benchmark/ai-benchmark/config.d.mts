@@ -4,6 +4,7 @@ export type AiBenchmarkConfigInput = Readonly<{
   repetitions: number;
   maximumTokens: number;
   timeoutMs: number;
+  maximumCostUsd: number;
   mode: "verification" | "disputed-zones";
 }>;
 
@@ -14,6 +15,7 @@ export type AiBenchmarkConfig = Readonly<{
   repetitions: number;
   maximumTokens: number;
   timeoutMs: number;
+  maximumCostUsd: number;
   mode: "verification" | "disputed-zones";
   qualified: false;
 }>;
@@ -24,6 +26,7 @@ export const DEFAULT_AI_BENCHMARK_LIMITS: Readonly<{
   maximumRepetitions: number;
   maximumTokens: number;
   timeoutMs: number;
+  maximumCostUsd: number;
 }>;
 
 export function validateAiBenchmarkConfig(input: AiBenchmarkConfigInput): AiBenchmarkConfig;
