@@ -123,10 +123,10 @@ describe("upstream AI benchmark safety guards", () => {
 
   it("caps dynamic provider prices by the immutable prompt and completion ceilings", async () => {
     const workspace = createFixtureWorkspace();
-    let requestBody: Record<string, unknown> | null = null;
+    const requestBodies: Record<string, unknown>[] = [];
     const fetcher: AiBenchmarkFetcher = async (_url, init) => {
       if ((init?.method ?? "GET") === "GET") return modelResponse();
-      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      requestBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
       return verificationResponse(0.001);
     };
 
@@ -147,6 +147,7 @@ describe("upstream AI benchmark safety guards", () => {
       fetcher,
     });
 
+    const requestBody = requestBodies.at(-1);
     const provider = requestBody?.provider as { max_price?: { prompt?: number; completion?: number }; data_collection?: string } | undefined;
     expect(provider?.max_price?.prompt).toBeLessThanOrEqual(3);
     expect(provider?.max_price?.completion).toBeLessThanOrEqual(15);
