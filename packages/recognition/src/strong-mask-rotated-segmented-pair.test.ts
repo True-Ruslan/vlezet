@@ -46,6 +46,13 @@ const southRails: readonly DetectedLineSegment[] = [
   { x1: 736, y1: 1094, x2: 881, y2: 1239 },
   { x1: 762, y1: 1070, x2: 884, y2: 1192 },
 ];
+const fragmentedSouthRails: readonly DetectedLineSegment[] = [
+  { x1: 736, y1: 1094, x2: 881, y2: 1239 },
+  { x1: 758, y1: 1069, x2: 851, y2: 1159 },
+  { x1: 801, y1: 1110, x2: 858, y2: 1166 },
+  { x1: 823, y1: 1132, x2: 869, y2: 1177 },
+  { x1: 840, y1: 1149, x2: 884, y2: 1192 },
+];
 const expectedStart = { x: 386, y: 719 };
 const expectedEnd = { x: 886, y: 1219 };
 const anchor = wall("southeast-network", { x: 876, y: 1227 }, { x: 1285, y: 818 });
@@ -92,6 +99,15 @@ describe("strong-mask rotated segmented-pair recovery", () => {
     expect(pointSegmentDistance(expectedEnd, start, end)).toBeLessThan(8);
     expect(Math.hypot(end.x - start.x, end.y - start.y)).toBeGreaterThan(660);
     expect(recovered.evidence.reasons).toContain("strong-mask-rotated-segmented-pair");
+  });
+
+  it("recovers when one rail of a valid wall fragment is split into overlapping Hough pieces", () => {
+    const result = run({ segments: [...northRails, ...fragmentedSouthRails] });
+
+    expect(result.recoveredCount).toBe(1);
+    const recovered = result.recoveredWalls[0]!;
+    expect(recovered.evidence.reasons).toContain("strong-mask-rotated-segmented-pair");
+    expect(recovered.evidence.reasons).toContain("strong-mask-rotated-wall-chain");
   });
 
   it("does not recover from only one paired wall fragment", () => {
