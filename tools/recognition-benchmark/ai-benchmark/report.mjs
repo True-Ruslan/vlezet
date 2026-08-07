@@ -6,7 +6,26 @@ function safeError(value) {
   return redactAiBenchmarkText(value instanceof Error ? value.message : String(value));
 }
 
-export function buildAiBenchmarkReport({ config, runs, commitSha = null }) {
+function observedCost(runs) {
+  return runs.reduce((sum, run) => {
+    const cost = run.usage?.costUsd;
+    return typeof cost === "number" && Number.isFinite(cost) && cost >= 0 ? sum + cost : sum;
+  }, 0);
+}
+
+function normalizedExecution(config, runs, execution) {
+  const plannedRunCount = config.modelIds.length * config.fixtureIds.length * config.repetitions;
+  return {
+    plannedRunCount,
+    completedRunCount: runs.length,
+    maximumCostUsd: config.maximumCostUsd,
+    observedCostUsd: execution?.observedCostUsd ?? observedCost(runs),
+    complete: execution?.complete ?? runs.length === plannedRunCount,
+    stopReason: execution?.stopReason ?? null,
+  };
+}
+
+export function buildAiBenchmarkReport({ config, runs, execution = null, commitSha = null }) {
   const normalizedRuns = runs.map((run) => ({
     modelId: run.modelId,
     fixtureId: run.fixtureId,
@@ -31,6 +50,7 @@ export function buildAiBenchmarkReport({ config, runs, commitSha = null }) {
     schemaVersion: "recognition-ai-benchmark-report-v1",
     commitSha,
     config: { ...config, qualified: false },
+    execution: normalizedExecution(config, runs, execution),
     qualified: false,
     models,
     runs: normalizedRuns,
