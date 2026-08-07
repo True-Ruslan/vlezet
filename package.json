@@ -21,6 +21,7 @@
     "benchmark:recognition:real:gate": "node tools/recognition-benchmark/real-fixture-gate.mjs",
     "benchmark:recognition:ai": "node tools/recognition-benchmark/ai-benchmark/run.mjs",
     "benchmark:recognition:ai-qualify": "node tools/recognition-benchmark/ai-benchmark/verification-qualification.mjs",
+    "benchmark:recognition:owner-review": "node tools/recognition-benchmark/product-owner-acceptance.mjs",
     "benchmark:recognition:evidence": "node tools/recognition-benchmark/run-evidence.mjs"
   },
   "devDependencies": {
