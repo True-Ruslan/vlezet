@@ -23,6 +23,7 @@ type PixelWall = Readonly<{
 const MAX_WALL_CANDIDATES = 96;
 const MAX_SYMBOL_SEGMENTS = 512;
 const SHORT_WALL_RATIO = 0.22;
+const DISCONNECTED_BLOB_MAX_LENGTH_TO_THICKNESS_RATIO = 0.75;
 const MIN_STRUCTURAL_SUPPORT_RATIO = 0.62;
 const MIN_NEARBY_SYMBOL_COUNT = 2;
 const MAX_ALONG_SAMPLES = 48;
@@ -122,6 +123,18 @@ function nearbySymbolCount(
   }, 0);
 }
 
+function isRetainedDisconnectedBlob(
+  candidate: RecognitionWallCandidate,
+  wall: PixelWall,
+): boolean {
+  const thicknessPx = candidate.estimatedThicknessPx;
+  return candidate.evidence.reasons.includes("retained-disconnected-structural-component")
+    && thicknessPx !== null
+    && Number.isFinite(thicknessPx)
+    && thicknessPx > 0
+    && wall.lengthPx <= thicknessPx * DISCONNECTED_BLOB_MAX_LENGTH_TO_THICKNESS_RATIO;
+}
+
 function preserveResult(
   candidates: readonly RecognitionWallCandidate[],
   diagnostic: RecognitionDiagnostic | null,
@@ -183,7 +196,32 @@ export function applyStructuralClutterVeto(input: Readonly<{
   const output = candidates.map((candidate) => {
     if (candidate.conflict !== null) return candidate;
     const wall = walls.find((item) => item.candidate.id === candidate.id);
-    if (!wall || wall.lengthPx >= shortWallLimitPx) return candidate;
+    if (!wall) return candidate;
+
+    if (isRetainedDisconnectedBlob(candidate, wall)) {
+      blockedCount += 1;
+      diagnostics.push({
+        code: "disconnected-structural-blob-veto",
+        severity: "warning",
+        message: "Короткий отсоединённый структурный компонент короче собственной толщины оставлен только для диагностики и не считается стеной.",
+        candidateId: candidate.id,
+      });
+      return {
+        ...candidate,
+        confidence: "low" as const,
+        conflict: "unsupported" as const,
+        evidence: {
+          ...candidate.evidence,
+          localScore: Math.min(candidate.evidence.localScore ?? 0.5, 0.5),
+          reasons: [...new Set([
+            ...candidate.evidence.reasons,
+            "disconnected-structural-blob-veto",
+          ])].sort(),
+        },
+      };
+    }
+
+    if (wall.lengthPx >= shortWallLimitPx) return candidate;
     const supportRatio = structuralSupportRatio(wall, input.mask);
     if (supportRatio >= MIN_STRUCTURAL_SUPPORT_RATIO) return candidate;
     if (endpointAnchorCount(wall, walls) >= 2) return candidate;
