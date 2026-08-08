@@ -34,7 +34,13 @@ import { EditorToolbar } from "./editor-toolbar";
 import { FurnitureCatalog } from "./furniture-catalog";
 import { getEditorShortcut } from "./keyboard";
 import { measurementToolStore } from "./measurement-tool-store";
-import { editorStore } from "./use-editor-store";
+import {
+  editorStore,
+  selectedObjectId as selectedObjectIdFromSelection,
+  selectedOpeningId as selectedOpeningIdFromSelection,
+  selectedRoomId as selectedRoomIdFromSelection,
+  selectedWallId as selectedWallIdFromSelection,
+} from "./use-editor-store";
 import { useCompactEditorLayout } from "./use-compact-editor-layout";
 import { WallInspector } from "./wall-inspector";
 
@@ -120,10 +126,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const document = useStore(editorStore, (state) => state.history.document);
-  const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
-  const selectedOpening = useStore(editorStore, (state) => state.history.document.openings.find((opening) => opening.id === state.selectedOpeningId) ?? null);
-  const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
-  const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
+  const selectedObjectId = useStore(editorStore, (state) => selectedObjectIdFromSelection(state.selection));
+  const selectedOpening = useStore(editorStore, (state) => {
+    const openingId = selectedOpeningIdFromSelection(state.selection);
+    return state.history.document.openings.find((opening) => opening.id === openingId) ?? null;
+  });
+  const selectedRoomId = useStore(editorStore, (state) => selectedRoomIdFromSelection(state.selection));
+  const selectedWallId = useStore(editorStore, (state) => selectedWallIdFromSelection(state.selection));
   const planningRoomId = useStore(planningUiStore, (state) => state.roomId);
   const recognitionDraft = reviewDraft(props.recognitionState);
   const contextKind = deriveEditorContextKind({
@@ -199,7 +208,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
 
     const selection = target ? selectionForWorkflowReturnTarget(target, document) : EMPTY_SELECTION;
     const store = editorStore.getState();
-    store.selectWall(null);
+    store.clearSelection();
     if (selection.selectedWallId) store.selectWall(selection.selectedWallId);
     else if (selection.selectedRoomId) store.selectRoom(selection.selectedRoomId);
     else if (selection.selectedOpeningId) store.selectOpening(selection.selectedOpeningId);
@@ -271,8 +280,8 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         case "duplicate-object": if (!props.recognitionPanelOpen) store.duplicateSelectedObject(); break;
         case "delete-selection":
           if (props.recognitionPanelOpen) break;
-          if (store.selectedObjectId) store.deleteSelectedObject();
-          else if (store.selectedOpeningId) store.deleteSelectedOpening();
+          if (selectedObjectIdFromSelection(store.selection)) store.deleteSelectedObject();
+          else if (selectedOpeningIdFromSelection(store.selection)) store.deleteSelectedOpening();
           break;
         case "cancel": {
           const measurement = measurementToolStore.getState();
@@ -286,7 +295,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             tracingMode: props.tracingMode,
             workflowOpen: props.recognitionPanelOpen || props.referencePanelOpen || planningUiStore.getState().roomId !== null,
             tool: store.tool,
-            hasSelection: Boolean(store.selectedWallId || store.selectedRoomId || store.selectedOpeningId || store.selectedObjectId),
+            hasSelection: store.selection.refs.length > 0,
           });
           switch (escapeAction) {
             case "cancel-object-gesture": store.cancelObjectGesture(); break;
@@ -297,7 +306,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             case "exit-measurement": measurementToolStore.getState().setActive(false); break;
             case "close-workflow": returnFromWorkflow(); break;
             case "exit-tool": store.setTool("select"); break;
-            case "clear-selection": store.selectWall(null); break;
+            case "clear-selection": store.clearSelection(); break;
             case "return-to-2d": spatialViewModeStore.getState().setMode("2d"); break;
             case "none": break;
           }
