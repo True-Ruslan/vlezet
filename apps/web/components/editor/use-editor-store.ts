@@ -3,6 +3,7 @@ import {
   getVertex,
   type PlacedObject,
   type Point2,
+  type VlezetDocument,
 } from "@vlezet/domain";
 import {
   addOpening,
@@ -31,9 +32,19 @@ import {
   type WallLengthAnchor,
   type WallThicknessAlignment,
 } from "@vlezet/editor-core";
-import { deriveRooms, proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";
+import { proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";
 import type { PlanningCandidate } from "@vlezet/planning";
 import { createStore, type StoreApi } from "zustand/vanilla";
+import {
+  EMPTY_EDITOR_SELECTION,
+  addToSelection,
+  replaceSelection,
+  sameEditorEntity,
+  sanitizeEditorSelection,
+  toggleSelection,
+  type EditorEntityRef,
+  type EditorSelection,
+} from "./editor-selection";
 import { getFurniturePreset } from "./furniture-presets";
 
 export type EditorTool = "select" | "wall" | "door" | "window";
@@ -62,15 +73,17 @@ export type ObjectGesture = Readonly<{
 export type EditorStoreState = {
   history: HistoryState;
   tool: EditorTool;
-  selectedWallId: string | null;
-  selectedRoomId: string | null;
-  selectedOpeningId: string | null;
-  selectedObjectId: string | null;
+  selection: EditorSelection;
   placementPresetId: string | null;
   draftWall: DraftWall | null;
   objectGesture: ObjectGesture | null;
   setTool: (tool: EditorTool) => void;
   setPlacementPreset: (presetId: string | null) => void;
+  replaceSelection: (ref: EditorEntityRef | null) => void;
+  toggleSelection: (ref: EditorEntityRef) => void;
+  addSelection: (refs: readonly EditorEntityRef[]) => void;
+  clearSelection: () => void;
+  selectAllConcreteEntities: () => void;
   selectWall: (wallId: string | null) => void;
   selectRoom: (roomId: string | null) => void;
   selectOpening: (openingId: string | null) => void;
@@ -106,28 +119,51 @@ export type CreateEditorStoreOptions = Readonly<{
   defaultWallThicknessMm?: number;
 }>;
 
+function selectedId(selection: EditorSelection, kind: EditorEntityRef["kind"]): string | null {
+  if (selection.refs.length !== 1 || selection.primary === null) return null;
+  const ref = selection.refs[0];
+  if (!ref || ref.kind !== kind || !sameEditorEntity(ref, selection.primary)) return null;
+  return ref.id;
+}
+
+export function selectedWallId(selection: EditorSelection): string | null {
+  return selectedId(selection, "wall");
+}
+
+export function selectedRoomId(selection: EditorSelection): string | null {
+  return selectedId(selection, "room");
+}
+
+export function selectedOpeningId(selection: EditorSelection): string | null {
+  return selectedId(selection, "opening");
+}
+
+export function selectedObjectId(selection: EditorSelection): string | null {
+  return selectedId(selection, "placed-object");
+}
+
 function emptySnap(point: Point2): SnapResult {
   return { point, kind: "none", guides: [] };
 }
 
-function selectedWallAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && history.document.walls.some((wall) => wall.id === id) ? id : null;
-}
-function selectedRoomAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && deriveRooms(history.document).rooms.some((room) => room.id === id) ? id : null;
-}
-function selectedOpeningAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && history.document.openings.some((opening) => opening.id === id) ? id : null;
-}
-function selectedObjectAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && history.document.placedObjects.some((object) => object.id === id) ? id : null;
-}
 function targetPoint(point: Point2, target: TopologySnapTarget | null): Point2 {
   return target ? target.point : point;
 }
-function endpointIntent(point: Point2, target: TopologySnapTarget | null, idFactory: (kind: EditorEntityIdKind) => string): WallEndpointIntent {
+
+function endpointIntent(
+  point: Point2,
+  target: TopologySnapTarget | null,
+  idFactory: (kind: EditorEntityIdKind) => string,
+): WallEndpointIntent {
   if (target?.kind === "vertex") return { kind: "existing-vertex", vertexId: target.vertexId };
-  if (target?.kind === "wall") return { kind: "wall-junction", vertexId: idFactory("vertex"), wallId: target.wallId, position: target.point };
+  if (target?.kind === "wall") {
+    return {
+      kind: "wall-junction",
+      vertexId: idFactory("vertex"),
+      wallId: target.wallId,
+      position: target.point,
+    };
+  }
   return { kind: "new-vertex", vertexId: idFactory("vertex"), position: point };
 }
 
@@ -157,6 +193,18 @@ function objectsEqual(first: PlacedObject, second: PlacedObject): boolean {
     first.clearance.left === second.clearance.left;
 }
 
+function selectionFor(document: VlezetDocument, ref: EditorEntityRef | null): EditorSelection {
+  return sanitizeEditorSelection(document, replaceSelection(ref));
+}
+
+function concreteEntityRefs(document: VlezetDocument): EditorEntityRef[] {
+  return [
+    ...document.walls.map((wall) => ({ kind: "wall" as const, id: wall.id })),
+    ...document.openings.map((opening) => ({ kind: "opening" as const, id: opening.id })),
+    ...document.placedObjects.map((object) => ({ kind: "placed-object" as const, id: object.id })),
+  ];
+}
+
 export function createEditorStore(options: CreateEditorStoreOptions = {}): StoreApi<EditorStoreState> {
   const idFactory = options.idFactory ?? (() => crypto.randomUUID());
   const defaultWallThicknessMm = options.defaultWallThicknessMm ?? 150;
@@ -164,10 +212,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
   return createStore<EditorStoreState>((set, get) => ({
     history: createHistoryState(),
     tool: "select",
-    selectedWallId: null,
-    selectedRoomId: null,
-    selectedOpeningId: null,
-    selectedObjectId: null,
+    selection: EMPTY_EDITOR_SELECTION,
     placementPresetId: null,
     draftWall: null,
     objectGesture: null,
@@ -185,48 +230,58 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
         tool: "select",
         draftWall: null,
         objectGesture: null,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedOpeningId: null,
-        selectedObjectId: null,
+        selection: EMPTY_EDITOR_SELECTION,
       });
     },
-    selectWall: (selectedWallId) => set({
-      selectedWallId,
-      selectedRoomId: null,
-      selectedOpeningId: null,
-      selectedObjectId: null,
+    replaceSelection: (ref) => set({
+      selection: selectionFor(get().history.document, ref),
       placementPresetId: null,
       objectGesture: null,
     }),
-    selectRoom: (selectedRoomId) => set({
-      selectedRoomId,
-      selectedWallId: null,
-      selectedOpeningId: null,
-      selectedObjectId: null,
+    toggleSelection: (ref) => set({
+      selection: sanitizeEditorSelection(
+        get().history.document,
+        toggleSelection(get().selection, ref),
+      ),
       placementPresetId: null,
       objectGesture: null,
     }),
-    selectOpening: (selectedOpeningId) => set({
-      selectedOpeningId,
-      selectedWallId: null,
-      selectedRoomId: null,
-      selectedObjectId: null,
+    addSelection: (refs) => set({
+      selection: sanitizeEditorSelection(
+        get().history.document,
+        addToSelection(get().selection, refs),
+      ),
       placementPresetId: null,
       objectGesture: null,
     }),
-    selectObject: (selectedObjectId) => set({
-      selectedObjectId,
-      selectedWallId: null,
-      selectedRoomId: null,
-      selectedOpeningId: null,
-      placementPresetId: null,
-      objectGesture: null,
-      tool: "select",
-    }),
+    clearSelection: () => set({ selection: EMPTY_EDITOR_SELECTION, objectGesture: null }),
+    selectAllConcreteEntities: () => {
+      const document = get().history.document;
+      set({
+        selection: addToSelection(EMPTY_EDITOR_SELECTION, concreteEntityRefs(document)),
+        placementPresetId: null,
+        objectGesture: null,
+        tool: "select",
+      });
+    },
+    selectWall: (wallId) => get().replaceSelection(wallId ? { kind: "wall", id: wallId } : null),
+    selectRoom: (roomId) => get().replaceSelection(roomId ? { kind: "room", id: roomId } : null),
+    selectOpening: (openingId) => get().replaceSelection(openingId ? { kind: "opening", id: openingId } : null),
+    selectObject: (objectId) => {
+      get().replaceSelection(objectId ? { kind: "placed-object", id: objectId } : null);
+      if (objectId) set({ tool: "select" });
+    },
     beginWall: (point, target = null) => {
       const resolved = targetPoint(point, target);
-      set({ draftWall: { start: resolved, end: resolved, snap: emptySnap(resolved), startTarget: target, endTarget: null } });
+      set({
+        draftWall: {
+          start: resolved,
+          end: resolved,
+          snap: emptySnap(resolved),
+          startTarget: target,
+          endTarget: null,
+        },
+      });
     },
     updateDraftWall: (snap, target = null) => {
       const current = get().draftWall;
@@ -241,25 +296,43 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       const start = endpointIntent(current.start, current.startTarget, idFactory);
       const end = endpointIntent(current.end, current.endTarget, idFactory);
       const wallId = idFactory("wall");
-      const edit = addTopologicalWall(before, { wallId, start, end, thickness: defaultWallThicknessMm });
-      const label = start.kind === "wall-junction" || end.kind === "wall-junction" ? "wall/add-t-junction" : "wall/add-connected";
-      const history = executeCommand(get().history, { type: "document/replace", label, before, after: edit.document });
-      const continuation = edit.continuationVertexId ? getVertex(edit.document, edit.continuationVertexId) : null;
-      const continuationTarget = continuation ? ({ kind: "vertex", vertexId: continuation.id, point: continuation.position } as const) : null;
+      const edit = addTopologicalWall(before, {
+        wallId,
+        start,
+        end,
+        thickness: defaultWallThicknessMm,
+      });
+      const label = start.kind === "wall-junction" || end.kind === "wall-junction"
+        ? "wall/add-t-junction"
+        : "wall/add-connected";
+      const history = executeCommand(get().history, {
+        type: "document/replace",
+        label,
+        before,
+        after: edit.document,
+      });
+      const continuation = edit.continuationVertexId
+        ? getVertex(edit.document, edit.continuationVertexId)
+        : null;
+      const continuationTarget = continuation
+        ? ({ kind: "vertex", vertexId: continuation.id, point: continuation.position } as const)
+        : null;
       set({
         history,
-        selectedWallId: edit.selectedWallId ?? wallId,
-        selectedRoomId: null,
-        selectedOpeningId: null,
-        selectedObjectId: null,
+        selection: selectionFor(edit.document, {
+          kind: "wall",
+          id: edit.selectedWallId ?? wallId,
+        }),
         placementPresetId: null,
-        draftWall: get().tool === "wall" && continuation ? {
-          start: continuation.position,
-          end: continuation.position,
-          snap: emptySnap(continuation.position),
-          startTarget: continuationTarget,
-          endTarget: null,
-        } : null,
+        draftWall: get().tool === "wall" && continuation
+          ? {
+              start: continuation.position,
+              end: continuation.position,
+              snap: emptySnap(continuation.position),
+              startTarget: continuationTarget,
+              endTarget: null,
+            }
+          : null,
       });
     },
     cancelDraft: () => set({ draftWall: null }),
@@ -276,32 +349,68 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       set({ draftWall: null, tool: "select" });
     },
     setSelectedWallLength: (lengthMm, anchor = "start") => {
-      const { history, selectedWallId } = get();
-      if (!selectedWallId) return;
+      const { history, selection } = get();
+      const wallId = selectedWallId(selection);
+      if (!wallId) return;
       const before = history.document;
-      const after = setTopologicalWallLength(before, selectedWallId, lengthMm, anchor);
-      set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-length", before, after }) });
+      const after = setTopologicalWallLength(before, wallId, lengthMm, anchor);
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "wall/set-length",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
+      });
     },
     setSelectedWallThickness: (thicknessMm, alignment = "center") => {
-      const { history, selectedWallId } = get();
-      if (!selectedWallId) return;
+      const { history, selection } = get();
+      const wallId = selectedWallId(selection);
+      if (!wallId) return;
       const before = history.document;
-      const after = setWallThickness(before, selectedWallId, thicknessMm, alignment);
-      set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-thickness", before, after }) });
+      const after = setWallThickness(before, wallId, thicknessMm, alignment);
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "wall/set-thickness",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
+      });
     },
     setSelectedRoomName: (name) => {
-      const { history, selectedRoomId } = get();
-      if (!selectedRoomId) return;
+      const { history, selection } = get();
+      const roomId = selectedRoomId(selection);
+      if (!roomId) return;
       const before = history.document;
-      const after = setRoomName(before, selectedRoomId, name, idFactory("room-annotation"));
-      set({ history: executeCommand(history, { type: "document/replace", label: "room-annotation/set-name", before, after }) });
+      const after = setRoomName(before, roomId, name, idFactory("room-annotation"));
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "room-annotation/set-name",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
+      });
     },
     setSelectedRoomClearDimension: (axis, lengthMm, anchor = "min") => {
-      const { history, selectedRoomId } = get();
-      if (!selectedRoomId) return;
+      const { history, selection } = get();
+      const roomId = selectedRoomId(selection);
+      if (!roomId) return;
       const before = history.document;
-      const after = setRectangularRoomClearDimension(before, selectedRoomId, axis, lengthMm, anchor);
-      set({ history: executeCommand(history, { type: "document/replace", label: "room/set-clear-dimension", before, after }) });
+      const after = setRectangularRoomClearDimension(before, roomId, axis, lengthMm, anchor);
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "room/set-clear-dimension",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
+      });
     },
     addOpeningAt: (wallId, pointerOffset) => {
       const { history, tool } = get();
@@ -313,33 +422,52 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
         wallId,
         kind: tool,
         ...placement,
-        ...(tool === "door" ? { doorSwing: { hinge: "start" as const, side: "left" as const } } : {}),
+        ...(tool === "door"
+          ? { doorSwing: { hinge: "start" as const, side: "left" as const } }
+          : {}),
       };
       const before = history.document;
       const after = addOpening(before, opening);
       set({
-        history: executeCommand(history, { type: "document/replace", label: "opening/add", before, after }),
-        selectedOpeningId: opening.id,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedObjectId: null,
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "opening/add",
+          before,
+          after,
+        }),
+        selection: selectionFor(after, { kind: "opening", id: opening.id }),
       });
     },
     updateSelectedOpening: (patch) => {
-      const { history, selectedOpeningId } = get();
-      if (!selectedOpeningId) return;
+      const { history, selection } = get();
+      const openingId = selectedOpeningId(selection);
+      if (!openingId) return;
       const before = history.document;
-      const after = updateOpening(before, selectedOpeningId, patch);
-      set({ history: executeCommand(history, { type: "document/replace", label: "opening/update", before, after }) });
+      const after = updateOpening(before, openingId, patch);
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "opening/update",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
+      });
     },
     deleteSelectedOpening: () => {
-      const { history, selectedOpeningId } = get();
-      if (!selectedOpeningId) return;
+      const { history, selection } = get();
+      const openingId = selectedOpeningId(selection);
+      if (!openingId) return;
       const before = history.document;
-      const after = deleteOpening(before, selectedOpeningId);
+      const after = deleteOpening(before, openingId);
       set({
-        history: executeCommand(history, { type: "document/replace", label: "opening/delete", before, after }),
-        selectedOpeningId: null,
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "opening/delete",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
       });
     },
     placeSelectedPreset: (position) => {
@@ -361,50 +489,82 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       const before = history.document;
       const after = addPlacedObject(before, object);
       set({
-        history: executeCommand(history, { type: "document/replace", label: "object/add", before, after }),
-        selectedObjectId: object.id,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedOpeningId: null,
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "object/add",
+          before,
+          after,
+        }),
+        selection: selectionFor(after, { kind: "placed-object", id: object.id }),
         placementPresetId: null,
         tool: "select",
       });
     },
     updateSelectedObject: (patch) => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
+      const { history, selection } = get();
+      const objectId = selectedObjectId(selection);
+      if (!objectId) return;
       const before = history.document;
-      const after = updatePlacedObject(before, selectedObjectId, patch);
-      set({ history: executeCommand(history, { type: "document/replace", label: "object/update", before, after }) });
+      const after = updatePlacedObject(before, objectId, patch);
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "object/update",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
+      });
     },
     rotateSelectedObject90: () => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
-      const current = history.document.placedObjects.find((object) => object.id === selectedObjectId);
+      const { history, selection } = get();
+      const objectId = selectedObjectId(selection);
+      if (!objectId) return;
+      const current = history.document.placedObjects.find((object) => object.id === objectId);
       if (!current) return;
       const before = history.document;
-      const after = updatePlacedObject(before, selectedObjectId, { rotationDeg: current.rotationDeg + 90 });
-      set({ history: executeCommand(history, { type: "document/replace", label: "object/rotate", before, after }) });
+      const after = updatePlacedObject(before, objectId, { rotationDeg: current.rotationDeg + 90 });
+      set({
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "object/rotate",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
+      });
     },
     duplicateSelectedObject: () => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
+      const { history, selection } = get();
+      const objectId = selectedObjectId(selection);
+      if (!objectId) return;
       const duplicateId = idFactory("placed-object");
       const before = history.document;
-      const after = duplicatePlacedObject(before, selectedObjectId, duplicateId);
+      const after = duplicatePlacedObject(before, objectId, duplicateId);
       set({
-        history: executeCommand(history, { type: "document/replace", label: "object/duplicate", before, after }),
-        selectedObjectId: duplicateId,
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "object/duplicate",
+          before,
+          after,
+        }),
+        selection: selectionFor(after, { kind: "placed-object", id: duplicateId }),
       });
     },
     deleteSelectedObject: () => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
+      const { history, selection } = get();
+      const objectId = selectedObjectId(selection);
+      if (!objectId) return;
       const before = history.document;
-      const after = deletePlacedObject(before, selectedObjectId);
+      const after = deletePlacedObject(before, objectId);
       set({
-        history: executeCommand(history, { type: "document/replace", label: "object/delete", before, after }),
-        selectedObjectId: null,
+        history: executeCommand(history, {
+          type: "document/replace",
+          label: "object/delete",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, selection),
         objectGesture: null,
       });
     },
@@ -419,10 +579,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
           before,
           after,
         }),
-        selectedWallId: null,
-        selectedRoomId: candidate.roomId,
-        selectedOpeningId: null,
-        selectedObjectId: null,
+        selection: selectionFor(after, { kind: "room", id: candidate.roomId }),
         objectGesture: null,
         placementPresetId: null,
       });
@@ -432,10 +589,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       if (!object) throw new Error(`Placed object does not exist: ${objectId}`);
       set({
         objectGesture: { kind, objectId, before: object, preview: object },
-        selectedObjectId: objectId,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedOpeningId: null,
+        selection: selectionFor(get().history.document, { kind: "placed-object", id: objectId }),
         placementPresetId: null,
         tool: "select",
       });
@@ -455,14 +609,18 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
       set({ objectGesture: { ...gesture, preview } });
     },
     commitObjectGesture: () => {
-      const { history, objectGesture } = get();
+      const { history, objectGesture, selection } = get();
       if (!objectGesture) return;
       if (objectsEqual(objectGesture.before, objectGesture.preview)) {
         set({ objectGesture: null });
         return;
       }
       const before = history.document;
-      const after = updatePlacedObject(before, objectGesture.objectId, objectPatchFrom(objectGesture.preview));
+      const after = updatePlacedObject(
+        before,
+        objectGesture.objectId,
+        objectPatchFrom(objectGesture.preview),
+      );
       set({
         history: executeCommand(history, {
           type: "document/replace",
@@ -470,6 +628,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
           before,
           after,
         }),
+        selection: sanitizeEditorSelection(after, selection),
         objectGesture: null,
       });
     },
@@ -482,10 +641,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
         draftWall: null,
         objectGesture: null,
         placementPresetId: null,
-        selectedWallId: selectedWallAfterHistory(history, current.selectedWallId),
-        selectedRoomId: selectedRoomAfterHistory(history, current.selectedRoomId),
-        selectedOpeningId: selectedOpeningAfterHistory(history, current.selectedOpeningId),
-        selectedObjectId: selectedObjectAfterHistory(history, current.selectedObjectId),
+        selection: sanitizeEditorSelection(history.document, current.selection),
       });
     },
     redo: () => {
@@ -496,10 +652,7 @@ export function createEditorStore(options: CreateEditorStoreOptions = {}): Store
         draftWall: null,
         objectGesture: null,
         placementPresetId: null,
-        selectedWallId: selectedWallAfterHistory(history, current.selectedWallId),
-        selectedRoomId: selectedRoomAfterHistory(history, current.selectedRoomId),
-        selectedOpeningId: selectedOpeningAfterHistory(history, current.selectedOpeningId),
-        selectedObjectId: selectedObjectAfterHistory(history, current.selectedObjectId),
+        selection: sanitizeEditorSelection(history.document, current.selection),
       });
     },
   }));
