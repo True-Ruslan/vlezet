@@ -33,6 +33,15 @@ function normalizedViewportSize(size: ViewportSize): ViewportSize {
   };
 }
 
+function unionWorldBounds(first: WorldBounds, second: WorldBounds): WorldBounds {
+  return {
+    minX: Math.min(first.minX, second.minX),
+    minY: Math.min(first.minY, second.minY),
+    maxX: Math.max(first.maxX, second.maxX),
+    maxY: Math.max(first.maxY, second.maxY),
+  };
+}
+
 export function panViewportBy(
   viewport: ViewportTransform,
   delta: Readonly<{ x: number; y: number }>,
@@ -87,6 +96,52 @@ export function fitWorldBounds(
     offsetX: size.width / 2 - centerX * pixelsPerMillimeter,
     offsetY: size.height / 2 - centerY * pixelsPerMillimeter,
   };
+}
+
+export function fitDocumentViewport(
+  documentBounds: WorldBounds,
+  referenceBounds: WorldBounds | null,
+  viewportSize: ViewportSize,
+  paddingPx: number,
+  limits: ZoomLimits,
+): ViewportTransform {
+  return fitWorldBounds(
+    referenceBounds ? unionWorldBounds(documentBounds, referenceBounds) : documentBounds,
+    viewportSize,
+    paddingPx,
+    limits,
+  );
+}
+
+export function fitSelectionViewport(
+  selectionBounds: WorldBounds | null,
+  viewportSize: ViewportSize,
+  paddingPx: number,
+  limits: ZoomLimits,
+): ViewportTransform | null {
+  if (!selectionBounds) return null;
+  return fitWorldBounds(selectionBounds, viewportSize, paddingPx, limits);
+}
+
+export function actualSizeViewport(
+  viewport: ViewportTransform,
+  viewportSize: ViewportSize,
+  baselinePixelsPerMillimeter: number,
+  limits: ZoomLimits,
+): ViewportTransform {
+  assertFinite(viewport.pixelsPerMillimeter, "Current zoom");
+  if (viewport.pixelsPerMillimeter <= 0) throw new RangeError("Current zoom must be positive");
+  assertFinite(baselinePixelsPerMillimeter, "Baseline zoom");
+  if (baselinePixelsPerMillimeter <= 0) throw new RangeError("Baseline zoom must be positive");
+  validateLimits(limits);
+
+  const target = Math.min(limits.max, Math.max(limits.min, baselinePixelsPerMillimeter));
+  return zoomViewportByCommand(
+    viewport,
+    viewportSize,
+    target / viewport.pixelsPerMillimeter,
+    limits,
+  );
 }
 
 export function wheelGestureToViewportAction(event: Readonly<{
