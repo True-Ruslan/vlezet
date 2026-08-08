@@ -114,8 +114,6 @@ export function EditorContextMenu({
     };
   }, [onDismiss]);
 
-  if (commands.length === 0) return null;
-
   return (
     <div
       className="editor-context-menu"
@@ -125,7 +123,9 @@ export function EditorContextMenu({
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
     >
-      {commands.map((command) => (
+      {commands.length === 0 ? (
+        <p className="editor-context-menu-empty">Нет доступных действий</p>
+      ) : commands.map((command) => (
         <button
           key={command.id}
           type="button"
