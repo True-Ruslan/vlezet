@@ -123,6 +123,27 @@ describe("M8.1 semantic clipboard store commands", () => {
     expect(state.clipboard.payload?.objects.map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
   });
 
+  it("deletes the whole furniture selection atomically without changing clipboard and Undo restores it", () => {
+    const store = storeWith(selection("chair-1", "chair-2"));
+    store.getState().copySelection();
+    const clipboardBefore = structuredClone(store.getState().clipboard);
+    const documentBefore = structuredClone(store.getState().history.document);
+
+    store.getState().deleteSelection();
+
+    let state = store.getState();
+    expect(state.history.document.placedObjects.map((object) => object.id)).toEqual(["table-1"]);
+    expect(state.history.past).toHaveLength(1);
+    expect(state.history.past[0]?.forward.label).toBe("object/batch-delete");
+    expect(state.selection).toEqual({ refs: [], primary: null });
+    expect(state.clipboard).toEqual(clipboardBefore);
+
+    store.getState().undo();
+    state = store.getState();
+    expect(state.history.document).toEqual(documentBefore);
+    expect(state.clipboard).toEqual(clipboardBefore);
+  });
+
   it("pastes with fresh IDs as one batch add, selects the result and Undo removes it", () => {
     const store = storeWith(selection("chair-1", "chair-2"));
     store.getState().copySelection();
@@ -208,6 +229,7 @@ describe("M8.1 semantic clipboard store commands", () => {
     store.getState().copySelection();
     store.getState().cutSelection();
     store.getState().duplicateSelection();
+    store.getState().deleteSelection();
 
     const state = store.getState();
     expect(state.history.document).toEqual(documentBefore);
