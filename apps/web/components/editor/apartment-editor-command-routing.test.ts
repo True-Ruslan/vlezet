@@ -28,4 +28,16 @@ describe("M8.1 ApartmentEditor semantic command routing", () => {
     expect(source).toContain("store.duplicateSelection()");
     expect(source).not.toContain("store.duplicateSelectedObject()");
   });
+
+  it("routes all 2D view commands through one runtime-only Canvas request", () => {
+    expect(source).toContain("const [viewCommandRequest, setViewCommandRequest]");
+    expect(source).toContain("const requestViewportCommand = useCallback((command: EditorViewportCommand)");
+    expect(source).toContain('requestViewportCommand("zoom-in")');
+    expect(source).toContain('requestViewportCommand("zoom-out")');
+    expect(source).toContain('requestViewportCommand("actual-size")');
+    expect(source).toContain('requestViewportCommand("fit-plan")');
+    expect(source).toContain('requestViewportCommand("fit-selection")');
+    expect(source).toContain("if (store.selection.refs.length === 0) return false");
+    expect(source).toContain("viewCommandRequest={viewCommandRequest}");
+  });
 });
