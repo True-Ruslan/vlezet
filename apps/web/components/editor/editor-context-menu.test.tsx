@@ -119,6 +119,29 @@ describe("M8.1 registered-command context menu", () => {
     expect(html).toContain('role="menu"');
   });
 
+  it("keeps a visible Vlezet menu surface when the semantic target has no available commands", () => {
+    const document = documentFixture();
+    const html = renderToStaticMarkup(
+      <EditorContextMenu
+        position={{ x: 120, y: 80 }}
+        document={document}
+        selection={replaceSelection({ kind: "wall", id: "wall-1" })}
+        hasPlacedObjectClipboard={false}
+        executeCommand={() => true}
+        onDismiss={() => {}}
+      />,
+    );
+
+    expect(availableContextMenuCommands(
+      document,
+      replaceSelection({ kind: "wall", id: "wall-1" }),
+      false,
+    )).toEqual([]);
+    expect(html).toContain('role="menu"');
+    expect(html).toContain("Нет доступных действий");
+    expect(html).not.toContain("<button");
+  });
+
   it("executes through the central command callback and dismisses only after execution", () => {
     const events: string[] = [];
     const executeCommand = vi.fn((command) => { events.push(`execute:${command}`); return true; });
