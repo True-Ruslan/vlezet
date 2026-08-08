@@ -19,7 +19,7 @@
   "devDependencies": {
     "eslint": "9.39.5",
     "eslint-config-next": "16.2.10",
-    "turbo": "2.10.5",
+    "turbo": "2.10.8",
     "typescript": "6.0.3"
   }
 }
