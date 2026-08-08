@@ -462,10 +462,6 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
   ) => {
     event.cancelBubble = true;
     if ("button" in event.evt && event.evt.button !== 0) return;
-    if (suppressGeometryClickRef.current) {
-      suppressGeometryClickRef.current = false;
-      return;
-    }
     const pointer = event.target.getStage()?.getPointerPosition() ?? null;
     const ref = pointer ? (() => {
       const world = screenToWorld(pointer, viewport);
@@ -482,6 +478,28 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     else store.replaceSelection(ref);
   };
 
+  const onCanvasClick = (event: KonvaEventObject<MouseEvent>) => {
+    if (tool !== "select" || placementPresetId || recognitionReviewActive || event.evt.button !== 0) return;
+    if (suppressGeometryClickRef.current) {
+      suppressGeometryClickRef.current = false;
+      return;
+    }
+    const pointer = pointerPosition(event);
+    if (!pointer) return;
+    const world = screenToWorld(pointer, viewport);
+    const target = entitiesIntersectingMarquee(document, {
+      minX: world.x,
+      minY: world.y,
+      maxX: world.x,
+      maxY: world.y,
+    })[0] ?? null;
+    if (!target) return;
+    const store = editorStore.getState();
+    const toggle = event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey;
+    if (toggle) store.toggleSelection(target);
+    else store.replaceSelection(target);
+  };
+
   const snapPointer = (screenPoint: Point2, startPoint?: Point2 | null): PointerSnap => {
     const rawPoint = screenToWorld(screenPoint, viewport);
     const tolerance = SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter;
@@ -494,7 +512,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     if (wallCandidate) {
       const point = wallCandidate.projection.point;
       return {
-        snap: { point, kind: "wall", guides: [] },
+        snap: { point, kind: "wall", wallId: wallCandidate.resolved.wall.id, point },
         target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point },
       };
     }
@@ -771,18 +789,13 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     const leave = () => {
       if (!preview && visibleHoveredEntity?.kind === "opening" && visibleHoveredEntity.id === opening.id) setHoveredCanvasEntity(null);
     };
-    const select = (event: KonvaEventObject<MouseEvent>) => {
-      if (!preview && tool === "select") {
-        selectEntityFromPointer(event, { kind: "opening", id: opening.id });
-      }
-    };
     const elements = [<Line key={`${opening.id}-gap`} points={[start.x, start.y, end.x, end.y]} stroke="#ffffff" strokeWidth={gapWidth} listening={false} />];
     if (opening.kind === "window") {
       const normal = { x: segment.leftNormal.x * wall.thickness * 0.22, y: segment.leftNormal.y * wall.thickness * 0.22 };
       for (const sign of [-1, 1]) {
         const a = worldToScreen({ x: segment.start.x + normal.x * sign, y: segment.start.y + normal.y * sign }, viewport);
         const b = worldToScreen({ x: segment.end.x + normal.x * sign, y: segment.end.y + normal.y * sign }, viewport);
-        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onClick={select} />);
+        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} />);
       }
     } else {
       const effectiveDoorSwing = doorSwingPreview?.openingId === opening.id && opening.id === selectedOpeningId
@@ -795,7 +808,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
       const openDirection = { x: segment.leftNormal.x * sideSign, y: segment.leftNormal.y * sideSign };
       const openEnd = { x: hinge.x + openDirection.x * opening.width, y: hinge.y + openDirection.y * opening.width };
       const hingeScreen = worldToScreen(hinge, viewport), openScreen = worldToScreen(openEnd, viewport);
-      elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onClick={select} />);
+      elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} />);
       const arc = arcPoints(hinge, closedDirection, openDirection, opening.width).flatMap((point) => { const s = worldToScreen(point, viewport); return [s.x, s.y]; });
       elements.push(<Line key={`${opening.id}-arc`} points={arc} stroke={stroke} strokeWidth={1} dash={preview ? [7, 5] : [4, 3]} opacity={0.75} listening={false} />);
     }
@@ -848,7 +861,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
 
   return (
     <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${cursorClass}`} data-preview-state={livePreviewState}>
-      <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onContextMenu={onCanvasContextMenu} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={clearTransientCanvasState}>
+      <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onClick={onCanvasClick} onContextMenu={onCanvasContextMenu} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={clearTransientCanvasState}>
         <Layer listening={false}>{gridLines.map((line) => <Line key={line.key} points={line.points} stroke={line.major ? "#d9dde3" : "#eceff3"} strokeWidth={1} perfectDrawEnabled={false} />)}</Layer>
         {referencePlan && referenceImage ? <Layer><ReferenceLayer referencePlan={referencePlan} image={referenceImage} viewport={viewport} onMoveEnd={onReferenceMoveEnd} /></Layer> : null}
         <Layer>
@@ -868,7 +881,6 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
               opacity={tracingMode ? (selected ? 0.42 : hovered ? 0.3 : 0.2) : (selected ? 0.9 : hovered ? 0.82 : 0.72)}
               onMouseEnter={() => { if (hoverEnabled) setHoveredCanvasEntity({ kind: "room", id: room.id }); }}
               onMouseLeave={() => { if (visibleHoveredEntity?.kind === "room" && visibleHoveredEntity.id === room.id) setHoveredCanvasEntity(null); }}
-              onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}
             />;
           })}
           {derivedRooms.rooms.map((room) => {
@@ -896,7 +908,6 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
               lineJoin="miter"
               onMouseEnter={() => { if (hoverEnabled) setHoveredCanvasEntity({ kind: "wall", id: wall.id }); }}
               onMouseLeave={() => { if (visibleHoveredEntity?.kind === "wall" && visibleHoveredEntity.id === wall.id) setHoveredCanvasEntity(null); }}
-              onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}
             />;
           }))}
           {document.openings.flatMap((opening) => renderOpeningSymbol(opening))}
