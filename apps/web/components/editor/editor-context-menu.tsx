@@ -26,6 +26,11 @@ const CONTEXT_COMMANDS: readonly Readonly<{
 
 const COMMAND_BY_ID = new Map(EDITOR_COMMANDS.map((descriptor) => [descriptor.id, descriptor]));
 
+export type EditorContextMenuRequest = Readonly<{
+  position: Readonly<{ x: number; y: number }>;
+  target: EditorEntityRef;
+}>;
+
 export type EditorContextMenuCommand = Readonly<{
   id: EditorCommandId;
   label: string;
