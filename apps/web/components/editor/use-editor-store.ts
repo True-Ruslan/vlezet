@@ -18,7 +18,6 @@ import {
   type EditorStoreState as FoundationEditorStoreState,
   type EditorTool,
   type DraftWall,
-  type ObjectGestureKind,
   type TopologySnapTarget,
 } from "./editor-store-foundation";
 import {
