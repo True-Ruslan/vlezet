@@ -1,4 +1,11 @@
+import { appendFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+
+const DIAGNOSTIC_LOG = "/tmp/vlezet-dev.log";
+
+function recordDiagnostic(phase, payload = {}) {
+  appendFileSync(DIAGNOSTIC_LOG, `\nM8_BROWSER_DIAGNOSTIC ${JSON.stringify({ phase, ...payload })}\n`);
+}
 
 async function openNewProject(page) {
   await page.goto("/");
@@ -52,13 +59,32 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await page.keyboard.press("1");
 
     const box = await canvasBox(page);
-    await page.mouse.click(box.x + box.width * 0.82, box.y + box.height * 0.5, { button: "right" });
+    const clickPoint = { x: box.x + box.width * 0.82, y: box.y + box.height * 0.5 };
+    recordDiagnostic("compact-ready", {
+      viewport: page.viewportSize(),
+      canvas: box,
+      clickPoint,
+      noHorizontalOverflowBeforeMenu: await documentHasNoHorizontalOverflow(page),
+    });
+
+    await page.mouse.click(clickPoint.x, clickPoint.y, { button: "right" });
 
     const menu = page.locator(".editor-context-menu");
+    const menuCount = await menu.count();
+    const menuVisible = menuCount > 0 ? await menu.first().isVisible() : false;
+    const menuBox = menuVisible ? await menu.first().boundingBox() : null;
+    const menuText = menuCount > 0 ? await menu.first().textContent() : null;
+    recordDiagnostic("after-right-click", {
+      menuCount,
+      menuVisible,
+      menuBox,
+      menuText,
+      noHorizontalOverflowAfterMenu: await documentHasNoHorizontalOverflow(page),
+    });
+
     await expect(menu).toBeVisible();
     await expect(menu).toContainText("Нет доступных действий");
 
-    const menuBox = await menu.boundingBox();
     if (!menuBox) throw new Error("Context menu did not produce layout bounds.");
     const viewport = page.viewportSize();
     if (!viewport) throw new Error("Viewport size is unavailable.");
