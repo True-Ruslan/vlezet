@@ -1,152 +1,114 @@
 # Vlezet
 
-**Vlezet** — точный и понятный планировщик квартиры, который отвечает на практический вопрос до покупки мебели или начала ремонта: **влезет ли?**
+> Точный local-first планировщик квартиры в реальных миллиметрах — чтобы понять, **влезет ли** мебель, техника и сама идея планировки до покупки и ремонта.
 
-Сервис позволяет загрузить реальный план застройщика, воспроизвести квартиру в миллиметрах, расставить мебель и технику в настоящем масштабе, проверить проходы, открывание дверей, столкновения и удобство использования — без освоения профессионального CAD.
+[![CI](https://github.com/True-Ruslan/vlezet/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/True-Ruslan/vlezet/actions/workflows/ci.yml)
+[![Browser Acceptance](https://github.com/True-Ruslan/vlezet/actions/workflows/m7-browser-audit.yml/badge.svg?branch=main)](https://github.com/True-Ruslan/vlezet/actions/workflows/m7-browser-audit.yml)
+[![Recognition Benchmark](https://github.com/True-Ruslan/vlezet/actions/workflows/recognition-benchmark.yml/badge.svg?branch=main)](https://github.com/True-Ruslan/vlezet/actions/workflows/recognition-benchmark.yml)
 
-**Автор и инженерное портфолио:** [trueruslan.ru](https://trueruslan.ru/)
+**Vlezet** помогает вручную построить или импортировать реальный план квартиры, работать с физическими размерами, расставлять мебель и технику, видеть коллизии и ограничения, а затем экспортировать результат. Интерфейс должен оставаться понятным человеку без опыта работы в CAD.
 
-> Для быстрого восстановления полного контекста проекта сначала читайте [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md), затем [`docs/ROADMAP.md`](docs/ROADMAP.md) и [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Проект активно развивается. Точный статус, принятые этапы и текущий приоритет всегда находятся в [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) и [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-## Что уже работает
+**Автор:** [True-Ruslan](https://github.com/True-Ruslan) · [инженерное портфолио](https://trueruslan.ru/)
 
-### Квартира
+## Основные возможности
 
-- бесконечное 2D-поле с адаптивной сеткой;
-- zoom относительно курсора и панорамирование;
-- стены с реальной толщиной;
-- явные связанные вершины и T-стыки;
-- точное изменение длины стен;
-- двери и окна как настоящие проёмы;
-- автоматическое определение комнат;
-- полезная площадь по внутренним поверхностям стен;
-- названия комнат;
-- диагностика неоднозначной геометрии.
+### Точная 2D-модель квартиры
+
+- стены и связанные вершины в миллиметровой системе координат;
+- двери и окна как структурные проёмы известных стен;
+- производные комнаты, размеры и полезная площадь;
+- сетка, snapping, измерения и семантические Undo/Redo;
+- детерминированная геометрия независимо от Canvas-пикселей.
 
 ### Мебель и проверка «влезет?»
 
-- каталог типовых предметов с реальными размерами;
-- кровати, диван, шкафы, столы, стул, кухонный модуль и техника;
-- произвольный `Свой предмет`;
-- preview перед размещением;
-- прямое перетаскивание, поворот и изменение размеров;
-- точные X/Y, ширина, глубина, высота и угол;
-- snapping по краям, центрам и сетке;
-- дублирование и удаление;
-- collision detection между предметами;
-- проверка выхода за внутренние границы комнаты;
-- проверка блокировки открывания двери;
-- рекомендуемые зоны использования;
-- измерения расстояний в четырёх локальных направлениях;
-- объяснимые статусы `Влезает`, `Влезает вплотную`, `Не влезает`;
-- semantic undo/redo для каждого действия.
+- предметы с физическими размерами и точными трансформациями;
+- столкновения, выход за границы комнаты и блокировка дверей;
+- clearance-рекомендации и объяснимые fit-статусы;
+- каталог типовых предметов и пользовательские размеры;
+- детерминированная проверка перед изменением документа.
 
 ### Local-first проекты
 
-- стартовый экран `Мои проекты`;
-- несколько независимых планировок в одном браузере;
-- создание, переименование, дублирование и безопасное удаление;
-- автоматическое сохранение после смысловых изменений;
-- восстановление последнего открытого проекта;
-- сохранение положения камеры и масштаба;
-- сворачиваемый каталог мебели;
-- команда `Весь план`;
-- резервная копия `.vlezet.json` и обратный импорт;
-- чистый PNG без панелей редактора и сетки;
-- IndexedDB вместо ограниченного `localStorage`;
-- понятный статус сохранения и повтор после ошибки.
+- IndexedDB и автоматическое сохранение на устройстве;
+- несколько независимых проектов;
+- переносимый backup/import в формате `.vlezet.json`;
+- PNG-экспорт;
+- восстановление после ошибок сохранения;
+- работа основных инструментов без аккаунта, облака и сетевой задержки.
 
-### Подложка реального плана — M4
+### Подложка реального плана
 
-- импорт JPG, PNG и PDF без отправки файла на сервер;
-- проверка формата по содержимому файла, а не только расширению;
-- выбор страницы многостраничного PDF;
-- безопасная нормализация больших изображений;
-- калибровка масштаба по двум точкам и известной длине;
-- ввод размера в миллиметрах или метрах;
-- автоматическое горизонтальное или вертикальное выравнивание;
-- подложка под комнатами, стенами, проёмами и мебелью;
-- видимость, прозрачность, блокировка, положение и поворот;
-- отдельный режим точной обводки;
-- `Показать подложку` и reference-aware `Весь план`;
-- безопасная замена или удаление исходника без потери геометрии;
-- локальное хранение binary asset в IndexedDB;
-- независимое копирование подложки при дублировании проекта;
-- переносимый `.vlezet.json` версии 2 с нормализованным растром;
-- импорт старых резервных копий версии 1;
-- чистый PNG и отдельный PNG с исходной подложкой.
+- JPG, PNG и PDF;
+- локальная нормализация и хранение исходника;
+- калибровка масштаба по известному расстоянию;
+- ручная точная обводка поверх изображения;
+- безопасная замена/удаление подложки без потери построенной геометрии.
 
-### Умное распознавание плана — M4.5 RC
+### Assisted recognition
 
-- локальный анализ откалиброванного плана прямо в браузере;
-- OpenCV/Web Worker pipeline без блокировки основного Canvas;
-- предложения стен вместо необратимой автогенерации;
-- консервативные гипотезы дверей, окон и неизвестных проёмов;
-- `high / medium / low` confidence и объяснимые конфликты;
-- persistent recognition draft, переживающий перезагрузку;
-- review mode: выбрать, поправить endpoints, принять или отклонить предложение;
-- bulk-action `Принять уверенные`;
-- существующие ручные стены не заменяются и не дублируются молча;
-- deterministic validation перед применением;
-- весь принятый batch применяется одной semantic operation и отменяется одним Undo;
-- опциональная AI-проверка через OpenRouter BYOK;
-- модели фильтруются по vision + structured-output capability;
-- tolerant per-candidate parsing и cloud semantic sanity filtering;
-- cloud-only и конфликтные candidates остаются редактируемыми предложениями;
-- OpenRouter API key существует только в runtime-памяти формы и не сохраняется;
-- незавершённые recognition sessions не входят в `.vlezet.json` и не копируются при duplicate/import.
+В репозитории есть локальная CV/benchmark-инфраструктура для распознавания планов. Распознавание является **вспомогательным**, а не источником истины: предложения остаются редактируемым Draft, неоднозначность должна завершаться abstain/pending, а обычный документ меняется только через явное применение после детерминированной проверки.
 
-M4.5 находится в Draft PR #6. Assisted recognition пока имеет **известное ограничение качества** на реальных планах: candidates могут быть неточными и шумными, поэтому функция считается assisted/experimental и никогда не должна применять геометрию без review.
+Автоматическое распознавание не является обязательным условием использования основного редактора.
 
-Все проекты и исходные планы хранятся **локально в браузере на текущем устройстве**. Локальное распознавание также выполняется в браузере. Изображение отправляется внешнему AI-провайдеру только после явного запуска `Проверить с AI`; облачной синхронизации проектов пока нет.
+### 3D и планирование
 
-## Архитектурные принципы
+- read-only 3D-проекция той же модели квартиры;
+- детерминированные варианты размещения для поддерживаемых сценариев;
+- ограничения и Preview остаются временными;
+- Apply всегда явный и повторно валидируется.
 
-- TypeScript-first.
-- Миллиметры — единственная каноническая единица мира.
-- Domain model — источник истины; Canvas и будущий 3D являются проекциями.
-- Geometry engine не зависит от React, Konva и Next.js.
-- Project repository отделён от UI и конкретного IndexedDB-адаптера.
-- Растровая подложка является project asset и никогда не попадает в `VlezetDocument`.
-- Recognition draft хранится отдельно от `VlezetDocument`; AI/CV никогда не являются geometry authority.
-- Recognition candidates используют нормализованные координаты подложки `[0,1]` и становятся миллиметрами только через calibrated transform.
-- Комнаты и fit results выводятся из структурированной геометрии.
-- Каталог — только шаблон вставки; размещённый предмет хранит полный snapshot.
-- Жёсткие коллизии отделены от рекомендаций по удобству.
-- Undo/redo, snapping, миграции, autosave и детерминированные вычисления считаются базовыми возможностями.
-- Простота интерфейса не должна скрывать неоднозначные геометрические semantics.
+## Архитектурные гарантии
+
+1. `VlezetDocument` — единственный persistent source of truth квартиры.
+2. Миллиметры — каноническая единица; Canvas/WebGL-пиксели не сохраняются как геометрия.
+3. `packages/domain`, `packages/geometry` и `packages/editor-core` сохраняют framework-independent authority.
+4. Konva и Three.js — только проекции модели.
+5. Комнаты, площади, размеры, полы и 3D-сцены являются производными.
+6. Изменения документа проходят через семантические команды и Undo/Redo.
+7. AI/CV не могут молча создавать authoritative geometry или обходить validation.
+8. Существующая геометрия не заменяется и не «чинится» скрытно.
+9. Основное редактирование остаётся полностью работоспособным без сети.
+10. Неоднозначные операции должны завершаться fail-closed, а не угадывать.
+
+Подробнее: [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md).
+
+## Структура репозитория
+
+```text
+apps/web                 Next.js + React UI
+packages/domain          document model и migrations
+packages/geometry        геометрическая/mathematical authority
+packages/editor-core     semantic editing, history, snapping
+packages/projects        local-first persistence
+packages/recognition     assisted CV и benchmark infrastructure
+packages/spatial         renderer-neutral 3D projection
+packages/planning        deterministic planning + reviewed intent
+tools/                   browser/recognition verification tooling
+docs/                    product, architecture, roadmap и acceptance evidence
+```
 
 ## Локальный запуск
 
-Требования: Node.js `>=22.13` и pnpm `11.15.1`.
+Требования:
+
+- Node.js `>=22.13.0`;
+- pnpm `11.15.1`.
 
 ```bash
-npm install -g pnpm@11.15.1
+corepack enable
+corepack prepare pnpm@11.15.1 --activate
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Затем открыть адрес, который напечатает Next.js.
+После запуска откройте адрес, который напечатает Next.js.
 
-## Управление редактором
+## Проверки качества
 
-| Действие | Управление |
-| --- | --- |
-| Выбор | `V` |
-| Стена | `W` |
-| Дверь | `D` |
-| Окно | `O` |
-| Показать/скрыть каталог | `F` |
-| Повернуть выбранный предмет на 90° | `R` |
-| Дублировать предмет | `Ctrl/Cmd + D` |
-| Удалить выбранный предмет/проём | `Delete` / `Backspace` |
-| Отменить действие / завершить обводку | `Esc` |
-| Панорама | `Space + drag` или средняя кнопка |
-| Масштаб | Колесо мыши |
-| Undo | `Ctrl/Cmd + Z` |
-| Redo | `Ctrl/Cmd + Shift+Z` или `Ctrl/Cmd + Y` |
-
-## Quality gate
+Минимальный локальный gate:
 
 ```bash
 pnpm test
@@ -155,43 +117,52 @@ pnpm lint
 pnpm build
 ```
 
-CI устанавливает зависимости через frozen lockfile и сохраняет diagnostic artifacts при падении проверок.
+Дополнительные проектные проверки:
 
-## Roadmap
+```bash
+pnpm validate:m7-docs
+pnpm benchmark:recognition:core
+```
 
-- **M0 — Foundation and Infinite Canvas:** завершён.
-- **M1 — Apartment Shell:** завершён — связанные стены, комнаты, полезная площадь, двери и окна.
-- **M2 — Furnishing and Fit:** завершён — предметы, трансформации, измерения, коллизии и clearance hints.
-- **M3 — Local-First Projects:** завершён — проекты, autosave, restore, backup, PNG и UX-полировка.
-- **M4 — Reference Plan Import:** завершён — JPG/PNG/PDF, калибровка, подложка и ручная точная обводка.
-- **M4.5 — Assisted Recognition:** RC в Draft PR #6; стабилизируем/мержим как assisted feature с известным ограничением точности.
-- **M4.6 — Precision Geometry UX:** следующий P0 — внутренний/осевой/наружный размер, якоря изменения, направление толщины, размерные линии и рулетка.
-- **M5 — Spatial 3D:** после M4.6 — детерминированная 3D-проекция той же модели.
-- **M6 — Intelligent Planning:** затем — редактируемые AI-варианты планировки с геометрической проверкой.
+GitHub Actions отдельно выполняют основной CI, browser acceptance и recognition benchmark. Merge не должен основываться только на зелёном CI, когда milestone требует продуктовой или визуальной приёмки.
 
-Полная приоритизированная версия: [`docs/ROADMAP.md`](docs/ROADMAP.md).
+## Безопасность и приватность
+
+- секреты и API-ключи не должны попадать в git, логи, fixtures или evidence artifacts;
+- `.env*` игнорируются, кроме явно безопасного `.env.example`;
+- исходные пользовательские планы не должны коммититься без явного решения об их публичности;
+- optional AI-провайдеры не получают authority над документом;
+- сообщения об уязвимостях следует отправлять приватно по правилам [`SECURITY.md`](SECURITY.md).
+
+## Как участвовать
+
+Перед изменениями прочитайте [`CONTRIBUTING.md`](CONTRIBUTING.md). Для PR действует единый checklist из [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md).
+
+Главные правила: маленький понятный scope, сохранение архитектурных authority, настоящий RED → GREEN для изменяемого детерминированного поведения и полный regression gate перед merge.
 
 ## Документация
 
-### Контекст проекта — читать первым
+Начинать новый контекст рекомендуется в таком порядке:
 
-- [Current project state](docs/PROJECT_STATE.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Changelog](docs/CHANGELOG.md)
-- [Accepted geometry/dimensions UX feedback](docs/product/2026-07-22-geometry-dimensions-ux-feedback.md)
+1. [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) — что реально принято и что происходит сейчас;
+2. [`docs/ROADMAP.md`](docs/ROADMAP.md) — последовательность развития;
+3. [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — каноническая история;
+4. [`docs/product/UX_ROADMAP.md`](docs/product/UX_ROADMAP.md) — UX/product sequencing;
+5. [`docs/milestones/`](docs/milestones/) — evidence и acceptance records;
+6. [`docs/superpowers/specs/`](docs/superpowers/specs/) и [`docs/superpowers/plans/`](docs/superpowers/plans/) — утверждённые designs и implementation plans.
 
-### Product / milestone documents
+## Стек
 
-- [Product design](docs/superpowers/specs/2026-07-21-vlezet-product-design.md)
-- [M1 Apartment Shell design](docs/superpowers/specs/2026-07-21-m1-apartment-shell-design.md)
-- [M2 Furnishing and Fit design](docs/superpowers/specs/2026-07-21-m2-furnishing-fit-design.md)
-- [M2 browser acceptance](docs/milestones/m2-acceptance.md)
-- [M3 Local-First Projects design](docs/superpowers/specs/2026-07-21-m3-local-first-projects-design.md)
-- [M3 implementation plan](docs/superpowers/plans/2026-07-21-m3-local-first-projects.md)
-- [M3 browser acceptance](docs/milestones/m3-acceptance.md)
-- [M4 Reference Plan Import design](docs/superpowers/specs/2026-07-21-m4-plan-import-design.md)
-- [M4 implementation plan](docs/superpowers/plans/2026-07-21-m4-plan-import.md)
-- [M4 browser acceptance](docs/milestones/m4-acceptance.md)
-- [M4.5 Assisted Recognition design](docs/superpowers/specs/2026-07-22-m4-5-assisted-recognition-design.md)
-- [M4.5 implementation plan](docs/superpowers/plans/2026-07-22-m4-5-assisted-recognition.md)
-- [M4.5 browser acceptance](docs/milestones/m4-5-acceptance.md)
+- TypeScript;
+- Next.js / React;
+- Konva / react-konva;
+- Three.js;
+- Zustand;
+- IndexedDB;
+- Vitest;
+- Playwright (Chromium + representative WebKit coverage);
+- pnpm workspaces + Turborepo.
+
+## Статус лицензии
+
+Публичность репозитория сама по себе не предоставляет разрешение на использование кода. Лицензия должна быть выбрана владельцем проекта отдельно; до этого действуют стандартные авторские права.
