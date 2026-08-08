@@ -49,8 +49,10 @@ describe("M7.4 live Canvas feedback integration", () => {
 
   it("moves a compatible furniture multi-selection without collapsing it", () => {
     expect(source).toContain('objectGesture.kind === "move"');
-    expect(source).toContain("objectGesture.preview.map((object) => [object.id, object])");
-    expect(source).toContain("new Set(objectGesture.objectIds)");
+    expect(source).toContain("for (const object of objectGesture.preview) previewById.set(object.id, object)");
+    expect(source).toContain('gesture?.kind === "move" && gesture.anchorObjectId === objectId');
+    expect(source).toContain("new Set(gesture.objectIds)");
+    expect(source).toContain("displayedObjects.filter((object) => !excludedIds.has(object.id))");
     expect(source).toContain("selectedObjectIds.has(object.id)");
     expect(source).toContain("if (!objectSelected) editorStore.getState().selectObject(object.id)");
   });
