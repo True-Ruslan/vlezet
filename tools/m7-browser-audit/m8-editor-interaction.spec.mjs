@@ -329,7 +329,7 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     await drawRectangle(page);
-    await placeChair(page, 0.5, 0.48);
+    const chair = await placeChair(page, 0.5, 0.48);
 
     await page.keyboard.press("Control+A");
     await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 5");
@@ -344,9 +344,7 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await expect(actions.getByRole("button", { name: "Дублировать" })).toHaveCount(0);
     await expect(actions.getByRole("button", { name: "Удалить" })).toHaveCount(0);
 
-    await page.keyboard.press("1");
-    const box = await canvasBox(page);
-    await page.mouse.click(box.x + box.width * 0.5, box.y + 64, { button: "right" });
+    await page.mouse.click(chair.x, chair.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
     await expect(menu).toBeVisible();
     await expect(menu).toContainText("Нет доступных действий");
