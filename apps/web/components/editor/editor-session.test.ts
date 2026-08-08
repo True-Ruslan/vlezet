@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
 import { createEmptyDocument } from "@vlezet/domain";
-import { editorStore } from "./use-editor-store";
+import { describe, expect, it } from "vitest";
+import { replaceSelection } from "./editor-selection";
 import { loadEditorDocument } from "./editor-session";
+import { editorStore } from "./use-editor-store";
 
 const noSnap = { point: { x: 1000, y: 1000 }, kind: "none" as const, guides: [] };
 
@@ -10,7 +11,10 @@ describe("project editor session", () => {
     editorStore.getState().setTool("wall");
     editorStore.getState().beginWall({ x: 0, y: 0 });
     editorStore.getState().updateDraftWall(noSnap);
-    editorStore.setState({ selectedWallId: "old-wall", placementPresetId: "bed-single" });
+    editorStore.setState({
+      selection: replaceSelection({ kind: "wall", id: "old-wall" }),
+      placementPresetId: "bed-single",
+    });
 
     const document = {
       ...createEmptyDocument(),
@@ -29,10 +33,7 @@ describe("project editor session", () => {
     expect(state.tool).toBe("select");
     expect(state.draftWall).toBeNull();
     expect(state.placementPresetId).toBeNull();
-    expect(state.selectedWallId).toBeNull();
-    expect(state.selectedRoomId).toBeNull();
-    expect(state.selectedOpeningId).toBeNull();
-    expect(state.selectedObjectId).toBeNull();
+    expect(state.selection).toEqual({ refs: [], primary: null });
     expect(state.objectGesture).toBeNull();
   });
 });
