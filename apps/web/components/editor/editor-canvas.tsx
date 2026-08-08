@@ -775,7 +775,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
       for (const sign of [-1, 1]) {
         const a = worldToScreen({ x: segment.start.x + normal.x * sign, y: segment.start.y + normal.y * sign }, viewport);
         const b = worldToScreen({ x: segment.end.x + normal.x * sign, y: segment.end.y + normal.y * sign }, viewport);
-        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
+        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onClick={select} />);
       }
     } else {
       const effectiveDoorSwing = doorSwingPreview?.openingId === opening.id && opening.id === selectedOpeningId
@@ -788,7 +788,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
       const openDirection = { x: segment.leftNormal.x * sideSign, y: segment.leftNormal.y * sideSign };
       const openEnd = { x: hinge.x + openDirection.x * opening.width, y: hinge.y + openDirection.y * opening.width };
       const hingeScreen = worldToScreen(hinge, viewport), openScreen = worldToScreen(openEnd, viewport);
-      elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onMouseDown={select} />);
+      elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseEnter={enter} onMouseLeave={leave} onClick={select} />);
       const arc = arcPoints(hinge, closedDirection, openDirection, opening.width).flatMap((point) => { const s = worldToScreen(point, viewport); return [s.x, s.y]; });
       elements.push(<Line key={`${opening.id}-arc`} points={arc} stroke={stroke} strokeWidth={1} dash={preview ? [7, 5] : [4, 3]} opacity={0.75} listening={false} />);
     }
@@ -861,7 +861,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
               opacity={tracingMode ? (selected ? 0.42 : hovered ? 0.3 : 0.2) : (selected ? 0.9 : hovered ? 0.82 : 0.72)}
               onMouseEnter={() => { if (hoverEnabled) setHoveredCanvasEntity({ kind: "room", id: room.id }); }}
               onMouseLeave={() => { if (visibleHoveredEntity?.kind === "room" && visibleHoveredEntity.id === room.id) setHoveredCanvasEntity(null); }}
-              onMouseDown={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}
+              onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}
             />;
           })}
           {derivedRooms.rooms.map((room) => {
@@ -889,7 +889,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
               lineJoin="miter"
               onMouseEnter={() => { if (hoverEnabled) setHoveredCanvasEntity({ kind: "wall", id: wall.id }); }}
               onMouseLeave={() => { if (visibleHoveredEntity?.kind === "wall" && visibleHoveredEntity.id === wall.id) setHoveredCanvasEntity(null); }}
-              onMouseDown={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}
+              onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}
             />;
           }))}
           {document.openings.flatMap((opening) => renderOpeningSymbol(opening))}
