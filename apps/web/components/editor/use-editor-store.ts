@@ -1,5 +1,7 @@
-import { createPlacedObject, type PlacedObject } from "@vlezet/domain";
+import { createPlacedObject, type PlacedObject, type Point2 } from "@vlezet/domain";
 import {
+  addPlacedObjects,
+  deletePlacedObjects,
   executeCommand,
   translatePlacedObjects,
   updatePlacedObject,
@@ -8,7 +10,6 @@ import {
 import type { StoreApi } from "zustand/vanilla";
 import {
   createEditorStore as createFoundationEditorStore,
-  editorStore as foundationEditorStore,
   selectedObjectId,
   selectedOpeningId,
   selectedRoomId,
@@ -21,6 +22,13 @@ import {
   type TopologySnapTarget,
 } from "./editor-store-foundation";
 import {
+  EMPTY_EDITOR_CLIPBOARD_STATE,
+  createPlacedObjectClipboardPayload,
+  derivePasteObjects,
+  type EditorClipboardState,
+} from "./editor-clipboard";
+import {
+  addToSelection,
   replaceSelection,
   sameEditorEntity,
   sanitizeEditorSelection,
@@ -70,10 +78,15 @@ export type EditorStoreState = Omit<
   | "cancelObjectGesture"
 > & {
   objectGesture: ObjectGesture | null;
+  clipboard: EditorClipboardState;
   beginObjectGesture: (objectId: string, kind: ObjectGestureKind) => void;
   previewObjectGesture: (patch: PlacedObjectPatch) => void;
   commitObjectGesture: () => void;
   cancelObjectGesture: () => void;
+  copySelection: () => void;
+  cutSelection: () => void;
+  pasteClipboard: (anchor: Point2) => void;
+  duplicateSelection: () => void;
 };
 
 function objectById(
@@ -117,6 +130,19 @@ function selectedPlacedObjectIds(selection: EditorSelection): readonly string[] 
   return selection.refs.map((ref) => ref.id);
 }
 
+function selectedPlacedObjects(state: EditorStoreState): readonly PlacedObject[] | null {
+  const objectIds = selectedPlacedObjectIds(state.selection);
+  if (!objectIds) return null;
+  const byId = new Map(state.history.document.placedObjects.map((object) => [object.id, object]));
+  const objects: PlacedObject[] = [];
+  for (const objectId of objectIds) {
+    const object = byId.get(objectId);
+    if (!object) return null;
+    objects.push(object);
+  }
+  return objects;
+}
+
 function selectionForObject(
   state: EditorStoreState,
   objectId: string,
@@ -124,6 +150,17 @@ function selectionForObject(
   return sanitizeEditorSelection(
     state.history.document,
     replaceSelection({ kind: "placed-object", id: objectId }),
+  );
+}
+
+function selectionForPlacedObjects(
+  objects: readonly PlacedObject[],
+): EditorSelection {
+  const [first, ...rest] = objects;
+  if (!first) return { refs: [], primary: null };
+  return addToSelection(
+    replaceSelection({ kind: "placed-object", id: first.id }),
+    rest.map((object) => ({ kind: "placed-object" as const, id: object.id })),
   );
 }
 
@@ -137,8 +174,13 @@ function selectionWithPrimary(
   };
 }
 
+function samePoint(first: Point2 | null, second: Point2): boolean {
+  return first !== null && first.x === second.x && first.y === second.y;
+}
+
 function enhanceEditorStore(
   foundation: StoreApi<FoundationEditorStoreState>,
+  idFactory: (kind: EditorEntityIdKind) => string,
 ): StoreApi<EditorStoreState> {
   const store = foundation as unknown as StoreApi<EditorStoreState>;
 
@@ -281,11 +323,116 @@ function enhanceEditorStore(
     });
   };
 
+  const copySelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    store.setState({
+      clipboard: {
+        payload: createPlacedObjectClipboardPayload(objects),
+        lastPasteAnchor: null,
+        repeatedPasteCount: 0,
+      },
+    });
+  };
+
+  const cutSelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    const payload = createPlacedObjectClipboardPayload(objects);
+    const before = state.history.document;
+    const after = deletePlacedObjects(before, objects.map((object) => object.id));
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-delete",
+        before,
+        after,
+      }),
+      clipboard: {
+        payload,
+        lastPasteAnchor: null,
+        repeatedPasteCount: 0,
+      },
+      selection: sanitizeEditorSelection(after, state.selection),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
+  const pasteClipboard = (anchor: Point2) => {
+    const state = store.getState();
+    const payload = state.clipboard.payload;
+    if (!payload) return;
+    const repetition = samePoint(state.clipboard.lastPasteAnchor, anchor)
+      ? state.clipboard.repeatedPasteCount
+      : 0;
+    const pasted = derivePasteObjects({
+      payload,
+      anchor,
+      repetition,
+      idFactory: () => idFactory("placed-object"),
+    });
+    const before = state.history.document;
+    const after = addPlacedObjects(before, pasted);
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-add",
+        before,
+        after,
+      }),
+      clipboard: {
+        payload,
+        lastPasteAnchor: { ...anchor },
+        repeatedPasteCount: repetition + 1,
+      },
+      selection: selectionForPlacedObjects(pasted),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
+  const duplicateSelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    const payload = createPlacedObjectClipboardPayload(objects);
+    const duplicated = derivePasteObjects({
+      payload,
+      anchor: payload.copiedAtOrigin,
+      repetition: 1,
+      idFactory: () => idFactory("placed-object"),
+    });
+    const before = state.history.document;
+    const after = addPlacedObjects(before, duplicated);
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-add",
+        before,
+        after,
+      }),
+      selection: selectionForPlacedObjects(duplicated),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
   store.setState({
+    clipboard: EMPTY_EDITOR_CLIPBOARD_STATE,
     beginObjectGesture,
     previewObjectGesture,
     commitObjectGesture,
     cancelObjectGesture: () => store.setState({ objectGesture: null }),
+    copySelection,
+    cutSelection,
+    pasteClipboard,
+    duplicateSelection,
   });
 
   return store;
@@ -294,7 +441,9 @@ function enhanceEditorStore(
 export function createEditorStore(
   options: CreateEditorStoreOptions = {},
 ): StoreApi<EditorStoreState> {
-  return enhanceEditorStore(createFoundationEditorStore(options));
+  const idFactory = options.idFactory ?? (() => crypto.randomUUID());
+  const foundation = createFoundationEditorStore({ ...options, idFactory });
+  return enhanceEditorStore(foundation, idFactory);
 }
 
-export const editorStore = enhanceEditorStore(foundationEditorStore);
+export const editorStore = createEditorStore();
