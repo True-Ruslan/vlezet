@@ -30,7 +30,7 @@ import {
   type SnapResult,
   type ViewportTransform,
 } from "@vlezet/geometry";
-import type { ReferencePlan } from "@vlezet/projects";
+import { DEFAULT_PROJECT_VIEWPORT, type ReferencePlan } from "@vlezet/projects";
 import type { NormalizedPoint, RecognitionDraft } from "@vlezet/recognition";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -58,7 +58,15 @@ import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-stor
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
 import { TapeMeasurementTool } from "./tape-measurement-tool";
-import { panViewportBy, wheelGestureToViewportAction } from "./editor-viewport-controller";
+import {
+  actualSizeViewport,
+  fitDocumentViewport,
+  fitSelectionViewport,
+  panViewportBy,
+  wheelGestureToViewportAction,
+  zoomViewportByCommand,
+  type EditorViewportCommandRequest,
+} from "./editor-viewport-controller";
 import {
   deriveSelectionWorldBounds,
   entitiesIntersectingMarquee,
@@ -76,6 +84,7 @@ import {
 
 const MIN_SCALE = 0.01;
 const MAX_SCALE = 2;
+const COMMAND_ZOOM_FACTOR = 1.2;
 const SNAP_TOLERANCE_PX = 12;
 const MARQUEE_THRESHOLD_PX = 4;
 const PLACEMENT_PREVIEW_ID = "__placement-preview__";
@@ -157,7 +166,7 @@ function entityKey(kind: EditorEntityRef["kind"], id: string): string {
 export type EditorCanvasProps = Readonly<{
   initialViewport: ViewportTransform;
   onViewportChange: (viewport: ViewportTransform) => void;
-  fitRequest: number;
+  viewCommandRequest: EditorViewportCommandRequest | null;
   fitReferenceRequest: number;
   referencePlan: ReferencePlan | null;
   referenceAssetBlob: Blob | null;
@@ -172,11 +181,11 @@ export type EditorCanvasProps = Readonly<{
 
 type ViewportUpdater = ViewportTransform | ((current: ViewportTransform) => ViewportTransform);
 
-export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, recognitionDraft, selectedRecognitionCandidateId, recognitionReviewActive, onSelectRecognitionCandidate, onEditRecognitionWall, onReferenceMoveEnd }: EditorCanvasProps) {
+export function EditorCanvas({ initialViewport, onViewportChange, viewCommandRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, recognitionDraft, selectedRecognitionCandidateId, recognitionReviewActive, onSelectRecognitionCandidate, onEditRecognitionWall, onReferenceMoveEnd }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
-  const handledFitRequestRef = useRef(fitRequest);
+  const handledViewCommandSerialRef = useRef(viewCommandRequest?.serial ?? 0);
   const handledFitReferenceRequestRef = useRef(fitReferenceRequest);
   const viewportRef = useRef<ViewportTransform>({ ...initialViewport });
   const [size, setSize] = useState({ width: 1, height: 1 });
@@ -255,10 +264,48 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   }, []);
 
   useEffect(() => {
-    if (fitRequest === handledFitRequestRef.current || size.width <= 1 || size.height <= 1) return;
-    handledFitRequestRef.current = fitRequest;
-    commitViewport(fitViewportToBounds(deriveDocumentBounds(document, { additionalBounds: visibleReferenceBounds }), size, 64));
-  }, [commitViewport, document, fitRequest, size, visibleReferenceBounds]);
+    if (!viewCommandRequest ||
+      viewCommandRequest.serial === handledViewCommandSerialRef.current ||
+      size.width <= 1 || size.height <= 1) return;
+
+    handledViewCommandSerialRef.current = viewCommandRequest.serial;
+    const limits = { min: MIN_SCALE, max: MAX_SCALE } as const;
+    let next: ViewportTransform | null = null;
+    switch (viewCommandRequest.command) {
+      case "zoom-in":
+        next = zoomViewportByCommand(viewportRef.current, size, COMMAND_ZOOM_FACTOR, limits);
+        break;
+      case "zoom-out":
+        next = zoomViewportByCommand(viewportRef.current, size, 1 / COMMAND_ZOOM_FACTOR, limits);
+        break;
+      case "actual-size":
+        next = actualSizeViewport(
+          viewportRef.current,
+          size,
+          DEFAULT_PROJECT_VIEWPORT.pixelsPerMillimeter,
+          limits,
+        );
+        break;
+      case "fit-plan":
+        next = fitDocumentViewport(
+          deriveDocumentBounds(document),
+          visibleReferenceBounds,
+          size,
+          64,
+          limits,
+        );
+        break;
+      case "fit-selection":
+        next = fitSelectionViewport(
+          deriveSelectionWorldBounds(document, selection),
+          size,
+          64,
+          limits,
+        );
+        break;
+    }
+    if (next) commitViewport(next);
+  }, [commitViewport, document, selection, size, viewCommandRequest, visibleReferenceBounds]);
 
   useEffect(() => {
     if (fitReferenceRequest === handledFitReferenceRequestRef.current || size.width <= 1 || size.height <= 1 || !visibleReferenceBounds) return;
