@@ -460,6 +460,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     fallback: EditorEntityRef,
   ) => {
     event.cancelBubble = true;
+    if ("button" in event.evt && event.evt.button !== 0) return;
     const pointer = event.target.getStage()?.getPointerPosition() ?? null;
     const ref = pointer ? (() => {
       const world = screenToWorld(pointer, viewport);
