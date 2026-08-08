@@ -97,3 +97,15 @@ describe("M7.7 furniture fit Canvas explanation", () => {
     expect(source).toContain("Свободно сейчас");
   });
 });
+
+describe("M8.1 Canvas viewport navigation", () => {
+  it("routes ordinary wheel/trackpad pan and modifier zoom through the pure controller", () => {
+    expect(source).toContain('from "./editor-viewport-controller"');
+    expect(source).toContain("wheelGestureToViewportAction(event.evt)");
+    expect(source).toContain('action.kind === "pan"');
+    expect(source).toContain("panViewportBy(current, action.delta)");
+    expect(source).toContain("zoomViewportAt(current, pointer");
+    expect(source).toContain("event.evt.preventDefault()");
+    expect(source).not.toContain("Math.exp(-event.evt.deltaY * 0.0015)");
+  });
+});
