@@ -164,6 +164,107 @@ Browser Acceptance #1142:
 
 The final exact-head CI passed documentation contract, full unit suite, Core Recognition Benchmark, typecheck, lint and production build. No project schema, persistence format, geometry authority, M2 authority or structural batch behavior changed.
 
+### Task 5 — deterministic rigid multi-furniture move
+
+A move gesture can now preserve a compatible furniture-only multi-selection. The dragged member becomes the primary snap anchor without dropping the other selected furniture. The anchor receives the existing snap correction and the resulting translation vector is applied identically to the complete moving set. Transform/resize remains single-object only.
+
+Store RED:
+
+```text
+head:     2255d1a34b803f6a6be11d3d3cc662c88f534977
+CI #4688: FAIL as intended
+observed: 420 prior tests PASS; new gesture assertions exposed the former single-object preview/selection/history model
+```
+
+Canvas/component RED:
+
+```text
+head:     1b5138d3b587b6c629ba8fba3c07a65b038661ed
+CI #4694: FAIL as intended
+observed: 424 tests PASS; exactly 2 new source/component contracts failed before Canvas group integration existed
+```
+
+Final GREEN:
+
+```text
+head:                     3d864ad3c93ea13ed5135efd1d47a582672ce5ee
+CI #4697:                 PASS
+Recognition Benchmark #1033: PASS
+Browser Acceptance #1153:
+  Chromium:               PASS
+  WebKit:                 PASS
+```
+
+The final implementation evaluates fit against the whole preview set, excludes the complete moving set from object snapping, preserves relative position/rotation exactly, creates one `object/batch-move` history entry for non-zero movement, creates no history for zero delta, and cancels without document mutation. Mixed/structural selection is fail-closed.
+
+### Task 6 — versioned semantic placed-object clipboard
+
+M8.1 now has an internal runtime-only clipboard for furniture. The payload is versioned, uses a rotation-aware world-space group bounds centre, snapshots objects immutably and never relies on browser/system clipboard permission.
+
+Pure-model RED/GREEN:
+
+```text
+RED head:  e9d0b315374ea02bd36953158b19bd3087bcbbdd
+CI #4698:  FAIL as intended; 426 prior tests PASS; './editor-clipboard' absent
+GREEN head: e6fde7a5736eebf0711a55a3f29505ffdad6287e
+CI #4700:  PASS
+```
+
+Store/history RED:
+
+```text
+head:     038b2e11698028836eb8bc832b0b01c27e525ed4
+CI #4702: FAIL as intended
+observed: 430 prior tests PASS; all 7 new scenarios failed only because semantic clipboard store commands did not exist
+```
+
+Final GREEN:
+
+```text
+head:                     5e1383e64926f3989d0fe7a5fcd5b4f56e63308f
+CI #4703:                 PASS
+Recognition Benchmark #1039: PASS
+Browser Acceptance #1159:
+  Chromium:               PASS
+  WebKit:                 PASS
+```
+
+Copy is non-mutating. Cut is one atomic `object/batch-delete`; Paste and Duplicate are one atomic `object/batch-add`; Undo restores/removes the complete group. Paste generates fresh IDs, same-anchor repetition advances by deterministic `+200,+200` mm increments, changing the anchor resets the sequence, and Duplicate offsets by `+200,+200` without replacing persistent clipboard contents. Unsupported mixed/structural selections are no-ops without partial mutation.
+
+### Task 7 — central semantic command registry and keyboard focus safety
+
+Semantic keyboard routing is now defined by one framework-independent command registry. Native editable targets keep browser text editing semantics, while the editor handles command-modified Copy/Cut/Paste/Select All/Duplicate plus existing history/tool/object actions. Escape is intentionally excluded from the registry and continues through the existing one-level `deriveEditorEscapeAction` priority model. The small legacy keyboard adapter now owns only `F` (catalogue) and Escape.
+
+Pure registry RED/GREEN:
+
+```text
+RED head:   ebc99f8e9939452f001b9270d85e41d6fe3d291a
+CI #4704:   FAIL as intended; 437 prior tests PASS; './editor-commands' absent
+GREEN head: 471a922372d9cb974d20dad56626b8655864564b
+CI #4705:   PASS
+```
+
+Integration RED:
+
+```text
+head:     8af8559e3d061634bf9c7353bca054ef1a52b92b
+CI #4707: FAIL as intended
+observed: 3 ApartmentEditor routing failures + 3 legacy-adapter failures; Recognition Benchmark #1043 remained PASS
+```
+
+Final GREEN:
+
+```text
+head:                     f36c899ad386d0684bc027b2a832b906666d5a52
+CI #4709:                 PASS
+Recognition Benchmark #1045: PASS
+Browser Acceptance #1165:
+  Chromium:               PASS
+  WebKit:                 PASS
+```
+
+`ApartmentEditor` now owns one `executeEditorCommand` adapter. Semantic mutation shortcuts no longer branch directly on legacy shortcut names. `input`, `textarea`, `select`, `contenteditable` and explicitly marked native-editable controls retain native editing priority. Registered viewport command IDs exist, but zoom/actual-size/fit-selection execution remains deliberately unconsumed until Task 8 supplies the dedicated viewport controller; `fitPlan` reuses the existing fit request.
+
 ## Acceptance / merge
 
 Not yet accepted. No completion or merge claim is made by this record.
