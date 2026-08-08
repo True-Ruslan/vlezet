@@ -46,6 +46,14 @@ describe("M7.4 live Canvas feedback integration", () => {
     expect(source).toContain("const visibleObjectGuides = placementPresetId || objectGesture ? objectGuides : []");
     expect(source).toContain("{visibleObjectGuides.map");
   });
+
+  it("moves a compatible furniture multi-selection without collapsing it", () => {
+    expect(source).toContain('objectGesture.kind === "move"');
+    expect(source).toContain("objectGesture.preview.map((object) => [object.id, object])");
+    expect(source).toContain("new Set(objectGesture.objectIds)");
+    expect(source).toContain("selectedObjectIds.has(object.id)");
+    expect(source).toContain("if (!objectSelected) editorStore.getState().selectObject(object.id)");
+  });
 });
 
 describe("M7.6 geometry inspector Canvas preview integration", () => {
