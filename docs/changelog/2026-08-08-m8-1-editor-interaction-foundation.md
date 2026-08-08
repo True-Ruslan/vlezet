@@ -34,11 +34,51 @@ Every deterministic behaviour follows genuine RED → observed intended failure 
 
 M8.0 was product-owner approved and protected-squash-merged as `cf481ce3a2b882e5031ea18a576a4856b1043f3a` after up-to-date CI and Chromium/WebKit acceptance passed.
 
-This branch was created fresh from that exact merge commit. The first branch change is documentation only so baseline `test`, `typecheck`, `lint` and `build` can be re-verified before Task 1 RED.
+This branch was created fresh from that exact merge commit.
+
+Baseline documentation-only head:
+
+```text
+head:     15e2989dcdbdc7e9b7fabac433238015abdaef8f
+CI #4660: PASS
+```
+
+The baseline `verify` job passed the documentation contract, full unit suite, Core Recognition Benchmark, typecheck, lint and production build before the first M8.1 RED commit.
 
 ## TDD evidence
 
-To be appended after each observed RED/GREEN checkpoint.
+### Task 1 — unified semantic selection contract
+
+The first M8.1 production contract is a pure runtime value model for `(kind,id)` entity refs, deterministic insertion order, primary selection, additive/toggle operations and history-safe sanitisation across walls, vertices, derived rooms, openings and placed objects.
+
+RED:
+
+```text
+head:     fe9de7f9a604fec318b1335428fd8311cd4ec0fb
+CI #4661: FAIL as intended at web unit tests
+reason:   Cannot find module './editor-selection'
+existing web tests: 395 PASS
+```
+
+The RED commit contained the nine behavioural invariants only; no production implementation existed.
+
+GREEN:
+
+```text
+head:     c591a409819870b25b5b58b2d18abaff22d27e42
+CI #4662: PASS
+```
+
+GREEN evidence includes:
+
+- all new selection invariants PASS;
+- full unit suite PASS;
+- Core Recognition Benchmark PASS;
+- typecheck PASS;
+- lint PASS;
+- production build PASS.
+
+The implementation is intentionally pure: no Zustand, Konva, DOM, clipboard, command registry or persistence changes were introduced. Selection remains runtime-only and `VlezetDocument` remains the sole persistent document truth.
 
 ## Acceptance / merge
 
