@@ -14,7 +14,6 @@ describe("M7.4 live Canvas feedback integration", () => {
     expect(source).toContain("parseCanvasEntityName(current.name())");
     expect(source).toContain("const stage = event.target.getStage()");
     expect(source).toContain("const hitNode = stage?.getIntersection(pointer) ?? event.target");
-    expect(source).toContain("setHoveredCanvasEntity(hoverEnabled ? canvasEntityFromKonvaNode(hitNode) : null)");
     expect(source).not.toContain("canvasEntityFromKonvaNode(event.target)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().setHoveredSelectable(visibleHoveredEntity !== null)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().reset()");
@@ -54,7 +53,6 @@ describe("M7.4 live Canvas feedback integration", () => {
     expect(source).toContain("new Set(gesture.objectIds)");
     expect(source).toContain("displayedObjects.filter((object) => !excludedIds.has(object.id))");
     expect(source).toContain("selectedObjectIds.has(object.id)");
-    expect(source).toContain("if (!objectSelected) editorStore.getState().selectObject(object.id)");
   });
 });
 
@@ -115,5 +113,44 @@ describe("M8.1 Canvas viewport navigation", () => {
     expect(wheelBody).toContain("{ min: MIN_SCALE, max: MAX_SCALE }");
     expect(wheelBody).toContain("event.evt.preventDefault()");
     expect(wheelBody).not.toContain("Math.exp(-event.evt.deltaY * 0.0015)");
+  });
+});
+
+describe("M8.1 Canvas semantic multi-selection", () => {
+  it("routes entity clicks through semantic priority and modifier-aware selection", () => {
+    expect(source).toContain('from "./editor-selection-geometry"');
+    expect(source).toContain("entitiesIntersectingMarquee");
+    expect(source).toContain("selectEntityFromPointer");
+    expect(source).toContain("store.toggleSelection(ref)");
+    expect(source).toContain("store.replaceSelection(ref)");
+    expect(source).toContain("event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey");
+    expect(source).toContain('isEntitySelected("wall", wall.id)');
+    expect(source).toContain('isEntitySelected("opening", opening.id)');
+    expect(source).toContain('isEntitySelected("room", room.id)');
+    expect(source).toContain('isEntitySelected("placed-object", object.id)');
+  });
+
+  it("keeps marquee Canvas-local and commits only after the screen-pixel drag threshold", () => {
+    expect(source).toContain("type MarqueeGesture");
+    expect(source).toContain("const MARQUEE_THRESHOLD_PX = 4");
+    expect(source).toContain("const [marqueeGesture, setMarqueeGesture]");
+    expect(source).toContain("finalizeMarquee");
+    expect(source).toContain("entitiesIntersectingMarquee(document, worldRect)");
+    expect(source).toContain("store.addSelection(hits)");
+    expect(source).toContain("store.clearSelection()");
+    expect(source).toContain("distance < MARQUEE_THRESHOLD_PX");
+    expect(source).toContain("additive: event.evt.shiftKey");
+  });
+
+  it("lets Space/middle pan win and renders non-interactive group bounds without transform handles", () => {
+    const start = source.indexOf("const onMouseDown");
+    const end = source.indexOf("const onMouseMove", start);
+    const mouseDownBody = source.slice(start, end);
+    expect(mouseDownBody.indexOf("shouldPan")).toBeLessThan(mouseDownBody.indexOf("setMarqueeGesture"));
+    expect(source).toContain("deriveSelectionWorldBounds(document, selection)");
+    expect(source).toContain('deriveCanvasEntityVisual("group-selection")');
+    expect(source).toContain('name="selection-group-bounds"');
+    expect(source).toContain("listening={false}");
+    expect(source).toContain("transformEnabled={selectedObjectId === object.id}");
   });
 });
