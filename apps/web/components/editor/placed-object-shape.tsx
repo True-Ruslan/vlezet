@@ -18,7 +18,7 @@ export type PlacedObjectShapeProps = Readonly<{
   preview?: boolean;
   hovered?: boolean;
   transformEnabled?: boolean;
-  onSelect?: () => void;
+  onSelect?: (event: KonvaEventObject<MouseEvent | TouchEvent>) => void;
   onGestureStart?: (kind: ObjectGestureKind) => void;
   onGesturePreview?: (patch: PlacedObjectPatch) => void;
   onGestureCommit?: () => void;
@@ -112,7 +112,7 @@ export function PlacedObjectShape({
   const selectFromPointer = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (preview) return;
     event.cancelBubble = true;
-    onSelect?.();
+    onSelect?.(event);
   };
 
   return <>
@@ -128,7 +128,6 @@ export function PlacedObjectShape({
       onTap={selectFromPointer}
       onDragStart={(event) => {
         event.cancelBubble = true;
-        onSelect?.();
         onGestureStart?.("move");
       }}
       onDragMove={(event) => {
