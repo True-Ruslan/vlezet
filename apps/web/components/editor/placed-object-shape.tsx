@@ -17,7 +17,8 @@ export type PlacedObjectShapeProps = Readonly<{
   fitStatus: FitStatus;
   preview?: boolean;
   hovered?: boolean;
-  onSelect?: () => void;
+  transformEnabled?: boolean;
+  onSelect?: (event: KonvaEventObject<MouseEvent | TouchEvent>) => void;
   onGestureStart?: (kind: ObjectGestureKind) => void;
   onGesturePreview?: (patch: PlacedObjectPatch) => void;
   onGestureCommit?: () => void;
@@ -77,6 +78,7 @@ export function PlacedObjectShape({
   fitStatus,
   preview = false,
   hovered = false,
+  transformEnabled = true,
   onSelect,
   onGestureStart,
   onGesturePreview,
@@ -92,10 +94,10 @@ export function PlacedObjectShape({
   useEffect(() => {
     const transformer = transformerRef.current;
     const group = groupRef.current;
-    if (!transformer || !group || !selected || preview) return;
+    if (!transformer || !group || !selected || !transformEnabled || preview) return;
     transformer.nodes([group]);
     transformer.getLayer()?.batchDraw();
-  }, [preview, selected]);
+  }, [preview, selected, transformEnabled]);
 
   const emitTransformPreview = (node: Konva.Group) => {
     const world = screenToWorld({ x: node.x(), y: node.y() }, viewport);
@@ -107,10 +109,14 @@ export function PlacedObjectShape({
     });
   };
 
+  const blockPointerFromCanvas = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!preview) event.cancelBubble = true;
+  };
+
   const selectFromPointer = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (preview) return;
     event.cancelBubble = true;
-    onSelect?.();
+    onSelect?.(event);
   };
 
   return <>
@@ -122,11 +128,12 @@ export function PlacedObjectShape({
       rotation={object.rotationDeg}
       draggable={!preview}
       opacity={preview ? 0.68 : 1}
-      onMouseDown={selectFromPointer}
+      onMouseDown={blockPointerFromCanvas}
+      onTouchStart={blockPointerFromCanvas}
+      onClick={selectFromPointer}
       onTap={selectFromPointer}
       onDragStart={(event) => {
         event.cancelBubble = true;
-        onSelect?.();
         onGestureStart?.("move");
       }}
       onDragMove={(event) => {
@@ -186,7 +193,7 @@ export function PlacedObjectShape({
         />
       ) : null}
     </Group>
-    {selected && !preview ? (
+    {selected && transformEnabled && !preview ? (
       <Transformer
         ref={transformerRef}
         rotateEnabled

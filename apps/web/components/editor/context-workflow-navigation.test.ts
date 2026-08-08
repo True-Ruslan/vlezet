@@ -14,13 +14,19 @@ describe("M7.2 ApartmentEditor workflow navigation", () => {
     expect(source).not.toContain("localStorage");
   });
 
-  it("restores exactly one validated ordinary selection after closing workflows", () => {
+  it("adapts semantic selection to one validated ordinary return target and restores exactly one entity", () => {
     expect(source).toContain("planningUiStore.getState().close()");
-    expect(source).toContain("selection.selectedWallId");
-    expect(source).toContain("selection.selectedRoomId");
-    expect(source).toContain("selection.selectedOpeningId");
-    expect(source).toContain("selection.selectedObjectId");
-    expect(source).toContain("store.selectWall(null)");
+    expect(source).toContain("selectedWallIdFromSelection(selection)");
+    expect(source).toContain("selectedRoomIdFromSelection(selection)");
+    expect(source).toContain("selectedOpeningIdFromSelection(selection)");
+    expect(source).toContain("selectedObjectIdFromSelection(selection)");
+    expect(source).toContain("captureEditorWorkflowReturnTarget(currentSelection, document)");
+    expect(source).toContain("const nextSelection = target ? selectionForWorkflowReturnTarget(target, document) : EMPTY_SELECTION");
+    expect(source).toContain("store.clearSelection()");
+    expect(source).toContain("if (nextSelection.selectedWallId) store.selectWall(nextSelection.selectedWallId)");
+    expect(source).toContain("else if (nextSelection.selectedRoomId) store.selectRoom(nextSelection.selectedRoomId)");
+    expect(source).toContain("else if (nextSelection.selectedOpeningId) store.selectOpening(nextSelection.selectedOpeningId)");
+    expect(source).toContain("else if (nextSelection.selectedObjectId) store.selectObject(nextSelection.selectedObjectId)");
   });
 
   it("keeps compact presentation close independent from workflow exit", () => {

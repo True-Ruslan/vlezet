@@ -22,19 +22,40 @@ import {
 } from "./context-workflow-return";
 import { EditorCanvasModeStatus } from "./editor-canvas-mode-status";
 import {
+  commandForKeyboardEvent,
+  isNativeEditableTarget,
+  type EditorCommandId,
+} from "./editor-commands";
+import {
   deriveEditorContextKind,
   editorContextLabel,
   nextCompactEditorSurface,
   type CompactEditorSurface,
 } from "./editor-context-kind";
+import {
+  EditorContextMenu,
+  selectionForContextMenuTarget,
+  type EditorContextMenuRequest,
+} from "./editor-context-menu";
 import { deriveEditorEscapeAction } from "./editor-escape-priority";
 import { EditorOnboardingOverlay } from "./editor-onboarding-overlay";
 import { EditorSideSurface } from "./editor-side-surface";
 import { EditorToolbar } from "./editor-toolbar";
+import {
+  type EditorViewportCommand,
+  type EditorViewportCommandRequest,
+} from "./editor-viewport-controller";
 import { FurnitureCatalog } from "./furniture-catalog";
-import { getEditorShortcut } from "./keyboard";
+import { getEditorLegacyShortcut } from "./keyboard";
 import { measurementToolStore } from "./measurement-tool-store";
-import { editorStore } from "./use-editor-store";
+import { MultiSelectionInspector } from "./multi-selection-inspector";
+import {
+  editorStore,
+  selectedObjectId as selectedObjectIdFromSelection,
+  selectedOpeningId as selectedOpeningIdFromSelection,
+  selectedRoomId as selectedRoomIdFromSelection,
+  selectedWallId as selectedWallIdFromSelection,
+} from "./use-editor-store";
 import { useCompactEditorLayout } from "./use-compact-editor-layout";
 import { WallInspector } from "./wall-inspector";
 
@@ -94,9 +115,10 @@ type CompactSurfaceChoice = Readonly<{
   contextKey: string;
 }>;
 
-function isEditableTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
-}
+type OwnedEditorContextMenuRequest = Readonly<{
+  ownerKey: string;
+  request: EditorContextMenuRequest;
+}>;
 
 function reviewDraft(state: RecognitionControllerState) {
   if (state.kind === "review" || state.kind === "running-cloud" || state.kind === "error") return state.session?.draft ?? null;
@@ -111,30 +133,36 @@ const EMPTY_SELECTION: EditorOrdinarySelection = {
 };
 
 export function ApartmentEditor(props: ApartmentEditorProps) {
-  const [fitRequest, setFitRequest] = useState(0);
+  const [viewCommandRequest, setViewCommandRequest] = useState<EditorViewportCommandRequest | null>(null);
   const [fitReferenceRequest, setFitReferenceRequest] = useState(0);
   const [fit3dRequest, setFit3dRequest] = useState(0);
   const [compactSurfaceChoice, setCompactSurfaceChoice] = useState<CompactSurfaceChoice | null>(null);
   const [dismissedContextKey, setDismissedContextKey] = useState<string | null>(null);
   const [workflowReturnTarget, setWorkflowReturnTarget] = useState<WorkflowReturnTarget | null>(null);
+  const [ownedContextMenuRequest, setOwnedContextMenuRequest] = useState<OwnedEditorContextMenuRequest | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const document = useStore(editorStore, (state) => state.history.document);
-  const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
-  const selectedOpening = useStore(editorStore, (state) => state.history.document.openings.find((opening) => opening.id === state.selectedOpeningId) ?? null);
-  const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
-  const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
+  const selection = useStore(editorStore, (state) => state.selection);
+  const hasPlacedObjectClipboard = useStore(editorStore, (state) => state.clipboard.payload !== null);
+  const selectedObjectId = selectedObjectIdFromSelection(selection);
+  const selectedOpeningId = selectedOpeningIdFromSelection(selection);
+  const selectedOpening = document.openings.find((opening) => opening.id === selectedOpeningId) ?? null;
+  const selectedRoomId = selectedRoomIdFromSelection(selection);
+  const selectedWallId = selectedWallIdFromSelection(selection);
   const planningRoomId = useStore(planningUiStore, (state) => state.roomId);
   const recognitionDraft = reviewDraft(props.recognitionState);
   const contextKind = deriveEditorContextKind({
     recognitionPanelOpen: props.recognitionPanelOpen,
     referencePanelOpen: props.referencePanelOpen,
     planningRoomId,
+    selectionCount: selection.refs.length,
     selectedObjectId,
     selectedOpeningKind: selectedOpening?.kind ?? null,
     selectedRoomId,
     selectedWallId,
   });
+  const selectionContextKey = selection.refs.map((ref) => `${ref.kind}:${ref.id}`).join("|");
   const contextKey = [
     props.projectId,
     contextKind,
@@ -143,14 +171,19 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     selectedOpening?.id,
     selectedRoomId,
     selectedWallId,
+    selectionContextKey,
   ].join(":");
-
-  const currentSelection = useMemo<EditorOrdinarySelection>(() => ({
-    selectedWallId,
-    selectedRoomId,
-    selectedOpeningId: selectedOpening?.id ?? null,
-    selectedObjectId,
-  }), [selectedObjectId, selectedOpening?.id, selectedRoomId, selectedWallId]);
+  const contextMenuOwnerKey = [
+    props.projectId,
+    viewMode,
+    props.recognitionPanelOpen ? "recognition" : "editor",
+    props.referencePanelOpen ? "reference" : "editor",
+    planningRoomId ?? "no-planning",
+    props.tracingMode ? "tracing" : "editing",
+  ].join(":");
+  const contextMenuRequest = ownedContextMenuRequest?.ownerKey === contextMenuOwnerKey
+    ? ownedContextMenuRequest.request
+    : null;
 
   const planningReturnTarget = useMemo(() => planningRoomId
     ? captureEditorWorkflowReturnTarget({ ...EMPTY_SELECTION, selectedRoomId: planningRoomId }, document)
@@ -169,6 +202,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     return null;
   })();
 
+  const requestViewportCommand = useCallback((command: EditorViewportCommand) => {
+    setViewCommandRequest((current) => ({
+      serial: (current?.serial ?? 0) + 1,
+      command,
+    }));
+  }, []);
+
   const openCatalogueSurface = useCallback(() => {
     const surface = nextCompactEditorSurface(null, { kind: "open-catalogue" });
     if (surface) setCompactSurfaceChoice({ surface, contextKey });
@@ -186,10 +226,16 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     setCompactSurfaceChoice(null);
   }, [compactSurface, contextKey]);
 
-  const beginBoundedWorkflow = useCallback(() => {
+  const beginBoundedWorkflow = () => {
+    const currentSelection: EditorOrdinarySelection = {
+      selectedWallId,
+      selectedRoomId,
+      selectedOpeningId,
+      selectedObjectId,
+    };
     const captured = captureEditorWorkflowReturnTarget(currentSelection, document);
     setWorkflowReturnTarget((current) => preserveWorkflowReturnTarget(current, captured));
-  }, [currentSelection, document]);
+  };
 
   const returnFromWorkflow = useCallback(() => {
     const target = activeWorkflowReturnTarget;
@@ -197,13 +243,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     if (props.recognitionPanelOpen) props.onToggleRecognitionPanel();
     if (props.referencePanelOpen) props.onToggleReferencePanel();
 
-    const selection = target ? selectionForWorkflowReturnTarget(target, document) : EMPTY_SELECTION;
+    const nextSelection = target ? selectionForWorkflowReturnTarget(target, document) : EMPTY_SELECTION;
     const store = editorStore.getState();
-    store.selectWall(null);
-    if (selection.selectedWallId) store.selectWall(selection.selectedWallId);
-    else if (selection.selectedRoomId) store.selectRoom(selection.selectedRoomId);
-    else if (selection.selectedOpeningId) store.selectOpening(selection.selectedOpeningId);
-    else if (selection.selectedObjectId) store.selectObject(selection.selectedObjectId);
+    store.clearSelection();
+    if (nextSelection.selectedWallId) store.selectWall(nextSelection.selectedWallId);
+    else if (nextSelection.selectedRoomId) store.selectRoom(nextSelection.selectedRoomId);
+    else if (nextSelection.selectedOpeningId) store.selectOpening(nextSelection.selectedOpeningId);
+    else if (nextSelection.selectedObjectId) store.selectObject(nextSelection.selectedObjectId);
     setWorkflowReturnTarget(null);
     if (compactLayout) openContextSurface();
   }, [activeWorkflowReturnTarget, compactLayout, document, openContextSurface, planningRoomId, props]);
@@ -226,7 +272,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     openCatalogueSurface();
   }, [closeCompactSurface, compactLayout, compactSurface, openCatalogueSurface, props.furnitureCatalogOpen, props.onToggleFurnitureCatalog]);
 
-  const toggleReferenceSurface = useCallback(() => {
+  const toggleReferenceSurface = () => {
     if (props.referencePanelOpen) {
       returnFromWorkflow();
       return;
@@ -234,9 +280,9 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     beginBoundedWorkflow();
     props.onToggleReferencePanel();
     if (compactLayout) openContextSurface();
-  }, [beginBoundedWorkflow, compactLayout, openContextSurface, props.onToggleReferencePanel, props.referencePanelOpen, returnFromWorkflow]);
+  };
 
-  const toggleRecognitionSurface = useCallback(() => {
+  const toggleRecognitionSurface = () => {
     if (props.recognitionPanelOpen) {
       returnFromWorkflow();
       return;
@@ -244,7 +290,116 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     beginBoundedWorkflow();
     props.onToggleRecognitionPanel();
     if (compactLayout) openContextSurface();
-  }, [beginBoundedWorkflow, compactLayout, openContextSurface, props.onToggleRecognitionPanel, props.recognitionPanelOpen, returnFromWorkflow]);
+  };
+
+  const executeEditorCommand = useCallback((command: EditorCommandId): boolean => {
+    const store = editorStore.getState();
+    const editingBlocked = props.recognitionPanelOpen;
+    const selectedFurnitureOnly = store.selection.refs.length > 0 &&
+      store.selection.refs.every((ref) => ref.kind === "placed-object");
+
+    switch (command) {
+      case "history.undo":
+        store.undo();
+        return true;
+      case "history.redo":
+        store.redo();
+        return true;
+      case "selection.selectAll":
+        if (editingBlocked) return false;
+        store.selectAllConcreteEntities();
+        return true;
+      case "selection.copy":
+        if (editingBlocked || !selectedFurnitureOnly) return false;
+        store.copySelection();
+        return true;
+      case "selection.cut":
+        if (editingBlocked || !selectedFurnitureOnly) return false;
+        store.cutSelection();
+        return true;
+      case "selection.paste": {
+        if (editingBlocked || !store.clipboard.payload) return false;
+        const origin = store.clipboard.payload.copiedAtOrigin;
+        store.pasteClipboard({ x: origin.x + 200, y: origin.y + 200 });
+        return true;
+      }
+      case "selection.duplicate":
+        if (editingBlocked || !selectedFurnitureOnly) return false;
+        store.duplicateSelection();
+        return true;
+      case "selection.delete":
+        if (editingBlocked) return false;
+        if (selectedFurnitureOnly) {
+          store.deleteSelection();
+          return true;
+        }
+        if (selectedOpeningIdFromSelection(store.selection)) {
+          store.deleteSelectedOpening();
+          return true;
+        }
+        return false;
+      case "selection.clear":
+        if (store.selection.refs.length === 0) return false;
+        store.clearSelection();
+        return true;
+      case "view.zoomIn":
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("zoom-in");
+        return true;
+      case "view.zoomOut":
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("zoom-out");
+        return true;
+      case "view.actualSize":
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("actual-size");
+        return true;
+      case "view.fitPlan":
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("fit-plan");
+        return true;
+      case "view.fitSelection":
+        if (viewMode !== "2d") return false;
+        if (store.selection.refs.length === 0) return false;
+        requestViewportCommand("fit-selection");
+        return true;
+      case "tool.select":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("select");
+        return true;
+      case "tool.wall":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("wall");
+        return true;
+      case "tool.door":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("door");
+        return true;
+      case "tool.window":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("window");
+        return true;
+      case "object.rotate90":
+        if (editingBlocked || !selectedObjectIdFromSelection(store.selection)) return false;
+        store.rotateSelectedObject90();
+        return true;
+    }
+  }, [props.recognitionPanelOpen, requestViewportCommand, viewMode]);
+
+  const openContextMenu = useCallback((request: EditorContextMenuRequest | null) => {
+    if (!request) {
+      setOwnedContextMenuRequest(null);
+      return;
+    }
+    const store = editorStore.getState();
+    const nextSelection = selectionForContextMenuTarget(store.selection, request.target);
+    if (nextSelection !== store.selection) store.replaceSelection(request.target);
+    setOwnedContextMenuRequest({ ownerKey: contextMenuOwnerKey, request });
+  }, [contextMenuOwnerKey]);
 
   useEffect(() => {
     spatialViewModeStore.getState().setMode("2d");
@@ -252,62 +407,64 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target) && event.key !== "Escape") return;
-      const shortcut = getEditorShortcut(event);
-      if (!shortcut) return;
-      if (viewMode === "3d" && shortcut !== "cancel") return;
-
-      event.preventDefault();
-      const store = editorStore.getState();
-      switch (shortcut) {
-        case "undo": store.undo(); break;
-        case "redo": store.redo(); break;
-        case "select-tool": if (!props.recognitionPanelOpen) store.setTool("select"); break;
-        case "wall-tool": if (!props.recognitionPanelOpen) store.setTool("wall"); break;
-        case "door-tool": if (!props.recognitionPanelOpen) store.setTool("door"); break;
-        case "window-tool": if (!props.recognitionPanelOpen) store.setTool("window"); break;
-        case "furnishing-catalog": if (!props.recognitionPanelOpen) toggleFurnitureSurface(); break;
-        case "rotate-object": if (!props.recognitionPanelOpen) store.rotateSelectedObject90(); break;
-        case "duplicate-object": if (!props.recognitionPanelOpen) store.duplicateSelectedObject(); break;
-        case "delete-selection":
-          if (props.recognitionPanelOpen) break;
-          if (store.selectedObjectId) store.deleteSelectedObject();
-          else if (store.selectedOpeningId) store.deleteSelectedOpening();
-          break;
-        case "cancel": {
-          const measurement = measurementToolStore.getState();
-          const escapeAction = deriveEditorEscapeAction({
-            viewMode,
-            hasObjectGesture: store.objectGesture !== null,
-            measurementActive: measurement.active,
-            measurementPhase: measurement.phase,
-            hasWallDraft: store.draftWall !== null,
-            hasPlacement: store.placementPresetId !== null,
-            tracingMode: props.tracingMode,
-            workflowOpen: props.recognitionPanelOpen || props.referencePanelOpen || planningUiStore.getState().roomId !== null,
-            tool: store.tool,
-            hasSelection: Boolean(store.selectedWallId || store.selectedRoomId || store.selectedOpeningId || store.selectedObjectId),
-          });
-          switch (escapeAction) {
-            case "cancel-object-gesture": store.cancelObjectGesture(); break;
-            case "reset-measurement": measurementToolStore.getState().resetMeasurement(); break;
-            case "cancel-wall-draft": store.cancelDraft(); break;
-            case "cancel-placement": store.setPlacementPreset(null); break;
-            case "finish-tracing": props.onStopTracing(); break;
-            case "exit-measurement": measurementToolStore.getState().setActive(false); break;
-            case "close-workflow": returnFromWorkflow(); break;
-            case "exit-tool": store.setTool("select"); break;
-            case "clear-selection": store.selectWall(null); break;
-            case "return-to-2d": spatialViewModeStore.getState().setMode("2d"); break;
-            case "none": break;
-          }
-          break;
-        }
+      const escapePressed = event.key === "Escape";
+      if (isNativeEditableTarget(event.target) && !escapePressed) return;
+      if (escapePressed && contextMenuRequest) {
+        event.preventDefault();
+        setOwnedContextMenuRequest(null);
+        return;
       }
+
+      const legacyShortcut = getEditorLegacyShortcut(event);
+      if (legacyShortcut === "cancel") {
+        event.preventDefault();
+        const store = editorStore.getState();
+        const measurement = measurementToolStore.getState();
+        const escapeAction = deriveEditorEscapeAction({
+          viewMode,
+          hasObjectGesture: store.objectGesture !== null,
+          measurementActive: measurement.active,
+          measurementPhase: measurement.phase,
+          hasWallDraft: store.draftWall !== null,
+          hasPlacement: store.placementPresetId !== null,
+          tracingMode: props.tracingMode,
+          workflowOpen: props.recognitionPanelOpen || props.referencePanelOpen || planningUiStore.getState().roomId !== null,
+          tool: store.tool,
+          hasSelection: store.selection.refs.length > 0,
+        });
+        switch (escapeAction) {
+          case "cancel-object-gesture": store.cancelObjectGesture(); break;
+          case "reset-measurement": measurementToolStore.getState().resetMeasurement(); break;
+          case "cancel-wall-draft": store.cancelDraft(); break;
+          case "cancel-placement": store.setPlacementPreset(null); break;
+          case "finish-tracing": props.onStopTracing(); break;
+          case "exit-measurement": measurementToolStore.getState().setActive(false); break;
+          case "close-workflow": returnFromWorkflow(); break;
+          case "exit-tool": store.setTool("select"); break;
+          case "clear-selection": store.clearSelection(); break;
+          case "return-to-2d": spatialViewModeStore.getState().setMode("2d"); break;
+          case "none": break;
+        }
+        return;
+      }
+
+      if (viewMode === "3d") return;
+
+      if (legacyShortcut === "furnishing-catalog") {
+        if (!props.recognitionPanelOpen) {
+          event.preventDefault();
+          toggleFurnitureSurface();
+        }
+        return;
+      }
+
+      const command = commandForKeyboardEvent(event);
+      if (!command) return;
+      if (executeEditorCommand(command)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [props.onStopTracing, props.recognitionPanelOpen, props.referencePanelOpen, props.tracingMode, returnFromWorkflow, toggleFurnitureSurface, viewMode]);
+  }, [contextMenuRequest, executeEditorCommand, props.onStopTracing, props.recognitionPanelOpen, props.referencePanelOpen, props.tracingMode, returnFromWorkflow, toggleFurnitureSurface, viewMode]);
 
   const workspaceClass = [
     "editor-workspace",
@@ -348,6 +505,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       onStartTracing={props.onStartTracing}
       onFitReference={() => setFitReferenceRequest((value) => value + 1)}
     />
+  ) : contextKind === "multi-selection" ? (
+    <MultiSelectionInspector
+      document={document}
+      selection={selection}
+      hasPlacedObjectClipboard={hasPlacedObjectClipboard}
+      executeCommand={executeEditorCommand}
+    />
   ) : <WallInspector planningNavigation={workflowNavigation} />;
 
   return (
@@ -369,7 +533,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         onToggleRecognitionPanel={toggleRecognitionSurface}
         onToggleContext={() => compactSurface === "context" ? closeCompactSurface() : openContextSurface()}
         onRetrySave={props.onRetrySave}
-        onFit={() => viewMode === "3d" ? setFit3dRequest((value) => value + 1) : setFitRequest((value) => value + 1)}
+        onFit={() => viewMode === "3d" ? setFit3dRequest((value) => value + 1) : requestViewportCommand("fit-plan")}
         onExportJson={props.onExportJson}
         onExportPng={props.onExportPng}
         onExportPngWithReference={props.onExportPngWithReference}
@@ -399,7 +563,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             key={props.projectId}
             initialViewport={props.initialViewport}
             onViewportChange={props.onViewportChange}
-            fitRequest={fitRequest}
+            viewCommandRequest={viewCommandRequest}
             fitReferenceRequest={fitReferenceRequest}
             referencePlan={props.referencePlan}
             referenceAssetBlob={props.referenceAssetBlob}
@@ -410,6 +574,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             onSelectRecognitionCandidate={props.onSelectRecognitionCandidate}
             onEditRecognitionWall={props.onEditRecognitionWall}
             onReferenceMoveEnd={props.onReferenceMoveEnd}
+            onContextMenuRequest={openContextMenu}
           />
         </div>
         {viewMode === "3d" ? <SpatialViewer fitRequest={fit3dRequest} /> : null}
@@ -419,6 +584,16 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           </EditorSideSurface>
         ) : null}
       </section>
+      {viewMode === "2d" && contextMenuRequest && !props.recognitionPanelOpen ? (
+        <EditorContextMenu
+          position={contextMenuRequest.position}
+          document={document}
+          selection={selection}
+          hasPlacedObjectClipboard={hasPlacedObjectClipboard}
+          executeCommand={executeEditorCommand}
+          onDismiss={() => setOwnedContextMenuRequest(null)}
+        />
+      ) : null}
       {viewMode === "2d" && props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
       {viewMode === "2d" && props.recognitionPanelOpen && recognitionDraft ? <div className="recognition-banner" role="status"><strong>Проверка распознавания</strong><span>Цветные линии — только черновик. Реальная квартира не изменится до применения.</span></div> : null}
     </main>
