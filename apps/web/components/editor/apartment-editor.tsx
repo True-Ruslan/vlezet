@@ -185,13 +185,6 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     ? ownedContextMenuRequest.request
     : null;
 
-  const currentSelection: EditorOrdinarySelection = {
-    selectedWallId,
-    selectedRoomId,
-    selectedOpeningId: selectedOpening?.id ?? null,
-    selectedObjectId,
-  };
-
   const planningReturnTarget = useMemo(() => planningRoomId
     ? captureEditorWorkflowReturnTarget({ ...EMPTY_SELECTION, selectedRoomId: planningRoomId }, document)
     : null, [document, planningRoomId]);
@@ -234,9 +227,15 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   }, [compactSurface, contextKey]);
 
   const beginBoundedWorkflow = useCallback(() => {
+    const currentSelection: EditorOrdinarySelection = {
+      selectedWallId,
+      selectedRoomId,
+      selectedOpeningId,
+      selectedObjectId,
+    };
     const captured = captureEditorWorkflowReturnTarget(currentSelection, document);
     setWorkflowReturnTarget((current) => preserveWorkflowReturnTarget(current, captured));
-  }, [currentSelection, document]);
+  }, [document, selectedObjectId, selectedOpeningId, selectedRoomId, selectedWallId]);
 
   const returnFromWorkflow = useCallback(() => {
     const target = activeWorkflowReturnTarget;
