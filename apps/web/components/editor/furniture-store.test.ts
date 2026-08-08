@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createEditorStore, type EditorEntityIdKind } from "./use-editor-store";
+import {
+  createEditorStore,
+  selectedObjectId,
+  selectedOpeningId,
+  selectedRoomId,
+  selectedWallId,
+  type EditorEntityIdKind,
+} from "./use-editor-store";
 
 function sequentialIds() {
   const counters: Record<EditorEntityIdKind, number> = {
@@ -31,30 +38,29 @@ describe("furniture editor store", () => {
         rotationDeg: 0,
       }),
     ]);
-    expect(state.selectedObjectId).toBe("placed-object-1");
+    expect(selectedObjectId(state.selection)).toBe("placed-object-1");
     expect(state.placementPresetId).toBeNull();
     expect(state.history.past).toHaveLength(1);
   });
 
-  it("keeps entity selection mutually exclusive", () => {
+  it("keeps single-entity selection mutually exclusive through the semantic selection value", () => {
     const store = createEditorStore({ idFactory: sequentialIds() });
     store.getState().setPlacementPreset("desk");
     store.getState().placeSelectedPreset({ x: 1000, y: 1000 });
     store.getState().selectWall("wall-x");
-    expect(store.getState()).toMatchObject({
-      selectedWallId: "wall-x",
-      selectedRoomId: null,
-      selectedOpeningId: null,
-      selectedObjectId: null,
-      placementPresetId: null,
-    });
+    let state = store.getState();
+    expect(selectedWallId(state.selection)).toBe("wall-x");
+    expect(selectedRoomId(state.selection)).toBeNull();
+    expect(selectedOpeningId(state.selection)).toBeNull();
+    expect(selectedObjectId(state.selection)).toBeNull();
+    expect(state.placementPresetId).toBeNull();
+
     store.getState().selectObject("placed-object-1");
-    expect(store.getState()).toMatchObject({
-      selectedWallId: null,
-      selectedRoomId: null,
-      selectedOpeningId: null,
-      selectedObjectId: "placed-object-1",
-    });
+    state = store.getState();
+    expect(selectedWallId(state.selection)).toBeNull();
+    expect(selectedRoomId(state.selection)).toBeNull();
+    expect(selectedOpeningId(state.selection)).toBeNull();
+    expect(selectedObjectId(state.selection)).toBe("placed-object-1");
   });
 
   it("previews a drag without history and commits one move entry", () => {
@@ -96,10 +102,10 @@ describe("furniture editor store", () => {
 
     expect(store.getState().history.document.placedObjects).toHaveLength(2);
     expect(store.getState().history.document.placedObjects[0]).toMatchObject({ name: "Пианино", width: 1450, rotationDeg: 90 });
-    expect(store.getState().selectedObjectId).toBe("placed-object-2");
+    expect(selectedObjectId(store.getState().selection)).toBe("placed-object-2");
 
     store.getState().deleteSelectedObject();
     expect(store.getState().history.document.placedObjects).toHaveLength(1);
-    expect(store.getState().selectedObjectId).toBeNull();
+    expect(selectedObjectId(store.getState().selection)).toBeNull();
   });
 });
