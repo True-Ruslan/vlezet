@@ -73,7 +73,7 @@ export function MultiSelectionInspector({
   return (
     <ContextPanelFrame
       descriptor={{
-        kind: "empty",
+        kind: "multi-selection",
         category: "selection",
         eyebrow: "Выделение",
         title: `Выбрано: ${safeSelection.refs.length}`,
