@@ -32,7 +32,7 @@ const table = createPlacedObject({
   id: "table",
   presetId: "desk",
   name: "Стол",
-  category: "work",
+  category: "table",
   position: { x: 4600, y: 1800 },
   width: 1400,
   depth: 700,
