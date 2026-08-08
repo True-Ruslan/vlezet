@@ -66,15 +66,20 @@ describe("M8.1 ApartmentEditor semantic command routing", () => {
     expect(source).toContain("executeCommand={executeEditorCommand}");
   });
 
-  it("owns context-menu lifetime while Canvas emits only semantic target requests", () => {
+  it("owns context-menu lifetime with a render-derived owner key while Canvas emits only semantic target requests", () => {
     expect(source).toContain('from "./editor-context-menu"');
-    expect(source).toContain("const [contextMenuRequest, setContextMenuRequest]");
+    expect(source).toContain("type OwnedEditorContextMenuRequest");
+    expect(source).toContain("const [ownedContextMenuRequest, setOwnedContextMenuRequest]");
+    expect(source).toContain("const contextMenuOwnerKey = [");
+    expect(source).toContain("ownedContextMenuRequest?.ownerKey === contextMenuOwnerKey");
     expect(source).toContain("selectionForContextMenuTarget(store.selection, request.target)");
     expect(source).toContain("store.replaceSelection(request.target)");
+    expect(source).toContain("setOwnedContextMenuRequest({ ownerKey: contextMenuOwnerKey, request })");
     expect(source).toContain("onContextMenuRequest={openContextMenu}");
     expect(source).toContain("<EditorContextMenu");
     expect(source).toContain("position={contextMenuRequest.position}");
     expect(source).toContain("executeCommand={executeEditorCommand}");
-    expect(source).toContain("onDismiss={() => setContextMenuRequest(null)}");
+    expect(source).toContain("onDismiss={() => setOwnedContextMenuRequest(null)}");
+    expect(source).not.toContain("setContextMenuRequest(null)");
   });
 });
