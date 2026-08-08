@@ -226,7 +226,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     setCompactSurfaceChoice(null);
   }, [compactSurface, contextKey]);
 
-  const beginBoundedWorkflow = useCallback(() => {
+  const beginBoundedWorkflow = () => {
     const currentSelection: EditorOrdinarySelection = {
       selectedWallId,
       selectedRoomId,
@@ -235,7 +235,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     };
     const captured = captureEditorWorkflowReturnTarget(currentSelection, document);
     setWorkflowReturnTarget((current) => preserveWorkflowReturnTarget(current, captured));
-  }, [document, selectedObjectId, selectedOpeningId, selectedRoomId, selectedWallId]);
+  };
 
   const returnFromWorkflow = useCallback(() => {
     const target = activeWorkflowReturnTarget;
@@ -272,7 +272,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     openCatalogueSurface();
   }, [closeCompactSurface, compactLayout, compactSurface, openCatalogueSurface, props.furnitureCatalogOpen, props.onToggleFurnitureCatalog]);
 
-  const toggleReferenceSurface = useCallback(() => {
+  const toggleReferenceSurface = () => {
     if (props.referencePanelOpen) {
       returnFromWorkflow();
       return;
@@ -280,9 +280,9 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     beginBoundedWorkflow();
     props.onToggleReferencePanel();
     if (compactLayout) openContextSurface();
-  }, [beginBoundedWorkflow, compactLayout, openContextSurface, props.onToggleReferencePanel, props.referencePanelOpen, returnFromWorkflow]);
+  };
 
-  const toggleRecognitionSurface = useCallback(() => {
+  const toggleRecognitionSurface = () => {
     if (props.recognitionPanelOpen) {
       returnFromWorkflow();
       return;
@@ -290,7 +290,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     beginBoundedWorkflow();
     props.onToggleRecognitionPanel();
     if (compactLayout) openContextSurface();
-  }, [beginBoundedWorkflow, compactLayout, openContextSurface, props.onToggleRecognitionPanel, props.recognitionPanelOpen, returnFromWorkflow]);
+  };
 
   const executeEditorCommand = useCallback((command: EditorCommandId): boolean => {
     const store = editorStore.getState();
