@@ -58,6 +58,7 @@ import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-stor
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
 import { TapeMeasurementTool } from "./tape-measurement-tool";
+import type { EditorContextMenuRequest } from "./editor-context-menu";
 import {
   actualSizeViewport,
   fitDocumentViewport,
@@ -177,11 +178,12 @@ export type EditorCanvasProps = Readonly<{
   onSelectRecognitionCandidate: (candidateId: string | null) => void;
   onEditRecognitionWall: (candidateId: string, patch: Readonly<{ start?: NormalizedPoint; end?: NormalizedPoint }>) => void;
   onReferenceMoveEnd: (originWorld: Point2) => void;
+  onContextMenuRequest: (request: EditorContextMenuRequest | null) => void;
 }>;
 
 type ViewportUpdater = ViewportTransform | ((current: ViewportTransform) => ViewportTransform);
 
-export function EditorCanvas({ initialViewport, onViewportChange, viewCommandRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, recognitionDraft, selectedRecognitionCandidateId, recognitionReviewActive, onSelectRecognitionCandidate, onEditRecognitionWall, onReferenceMoveEnd }: EditorCanvasProps) {
+export function EditorCanvas({ initialViewport, onViewportChange, viewCommandRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, recognitionDraft, selectedRecognitionCandidateId, recognitionReviewActive, onSelectRecognitionCandidate, onEditRecognitionWall, onReferenceMoveEnd, onContextMenuRequest }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
@@ -578,6 +580,36 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     ));
   };
 
+  const onCanvasContextMenu = (event: KonvaEventObject<MouseEvent>) => {
+    if (tool !== "select" || placementPresetId || recognitionReviewActive) {
+      onContextMenuRequest(null);
+      return;
+    }
+    const pointer = pointerPosition(event);
+    if (!pointer) {
+      onContextMenuRequest(null);
+      return;
+    }
+    const world = screenToWorld(pointer, viewport);
+    const target = entitiesIntersectingMarquee(document, {
+      minX: world.x,
+      minY: world.y,
+      maxX: world.x,
+      maxY: world.y,
+    })[0] ?? null;
+    if (!target) {
+      onContextMenuRequest(null);
+      return;
+    }
+    event.evt.preventDefault();
+    event.cancelBubble = true;
+    setMarqueeGesture(null);
+    onContextMenuRequest({
+      position: { x: event.evt.clientX, y: event.evt.clientY },
+      target,
+    });
+  };
+
   const finalizeMarquee = (endScreen: Point2) => {
     const gesture = marqueeGesture;
     if (!gesture) return;
@@ -807,8 +839,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
             : "";
 
   return (
-    <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${cursorClass}`} data-preview-state={livePreviewState} onContextMenu={(event) => event.preventDefault()}>
-      <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={clearTransientCanvasState}>
+    <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${cursorClass}`} data-preview-state={livePreviewState}>
+      <Stage ref={stageRef} width={size.width} height={size.height} onWheel={onWheel} onContextMenu={onCanvasContextMenu} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={clearTransientCanvasState}>
         <Layer listening={false}>{gridLines.map((line) => <Line key={line.key} points={line.points} stroke={line.major ? "#d9dde3" : "#eceff3"} strokeWidth={1} perfectDrawEnabled={false} />)}</Layer>
         {referencePlan && referenceImage ? <Layer><ReferenceLayer referencePlan={referencePlan} image={referenceImage} viewport={viewport} onMoveEnd={onReferenceMoveEnd} /></Layer> : null}
         <Layer>
