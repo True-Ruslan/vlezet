@@ -155,6 +155,15 @@ describe("M8.1 Canvas semantic multi-selection", () => {
     expect(mouseDownBody.indexOf("if (event.evt.button !== 0) return;")).toBeLessThan(mouseDownBody.indexOf("setMarqueeGesture"));
   });
 
+  it("lets Stage own primary mousedown over non-draggable geometry so marquee can start inside rooms", () => {
+    expect(source).toContain('onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}');
+    expect(source).toContain('onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}');
+    expect(source).toContain('onClick={select}');
+    expect(source).not.toContain('onMouseDown={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}');
+    expect(source).not.toContain('onMouseDown={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}');
+    expect(source).not.toContain('onMouseDown={select}');
+  });
+
   it("keeps marquee Canvas-local and commits only after the screen-pixel drag threshold", () => {
     expect(source).toContain("type MarqueeGesture");
     expect(source).toContain("const MARQUEE_THRESHOLD_PX = 4");
