@@ -101,11 +101,19 @@ describe("M7.7 furniture fit Canvas explanation", () => {
 describe("M8.1 Canvas viewport navigation", () => {
   it("routes ordinary wheel/trackpad pan and modifier zoom through the pure controller", () => {
     expect(source).toContain('from "./editor-viewport-controller"');
-    expect(source).toContain("wheelGestureToViewportAction(event.evt)");
-    expect(source).toContain('action.kind === "pan"');
-    expect(source).toContain("panViewportBy(current, action.delta)");
-    expect(source).toContain("zoomViewportAt(current, pointer");
-    expect(source).toContain("event.evt.preventDefault()");
-    expect(source).not.toContain("Math.exp(-event.evt.deltaY * 0.0015)");
+    const start = source.indexOf("const onWheel");
+    const end = source.indexOf("const onMouseDown", start);
+    const wheelBody = source.slice(start, end);
+
+    expect(wheelBody).toContain("wheelGestureToViewportAction(event.evt)");
+    expect(wheelBody).toContain('action.kind === "pan"');
+    expect(wheelBody).toContain("panViewportBy(current, action.delta)");
+    expect(wheelBody).toContain("const pointer = pointerPosition(event)");
+    expect(wheelBody).toContain("zoomViewportAt(");
+    expect(wheelBody).toContain("pointer,");
+    expect(wheelBody).toContain("Math.exp(-action.deltaY * 0.0015)");
+    expect(wheelBody).toContain("{ min: MIN_SCALE, max: MAX_SCALE }");
+    expect(wheelBody).toContain("event.evt.preventDefault()");
+    expect(wheelBody).not.toContain("Math.exp(-event.evt.deltaY * 0.0015)");
   });
 });
