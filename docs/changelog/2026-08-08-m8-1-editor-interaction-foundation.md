@@ -69,16 +69,41 @@ head:     c591a409819870b25b5b58b2d18abaff22d27e42
 CI #4662: PASS
 ```
 
-GREEN evidence includes:
-
-- all new selection invariants PASS;
-- full unit suite PASS;
-- Core Recognition Benchmark PASS;
-- typecheck PASS;
-- lint PASS;
-- production build PASS.
+GREEN evidence includes all new selection invariants, the full unit suite, Core Recognition Benchmark, typecheck, lint and production build.
 
 The implementation is intentionally pure: no Zustand, Konva, DOM, clipboard, command registry or persistence changes were introduced. Selection remains runtime-only and `VlezetDocument` remains the sole persistent document truth.
+
+### Task 2 — capability-aware fail-closed selection policy
+
+The capability evaluator sanitises the semantic selection against the current document and exposes one explicit permission matrix for Copy/Cut/Paste/Duplicate/Delete/Move/Rotate/Scale.
+
+Required safety properties include:
+
+- one or many placed objects may be copied, cut, duplicated, deleted and moved;
+- only one placed object exposes existing rotation;
+- structural and mixed selections receive no implicit subset operation;
+- paste depends on the internal placed-object clipboard rather than current selection;
+- stale refs grant no capabilities;
+- structural/mixed blocks provide concise Russian explanations;
+- graphical group scale remains disabled unconditionally.
+
+RED:
+
+```text
+head:     7db076b96acd9f488393e403d14d6753c90276bf
+CI #4664: FAIL as intended at web unit tests
+reason:   Cannot find module './editor-selection-capabilities'
+existing/new tests before expected failure: 404 PASS
+```
+
+GREEN:
+
+```text
+head:     903c41c0b2e137f064fe94682ccd075c97e95bd5
+CI #4665: PASS
+```
+
+GREEN evidence includes the complete capability matrix, full unit suite, Core Recognition Benchmark, typecheck, lint and production build. The evaluator is pure and performs no store read, UI mutation or document mutation.
 
 ## Acceptance / merge
 
