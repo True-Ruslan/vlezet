@@ -58,6 +58,7 @@ import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-stor
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
 import { TapeMeasurementTool } from "./tape-measurement-tool";
+import { panViewportBy, wheelGestureToViewportAction } from "./editor-viewport-controller";
 import {
   editorStore,
   selectedObjectId as selectedObjectIdFromSelection,
@@ -461,9 +462,21 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   };
 
   const onWheel = (event: KonvaEventObject<WheelEvent>) => {
+    const action = wheelGestureToViewportAction(event.evt);
+    if (action.kind === "pan") {
+      event.evt.preventDefault();
+      updateViewport((current) => panViewportBy(current, action.delta));
+      return;
+    }
+    const pointer = pointerPosition(event);
+    if (!pointer) return;
     event.evt.preventDefault();
-    const pointer = pointerPosition(event); if (!pointer) return;
-    updateViewport((current) => zoomViewportAt(current, pointer, Math.exp(-event.evt.deltaY * 0.0015), { min: MIN_SCALE, max: MAX_SCALE }));
+    updateViewport((current) => zoomViewportAt(
+      current,
+      pointer,
+      Math.exp(-action.deltaY * 0.0015),
+      { min: MIN_SCALE, max: MAX_SCALE },
+    ));
   };
 
   const onMouseDown = (event: KonvaEventObject<MouseEvent>) => {
@@ -786,7 +799,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
         </div>
       ) : null}
       {errorDiagnostics.length > 0 ? <div className="topology-alert" role="status">Проверьте геометрию: {errorDiagnostics[0]?.message}</div> : null}
-      <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо — масштаб</span><span>{helpText}</span><span>Space + drag / средняя кнопка — панорама</span></div>
+      <div className="canvas-help"><span>{Math.round(gridStep)} мм сетка</span><span>Колесо/трекпад — панорама</span><span>Ctrl/Cmd + колесо — масштаб</span><span>{helpText}</span><span>Space + drag / средняя кнопка — панорама</span></div>
     </div>
   );
 }
