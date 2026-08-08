@@ -1,5 +1,6 @@
-import { createPlacedObject, type VlezetDocument } from "@vlezet/domain";
+import { createPlacedObject, type PlacedObject, type VlezetDocument } from "@vlezet/domain";
 import { createHistoryState } from "@vlezet/editor-core";
+import { objectRectangle, orientedRectangleCorners } from "@vlezet/geometry";
 import { describe, expect, it } from "vitest";
 import { addToSelection, replaceSelection, type EditorSelection } from "./editor-selection";
 import { createEditorStore, type EditorEntityIdKind } from "./use-editor-store";
@@ -51,6 +52,14 @@ function documentWithFurniture(): VlezetDocument {
         clearance: { front: 0, right: 0, back: 0, left: 0 },
       }),
     ],
+  };
+}
+
+function boundsCenter(objects: readonly PlacedObject[]) {
+  const corners = objects.flatMap((object) => orientedRectangleCorners(objectRectangle(object)));
+  return {
+    x: (Math.min(...corners.map((point) => point.x)) + Math.max(...corners.map((point) => point.x))) / 2,
+    y: (Math.min(...corners.map((point) => point.y)) + Math.max(...corners.map((point) => point.y))) / 2,
   };
 }
 
@@ -160,9 +169,7 @@ describe("M8.1 semantic clipboard store commands", () => {
     const newAnchor = { x: 9000, y: 7000 };
     store.getState().pasteClipboard(newAnchor);
     const third = store.getState().history.document.placedObjects.slice(-2);
-    const minX = Math.min(...third.map((object) => object.position.x - object.width / 2));
-    const maxX = Math.max(...third.map((object) => object.position.x + object.width / 2));
-    expect((minX + maxX) / 2).toBeCloseTo(newAnchor.x, 8);
+    expect(boundsCenter(third)).toEqual(newAnchor);
     expect(store.getState().clipboard.lastPasteAnchor).toEqual(newAnchor);
     expect(store.getState().clipboard.repeatedPasteCount).toBe(1);
   });
