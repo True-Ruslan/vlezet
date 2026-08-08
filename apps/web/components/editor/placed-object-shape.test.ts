@@ -19,4 +19,9 @@ describe("M7.4 placed-object presentation", () => {
     expect(source).toContain("text={previewLabel}");
     expect(source).not.toContain('fitStatus === "blocked" ? "Недопустимо"');
   });
+
+  it("shows transform handles only when the selected object is transform-enabled", () => {
+    expect(source).toContain("transformEnabled?: boolean");
+    expect(source).toContain("selected && transformEnabled");
+  });
 });
