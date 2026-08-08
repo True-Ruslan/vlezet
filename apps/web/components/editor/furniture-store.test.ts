@@ -8,6 +8,8 @@ import {
   type EditorEntityIdKind,
 } from "./use-editor-store";
 
+const noSnap = (x: number, y: number) => ({ point: { x, y }, kind: "none" as const, guides: [] });
+
 function sequentialIds() {
   const counters: Record<EditorEntityIdKind, number> = {
     wall: 0,
@@ -45,11 +47,17 @@ describe("furniture editor store", () => {
 
   it("keeps single-entity selection mutually exclusive through the semantic selection value", () => {
     const store = createEditorStore({ idFactory: sequentialIds() });
+    store.getState().setTool("wall");
+    store.getState().beginWall({ x: 0, y: 0 });
+    store.getState().updateDraftWall(noSnap(3000, 0));
+    store.getState().commitDraftWall();
+    store.getState().cancelDraft();
     store.getState().setPlacementPreset("desk");
     store.getState().placeSelectedPreset({ x: 1000, y: 1000 });
-    store.getState().selectWall("wall-x");
+
+    store.getState().selectWall("wall-1");
     let state = store.getState();
-    expect(selectedWallId(state.selection)).toBe("wall-x");
+    expect(selectedWallId(state.selection)).toBe("wall-1");
     expect(selectedRoomId(state.selection)).toBeNull();
     expect(selectedOpeningId(state.selection)).toBeNull();
     expect(selectedObjectId(state.selection)).toBeNull();
