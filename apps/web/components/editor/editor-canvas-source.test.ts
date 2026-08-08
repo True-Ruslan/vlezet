@@ -129,13 +129,17 @@ describe("M8.1 Canvas viewport navigation", () => {
 });
 
 describe("M8.1 Canvas semantic multi-selection", () => {
-  it("routes entity clicks through semantic priority and modifier-aware selection", () => {
+  it("routes non-draggable geometry clicks through Stage semantic priority and modifiers", () => {
     expect(source).toContain('from "./editor-selection-geometry"');
-    expect(source).toContain("entitiesIntersectingMarquee");
-    expect(source).toContain("selectEntityFromPointer");
-    expect(source).toContain("store.toggleSelection(ref)");
-    expect(source).toContain("store.replaceSelection(ref)");
-    expect(source).toContain("event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey");
+    expect(source).toContain("const onCanvasClick");
+    const clickStart = source.indexOf("const onCanvasClick");
+    const clickEnd = source.indexOf("const snapPointer", clickStart);
+    const clickBody = source.slice(clickStart, clickEnd);
+    expect(clickBody).toContain("entitiesIntersectingMarquee(document");
+    expect(clickBody).toContain("store.toggleSelection(target)");
+    expect(clickBody).toContain("store.replaceSelection(target)");
+    expect(clickBody).toContain("event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey");
+    expect(source).toContain("onClick={onCanvasClick}");
     expect(source).toContain('isEntitySelected("wall", wall.id)');
     expect(source).toContain('isEntitySelected("opening", opening.id)');
     expect(source).toContain('isEntitySelected("room", room.id)');
@@ -144,7 +148,7 @@ describe("M8.1 Canvas semantic multi-selection", () => {
 
   it("reserves secondary mouse input for the semantic context-menu path", () => {
     const selectStart = source.indexOf("const selectEntityFromPointer");
-    const selectEnd = source.indexOf("const onCanvasContextMenu", selectStart);
+    const selectEnd = source.indexOf("const onCanvasClick", selectStart);
     const selectBody = source.slice(selectStart, selectEnd);
     expect(selectBody).toContain('if ("button" in event.evt && event.evt.button !== 0) return;');
 
@@ -155,23 +159,23 @@ describe("M8.1 Canvas semantic multi-selection", () => {
     expect(mouseDownBody.indexOf("if (event.evt.button !== 0) return;")).toBeLessThan(mouseDownBody.indexOf("setMarqueeGesture"));
   });
 
-  it("lets Stage own primary mousedown over non-draggable geometry so marquee can start inside rooms", () => {
-    expect(source).toContain('onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}');
-    expect(source).toContain('onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}');
-    expect(source).toContain('onClick={select}');
-    expect(source).not.toContain('onMouseDown={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}');
-    expect(source).not.toContain('onMouseDown={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}');
-    expect(source).not.toContain('onMouseDown={select}');
+  it("lets Stage own mousedown and click for non-draggable geometry while objects keep their drag path", () => {
+    expect(source).toContain("onMouseDown={onMouseDown}");
+    expect(source).toContain("onClick={onCanvasClick}");
+    expect(source).not.toContain('onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "room", id: room.id }); }}');
+    expect(source).not.toContain('onClick={(event) => { if (tool === "select" && !placementPresetId) selectEntityFromPointer(event, { kind: "wall", id: wall.id }); }}');
+    expect(source).not.toContain("onClick={select}");
+    expect(source).toContain("onSelect={(event) => selectEntityFromPointer(event, { kind: \"placed-object\", id: object.id })}");
   });
 
-  it("suppresses the synthetic geometry click emitted after a completed marquee drag", () => {
+  it("suppresses the Stage geometry click emitted after a completed marquee drag", () => {
     expect(source).toContain("const suppressGeometryClickRef = useRef(false)");
-    const selectStart = source.indexOf("const selectEntityFromPointer");
-    const selectEnd = source.indexOf("const snapPointer", selectStart);
-    const selectBody = source.slice(selectStart, selectEnd);
-    expect(selectBody).toContain("if (suppressGeometryClickRef.current)");
-    expect(selectBody).toContain("suppressGeometryClickRef.current = false");
-    expect(selectBody.indexOf("if (suppressGeometryClickRef.current)")).toBeLessThan(selectBody.indexOf("store.replaceSelection(ref)"));
+    const clickStart = source.indexOf("const onCanvasClick");
+    const clickEnd = source.indexOf("const snapPointer", clickStart);
+    const clickBody = source.slice(clickStart, clickEnd);
+    expect(clickBody).toContain("if (suppressGeometryClickRef.current)");
+    expect(clickBody).toContain("suppressGeometryClickRef.current = false");
+    expect(clickBody.indexOf("if (suppressGeometryClickRef.current)")).toBeLessThan(clickBody.indexOf("store.replaceSelection(target)"));
 
     const marqueeStart = source.indexOf("const finalizeMarquee");
     const marqueeEnd = source.indexOf("const onMouseDown", marqueeStart);
