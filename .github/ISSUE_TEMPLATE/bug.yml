@@ -1,0 +1,70 @@
+name: Bug report
+description: Сообщить о воспроизводимом дефекте Vlezet
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за отчёт. Не публикуйте здесь API-ключи, приватные планы квартир или security-sensitive детали — для них используйте SECURITY.md.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Что произошло?
+      description: Опишите наблюдаемое поведение и почему оно неверно.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Как воспроизвести?
+      description: Дайте минимальную последовательность действий.
+      placeholder: |
+        1. Создать проект...
+        2. Добавить стену...
+        3. Нажать...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Какое поведение ожидалось?
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit / branch
+      description: SHA или ветка, если известны.
+      placeholder: main / abc1234
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Браузер
+      options:
+        - Chromium / Chrome / Edge
+        - Safari / WebKit
+        - Firefox
+        - Другое / не применимо
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Дополнительные данные
+      description: Скриншоты, безопасные логи или минимальный пример. Перед публикацией удалите чувствительные данные.
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Проверка приватности
+      options:
+        - label: Я проверил(а), что отчёт не содержит секретов, API-ключей или приватных исходных планов.
+          required: true
