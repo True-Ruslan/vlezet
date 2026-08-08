@@ -85,9 +85,24 @@ describe("M8.1 pure viewport navigation controller", () => {
       limits,
     );
 
-    expect(fitted.pixelsPerMillimeter).toBeCloseTo(1 / 6, 12);
-    expect(fitted.offsetX).toBeCloseTo(1200 / 2 - 2000 / 6, 12);
-    expect(fitted.offsetY).toBeCloseTo(800 / 2 - 1000 / 6, 12);
+    expect(fitted?.pixelsPerMillimeter).toBeCloseTo(1 / 6, 12);
+    expect(fitted?.offsetX).toBeCloseTo(1200 / 2 - 2000 / 6, 12);
+    expect(fitted?.offsetY).toBeCloseTo(800 / 2 - 1000 / 6, 12);
+  });
+
+  it("fits the visible reference when the document is empty and fails closed when both bounds are absent", () => {
+    const referenceBounds: WorldBounds = { minX: 1000, minY: 500, maxX: 5000, maxY: 2500 };
+
+    const fitted = fitDocumentViewport(
+      null,
+      referenceBounds,
+      { width: 1000, height: 600 },
+      100,
+      limits,
+    );
+
+    expect(fitted).toEqual(fitWorldBounds(referenceBounds, { width: 1000, height: 600 }, 100, limits));
+    expect(fitDocumentViewport(null, null, { width: 1000, height: 600 }, 100, limits)).toBeNull();
   });
 
   it("fits semantic selection bounds and fails closed for empty selection", () => {
