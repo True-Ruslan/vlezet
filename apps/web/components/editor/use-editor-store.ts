@@ -87,6 +87,7 @@ export type EditorStoreState = Omit<
   cutSelection: () => void;
   pasteClipboard: (anchor: Point2) => void;
   duplicateSelection: () => void;
+  deleteSelection: () => void;
 };
 
 function objectById(
@@ -362,6 +363,26 @@ function enhanceEditorStore(
     });
   };
 
+  const deleteSelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    const before = state.history.document;
+    const after = deletePlacedObjects(before, objects.map((object) => object.id));
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-delete",
+        before,
+        after,
+      }),
+      selection: sanitizeEditorSelection(after, state.selection),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
   const pasteClipboard = (anchor: Point2) => {
     const state = store.getState();
     const payload = state.clipboard.payload;
@@ -433,6 +454,7 @@ function enhanceEditorStore(
     cutSelection,
     pasteClipboard,
     duplicateSelection,
+    deleteSelection,
   });
 
   return store;
