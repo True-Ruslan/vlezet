@@ -58,7 +58,14 @@ import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-stor
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
 import { TapeMeasurementTool } from "./tape-measurement-tool";
-import { editorStore, type TopologySnapTarget } from "./use-editor-store";
+import {
+  editorStore,
+  selectedObjectId as selectedObjectIdFromSelection,
+  selectedOpeningId as selectedOpeningIdFromSelection,
+  selectedRoomId as selectedRoomIdFromSelection,
+  selectedWallId as selectedWallIdFromSelection,
+  type TopologySnapTarget,
+} from "./use-editor-store";
 
 const MIN_SCALE = 0.01;
 const MAX_SCALE = 2;
@@ -182,10 +189,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const tool = useStore(editorStore, (state) => state.tool);
   const document = useStore(editorStore, (state) => state.history.document);
   const draftWall = useStore(editorStore, (state) => state.draftWall);
-  const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
-  const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
-  const selectedOpeningId = useStore(editorStore, (state) => state.selectedOpeningId);
-  const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
+  const selectedWallId = useStore(editorStore, (state) => selectedWallIdFromSelection(state.selection));
+  const selectedRoomId = useStore(editorStore, (state) => selectedRoomIdFromSelection(state.selection));
+  const selectedOpeningId = useStore(editorStore, (state) => selectedOpeningIdFromSelection(state.selection));
+  const selectedObjectId = useStore(editorStore, (state) => selectedObjectIdFromSelection(state.selection));
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const objectGesture = useStore(editorStore, (state) => state.objectGesture);
   const planningPreviewCandidate = useStore(planningUiStore, (state) => state.previewCandidate);
@@ -466,7 +473,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
       editorStore.getState().addOpeningAt(visibleOpeningPreview.wallId, visibleOpeningPreview.pointerOffset);
       return;
     }
-    editorStore.getState().selectObject(null);
+    editorStore.getState().clearSelection();
   };
 
   const onMouseMove = (event: KonvaEventObject<MouseEvent>) => {
