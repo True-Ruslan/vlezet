@@ -53,4 +53,28 @@ describe("M8.1 ApartmentEditor semantic command routing", () => {
     expect(source).toContain("if (store.selection.refs.length === 0) return false");
     expect(source).toContain("viewCommandRequest={viewCommandRequest}");
   });
+
+  it("derives multi-selection context from the unified selection and renders the shared inspector", () => {
+    expect(source).toContain('from "./multi-selection-inspector"');
+    expect(source).toContain("const selection = useStore(editorStore, (state) => state.selection)");
+    expect(source).toContain("const hasPlacedObjectClipboard = useStore(editorStore, (state) => state.clipboard.payload !== null)");
+    expect(source).toContain("selectionCount: selection.refs.length");
+    expect(source).toContain('contextKind === "multi-selection"');
+    expect(source).toContain("<MultiSelectionInspector");
+    expect(source).toContain("selection={selection}");
+    expect(source).toContain("hasPlacedObjectClipboard={hasPlacedObjectClipboard}");
+    expect(source).toContain("executeCommand={executeEditorCommand}");
+  });
+
+  it("owns context-menu lifetime while Canvas emits only semantic target requests", () => {
+    expect(source).toContain('from "./editor-context-menu"');
+    expect(source).toContain("const [contextMenuRequest, setContextMenuRequest]");
+    expect(source).toContain("selectionForContextMenuTarget(store.selection, request.target)");
+    expect(source).toContain("store.replaceSelection(request.target)");
+    expect(source).toContain("onContextMenuRequest={openContextMenu}");
+    expect(source).toContain("<EditorContextMenu");
+    expect(source).toContain("position={contextMenuRequest.position}");
+    expect(source).toContain("executeCommand={executeEditorCommand}");
+    expect(source).toContain("onDismiss={() => setContextMenuRequest(null)}");
+  });
 });
