@@ -1,6 +1,9 @@
 import { screenToWorld, type ViewportTransform, type WorldBounds } from "@vlezet/geometry";
 import { describe, expect, it } from "vitest";
 import {
+  actualSizeViewport,
+  fitDocumentViewport,
+  fitSelectionViewport,
   fitWorldBounds,
   panViewportBy,
   wheelGestureToViewportAction,
@@ -68,6 +71,52 @@ describe("M8.1 pure viewport navigation controller", () => {
       { min: 0.05, max: 0.5 },
     );
     expect(clamped).toEqual({ pixelsPerMillimeter: 0.5, offsetX: 475, offsetY: 475 });
+  });
+
+  it("fits the union of document and visible reference bounds", () => {
+    const documentBounds: WorldBounds = { minX: 0, minY: 0, maxX: 4000, maxY: 2000 };
+    const referenceBounds: WorldBounds = { minX: -1000, minY: -500, maxX: 5000, maxY: 2500 };
+
+    const fitted = fitDocumentViewport(
+      documentBounds,
+      referenceBounds,
+      { width: 1200, height: 800 },
+      100,
+      limits,
+    );
+
+    expect(fitted.pixelsPerMillimeter).toBeCloseTo(1 / 6, 12);
+    expect(fitted.offsetX).toBeCloseTo(1200 / 2 - 2000 / 6, 12);
+    expect(fitted.offsetY).toBeCloseTo(800 / 2 - 1000 / 6, 12);
+  });
+
+  it("fits semantic selection bounds and fails closed for empty selection", () => {
+    expect(fitSelectionViewport(null, { width: 800, height: 600 }, 64, limits)).toBeNull();
+
+    const fitted = fitSelectionViewport(
+      { minX: 1000, minY: 500, maxX: 3000, maxY: 1500 },
+      { width: 800, height: 600 },
+      64,
+      limits,
+    );
+
+    expect(fitted).not.toBeNull();
+    expect(fitted?.pixelsPerMillimeter).toBeCloseTo(0.336, 12);
+    expect(fitted?.offsetX).toBeCloseTo(-272, 12);
+    expect(fitted?.offsetY).toBeCloseTo(-36, 12);
+  });
+
+  it("returns to the defined baseline scale around the viewport centre", () => {
+    const source: ViewportTransform = { offsetX: -300, offsetY: 180, pixelsPerMillimeter: 0.4 };
+    const size = { width: 1000, height: 700 };
+    const centre = { x: size.width / 2, y: size.height / 2 };
+    const worldBefore = screenToWorld(centre, source);
+
+    const next = actualSizeViewport(source, size, 0.12, limits);
+
+    expect(next.pixelsPerMillimeter).toBe(0.12);
+    expect(screenToWorld(centre, next)).toEqual(worldBefore);
+    expect(source).toEqual({ offsetX: -300, offsetY: 180, pixelsPerMillimeter: 0.4 });
   });
 
   it("classifies an ordinary wheel/trackpad stream as viewport pan with natural screen delta", () => {
