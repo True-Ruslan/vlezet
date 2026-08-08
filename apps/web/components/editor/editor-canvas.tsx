@@ -189,10 +189,15 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const tool = useStore(editorStore, (state) => state.tool);
   const document = useStore(editorStore, (state) => state.history.document);
   const draftWall = useStore(editorStore, (state) => state.draftWall);
-  const selectedWallId = useStore(editorStore, (state) => selectedWallIdFromSelection(state.selection));
-  const selectedRoomId = useStore(editorStore, (state) => selectedRoomIdFromSelection(state.selection));
-  const selectedOpeningId = useStore(editorStore, (state) => selectedOpeningIdFromSelection(state.selection));
-  const selectedObjectId = useStore(editorStore, (state) => selectedObjectIdFromSelection(state.selection));
+  const selection = useStore(editorStore, (state) => state.selection);
+  const selectedWallId = selectedWallIdFromSelection(selection);
+  const selectedRoomId = selectedRoomIdFromSelection(selection);
+  const selectedOpeningId = selectedOpeningIdFromSelection(selection);
+  const selectedObjectId = selectedObjectIdFromSelection(selection);
+  const selectedObjectIds = useMemo(
+    () => new Set(selection.refs.filter((ref) => ref.kind === "placed-object").map((ref) => ref.id)),
+    [selection],
+  );
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const objectGesture = useStore(editorStore, (state) => state.objectGesture);
   const planningPreviewCandidate = useStore(planningUiStore, (state) => state.previewCandidate);
@@ -258,9 +263,21 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
 
   useEffect(() => () => canvasTransientFeedbackStore.getState().reset(), []);
 
-  const displayedObjects = useMemo(() => document.placedObjects.map((object) =>
-    objectGesture?.objectId === object.id ? objectGesture.preview : object,
-  ), [document.placedObjects, objectGesture]);
+  const objectGesturePreviewById = useMemo(() => {
+    const previewById = new Map<string, PlacedObject>();
+    if (!objectGesture) return previewById;
+    if (objectGesture.kind === "move") {
+      for (const object of objectGesture.preview) previewById.set(object.id, object);
+      return previewById;
+    }
+    previewById.set(objectGesture.objectId, objectGesture.preview);
+    return previewById;
+  }, [objectGesture]);
+
+  const displayedObjects = useMemo(
+    () => document.placedObjects.map((object) => objectGesturePreviewById.get(object.id) ?? object),
+    [document.placedObjects, objectGesturePreviewById],
+  );
 
   const evaluationDocument = useMemo(() => ({
     ...document,
@@ -416,17 +433,22 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
   const previewObjectGesture = (objectId: string, patch: PlacedObjectPatch) => {
     const state = editorStore.getState();
     const gesture = state.objectGesture;
-    const source = gesture?.objectId === objectId
-      ? gesture.preview
-      : state.history.document.placedObjects.find((object) => object.id === objectId);
+    const source = gesture?.kind === "move" && gesture.anchorObjectId === objectId
+      ? gesture.preview.find((object) => object.id === objectId)
+      : gesture?.kind === "transform" && gesture.objectId === objectId
+        ? gesture.preview
+        : state.history.document.placedObjects.find((object) => object.id === objectId);
     if (!source) return;
 
     if (patch.position) {
       const moving = { ...source, position: patch.position };
+      const excludedIds = gesture?.kind === "move" && gesture.anchorObjectId === objectId
+        ? new Set(gesture.objectIds)
+        : new Set([objectId]);
       const snap = snapPlacedObject({
         rawPosition: patch.position,
         moving,
-        others: displayedObjects.filter((object) => object.id !== objectId),
+        others: displayedObjects.filter((object) => !excludedIds.has(object.id)),
         tolerance: SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter,
         gridStep,
       });
@@ -686,20 +708,26 @@ export function EditorCanvas({ initialViewport, onViewportChange, fitRequest, fi
         </Layer>
         <Layer>
           {clearancePolygon ? <Line points={screenPolygon(clearancePolygon, viewport)} closed fill="#f59e0b" opacity={0.08} stroke="#d97706" strokeWidth={1.2} dash={[6, 5]} listening={false} /> : null}
-          {displayedObjects.map((object) => (
-            <PlacedObjectShape
-              key={object.id}
-              object={object}
-              viewport={viewport}
-              selected={object.id === selectedObjectId}
-              hovered={visibleHoveredEntity?.kind === "object" && visibleHoveredEntity.id === object.id}
-              fitStatus={fitEvaluation.byObjectId.get(object.id)?.status ?? "blocked"}
-              onSelect={() => editorStore.getState().selectObject(object.id)}
-              onGestureStart={(kind) => editorStore.getState().beginObjectGesture(object.id, kind)}
-              onGesturePreview={(patch) => previewObjectGesture(object.id, patch)}
-              onGestureCommit={() => { editorStore.getState().commitObjectGesture(); setObjectGuides([]); }}
-            />
-          ))}
+          {displayedObjects.map((object) => {
+            const objectSelected = selectedObjectIds.has(object.id);
+            return (
+              <PlacedObjectShape
+                key={object.id}
+                object={object}
+                viewport={viewport}
+                selected={objectSelected}
+                transformEnabled={selectedObjectId === object.id}
+                hovered={visibleHoveredEntity?.kind === "object" && visibleHoveredEntity.id === object.id}
+                fitStatus={fitEvaluation.byObjectId.get(object.id)?.status ?? "blocked"}
+                onSelect={() => {
+                  if (!objectSelected) editorStore.getState().selectObject(object.id);
+                }}
+                onGestureStart={(kind) => editorStore.getState().beginObjectGesture(object.id, kind)}
+                onGesturePreview={(patch) => previewObjectGesture(object.id, patch)}
+                onGestureCommit={() => { editorStore.getState().commitObjectGesture(); setObjectGuides([]); }}
+              />
+            );
+          })}
           {planningPreviewObjects.map((object) => (
             <PlacedObjectShape
               key={`planning-preview:${object.id}`}
