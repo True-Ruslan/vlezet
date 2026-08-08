@@ -8,6 +8,18 @@ import {
   type ZoomLimits,
 } from "@vlezet/geometry";
 
+export type EditorViewportCommand =
+  | "zoom-in"
+  | "zoom-out"
+  | "actual-size"
+  | "fit-plan"
+  | "fit-selection";
+
+export type EditorViewportCommandRequest = Readonly<{
+  serial: number;
+  command: EditorViewportCommand;
+}>;
+
 export type WheelViewportAction =
   | Readonly<{ kind: "pan"; delta: Point2 }>
   | Readonly<{ kind: "zoom"; deltaY: number }>;
