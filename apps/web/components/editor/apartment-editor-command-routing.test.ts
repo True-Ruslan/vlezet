@@ -29,6 +29,19 @@ describe("M8.1 ApartmentEditor semantic command routing", () => {
     expect(source).not.toContain("store.duplicateSelectedObject()");
   });
 
+  it("routes furniture deletion through atomic semantic multi-delete while preserving single-opening delete", () => {
+    const deleteCase = source.slice(
+      source.indexOf('case "selection.delete"'),
+      source.indexOf('case "selection.clear"'),
+    );
+
+    expect(deleteCase).toContain("if (selectedFurnitureOnly)");
+    expect(deleteCase).toContain("store.deleteSelection()");
+    expect(deleteCase).toContain("selectedOpeningIdFromSelection(store.selection)");
+    expect(deleteCase).toContain("store.deleteSelectedOpening()");
+    expect(deleteCase).not.toContain("store.deleteSelectedObject()");
+  });
+
   it("routes all 2D view commands through one runtime-only Canvas request", () => {
     expect(source).toContain("const [viewCommandRequest, setViewCommandRequest]");
     expect(source).toContain("const requestViewportCommand = useCallback((command: EditorViewportCommand)");
