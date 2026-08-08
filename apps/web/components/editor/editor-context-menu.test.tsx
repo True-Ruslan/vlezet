@@ -5,6 +5,7 @@ import { addToSelection, replaceSelection } from "./editor-selection";
 import {
   EditorContextMenu,
   availableContextMenuCommands,
+  clampContextMenuPosition,
   runContextMenuCommand,
   selectionForContextMenuTarget,
   shouldDismissContextMenuOnKey,
@@ -60,6 +61,26 @@ describe("M8.1 registered-command context menu", () => {
     expect(selectionForContextMenuTarget(group, { kind: "wall", id: "wall-1" })).toEqual(
       replaceSelection({ kind: "wall", id: "wall-1" }),
     );
+  });
+
+  it("clamps menu bounds to a viewport margin without moving safe anchors", () => {
+    expect(clampContextMenuPosition(
+      { x: 120, y: 80 },
+      { width: 190, height: 48 },
+      { width: 390, height: 760 },
+    )).toEqual({ x: 120, y: 80 });
+
+    expect(clampContextMenuPosition(
+      { x: 330, y: 730 },
+      { width: 190, height: 80 },
+      { width: 390, height: 760 },
+    )).toEqual({ x: 192, y: 672 });
+
+    expect(clampContextMenuPosition(
+      { x: -30, y: -20 },
+      { width: 500, height: 900 },
+      { width: 390, height: 760 },
+    )).toEqual({ x: 8, y: 8 });
   });
 
   it("derives menu availability from the shared capability matrix and command registry", () => {
