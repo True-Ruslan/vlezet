@@ -131,6 +131,39 @@ web:         413 / 413 PASS
 
 The final run also passed the complete workspace unit suite, Core Recognition Benchmark, typecheck, lint and production build. The production implementation remains framework-independent and does not introduce persistence/schema changes or structural batch semantics.
 
+### Task 4 — one writable semantic selection truth
+
+The editor store now persists only one runtime selection value. The former writable `selectedWallId`, `selectedRoomId`, `selectedOpeningId` and `selectedObjectId` fields are physically absent. Existing single-inspector consumers use pure compatibility projections from `selection`; multi-selection therefore cannot accidentally masquerade as a single entity.
+
+The migration also makes stale refs fail closed and sanitises selection after document mutation, delete, Undo/Redo, project load and recognition Apply. Legacy `selectWall/selectRoom/selectOpening/selectObject` remain only as command adapters over the unified selection; they are not parallel state.
+
+RED:
+
+```text
+head:     213878d6f0987bbb0f41067c2ad9f1827200cf2f
+CI #4673: FAIL as intended
+observed: 413 prior web tests PASS; 5 new store-migration tests failed because unified selection state/actions/projections did not exist yet
+```
+
+The migration exposed useful compatibility debt rather than being hidden:
+
+- exact head `aab4eb5c9c105330dbc4893cd8f765ffefc5c338` reached the full unit suite but old tests still read removed writable IDs;
+- exact head `eb08f24650834c64d6fe94fc7addc12eb05ce6ef` reduced the remaining failure to one stale-ID fixture that attempted to select nonexistent `wall-x`;
+- the fixture was strengthened to create/select a real wall rather than weakening fail-closed sanitisation;
+- subsequent typecheck found the final direct legacy writes in project-session reset and recognition Apply; both now reset `EMPTY_EDITOR_SELECTION` instead.
+
+Final GREEN:
+
+```text
+head:                  7ac0d267c81024da271c17628a43c627a5370170
+CI #4686:              PASS
+Browser Acceptance #1142:
+  Chromium:            PASS
+  WebKit:              PASS
+```
+
+The final exact-head CI passed documentation contract, full unit suite, Core Recognition Benchmark, typecheck, lint and production build. No project schema, persistence format, geometry authority, M2 authority or structural batch behavior changed.
+
 ## Acceptance / merge
 
 Not yet accepted. No completion or merge claim is made by this record.
