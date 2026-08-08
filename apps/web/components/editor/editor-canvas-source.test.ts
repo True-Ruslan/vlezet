@@ -142,6 +142,19 @@ describe("M8.1 Canvas semantic multi-selection", () => {
     expect(source).toContain('isEntitySelected("placed-object", object.id)');
   });
 
+  it("reserves secondary mouse input for the semantic context-menu path", () => {
+    const selectStart = source.indexOf("const selectEntityFromPointer");
+    const selectEnd = source.indexOf("const onCanvasContextMenu", selectStart);
+    const selectBody = source.slice(selectStart, selectEnd);
+    expect(selectBody).toContain('if ("button" in event.evt && event.evt.button !== 0) return;');
+
+    const mouseDownStart = source.indexOf("const onMouseDown");
+    const mouseDownEnd = source.indexOf("const onMouseMove", mouseDownStart);
+    const mouseDownBody = source.slice(mouseDownStart, mouseDownEnd);
+    expect(mouseDownBody).toContain("if (event.evt.button !== 0) return;");
+    expect(mouseDownBody.indexOf("if (event.evt.button !== 0) return;")).toBeLessThan(mouseDownBody.indexOf("setMarqueeGesture"));
+  });
+
   it("keeps marquee Canvas-local and commits only after the screen-pixel drag threshold", () => {
     expect(source).toContain("type MarqueeGesture");
     expect(source).toContain("const MARQUEE_THRESHOLD_PX = 4");
