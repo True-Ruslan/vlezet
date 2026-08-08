@@ -22,6 +22,11 @@ import {
 } from "./context-workflow-return";
 import { EditorCanvasModeStatus } from "./editor-canvas-mode-status";
 import {
+  commandForKeyboardEvent,
+  isNativeEditableTarget,
+  type EditorCommandId,
+} from "./editor-commands";
+import {
   deriveEditorContextKind,
   editorContextLabel,
   nextCompactEditorSurface,
@@ -32,7 +37,7 @@ import { EditorOnboardingOverlay } from "./editor-onboarding-overlay";
 import { EditorSideSurface } from "./editor-side-surface";
 import { EditorToolbar } from "./editor-toolbar";
 import { FurnitureCatalog } from "./furniture-catalog";
-import { getEditorShortcut } from "./keyboard";
+import { getEditorLegacyShortcut } from "./keyboard";
 import { measurementToolStore } from "./measurement-tool-store";
 import {
   editorStore,
@@ -99,10 +104,6 @@ type CompactSurfaceChoice = Readonly<{
   surface: Exclude<CompactEditorSurface, null>;
   contextKey: string;
 }>;
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
-}
 
 function reviewDraft(state: RecognitionControllerState) {
   if (state.kind === "review" || state.kind === "running-cloud" || state.kind === "error") return state.session?.draft ?? null;
@@ -255,68 +256,150 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     if (compactLayout) openContextSurface();
   }, [beginBoundedWorkflow, compactLayout, openContextSurface, props.onToggleRecognitionPanel, props.recognitionPanelOpen, returnFromWorkflow]);
 
+  const executeEditorCommand = useCallback((command: EditorCommandId): boolean => {
+    const store = editorStore.getState();
+    const editingBlocked = props.recognitionPanelOpen;
+    const selectedFurnitureOnly = store.selection.refs.length > 0 &&
+      store.selection.refs.every((ref) => ref.kind === "placed-object");
+
+    switch (command) {
+      case "history.undo":
+        store.undo();
+        return true;
+      case "history.redo":
+        store.redo();
+        return true;
+      case "selection.selectAll":
+        if (editingBlocked) return false;
+        store.selectAllConcreteEntities();
+        return true;
+      case "selection.copy":
+        if (editingBlocked || !selectedFurnitureOnly) return false;
+        store.copySelection();
+        return true;
+      case "selection.cut":
+        if (editingBlocked || !selectedFurnitureOnly) return false;
+        store.cutSelection();
+        return true;
+      case "selection.paste": {
+        if (editingBlocked || !store.clipboard.payload) return false;
+        const origin = store.clipboard.payload.copiedAtOrigin;
+        store.pasteClipboard({ x: origin.x + 200, y: origin.y + 200 });
+        return true;
+      }
+      case "selection.duplicate":
+        if (editingBlocked || !selectedFurnitureOnly) return false;
+        store.duplicateSelection();
+        return true;
+      case "selection.delete":
+        if (editingBlocked) return false;
+        if (selectedObjectIdFromSelection(store.selection)) {
+          store.deleteSelectedObject();
+          return true;
+        }
+        if (selectedOpeningIdFromSelection(store.selection)) {
+          store.deleteSelectedOpening();
+          return true;
+        }
+        return false;
+      case "selection.clear":
+        if (store.selection.refs.length === 0) return false;
+        store.clearSelection();
+        return true;
+      case "view.fitPlan":
+        setFitRequest((value) => value + 1);
+        return true;
+      case "tool.select":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("select");
+        return true;
+      case "tool.wall":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("wall");
+        return true;
+      case "tool.door":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("door");
+        return true;
+      case "tool.window":
+        if (editingBlocked) return false;
+        store.setPlacementPreset(null);
+        store.setTool("window");
+        return true;
+      case "object.rotate90":
+        if (editingBlocked || !selectedObjectIdFromSelection(store.selection)) return false;
+        store.rotateSelectedObject90();
+        return true;
+      case "view.zoomIn":
+      case "view.zoomOut":
+      case "view.actualSize":
+      case "view.fitSelection":
+        return false;
+    }
+  }, [props.recognitionPanelOpen]);
+
   useEffect(() => {
     spatialViewModeStore.getState().setMode("2d");
   }, [props.projectId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target) && event.key !== "Escape") return;
-      const shortcut = getEditorShortcut(event);
-      if (!shortcut) return;
-      if (viewMode === "3d" && shortcut !== "cancel") return;
+      const escapePressed = event.key === "Escape";
+      if (isNativeEditableTarget(event.target) && !escapePressed) return;
 
-      event.preventDefault();
-      const store = editorStore.getState();
-      switch (shortcut) {
-        case "undo": store.undo(); break;
-        case "redo": store.redo(); break;
-        case "select-tool": if (!props.recognitionPanelOpen) store.setTool("select"); break;
-        case "wall-tool": if (!props.recognitionPanelOpen) store.setTool("wall"); break;
-        case "door-tool": if (!props.recognitionPanelOpen) store.setTool("door"); break;
-        case "window-tool": if (!props.recognitionPanelOpen) store.setTool("window"); break;
-        case "furnishing-catalog": if (!props.recognitionPanelOpen) toggleFurnitureSurface(); break;
-        case "rotate-object": if (!props.recognitionPanelOpen) store.rotateSelectedObject90(); break;
-        case "duplicate-object": if (!props.recognitionPanelOpen) store.duplicateSelectedObject(); break;
-        case "delete-selection":
-          if (props.recognitionPanelOpen) break;
-          if (selectedObjectIdFromSelection(store.selection)) store.deleteSelectedObject();
-          else if (selectedOpeningIdFromSelection(store.selection)) store.deleteSelectedOpening();
-          break;
-        case "cancel": {
-          const measurement = measurementToolStore.getState();
-          const escapeAction = deriveEditorEscapeAction({
-            viewMode,
-            hasObjectGesture: store.objectGesture !== null,
-            measurementActive: measurement.active,
-            measurementPhase: measurement.phase,
-            hasWallDraft: store.draftWall !== null,
-            hasPlacement: store.placementPresetId !== null,
-            tracingMode: props.tracingMode,
-            workflowOpen: props.recognitionPanelOpen || props.referencePanelOpen || planningUiStore.getState().roomId !== null,
-            tool: store.tool,
-            hasSelection: store.selection.refs.length > 0,
-          });
-          switch (escapeAction) {
-            case "cancel-object-gesture": store.cancelObjectGesture(); break;
-            case "reset-measurement": measurementToolStore.getState().resetMeasurement(); break;
-            case "cancel-wall-draft": store.cancelDraft(); break;
-            case "cancel-placement": store.setPlacementPreset(null); break;
-            case "finish-tracing": props.onStopTracing(); break;
-            case "exit-measurement": measurementToolStore.getState().setActive(false); break;
-            case "close-workflow": returnFromWorkflow(); break;
-            case "exit-tool": store.setTool("select"); break;
-            case "clear-selection": store.clearSelection(); break;
-            case "return-to-2d": spatialViewModeStore.getState().setMode("2d"); break;
-            case "none": break;
-          }
-          break;
+      const legacyShortcut = getEditorLegacyShortcut(event);
+      if (legacyShortcut === "cancel") {
+        event.preventDefault();
+        const store = editorStore.getState();
+        const measurement = measurementToolStore.getState();
+        const escapeAction = deriveEditorEscapeAction({
+          viewMode,
+          hasObjectGesture: store.objectGesture !== null,
+          measurementActive: measurement.active,
+          measurementPhase: measurement.phase,
+          hasWallDraft: store.draftWall !== null,
+          hasPlacement: store.placementPresetId !== null,
+          tracingMode: props.tracingMode,
+          workflowOpen: props.recognitionPanelOpen || props.referencePanelOpen || planningUiStore.getState().roomId !== null,
+          tool: store.tool,
+          hasSelection: store.selection.refs.length > 0,
+        });
+        switch (escapeAction) {
+          case "cancel-object-gesture": store.cancelObjectGesture(); break;
+          case "reset-measurement": measurementToolStore.getState().resetMeasurement(); break;
+          case "cancel-wall-draft": store.cancelDraft(); break;
+          case "cancel-placement": store.setPlacementPreset(null); break;
+          case "finish-tracing": props.onStopTracing(); break;
+          case "exit-measurement": measurementToolStore.getState().setActive(false); break;
+          case "close-workflow": returnFromWorkflow(); break;
+          case "exit-tool": store.setTool("select"); break;
+          case "clear-selection": store.clearSelection(); break;
+          case "return-to-2d": spatialViewModeStore.getState().setMode("2d"); break;
+          case "none": break;
         }
+        return;
       }
+
+      if (viewMode === "3d") return;
+
+      if (legacyShortcut === "furnishing-catalog") {
+        if (!props.recognitionPanelOpen) {
+          event.preventDefault();
+          toggleFurnitureSurface();
+        }
+        return;
+      }
+
+      const command = commandForKeyboardEvent(event);
+      if (!command) return;
+      if (executeEditorCommand(command)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [props.onStopTracing, props.recognitionPanelOpen, props.referencePanelOpen, props.tracingMode, returnFromWorkflow, toggleFurnitureSurface, viewMode]);
+  }, [executeEditorCommand, props.onStopTracing, props.recognitionPanelOpen, props.referencePanelOpen, props.tracingMode, returnFromWorkflow, toggleFurnitureSurface, viewMode]);
 
   const workspaceClass = [
     "editor-workspace",
