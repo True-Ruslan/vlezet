@@ -109,6 +109,10 @@ export function PlacedObjectShape({
     });
   };
 
+  const blockPointerFromCanvas = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!preview) event.cancelBubble = true;
+  };
+
   const selectFromPointer = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (preview) return;
     event.cancelBubble = true;
@@ -124,7 +128,9 @@ export function PlacedObjectShape({
       rotation={object.rotationDeg}
       draggable={!preview}
       opacity={preview ? 0.68 : 1}
-      onMouseDown={selectFromPointer}
+      onMouseDown={blockPointerFromCanvas}
+      onTouchStart={blockPointerFromCanvas}
+      onClick={selectFromPointer}
       onTap={selectFromPointer}
       onDragStart={(event) => {
         event.cancelBubble = true;
