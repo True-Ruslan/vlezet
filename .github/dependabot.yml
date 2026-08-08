@@ -10,17 +10,10 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
-    groups:
-      production-dependencies:
-        dependency-type: "production"
+    ignore:
+      - dependency-name: "@types/node"
         update-types:
-          - "minor"
-          - "patch"
-      development-dependencies:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
