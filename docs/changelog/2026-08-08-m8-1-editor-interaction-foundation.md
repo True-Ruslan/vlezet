@@ -105,6 +105,32 @@ CI #4665: PASS
 
 GREEN evidence includes the complete capability matrix, full unit suite, Core Recognition Benchmark, typecheck, lint and production build. The evaluator is pure and performs no store read, UI mutation or document mutation.
 
+### Task 3 — atomic placed-object batch transforms
+
+The editor-core now owns immutable all-or-nothing helpers for batch add/update/translate/delete of placed objects. Batch validation rejects duplicate IDs, missing sources, destination conflicts, invalid resulting objects and non-finite translation before any transformed document escapes. Update/delete preserve document order; additions append in supplied stable order. Batch movement is represented by one `object/batch-move` semantic history command, so one Undo/Redo restores the whole group.
+
+RED:
+
+```text
+head:     b2ab8aa870d53f1a693016c37066414eac245be4
+CI #4667: FAIL as intended at editor-core unit tests
+reason:   batch APIs did not exist
+observed: 7 new behavioural tests failed on missing functions while existing editor-core tests remained green
+```
+
+Initial implementation head `4b3d81f71c9d58086db32c7332ce23c5ed67839e` made the entire unit suite and recognition gate GREEN, but full CI correctly stopped at typecheck because the new test fixture used unsupported category `"work"`. The fixture was corrected to the valid physical category `"table"`; no behavioural assertion, validation rule or threshold was weakened.
+
+Final GREEN:
+
+```text
+head:     c3cce0bc4014fe07d7dbc4d009a0b91c8a93eb96
+CI #4671: PASS
+editor-core: 47 / 47 PASS
+web:         413 / 413 PASS
+```
+
+The final run also passed the complete workspace unit suite, Core Recognition Benchmark, typecheck, lint and production build. The production implementation remains framework-independent and does not introduce persistence/schema changes or structural batch semantics.
+
 ## Acceptance / merge
 
 Not yet accepted. No completion or merge claim is made by this record.
