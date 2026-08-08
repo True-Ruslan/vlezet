@@ -111,18 +111,18 @@ export function fitWorldBounds(
 }
 
 export function fitDocumentViewport(
-  documentBounds: WorldBounds,
+  documentBounds: WorldBounds | null,
   referenceBounds: WorldBounds | null,
   viewportSize: ViewportSize,
   paddingPx: number,
   limits: ZoomLimits,
-): ViewportTransform {
-  return fitWorldBounds(
-    referenceBounds ? unionWorldBounds(documentBounds, referenceBounds) : documentBounds,
-    viewportSize,
-    paddingPx,
-    limits,
-  );
+): ViewportTransform | null {
+  if (!documentBounds && !referenceBounds) return null;
+  const bounds = documentBounds && referenceBounds
+    ? unionWorldBounds(documentBounds, referenceBounds)
+    : documentBounds ?? referenceBounds;
+  if (!bounds) return null;
+  return fitWorldBounds(bounds, viewportSize, paddingPx, limits);
 }
 
 export function fitSelectionViewport(
