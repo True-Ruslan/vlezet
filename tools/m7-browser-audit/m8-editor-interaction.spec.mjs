@@ -65,6 +65,53 @@ async function projectFacts(page) {
   return details.locator(".editor-actions-facts");
 }
 
+async function expectObjectCount(page, count) {
+  const details = page.locator("details.editor-actions-menu");
+  const wasOpen = await details.evaluate((element) => element.open);
+  if (!wasOpen) await details.locator("summary").click();
+  await expect(details.locator(".editor-actions-facts")).toContainText(`${count} предмет`);
+  if (!wasOpen) await details.locator("summary").click();
+}
+
+async function ensureFurnitureCatalog(page) {
+  const search = page.getByRole("searchbox", { name: "Поиск мебели и техники" });
+  if (!(await search.isVisible())) {
+    await page.getByRole("button", { name: "Мебель", exact: true }).click();
+  }
+  await expect(search).toBeVisible();
+  return search;
+}
+
+async function placeChair(page, xRatio, yRatio) {
+  const search = await ensureFurnitureCatalog(page);
+  await search.fill("стул");
+  await page.getByRole("button", { name: /^Стул,/ }).click();
+
+  const box = await canvasBox(page);
+  const point = { x: box.x + box.width * xRatio, y: box.y + box.height * yRatio };
+  await page.mouse.move(point.x, point.y);
+  await expect(page.locator(".placement-fit-label")).toBeVisible();
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator(".context-panel-title")).toHaveText("Стул");
+  return point;
+}
+
+async function selectTwoChairs(page) {
+  const first = await placeChair(page, 0.42, 0.48);
+  const second = await placeChair(page, 0.62, 0.48);
+  await page.keyboard.down("Shift");
+  await page.mouse.click(first.x, first.y);
+  await page.keyboard.up("Shift");
+  await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+  await expect(page.locator(".multi-selection-summary")).toContainText("Предметы: 2");
+  return { first, second };
+}
+
+async function movePointerToCanvasSafeArea(page) {
+  const box = await canvasBox(page);
+  await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.05);
+}
+
 test.describe("M8.1 editor interaction acceptance", () => {
   test("keeps the semantic context menu inside a compact viewport", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -203,5 +250,106 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await page.getByRole("button", { name: "Отменить" }).click();
     const afterUndoFacts = await projectFacts(page);
     await expect(afterUndoFacts).toContainText("3 стен");
+  });
+
+  test("executes the same registered commands from the semantic context menu", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    const chair = await placeChair(page, 0.5, 0.48);
+
+    await page.mouse.click(chair.x, chair.y, { button: "right" });
+    const menu = page.getByRole("menu", { name: "Действия с выделением" });
+    await expect(menu).toBeVisible();
+    for (const label of ["Копировать", "Вырезать", "Дублировать", "Повернуть на 90°", "Удалить"]) {
+      await expect(menu.getByRole("menuitem", { name: label })).toBeVisible();
+    }
+    await expect(menu.getByRole("menuitem", { name: "Вставить" })).toHaveCount(0);
+
+    await menu.getByRole("menuitem", { name: "Дублировать" }).click();
+    await expect(menu).toBeHidden();
+    await expectObjectCount(page, 2);
+  });
+
+  test("keeps an additive furniture group rigid through one Undo and Redo", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    const { first } = await selectTwoChairs(page);
+
+    await movePointerToCanvasSafeArea(page);
+    const beforeMove = await canvasScreenshot(page);
+
+    await page.mouse.move(first.x, first.y);
+    await page.mouse.down();
+    await page.mouse.move(first.x + 80, first.y + 45, { steps: 6 });
+    await page.mouse.up();
+    await movePointerToCanvasSafeArea(page);
+
+    const afterMove = await canvasScreenshot(page);
+    expect(afterMove.equals(beforeMove)).toBe(false);
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+    await expect(page.locator(".multi-selection-summary")).toContainText("Предметы: 2");
+
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await expect.poll(async () => (await canvasScreenshot(page)).equals(beforeMove)).toBe(true);
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+    await page.getByRole("button", { name: "Повторить" }).click();
+    await expect.poll(async () => (await canvasScreenshot(page)).equals(afterMove)).toBe(true);
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+  });
+
+  test("copies, pastes, duplicates and cuts the selected furniture group atomically", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    await selectTwoChairs(page);
+    await expectObjectCount(page, 2);
+
+    await page.keyboard.press("Control+C");
+    await expectObjectCount(page, 2);
+
+    await page.keyboard.press("Control+V");
+    await expectObjectCount(page, 4);
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+    await page.keyboard.press("Control+D");
+    await expectObjectCount(page, 6);
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+    await page.keyboard.press("Control+X");
+    await expectObjectCount(page, 4);
+
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await expectObjectCount(page, 6);
+  });
+
+  test("selects all concrete entities without derived rooms and fails mixed mutations closed", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    await placeChair(page, 0.5, 0.48);
+
+    await page.keyboard.press("Control+A");
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 5");
+    const summary = page.locator(".multi-selection-summary");
+    await expect(summary).toContainText("Стены: 4");
+    await expect(summary).toContainText("Предметы: 1");
+    await expect(summary).not.toContainText("Комнаты:");
+
+    const actions = page.locator(".multi-selection-inspector .context-panel-action-area");
+    await expect(actions.getByRole("button", { name: "Копировать" })).toHaveCount(0);
+    await expect(actions.getByRole("button", { name: "Вырезать" })).toHaveCount(0);
+    await expect(actions.getByRole("button", { name: "Дублировать" })).toHaveCount(0);
+    await expect(actions.getByRole("button", { name: "Удалить" })).toHaveCount(0);
+
+    await page.keyboard.press("1");
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + 64, { button: "right" });
+    const menu = page.getByRole("menu", { name: "Действия с выделением" });
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText("Нет доступных действий");
+    await expect(menu.getByRole("menuitem")).toHaveCount(0);
   });
 });
