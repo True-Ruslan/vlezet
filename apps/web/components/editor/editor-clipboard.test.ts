@@ -1,4 +1,5 @@
-import { createPlacedObject } from "@vlezet/domain";
+import { createPlacedObject, type PlacedObject } from "@vlezet/domain";
+import { objectRectangle, orientedRectangleCorners } from "@vlezet/geometry";
 import { describe, expect, it } from "vitest";
 import {
   createPlacedObjectClipboardPayload,
@@ -32,6 +33,14 @@ function sourceObjects() {
   ] as const;
 }
 
+function boundsCenter(objects: readonly PlacedObject[]) {
+  const corners = objects.flatMap((object) => orientedRectangleCorners(objectRectangle(object)));
+  return {
+    x: (Math.min(...corners.map((point) => point.x)) + Math.max(...corners.map((point) => point.x))) / 2,
+    y: (Math.min(...corners.map((point) => point.y)) + Math.max(...corners.map((point) => point.y))) / 2,
+  };
+}
+
 function ids(...values: string[]) {
   let index = 0;
   return () => {
@@ -42,7 +51,7 @@ function ids(...values: string[]) {
 }
 
 describe("M8.1 semantic placed-object clipboard", () => {
-  it("creates a versioned immutable payload with a stable bounding-box origin", () => {
+  it("creates a versioned immutable payload with a stable rotation-aware bounding-box origin", () => {
     const source = sourceObjects();
     const snapshot = structuredClone(source);
 
@@ -53,9 +62,8 @@ describe("M8.1 semantic placed-object clipboard", () => {
     expect(payload.kind).toBe("placed-objects");
     expect(payload.objects).toEqual(source);
     expect(payload.objects).not.toBe(source);
+    expect(payload.copiedAtOrigin).toEqual(boundsCenter(source));
     expect(payload.copiedAtOrigin).toEqual(reversed.copiedAtOrigin);
-    expect(Number.isFinite(payload.copiedAtOrigin.x)).toBe(true);
-    expect(Number.isFinite(payload.copiedAtOrigin.y)).toBe(true);
     expect(source).toEqual(snapshot);
   });
 
@@ -81,12 +89,7 @@ describe("M8.1 semantic placed-object clipboard", () => {
     expect(pasted[1]!.position.y - pasted[0]!.position.y).toBe(
       source[1].position.y - source[0].position.y,
     );
-
-    const minX = Math.min(...pasted.map((object) => object.position.x - object.width / 2));
-    const maxX = Math.max(...pasted.map((object) => object.position.x + object.width / 2));
-    const minY = Math.min(...pasted.map((object) => object.position.y - object.depth / 2));
-    const maxY = Math.max(...pasted.map((object) => object.position.y + object.depth / 2));
-    expect({ x: (minX + maxX) / 2, y: (minY + maxY) / 2 }).toEqual(anchor);
+    expect(boundsCenter(pasted)).toEqual(anchor);
   });
 
   it("adds a deterministic 200 mm diagonal offset for repeated paste", () => {
