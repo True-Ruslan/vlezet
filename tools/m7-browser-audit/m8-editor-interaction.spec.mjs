@@ -112,6 +112,15 @@ async function movePointerToCanvasSafeArea(page) {
   await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.05);
 }
 
+async function dragMarquee(page, start, end, additive = false) {
+  await page.mouse.move(start.x, start.y);
+  if (additive) await page.keyboard.down("Shift");
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 8 });
+  await page.mouse.up();
+  if (additive) await page.keyboard.up("Shift");
+}
+
 test.describe("M8.1 editor interaction acceptance", () => {
   test("keeps the semantic context menu inside a compact viewport", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -323,6 +332,32 @@ test.describe("M8.1 editor interaction acceptance", () => {
 
     await page.getByRole("button", { name: "Отменить" }).click();
     await expectObjectCount(page, 6);
+  });
+
+  test("replaces and additively extends furniture selection with marquee drag inside a room", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    const first = await placeChair(page, 0.32, 0.48);
+    const second = await placeChair(page, 0.5, 0.48);
+    const third = await placeChair(page, 0.68, 0.48);
+
+    await dragMarquee(
+      page,
+      { x: first.x - 60, y: first.y - 60 },
+      { x: second.x + 60, y: second.y + 60 },
+    );
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+    await expect(page.locator(".multi-selection-summary")).toContainText("Предметы: 2");
+
+    await dragMarquee(
+      page,
+      { x: third.x - 60, y: third.y - 60 },
+      { x: third.x + 60, y: third.y + 60 },
+      true,
+    );
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 3");
+    await expect(page.locator(".multi-selection-summary")).toContainText("Предметы: 3");
   });
 
   test("selects all concrete entities without derived rooms and fails mixed mutations closed", async ({ page }) => {
