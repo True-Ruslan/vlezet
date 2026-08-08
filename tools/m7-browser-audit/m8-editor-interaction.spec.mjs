@@ -41,6 +41,22 @@ async function documentHasNoHorizontalOverflow(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 }
 
+async function canvasScreenshot(page) {
+  return page.locator(".konvajs-content").first().screenshot();
+}
+
+async function expectCanvasToChange(page, before) {
+  await expect.poll(async () => {
+    const after = await canvasScreenshot(page);
+    return after.equals(before);
+  }).toBe(false);
+}
+
+async function expectSemanticHistoryEmpty(page) {
+  await expect(page.getByRole("button", { name: "Отменить" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Повторить" })).toBeDisabled();
+}
+
 test.describe("M8.1 editor interaction acceptance", () => {
   test("keeps the semantic context menu inside a compact viewport", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -74,5 +90,53 @@ test.describe("M8.1 editor interaction acceptance", () => {
     expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(viewport.width - 8);
     expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(viewport.height - 8);
     await expect.poll(() => documentHasNoHorizontalOverflow(page)).toBe(true);
+  });
+
+  test("pans with ordinary wheel and zooms with modified wheel without semantic history", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await expectSemanticHistoryEmpty(page);
+
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+
+    const beforePan = await canvasScreenshot(page);
+    await page.mouse.wheel(72, 96);
+    await expectCanvasToChange(page, beforePan);
+    await expectSemanticHistoryEmpty(page);
+
+    const beforeZoom = await canvasScreenshot(page);
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, -180);
+    await page.keyboard.up("Control");
+    await expectCanvasToChange(page, beforeZoom);
+    await expectSemanticHistoryEmpty(page);
+  });
+
+  test("pans with Space drag and middle-button drag without semantic history", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await expectSemanticHistoryEmpty(page);
+
+    const box = await canvasBox(page);
+    const start = { x: box.x + box.width * 0.45, y: box.y + box.height * 0.45 };
+
+    const beforeSpacePan = await canvasScreenshot(page);
+    await page.mouse.move(start.x, start.y);
+    await page.keyboard.down("Space");
+    await page.mouse.down();
+    await page.mouse.move(start.x + 90, start.y + 55, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Space");
+    await expectCanvasToChange(page, beforeSpacePan);
+    await expectSemanticHistoryEmpty(page);
+
+    const beforeMiddlePan = await canvasScreenshot(page);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down({ button: "middle" });
+    await page.mouse.move(start.x - 80, start.y + 45, { steps: 5 });
+    await page.mouse.up({ button: "middle" });
+    await expectCanvasToChange(page, beforeMiddlePan);
+    await expectSemanticHistoryEmpty(page);
   });
 });
