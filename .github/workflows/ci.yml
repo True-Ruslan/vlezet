@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload documentation diagnostics
         if: failure() && steps.project_docs.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: project-docs-diagnostics
           path: project-docs.log
@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload test diagnostics
         if: failure() && steps.tests.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-diagnostics
           path: test.log
@@ -91,7 +91,7 @@ jobs:
 
       - name: Upload Core Recognition Benchmark evidence
         if: always() && steps.recognition_core.outcome != 'skipped'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: recognition-core-benchmark
           path: |
@@ -111,7 +111,7 @@ jobs:
 
       - name: Upload typecheck diagnostics
         if: failure() && steps.typecheck.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: typecheck-diagnostics
           path: typecheck.log
@@ -129,7 +129,7 @@ jobs:
 
       - name: Upload lint diagnostics
         if: failure() && steps.lint.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lint-diagnostics
           path: lint.log
@@ -147,7 +147,7 @@ jobs:
 
       - name: Upload build diagnostics
         if: failure() && steps.build.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-diagnostics
           path: build.log
