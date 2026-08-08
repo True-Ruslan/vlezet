@@ -36,6 +36,10 @@ import { deriveEditorEscapeAction } from "./editor-escape-priority";
 import { EditorOnboardingOverlay } from "./editor-onboarding-overlay";
 import { EditorSideSurface } from "./editor-side-surface";
 import { EditorToolbar } from "./editor-toolbar";
+import {
+  type EditorViewportCommand,
+  type EditorViewportCommandRequest,
+} from "./editor-viewport-controller";
 import { FurnitureCatalog } from "./furniture-catalog";
 import { getEditorLegacyShortcut } from "./keyboard";
 import { measurementToolStore } from "./measurement-tool-store";
@@ -118,7 +122,7 @@ const EMPTY_SELECTION: EditorOrdinarySelection = {
 };
 
 export function ApartmentEditor(props: ApartmentEditorProps) {
-  const [fitRequest, setFitRequest] = useState(0);
+  const [viewCommandRequest, setViewCommandRequest] = useState<EditorViewportCommandRequest | null>(null);
   const [fitReferenceRequest, setFitReferenceRequest] = useState(0);
   const [fit3dRequest, setFit3dRequest] = useState(0);
   const [compactSurfaceChoice, setCompactSurfaceChoice] = useState<CompactSurfaceChoice | null>(null);
@@ -178,6 +182,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     if (compactSurfaceChoice?.surface === "catalogue" && props.furnitureCatalogOpen) return "catalogue";
     return null;
   })();
+
+  const requestViewportCommand = useCallback((command: EditorViewportCommand) => {
+    setViewCommandRequest((current) => ({
+      serial: (current?.serial ?? 0) + 1,
+      command,
+    }));
+  }, []);
 
   const openCatalogueSurface = useCallback(() => {
     const surface = nextCompactEditorSurface(null, { kind: "open-catalogue" });
@@ -306,8 +317,26 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         if (store.selection.refs.length === 0) return false;
         store.clearSelection();
         return true;
+      case "view.zoomIn":
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("zoom-in");
+        return true;
+      case "view.zoomOut":
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("zoom-out");
+        return true;
+      case "view.actualSize":
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("actual-size");
+        return true;
       case "view.fitPlan":
-        setFitRequest((value) => value + 1);
+        if (viewMode !== "2d") return false;
+        requestViewportCommand("fit-plan");
+        return true;
+      case "view.fitSelection":
+        if (viewMode !== "2d") return false;
+        if (store.selection.refs.length === 0) return false;
+        requestViewportCommand("fit-selection");
         return true;
       case "tool.select":
         if (editingBlocked) return false;
@@ -333,13 +362,8 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         if (editingBlocked || !selectedObjectIdFromSelection(store.selection)) return false;
         store.rotateSelectedObject90();
         return true;
-      case "view.zoomIn":
-      case "view.zoomOut":
-      case "view.actualSize":
-      case "view.fitSelection":
-        return false;
     }
-  }, [props.recognitionPanelOpen]);
+  }, [props.recognitionPanelOpen, requestViewportCommand, viewMode]);
 
   useEffect(() => {
     spatialViewModeStore.getState().setMode("2d");
@@ -461,7 +485,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         onToggleRecognitionPanel={toggleRecognitionSurface}
         onToggleContext={() => compactSurface === "context" ? closeCompactSurface() : openContextSurface()}
         onRetrySave={props.onRetrySave}
-        onFit={() => viewMode === "3d" ? setFit3dRequest((value) => value + 1) : setFitRequest((value) => value + 1)}
+        onFit={() => viewMode === "3d" ? setFit3dRequest((value) => value + 1) : requestViewportCommand("fit-plan")}
         onExportJson={props.onExportJson}
         onExportPng={props.onExportPng}
         onExportPngWithReference={props.onExportPngWithReference}
@@ -491,7 +515,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             key={props.projectId}
             initialViewport={props.initialViewport}
             onViewportChange={props.onViewportChange}
-            fitRequest={fitRequest}
+            viewCommandRequest={viewCommandRequest}
             fitReferenceRequest={fitReferenceRequest}
             referencePlan={props.referencePlan}
             referenceAssetBlob={props.referenceAssetBlob}
