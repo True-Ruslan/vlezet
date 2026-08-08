@@ -115,6 +115,11 @@ type CompactSurfaceChoice = Readonly<{
   contextKey: string;
 }>;
 
+type OwnedEditorContextMenuRequest = Readonly<{
+  ownerKey: string;
+  request: EditorContextMenuRequest;
+}>;
+
 function reviewDraft(state: RecognitionControllerState) {
   if (state.kind === "review" || state.kind === "running-cloud" || state.kind === "error") return state.session?.draft ?? null;
   return null;
@@ -134,7 +139,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const [compactSurfaceChoice, setCompactSurfaceChoice] = useState<CompactSurfaceChoice | null>(null);
   const [dismissedContextKey, setDismissedContextKey] = useState<string | null>(null);
   const [workflowReturnTarget, setWorkflowReturnTarget] = useState<WorkflowReturnTarget | null>(null);
-  const [contextMenuRequest, setContextMenuRequest] = useState<EditorContextMenuRequest | null>(null);
+  const [ownedContextMenuRequest, setOwnedContextMenuRequest] = useState<OwnedEditorContextMenuRequest | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const document = useStore(editorStore, (state) => state.history.document);
@@ -168,13 +173,24 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     selectedWallId,
     selectionContextKey,
   ].join(":");
+  const contextMenuOwnerKey = [
+    props.projectId,
+    viewMode,
+    props.recognitionPanelOpen ? "recognition" : "editor",
+    props.referencePanelOpen ? "reference" : "editor",
+    planningRoomId ?? "no-planning",
+    props.tracingMode ? "tracing" : "editing",
+  ].join(":");
+  const contextMenuRequest = ownedContextMenuRequest?.ownerKey === contextMenuOwnerKey
+    ? ownedContextMenuRequest.request
+    : null;
 
-  const currentSelection = useMemo<EditorOrdinarySelection>(() => ({
+  const currentSelection: EditorOrdinarySelection = {
     selectedWallId,
     selectedRoomId,
     selectedOpeningId: selectedOpening?.id ?? null,
     selectedObjectId,
-  }), [selectedObjectId, selectedOpening?.id, selectedRoomId, selectedWallId]);
+  };
 
   const planningReturnTarget = useMemo(() => planningRoomId
     ? captureEditorWorkflowReturnTarget({ ...EMPTY_SELECTION, selectedRoomId: planningRoomId }, document)
@@ -377,22 +393,18 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
 
   const openContextMenu = useCallback((request: EditorContextMenuRequest | null) => {
     if (!request) {
-      setContextMenuRequest(null);
+      setOwnedContextMenuRequest(null);
       return;
     }
     const store = editorStore.getState();
     const nextSelection = selectionForContextMenuTarget(store.selection, request.target);
     if (nextSelection !== store.selection) store.replaceSelection(request.target);
-    setContextMenuRequest(request);
-  }, []);
+    setOwnedContextMenuRequest({ ownerKey: contextMenuOwnerKey, request });
+  }, [contextMenuOwnerKey]);
 
   useEffect(() => {
     spatialViewModeStore.getState().setMode("2d");
   }, [props.projectId]);
-
-  useEffect(() => {
-    setContextMenuRequest(null);
-  }, [props.projectId, props.recognitionPanelOpen, props.referencePanelOpen, viewMode]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -400,7 +412,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       if (isNativeEditableTarget(event.target) && !escapePressed) return;
       if (escapePressed && contextMenuRequest) {
         event.preventDefault();
-        setContextMenuRequest(null);
+        setOwnedContextMenuRequest(null);
         return;
       }
 
@@ -580,7 +592,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           selection={selection}
           hasPlacedObjectClipboard={hasPlacedObjectClipboard}
           executeCommand={executeEditorCommand}
-          onDismiss={() => setContextMenuRequest(null)}
+          onDismiss={() => setOwnedContextMenuRequest(null)}
         />
       ) : null}
       {viewMode === "2d" && props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
