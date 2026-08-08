@@ -1,4 +1,4 @@
-name: M7 Browser Audit
+name: Browser Acceptance
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
       - "docs/CHANGELOG.md"
       - "docs/product/UX_BROWSER_EVIDENCE.md"
       - "docs/product/UX_ROADMAP.md"
-      - "docs/milestones/m7-0-acceptance.md"
+      - "docs/milestones/**"
       - "scripts/validate-m7-docs.mjs"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -22,6 +22,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   browser-audit:
@@ -31,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -42,6 +48,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.16.0
+          cache: pnpm
 
       - name: Install product dependencies
         run: pnpm install --frozen-lockfile
@@ -69,13 +76,13 @@ jobs:
           cat /tmp/vlezet-dev.log
           exit 1
 
-      - name: Run Chromium M7 browser audit
+      - name: Run Chromium browser acceptance
         working-directory: tools/m7-browser-audit
         env:
           M7_BASE_URL: http://127.0.0.1:3000
         run: npm run audit
 
-      - name: Run WebKit core smoke
+      - name: Run WebKit representative smoke
         working-directory: tools/m7-browser-audit
         env:
           M7_BASE_URL: http://127.0.0.1:3000
@@ -85,7 +92,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m7-browser-audit-evidence
+          name: browser-acceptance-evidence
           path: |
             tools/m7-browser-audit/artifacts
             tools/m7-browser-audit/test-results

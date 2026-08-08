@@ -1,0 +1,41 @@
+name: Feature request
+description: Предложить улучшение продукта или инженерного процесса
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую проблему нужно решить?
+      description: Опишите пользовательскую или инженерную проблему, а не только желаемую реализацию.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Какой результат нужен?
+      description: Что пользователь должен уметь сделать после изменения?
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Ограничения и важные детали
+      description: Точность, UX, совместимость, производительность, privacy или другие ограничения.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы
+      description: Какие обходные пути или другие варианты уже рассматривались?
+
+  - type: checkboxes
+    id: architecture
+    attributes:
+      label: Архитектурные границы
+      options:
+        - label: Предложение не предполагает молча ослаблять миллиметровую геометрию, deterministic validation или explicit user authority.
+          required: true
