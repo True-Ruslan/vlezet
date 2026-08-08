@@ -2,10 +2,19 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -15,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -26,25 +37,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.16.0
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: M7 documentation contract
-        id: m7_docs
+      - name: Project documentation contract
+        id: project_docs
         shell: bash
         run: |
           set +e
-          pnpm validate:m7-docs 2>&1 | tee m7-docs.log
+          pnpm validate:m7-docs 2>&1 | tee project-docs.log
           status=${PIPESTATUS[0]}
           exit "$status"
 
-      - name: Upload M7 documentation diagnostics
-        if: failure() && steps.m7_docs.outcome == 'failure'
+      - name: Upload documentation diagnostics
+        if: failure() && steps.project_docs.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: m7-docs-diagnostics
-          path: m7-docs.log
+          name: project-docs-diagnostics
+          path: project-docs.log
           if-no-files-found: error
           retention-days: 3
 
