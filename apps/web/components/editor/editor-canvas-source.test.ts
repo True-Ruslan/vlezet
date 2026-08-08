@@ -114,6 +114,18 @@ describe("M8.1 Canvas viewport navigation", () => {
     expect(wheelBody).toContain("event.evt.preventDefault()");
     expect(wheelBody).not.toContain("Math.exp(-event.evt.deltaY * 0.0015)");
   });
+
+  it("executes semantic view requests without writing editor history", () => {
+    expect(source).toContain("viewCommandRequest: EditorViewportCommandRequest | null");
+    expect(source).toContain("handledViewCommandSerialRef");
+    expect(source).toContain("fitDocumentViewport(");
+    expect(source).toContain("fitSelectionViewport(");
+    expect(source).toContain("actualSizeViewport(");
+    expect(source).toContain("zoomViewportByCommand(");
+    expect(source).toContain("DEFAULT_PROJECT_VIEWPORT.pixelsPerMillimeter");
+    expect(source).toContain("deriveSelectionWorldBounds(document, selection)");
+    expect(source).not.toContain("executeCommand(");
+  });
 });
 
 describe("M8.1 Canvas semantic multi-selection", () => {
