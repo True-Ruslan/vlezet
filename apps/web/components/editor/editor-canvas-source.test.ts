@@ -164,6 +164,22 @@ describe("M8.1 Canvas semantic multi-selection", () => {
     expect(source).not.toContain('onMouseDown={select}');
   });
 
+  it("suppresses the synthetic geometry click emitted after a completed marquee drag", () => {
+    expect(source).toContain("const suppressGeometryClickRef = useRef(false)");
+    const selectStart = source.indexOf("const selectEntityFromPointer");
+    const selectEnd = source.indexOf("const snapPointer", selectStart);
+    const selectBody = source.slice(selectStart, selectEnd);
+    expect(selectBody).toContain("if (suppressGeometryClickRef.current)");
+    expect(selectBody).toContain("suppressGeometryClickRef.current = false");
+    expect(selectBody.indexOf("if (suppressGeometryClickRef.current)")).toBeLessThan(selectBody.indexOf("store.replaceSelection(ref)"));
+
+    const marqueeStart = source.indexOf("const finalizeMarquee");
+    const marqueeEnd = source.indexOf("const onMouseDown", marqueeStart);
+    const marqueeBody = source.slice(marqueeStart, marqueeEnd);
+    expect(marqueeBody).toContain("suppressGeometryClickRef.current = true");
+    expect(marqueeBody.indexOf("distance < MARQUEE_THRESHOLD_PX")).toBeLessThan(marqueeBody.indexOf("suppressGeometryClickRef.current = true"));
+  });
+
   it("keeps marquee Canvas-local and commits only after the screen-pixel drag threshold", () => {
     expect(source).toContain("type MarqueeGesture");
     expect(source).toContain("const MARQUEE_THRESHOLD_PX = 4");
