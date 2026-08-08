@@ -1,7 +1,7 @@
 "use client";
 
 import type { VlezetDocument } from "@vlezet/domain";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { EDITOR_COMMANDS, type EditorCommandId } from "./editor-commands";
 import { deriveSelectionCapabilities } from "./editor-selection-capabilities";
 import {
@@ -25,6 +25,7 @@ const CONTEXT_COMMANDS: readonly Readonly<{
 ];
 
 const COMMAND_BY_ID = new Map(EDITOR_COMMANDS.map((descriptor) => [descriptor.id, descriptor]));
+const CONTEXT_MENU_VIEWPORT_MARGIN = 8;
 
 export type EditorContextMenuRequest = Readonly<{
   position: Readonly<{ x: number; y: number }>;
@@ -35,6 +36,22 @@ export type EditorContextMenuCommand = Readonly<{
   id: EditorCommandId;
   label: string;
 }>;
+
+type ContextMenuSize = Readonly<{ width: number; height: number }>;
+
+export function clampContextMenuPosition(
+  anchor: Readonly<{ x: number; y: number }>,
+  menuSize: ContextMenuSize,
+  viewportSize: ContextMenuSize,
+  margin = CONTEXT_MENU_VIEWPORT_MARGIN,
+): Readonly<{ x: number; y: number }> {
+  const maxX = Math.max(margin, viewportSize.width - menuSize.width - margin);
+  const maxY = Math.max(margin, viewportSize.height - menuSize.height - margin);
+  return {
+    x: Math.min(Math.max(anchor.x, margin), maxX),
+    y: Math.min(Math.max(anchor.y, margin), maxY),
+  };
+}
 
 export function selectionForContextMenuTarget(
   selection: EditorSelection,
@@ -93,11 +110,32 @@ export function EditorContextMenu({
   executeCommand: (command: EditorCommandId) => unknown;
   onDismiss: () => void;
 }>) {
+  const menuRef = useRef<HTMLDivElement>(null);
   const commands = availableContextMenuCommands(
     document,
     selection,
     hasPlacedObjectClipboard,
   );
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return;
+
+    const updatePosition = () => {
+      const bounds = menu.getBoundingClientRect();
+      const next = clampContextMenuPosition(
+        position,
+        { width: bounds.width, height: bounds.height },
+        { width: window.innerWidth, height: window.innerHeight },
+      );
+      menu.style.left = `${next.x}px`;
+      menu.style.top = `${next.y}px`;
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    return () => window.removeEventListener("resize", updatePosition);
+  }, [commands.length, position]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -116,6 +154,7 @@ export function EditorContextMenu({
 
   return (
     <div
+      ref={menuRef}
       className="editor-context-menu"
       role="menu"
       aria-label="Действия с выделением"
