@@ -1,26 +1,38 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-03  
-**Status:** M0–M7.8B are implemented, product-accepted and merged. M7.8A established the versioned recognition benchmark. M7.8B delivered region-first source normalisation, bounded wall topology and verification-only AI through PR #41, squash merge `08800dd66fa298ff31d1a7e6b33e91964cdb8d16`. The selected next implementation slice is M7.8C — opening classification and host-wall validation.  
-**Canonical rule:** read this file first in a new chat, then `docs/product/UX_ROADMAP.md`, the latest milestone acceptance record and `docs/ROADMAP.md`.
+**Last updated:** 2026-08-08  
+**Status:** M0–M7.8B are implemented, product-accepted and merged. The M7.8C automatic-recognition experiment was not accepted after a real-plan usefulness retest and its stacked PRs were closed without merge. Product direction is now the M8 Public Beta Editor programme. The selected first implementation slice is M8.1 — Editor Interaction Foundation, pending written-spec review.  
+**Target:** public free beta suitable for unfamiliar users.  
+**Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, the latest focused changelog and the active design/plan.
 
 ## 1. Product
 
 **Vlezet** is a precise, approachable apartment planner for non-professional owners and buyers.
 
-> Draw or import a real apartment, work with understandable real dimensions, place furniture and appliances, and understand what fits, collides and remains usable — without learning professional CAD.
+> Draw or import a real apartment, work with understandable real dimensions, place furniture and appliances, understand fit/collisions/usability and export a clean plan — without learning professional CAD.
+
+The beta product is intentionally **not** a generic diagram editor and **not** an AI-recognition product.
+
+Target interaction quality may learn from mature canvas tools, but architectural semantics remain stricter:
+
+- walls remain topological physical walls;
+- openings remain attached to validated host walls;
+- rooms remain derived;
+- furniture keeps physical millimetre dimensions;
+- graphical group scaling may not destroy real-world semantics.
 
 Priorities:
 
 1. precision and trust before decoration;
-2. structured editable geometry rather than image-only plans;
-3. millimetres as the canonical world unit;
-4. local-first core editing;
-5. understandable semantics for ordinary users;
-6. AI/CV only as reviewable assistance;
-7. 3D as a projection of the same document;
-8. deterministic, explainable planning with explicit Apply;
-9. reachability, hierarchy and accessibility before feature expansion.
+2. strong manual editing before speculative automation;
+3. structured editable geometry rather than image-only plans;
+4. millimetres as canonical world units;
+5. local-first core editing;
+6. familiar, predictable mouse/trackpad/keyboard interactions;
+7. understandable semantics for ordinary users;
+8. AI/CV only as optional reviewable assistance;
+9. 3D as a projection of the same document;
+10. deterministic validation and semantic Undo/Redo.
 
 ## 2. Non-negotiable architecture
 
@@ -32,18 +44,17 @@ Priorities:
 6. Project formats are versioned and migrated deterministically.
 7. Undo/Redo is semantic-command oriented.
 8. Local editing never depends on network latency.
-9. AI/CV create editable suggestions only; deterministic validation remains authoritative.
-10. Existing geometry is never silently replaced.
+9. AI/CV create suggestions only; deterministic validation remains authoritative.
+10. Existing geometry is never silently replaced or repaired.
 11. 3D is read-only and has no parallel editor/fit state.
 12. Planning constraints, candidates, Preview and evidence are ephemeral.
-13. Only explicit Apply mutates ordinary document entities.
+13. Only explicit semantic editor commands mutate ordinary document entities.
 14. M2 remains containment/collision/door/clearance authority.
 15. Optional LLM interpretation cannot generate authoritative coordinates or bypass validation.
-16. Provider keys, raw responses and language drafts are runtime-only.
-17. Responsive shell, workflow return targets and panel visibility are ephemeral UI state.
-18. M7 presentation work must not create a second persistent product truth.
-19. Geometry-inspector and furniture-workflow presentation state is runtime-only.
-20. Recognition candidates must preserve editable Draft and explicit Apply authority.
+16. Provider keys/raw responses remain runtime-only.
+17. Responsive shell, selection, viewport, workflow return targets and transient gesture state are UI/runtime state unless an explicit future persistence design proves otherwise.
+18. Recognition/assistance must preserve explicit user authority and fail closed under ambiguity.
+19. Arbitrary graphical group scaling is not a valid structural editing primitive.
 
 ## 3. Repository and stack
 
@@ -53,7 +64,7 @@ packages/domain          persistent model and migrations
 packages/geometry        geometry/math authority
 packages/editor-core     semantic editing/history/snapping
 packages/projects        local-first persistence
-packages/recognition     assisted CV/reconciliation
+packages/recognition     experimental/assisted CV and benchmark work
 packages/spatial         renderer-neutral 3D projection
 packages/planning        deterministic planning + reviewed intent
 ```
@@ -63,7 +74,7 @@ packages/planning        deterministic planning + reviewed intent
 - state: Zustand plus local ephemeral React state;
 - persistence: IndexedDB;
 - workspace: pnpm + Turborepo;
-- browser acceptance: Playwright Chromium full flow + WebKit representative suite.
+- browser acceptance: Playwright Chromium full representative flow + WebKit representative suite.
 
 ## 4. Accepted milestones
 
@@ -76,105 +87,155 @@ packages/planning        deterministic planning + reviewed intent
 | M7.8A | recognition benchmark foundation, deterministic corpus/scorer/evidence |
 | M7.8B | region-first source normalisation, wall topology, bounded Draft and verification-only AI |
 
-## 5. Current capability
+## 5. Recognition experiment outcome
 
-### Editing and projects
+M7.8C and its stacked experimental work were **not product-accepted**.
+
+The latest original-plan retest still showed insufficient usefulness:
+
+- structural geometry remained incomplete/ambiguous;
+- visible windows were not reliably recovered;
+- service/sanitary notation still competed with structural geometry;
+- AI verification largely confirmed/rejected existing candidates and did not solve missing geometry.
+
+PRs #42, #44 and #45 were therefore closed without merge. Their benchmark/safety work is preserved as R&D evidence.
+
+Automatic whole-plan recognition remains tracked under #27 but no longer controls the public-beta critical path.
+
+The earlier Assisted Tracing design PR #52 is also closed without merge. Its concepts are preserved, while implementation is intentionally deferred to M8.4 after the editor/calibration foundation.
+
+## 6. Current product capability
+
+### Editing/projects
 
 - topological walls, rooms and openings;
 - clear dimensions and usable area;
 - furniture with exact transforms and clearances;
 - explainable fit/collision/door diagnostics;
 - semantic Undo/Redo;
-- local projects, autosave, backup and PNG.
+- local projects, autosave, portable backup and PNG export.
 
-### Reference and recognition
+### Current interaction limitations motivating M8
 
-- local JPG/PNG/PDF calibration and tracing;
-- corrected calibration magnifier and direction-independent orientation;
-- versioned nine-fixture recognition benchmark and evidence bundle;
-- region-first extraction of thick architectural wall regions;
-- bounded Canny/Hough fallback;
-- fail-closed candidate-overload protection;
-- editable local Draft candidates;
-- verification-only OpenRouter review bound to exact local IDs and coordinates;
-- rejection of cloud-only, moved, unbounded or overloaded geometry;
-- explicit Apply; AI output remains non-authoritative.
+- selection is still fundamentally single-entity and split by entity type;
+- no mature unified multi-selection model;
+- no semantic multi-object Copy/Cut/Paste workflow;
+- no marquee selection foundation;
+- navigation works but wheel/trackpad behaviour is not yet polished to mature-canvas expectations;
+- structural drawing still requires too much create-then-inspector correction;
+- reference calibration can be visually mis-pointed without source-feature snapping/secondary scale verification;
+- furniture catalogue/direct Canvas editing remain limited;
+- export lacks SVG and selection export;
+- application theme and canonical plan appearance are not yet separated.
 
-### 3D and planning
+### Reference/recognition
 
-- deterministic read-only shell/furniture projection and semantic inspection;
-- bounded deterministic alternatives for one rectangular room and 1–3 objects;
-- lock, wall/corner, near/far and exact pair-gap rules;
-- reviewed natural-language intent;
-- explicit Preview and revalidated atomic Apply.
+Accepted source import/calibration and M7.8A/B benchmark infrastructure remain available. Recognition is assistive/experimental and not a beta dependency.
 
-## 6. M7.8B accepted evidence
+### 3D/planning
 
-Product-owner acceptance:
+Existing deterministic read-only 3D and bounded planning remain available, but they are not the next beta-critical investment.
 
-> Все работает. Вот результат проверок. Все еще не идеально как видишь.
-
-Representative real-plan result:
+## 7. Public beta programme
 
 ```text
-local wall candidates: 27
-confirmed after AI:     19
-remaining for review:   8
-openings:               0 (deferred)
+M8.0  Public Beta Product Contract / roadmap reset
+M8.1  Editor Interaction Foundation
+M8.2  Precision Drawing and Structural Editing
+M8.3  Precision Reference Calibration
+M8.4  Assisted Tracing
+M8.5  Furniture 2.0
+M8.6  Export, Appearance and Presentation
+M8.7  Public Beta Hardening
+PUBLIC FREE BETA
 ```
 
-Final accepted documentation head and merge:
+Tracker: #53.
 
-```text
-head:                    a5003371f2feb4fa37edbd2513b0b5312bc5dd07
-Standard CI:             30767495988 / #2834 — PASS
-Recognition Benchmark:  30767496002 / #165 — PASS
-M7 Browser Audit:        30767495992 / #618 — PASS
-squash merge:            08800dd66fa298ff31d1a7e6b33e91964cdb8d16
-Source geometry F1:      0.837989
-Source topology F1:      0.837989
-```
+## 8. NOW — M8.1 Editor Interaction Foundation
 
-Canonical records:
-
-- `docs/milestones/m7-8b-acceptance.md`;
-- `docs/changelog/2026-08-02-m7-8b.md`.
-
-## 7. Known limitations
-
-- Recognition remains assistive and can miss or fragment true walls.
-- Confidence classification is not yet perfect.
-- Aggregate Source wall-topology F1 remains below the final M7.8 target of `0.90`.
-- Perspective-photo recognition remains unresolved.
-- Doors/windows, room faces, OCR labels and areas are not yet delivered by the M7.8 programme.
-- Stronger provider models improve verification but cannot create missing geometry.
-- Clear dimension editing remains limited to simple rectangular rooms.
-- Planning remains one rectangular room / 1–3 objects and lacks whole-apartment autonomy.
-- 3D remains schematic and read-only.
-
-## 8. NOW — M7.8C Opening Classification and Host-Wall Validation
+Tracker: #54.
 
 Goal:
 
-> Classify door/window hypotheses, bind every accepted opening to a known host wall, preserve real gaps and improve room-facing structural correctness without weakening Draft, Apply or deterministic authority.
+> Establish one reliable interaction substrate for selection, commands, navigation and safe multi-object editing before precision structural work is expanded.
 
-Required next work:
+Required product outcomes:
 
-1. classify local opening hypotheses as door/window/unknown;
-2. validate host-wall identity and bounded placement;
-3. keep ambiguous openings pending or rejected fail-closed;
-4. add opening-heavy and service-block regressions;
-5. preserve zero unknown-host openings and zero stale decisions;
-6. prepare room-face derivation for the following M7.8 slice;
-7. run exact-head Core/Source benchmark, Chromium/WebKit and product-owner acceptance.
+1. unified runtime semantic selection with primary + multiple refs;
+2. click, modifier-toggle, marquee and Select All semantics;
+3. capability-aware actions that fail closed for unsupported mixed/structural sets;
+4. rigid multi-object movement for placed furniture;
+5. semantic furniture Copy/Cut/Paste/Duplicate with fresh IDs and atomic history;
+6. central command registry shared by shortcuts/secondary UI;
+7. plain wheel/trackpad pan and modified-wheel/pinch zoom around pointer;
+8. Space+drag and middle-button pan;
+9. fit-plan and fit-selection;
+10. existing single-entity inspector compatibility;
+11. no arbitrary group scaling;
+12. no project-schema migration expected.
 
-Non-goals:
+Structural batch movement/clipboard is deliberately deferred to M8.2 because topology dependency closure must be designed and tested explicitly.
 
-- authoritative AI geometry;
-- silent replacement of existing geometry;
-- room OCR/area reconciliation before host-wall correctness;
-- unrelated M7.9+ accessibility, 3D, planning or dashboard work.
+Canonical design:
 
-## 9. Delivery workflow
+`docs/superpowers/specs/2026-08-08-m8-1-editor-interaction-foundation-design.md`
 
-Every M7.x slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, benchmark evidence where applicable, browser evidence, product-owner acceptance, exact-head squash merge and canonical documentation sync.
+## 9. Public beta acceptance journeys
+
+- `BETA-01 Blank` — manually build a small exact apartment with walls/openings.
+- `BETA-02 Reference` — import, calibrate, verify scale and trace a real plan.
+- `BETA-03 Edit` — multi-select/move/copy/paste/duplicate with exact Undo/Redo.
+- `BETA-04 Furnish` — place/edit common furniture and understand fit.
+- `BETA-05 Export` — export the whole plan and selection to PNG/SVG.
+
+## 10. Mandatory engineering policy — TDD
+
+Every deterministic M8 behaviour is developed through genuine **RED → GREEN → regression/refactor**.
+
+- focused failing contract before production behaviour;
+- verify the intended RED failure;
+- smallest correct GREEN implementation;
+- focused + adjacent/full regression gates;
+- no weakening tests, validation or thresholds merely to make CI green;
+- browser gesture/interaction changes require real Chromium coverage and representative WebKit coverage where engine behaviour can differ;
+- manual acceptance is for genuinely observational evidence only, not as a substitute for automatable tests.
+
+## 11. Mandatory documentation policy — CHANGELOG
+
+Every accepted M8 slice must maintain both:
+
+- focused `docs/changelog/YYYY-MM-DD-<slice>.md` history;
+- concise canonical `docs/CHANGELOG.md` entry.
+
+The focused record must state:
+
+1. why the work was required;
+2. user-visible changes;
+3. architecture/authority decisions;
+4. meaningful RED/GREEN evidence;
+5. regressions found/fixed;
+6. intentional deferrals/non-goals;
+7. exact-head CI/browser evidence;
+8. product-owner acceptance when required;
+9. final protected merge identity.
+
+Canonical state/roadmap files are updated only with truthful acceptance/merge status.
+
+## 12. Delivery workflow
+
+Every M8 slice requires:
+
+```text
+approved written design
+→ task-by-task implementation plan
+→ isolated Draft PR
+→ TDD RED/GREEN work
+→ focused regressions
+→ full CI + browser evidence
+→ product-owner acceptance where defined
+→ exact-head protected squash merge
+→ canonical PROJECT_STATE / ROADMAP / CHANGELOG sync
+```
+
+A green pipeline alone never implies product acceptance.

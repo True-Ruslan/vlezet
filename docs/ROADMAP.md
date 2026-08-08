@@ -1,9 +1,9 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-08-03  
-**Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative AI layers.
+**Last updated:** 2026-08-08  
+**Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative automation. Manual editing must remain a complete product path.
 
-Read `docs/PROJECT_STATE.md` first. Detailed UX sequencing is in `docs/product/UX_ROADMAP.md`.
+Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`.
 
 ## Summary
 
@@ -13,18 +13,17 @@ DONE        M1 Apartment Shell
 DONE        M2 Furnishing + Fit
 DONE        M3 Local-First Projects
 DONE        M4 Reference Plan Import
-DONE/MVP    M4.5 Assisted Recognition — measurable refinement remains issue #27
+DONE/MVP    M4.5 Assisted Recognition — automatic full-plan quality remains R&D #27
 DONE        M4.6 Precision Geometry UX
-DONE        M5.1 Deterministic Spatial 3D Shell + Viewer
-DONE        M5.2 Furniture in 3D
-POLISH      M5.3 evidence-driven spatial refinement
-DONE        M5.4 Spatial Inspection
+DONE        M5.1–M5.4 deterministic read-only 3D
 DONE        M6.1–M6.4 deterministic planning and reviewed intent
-DONE        M7.0–M7.7 product and UX foundation
+DONE        M7.0–M7.7 product/UX foundation
 DONE        M7.8A Recognition Benchmark Foundation
 DONE        M7.8B Source Normalisation and Wall Topology
-NOW         M7.8C Opening Classification and Host-Wall Validation
-LATER       remaining M7.8 recognition slices and M7.9–M7.13
+STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance failed
+NOW         M8.1 Editor Interaction Foundation
+THEN        M8.2–M8.7 Public Beta Editor programme
+R&D         automatic whole-plan recognition (#27)
 ```
 
 ## Completed product foundation
@@ -55,138 +54,196 @@ LATER       remaining M7.8 recognition slices and M7.9–M7.13
 
 ### M7.0–M7.7 — product and UX foundation
 
-- product/UX audit and structured findings;
-- responsive editor shell and reachable project/tool commands;
-- unified context inspector and workflow return;
-- governed design tokens and shared components;
-- authoritative Canvas mode, selection and preview semantics;
-- state-derived onboarding, durable status and recovery;
-- explicit room dimensions and accessible opening controls;
-- searchable furniture catalogue and M2-derived fit workflow.
+- responsive editor shell and context inspector;
+- design system and feedback hierarchy;
+- onboarding/recovery;
+- geometry/opening inspector;
+- furniture catalogue and fit workflow;
+- accepted Chromium/WebKit regression foundation.
 
-## Completed M7.8 foundation
+### M7.8A/B — recognition measurement and safe local wall assistance
 
-### M7.8A — Recognition Benchmark Foundation
+Accepted and merged. These remain useful infrastructure/R&D evidence, but no longer define the beta critical path.
 
-Status: **DONE / ACCEPTED / MERGED**.
+## Recognition decision — 2026-08-08
 
-Delivered:
+The unaccepted M7.8C automatic-recognition stack passed deterministic benchmark gates but failed real product usefulness acceptance on the original plan.
 
-- versioned anonymised fixture corpus;
-- deterministic Core and Chromium/OpenCV Source scoring;
-- geometry, topology, opening, room, confidence and reconciliation metrics;
-- reviewed baseline and checksummed evidence bundle;
-- production Worker/shared-engine equivalence;
-- no live provider calls in merge-blocking CI.
+Observed failure class:
 
-### M7.8B — Source Normalisation and Wall Topology
+- incomplete/fragmented structural reconstruction;
+- visible windows still missed;
+- service/sanitary notation still ambiguous;
+- verification-only AI could not recover missing geometry.
 
-Status: **DONE / PRODUCT-ACCEPTED WITH KNOWN PRECISION LIMITATIONS**.
+Consequences:
 
-Delivered:
+- PRs #42, #44 and #45 closed without merge;
+- automatic recognition remains R&D under #27;
+- PR #52 Assisted Tracing design preserved but closed without merge;
+- #51 reframed as **M8.4 Assisted Tracing** after the editor/calibration foundation;
+- public beta prioritises a strong manual editor.
 
-- corrected calibration magnifier and direction-independent orientation;
-- structural-mask normalisation and region-first wall extraction;
-- bounded Hough fallback;
-- deterministic transient wall topology;
-- clutter-heavy candidate-overload protection;
-- restore-time sanitisation of overloaded Drafts;
-- verification-only AI bound to exact local IDs and coordinates;
-- rejection of cloud-only, moved, unbounded and overloaded geometry;
-- nine-fixture benchmark authority;
-- experimental evidence-gated wall completion retained but disabled in runtime after neutral product evidence.
+## M8 Public Beta Editor programme
 
-Representative product result:
+### M8.0 — Public Beta Product Contract / roadmap reset
+
+Status: **PRODUCT DIRECTION APPROVED / DOCUMENTATION CHECKPOINT IN REVIEW**.
+
+Target: a public free beta that an unfamiliar non-CAD user can use successfully.
+
+Product formula:
+
+> Familiar mature-canvas interaction quality + strict apartment semantics + millimetre accuracy + local-first deterministic authority.
+
+General diagram freedom is not a goal. Walls/openings/rooms/furniture keep physical semantics and arbitrary structural group scale remains forbidden.
+
+Tracker: #53.
+
+### M8.1 — Editor Interaction Foundation
+
+Status: **NOW after written-spec review**. Tracker: #54.
+
+Required:
+
+- unified semantic selection;
+- primary + multi-selection;
+- click/modifier/marquee/select-all semantics;
+- capability-aware commands;
+- rigid multi-furniture movement;
+- semantic furniture Copy/Cut/Paste/Duplicate with fresh IDs;
+- central command registry;
+- wheel/trackpad pan + modified-wheel/pinch zoom;
+- Space+drag and middle-button pan;
+- fit-plan / fit-selection;
+- existing single-inspector compatibility;
+- fail-closed mixed/structural batch operations;
+- no arbitrary group scale;
+- no project-schema migration expected.
+
+Structural clipboard/batch movement is M8.2, not a hidden extension of M8.1.
+
+Design: `docs/superpowers/specs/2026-08-08-m8-1-editor-interaction-foundation-design.md`.
+
+### M8.2 — Precision Drawing and Structural Editing
+
+Planned outcomes:
+
+- named visible snap guides;
+- endpoint/wall-axis/midpoint/intersection/parallel/perpendicular assistance;
+- exact inline wall length and useful angle input;
+- direct vertex/junction editing;
+- topology-safe structural movement;
+- structural clipboard only with explicit dependency closure;
+- opening preservation/revalidation;
+- one semantic history command per committed gesture.
+
+### M8.3 — Precision Reference Calibration
+
+Planned outcomes:
+
+- calibration pan/zoom;
+- stronger magnifier/crosshair;
+- source edge/line-centre/intersection snapping;
+- keyboard nudge;
+- fractional image coordinates where justified;
+- second known-distance verification;
+- visible residual/error and distortion warning;
+- no false claim of precision beyond raster/source quality.
+
+### M8.4 — Assisted Tracing
+
+Tracker: #51.
+
+Optional high-confidence source-image snapping inside normal wall/door/window tools after M8.1–M8.3. Explicit user intent and existing topology remain stronger than source-image assistance. Ambiguity abstains. No AI/network dependency required.
+
+### M8.5 — Furniture 2.0
+
+Planned outcomes:
+
+- parameterised household furniture/appliance/sanitary library;
+- direct physical resize/rotation on Canvas;
+- live dimensions;
+- richer snapping;
+- multi-selection alignment/distribution;
+- wall-relative specialist actions where useful;
+- inspector retained for exact numeric editing.
+
+### M8.6 — Export, Appearance and Presentation
+
+Planned outcomes:
+
+- renderer-neutral `ExportScene` concept;
+- PNG + SVG;
+- whole plan + selection export;
+- reference/background/presentation options;
+- transparent PNG where applicable;
+- application Light/Dark/System theme separated from canonical light plan appearance;
+- export result independent of UI theme.
+
+PDF is included only if it is low-risk once vector export exists; it is not allowed to delay beta by itself.
+
+### M8.7 — Public Beta Hardening
+
+Complete accessibility/responsive/performance/recovery/documentation hardening across the beta-critical path. Tablet basic usability is desirable; full phone/tablet editing parity is not a public-beta blocker.
+
+## Public beta acceptance journeys
 
 ```text
-local wall candidates: 27
-confirmed after AI:     19
-remaining for review:   8
-openings:               0 (deferred)
+BETA-01 Blank
+BETA-02 Reference
+BETA-03 Edit
+BETA-04 Furnish
+BETA-05 Export
 ```
 
-Accepted benchmark:
+No public beta until all five journeys have deterministic/unit coverage where possible plus representative Chromium/WebKit browser evidence and no known document-integrity blocker.
+
+## Mandatory TDD delivery rule
+
+Every deterministic M8 behaviour:
 
 ```text
-Source geometry F1: 0.837989
-Source topology F1: 0.837989
-incorrect high-confidence: 0
-unknown-host openings: 0
-stale decisions: 0
+contract
+→ focused failing test (RED)
+→ verify intended failure
+→ minimal correct implementation
+→ focused GREEN
+→ adjacent/full regression
+→ refactor while green
+→ reviewable commit
 ```
 
-Known accepted limitations:
+Forbidden:
 
-- some true walls remain missed or fragmented;
-- confidence classification remains imperfect;
-- perspective-photo recognition remains unresolved;
-- stronger models verify more candidates but cannot add missing geometry;
-- the final M7.8 topology target of `0.90` is not yet reached.
+- weakening existing validation/tests/thresholds merely for green CI;
+- treating a pre-existing passing test as RED evidence;
+- replacing real browser interaction tests with source-string assertions;
+- claiming product acceptance from CI alone.
 
-## NOW — M7.8C Opening Classification and Host-Wall Validation
+## Mandatory CHANGELOG rule
 
-### Problem
+Every accepted M8 slice must maintain:
 
-M7.8B intentionally returns no accepted local openings. Gap hypotheses exist, but the system does not yet reliably determine:
+- focused `docs/changelog/YYYY-MM-DD-<slice>.md`;
+- concise `docs/CHANGELOG.md` entry;
+- truthful post-merge `PROJECT_STATE`/roadmap sync.
 
-- whether a gap represents a door, a window or noise;
-- which wall hosts the opening;
-- whether the opening lies fully within a valid wall span;
-- whether applying it would corrupt topology or room derivation.
+Focused history must explain why, user-visible behaviour, architecture boundaries, meaningful RED/GREEN evidence, regressions fixed, intentional deferrals, exact-head automated evidence, product-owner acceptance and merge identity.
 
-### Goal
+## Deliberate pre-beta non-goals
 
-Classify and validate openings while preserving fail-closed review and deterministic document authority.
+- realtime collaboration;
+- mandatory accounts/cloud sync;
+- generic diagram shapes/arrows/freehand/rich text parity;
+- plugin ecosystem;
+- automatic whole-plan reconstruction as a release gate;
+- autonomous AI layout design;
+- photorealistic 3D;
+- BIM/DXF/DWG;
+- arbitrary user layer stacks;
+- full phone/tablet editor parity.
 
-### Required delivery order
+## Delivery workflow
 
-1. versioned opening hypothesis representation;
-2. deterministic door/window/unknown classification features;
-3. host-wall matching and bounded placement validation;
-4. conflict detection for corners, junctions and overlapping openings;
-5. confidence calibration and explicit pending/rejected states;
-6. opening-heavy and service-block regression expansion;
-7. browser review UX for type and host-wall evidence;
-8. exact-head Core/Source benchmark, Chromium/WebKit and product-owner acceptance.
-
-### Acceptance targets
-
-- door/window F1 at least `0.85` on the accepted corpus before M7.8C completion;
-- zero accepted openings with unknown host walls;
-- zero accepted openings outside their host-wall span;
-- zero stale decisions after repeated local or AI checks;
-- ambiguous gaps remain pending or rejected rather than guessed;
-- AI may verify classification evidence but cannot create or reposition openings;
-- Draft remains editable and only explicit Apply mutates the document;
-- M7.8A/B, M2, history, persistence, planning and 3D do not regress.
-
-### Non-goals
-
-- authoritative AI geometry;
-- silent replacement of existing walls/openings;
-- room-face derivation before host-wall correctness;
-- OCR/area reconciliation;
-- unrelated accessibility, 3D, planning or dashboard work.
-
-## Remaining M7.8 programme
-
-```text
-M7.8D  Room-Face Derivation
-M7.8E  OCR, Labels and Area Constraints
-M7.8F  Hybrid Reconciliation and Confidence Calibration
-M7.8G  Room-Oriented Review Workflow and Final Acceptance
-```
-
-## Later M7 programme
-
-```text
-M7.9  Accessibility and Responsive Hardening
-M7.10 2D/3D Context and Interior Readability
-M7.11 Planning Workflow Simplification
-M7.12 Dashboard and Project Lifecycle
-M7.13 Visual Consolidation and Evidence-Driven Polish
-```
-
-## Delivery rule
-
-Every slice requires focused design, implementation plan, TDD/layout contracts, Draft PR, full CI, benchmark evidence where applicable, browser evidence, product-owner acceptance, exact-head squash merge and canonical documentation sync.
+Every slice requires focused design, user-reviewed written spec, task-by-task TDD implementation plan, isolated Draft PR, genuine RED/GREEN evidence, full CI, browser evidence, product-owner acceptance where defined, exact-head protected squash merge and canonical documentation sync.
