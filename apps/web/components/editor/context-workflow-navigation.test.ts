@@ -20,7 +20,11 @@ describe("M7.2 ApartmentEditor workflow navigation", () => {
     expect(source).toContain("selection.selectedRoomId");
     expect(source).toContain("selection.selectedOpeningId");
     expect(source).toContain("selection.selectedObjectId");
-    expect(source).toContain("store.selectWall(null)");
+    expect(source).toContain("store.clearSelection()");
+    expect(source).toContain("store.selectWall(selection.selectedWallId)");
+    expect(source).toContain("store.selectRoom(selection.selectedRoomId)");
+    expect(source).toContain("store.selectOpening(selection.selectedOpeningId)");
+    expect(source).toContain("store.selectObject(selection.selectedObjectId)");
   });
 
   it("keeps compact presentation close independent from workflow exit", () => {
