@@ -304,8 +304,8 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         return true;
       case "selection.delete":
         if (editingBlocked) return false;
-        if (selectedObjectIdFromSelection(store.selection)) {
-          store.deleteSelectedObject();
+        if (selectedFurnitureOnly) {
+          store.deleteSelection();
           return true;
         }
         if (selectedOpeningIdFromSelection(store.selection)) {
