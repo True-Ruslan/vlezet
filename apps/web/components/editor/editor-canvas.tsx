@@ -190,6 +190,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
   const handledViewCommandSerialRef = useRef(viewCommandRequest?.serial ?? 0);
   const handledFitReferenceRequestRef = useRef(fitReferenceRequest);
   const viewportRef = useRef<ViewportTransform>({ ...initialViewport });
+  const suppressGeometryClickRef = useRef(false);
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [spacePressed, setSpacePressed] = useState(false);
   const [panActive, setPanActive] = useState(false);
@@ -461,6 +462,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
   ) => {
     event.cancelBubble = true;
     if ("button" in event.evt && event.evt.button !== 0) return;
+    if (suppressGeometryClickRef.current) {
+      suppressGeometryClickRef.current = false;
+      return;
+    }
     const pointer = event.target.getStage()?.getPointerPosition() ?? null;
     const ref = pointer ? (() => {
       const world = screenToWorld(pointer, viewport);
@@ -624,6 +629,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
       if (!gesture.additive) store.clearSelection();
       return;
     }
+    suppressGeometryClickRef.current = true;
 
     const startWorld = screenToWorld(gesture.startScreen, viewport);
     const endWorld = screenToWorld(endScreen, viewport);
@@ -653,6 +659,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
       return;
     }
     if (event.evt.button !== 0) return;
+    suppressGeometryClickRef.current = false;
     if (recognitionReviewActive) { onSelectRecognitionCandidate(null); return; }
 
     if (placementPresetId && visiblePlacementPreview) {
