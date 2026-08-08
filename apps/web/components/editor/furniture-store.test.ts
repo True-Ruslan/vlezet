@@ -81,7 +81,10 @@ describe("furniture editor store", () => {
     store.getState().previewObjectGesture({ position: { x: 1800, y: 1400 } });
     expect(store.getState().history.past).toHaveLength(historyLength);
     expect(store.getState().history.document.placedObjects[0]?.position).toEqual({ x: 1000, y: 1000 });
-    expect(store.getState().objectGesture?.preview.position).toEqual({ x: 1800, y: 1400 });
+    const gesture = store.getState().objectGesture;
+    expect(gesture?.kind).toBe("move");
+    if (!gesture || gesture.kind !== "move") throw new Error("Expected move gesture");
+    expect(gesture.preview[0]?.position).toEqual({ x: 1800, y: 1400 });
 
     store.getState().commitObjectGesture();
     expect(store.getState().history.past).toHaveLength(historyLength + 1);
