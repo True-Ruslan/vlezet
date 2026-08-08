@@ -3,14 +3,18 @@ export { createHistoryState, executeCommand, redo, undo } from "./history";
 export type { HistoryEntry, HistoryState } from "./history";
 export {
   addPlacedObject,
+  addPlacedObjects,
   deletePlacedObject,
+  deletePlacedObjects,
   duplicatePlacedObject,
   movePlacedObject,
   resizePlacedObject,
   rotatePlacedObject,
+  translatePlacedObjects,
   updatePlacedObject,
+  updatePlacedObjects,
 } from "./object-editing";
-export type { PlacedObjectPatch } from "./object-editing";
+export type { PlacedObjectBatchPatch, PlacedObjectPatch } from "./object-editing";
 export { addOpening, deleteOpening, updateOpening, validateOpening } from "./opening-editing";
 export type { OpeningPatch } from "./opening-editing";
 export { applyPlanningCandidate } from "./planning-editing";
