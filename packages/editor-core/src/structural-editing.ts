@@ -25,7 +25,7 @@ export type StructuralTransactionResult =
       affectedWallIds: readonly string[];
     }>;
 
-type ValidationContext = Readonly<{
+export type StructuralValidationContext = Readonly<{
   affectedVertexIds: readonly string[];
   affectedWallIds: readonly string[];
   preserveDirectionsForWallIds: readonly string[];
@@ -114,10 +114,10 @@ function assertPreservedWallDirections(
   return null;
 }
 
-function validateCandidate(
+export function validateStructuralCandidate(
   before: VlezetDocument,
   candidate: VlezetDocument,
-  context: ValidationContext,
+  context: StructuralValidationContext,
 ): StructuralTransactionResult {
   for (const vertex of candidate.vertices) {
     if (!finitePoint(vertex.position)) {
@@ -200,7 +200,7 @@ export function evaluateStructuralVertexMove(
     ),
   };
 
-  return validateCandidate(document, candidate, {
+  return validateStructuralCandidate(document, candidate, {
     affectedVertexIds,
     affectedWallIds,
     preserveDirectionsForWallIds: endpointWallIds,
@@ -246,7 +246,7 @@ export function evaluateStructuralWallTranslation(
     ),
   };
 
-  return validateCandidate(document, candidate, {
+  return validateStructuralCandidate(document, candidate, {
     affectedVertexIds,
     affectedWallIds,
     preserveDirectionsForWallIds: endpointAffectedWallIds,
@@ -298,7 +298,7 @@ export function evaluateWallThicknessBatch(
     );
   }
 
-  return validateCandidate(document, candidate, {
+  return validateStructuralCandidate(document, candidate, {
     affectedVertexIds: [],
     affectedWallIds,
     preserveDirectionsForWallIds: affectedWallIds,
