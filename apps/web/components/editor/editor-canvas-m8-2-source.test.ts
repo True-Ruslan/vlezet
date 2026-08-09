@@ -16,9 +16,9 @@ describe("M8.2 Canvas structural integration contract", () => {
     expect(source).toContain("const SNAP_TOLERANCE_PX = 12;");
     expect(source).toContain("const STRUCTURAL_SNAP_RELEASE_PX = 18;");
     expect(source).toContain("const STRUCTURAL_SNAP_REPLACEMENT_PX = 1;");
-    expect(source).toContain("const acquisitionTolerance = SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter;");
-    expect(source).toContain("const releaseTolerance = STRUCTURAL_SNAP_RELEASE_PX / viewport.pixelsPerMillimeter;");
-    expect(source).toContain("const replacementAdvantage = STRUCTURAL_SNAP_REPLACEMENT_PX / viewport.pixelsPerMillimeter;");
+    expect(source).toMatch(/const acquisitionTolerance\s*=\s*SNAP_TOLERANCE_PX\s*\/\s*viewport\.pixelsPerMillimeter;/);
+    expect(source).toMatch(/const releaseTolerance\s*=\s*STRUCTURAL_SNAP_RELEASE_PX\s*\/\s*viewport\.pixelsPerMillimeter;/);
+    expect(source).toMatch(/const replacementAdvantage\s*=\s*STRUCTURAL_SNAP_REPLACEMENT_PX\s*\/\s*viewport\.pixelsPerMillimeter;/);
   });
 
   it("renders the approved exact-input, structural handles and named snap overlay", () => {
