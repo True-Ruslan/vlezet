@@ -1,4 +1,5 @@
 import { createPlacedObject, type PlacedObject, type Point2 } from "@vlezet/domain";
+import type { StructuralClipboardPayloadV1 } from "@vlezet/editor-core";
 import { objectRectangle, orientedRectangleCorners } from "@vlezet/geometry";
 
 export type VlezetClipboardPayloadV1 = Readonly<{
@@ -8,8 +9,10 @@ export type VlezetClipboardPayloadV1 = Readonly<{
   objects: readonly PlacedObject[];
 }>;
 
+export type EditorClipboardPayload = VlezetClipboardPayloadV1 | StructuralClipboardPayloadV1;
+
 export type EditorClipboardState = Readonly<{
-  payload: VlezetClipboardPayloadV1 | null;
+  payload: EditorClipboardPayload | null;
   lastPasteAnchor: Point2 | null;
   repeatedPasteCount: number;
 }>;
