@@ -355,6 +355,11 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     [document.placedObjects, objectGesturePreviewById],
   );
 
+  const selectionPreviewDocument = useMemo(() => ({
+    ...document,
+    placedObjects: displayedObjects,
+  }), [displayedObjects, document]);
+
   const evaluationDocument = useMemo(() => ({
     ...document,
     placedObjects: visiblePlacementPreview ? [...displayedObjects, visiblePlacementPreview] : displayedObjects,
@@ -449,8 +454,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
   }, [gridStep, size.height, size.width, viewport]);
 
   const selectionGroupBounds = useMemo(
-    () => selection.refs.length > 1 ? deriveSelectionWorldBounds(document, selection) : null,
-    [document, selection],
+    () => selection.refs.length > 1 ? deriveSelectionWorldBounds(selectionPreviewDocument, selection) : null,
+    [selection, selectionPreviewDocument],
   );
   const groupSelectionVisual = deriveCanvasEntityVisual("group-selection");
 
@@ -512,7 +517,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     if (wallCandidate) {
       const point = wallCandidate.projection.point;
       return {
-        snap: { point, kind: "wall", wallId: wallCandidate.resolved.wall.id, point },
+        snap: { point, kind: "wall", guides: [] },
         target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point },
       };
     }
@@ -599,7 +604,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
     updateViewport((current) => zoomViewportAt(
       current,
       pointer,
-      Math.exp(-action.deltaY * 0.0015),
+      action.factor,
       { min: MIN_SCALE, max: MAX_SCALE },
     ));
   };
@@ -927,7 +932,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
               listening={false}
             />;
           })() : null}
-          {tool === "wall" && !recognitionReviewActive ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
+          {tool === "wall" && !recognitionReviewActive ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff" stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
           {recognitionDraft && referencePlan ? <RecognitionLayer draft={recognitionDraft} referencePlan={referencePlan} viewport={viewport} selectedCandidateId={selectedRecognitionCandidateId} onSelect={onSelectRecognitionCandidate} onEditWall={onEditRecognitionWall} /> : null}
         </Layer>
         <Layer>
