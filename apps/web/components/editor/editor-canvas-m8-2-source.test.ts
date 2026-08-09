@@ -38,9 +38,9 @@ describe("M8.2 Canvas structural integration contract", () => {
   });
 
   it("routes Escape through the structural gesture priority before ordinary object gesture cancellation", () => {
-    expect(apartmentSource).toContain("hasStructuralGesture");
-    expect(apartmentSource).toContain('action === "cancel-structural-gesture"');
-    expect(apartmentSource.indexOf('action === "cancel-structural-gesture"'))
-      .toBeLessThan(apartmentSource.indexOf('action === "cancel-object-gesture"'));
+    expect(apartmentSource).toContain("hasStructuralGesture: store.structuralGesture !== null");
+    expect(apartmentSource).toContain('case "cancel-structural-gesture": store.cancelStructuralGesture(); break;');
+    expect(apartmentSource.indexOf('case "cancel-structural-gesture"'))
+      .toBeLessThan(apartmentSource.indexOf('case "cancel-object-gesture"'));
   });
 });
