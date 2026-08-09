@@ -3,7 +3,6 @@
 import type { Point2, VlezetDocument } from "@vlezet/domain";
 import { worldToScreen, type ViewportTransform } from "@vlezet/geometry";
 import type { KonvaEventObject } from "konva/lib/Node";
-import type { MouseEvent as KonvaMouseEvent, TouchEvent as KonvaTouchEvent } from "konva/lib/Node";
 import { Circle, Group } from "react-konva";
 
 export const STRUCTURAL_HANDLE_VISUAL_RADIUS_PX = 4;
@@ -61,7 +60,7 @@ export function StructuralHandleLayer({
   viewport: ViewportTransform;
   onHandlePointerDown?: (
     vertexId: string,
-    event: KonvaEventObject<KonvaMouseEvent | KonvaTouchEvent>,
+    event: KonvaEventObject<MouseEvent | TouchEvent>,
   ) => void;
 }>) {
   if (!wallId) return null;
@@ -74,7 +73,6 @@ export function StructuralHandleLayer({
           <Circle
             radius={handle.hitRadiusPx}
             fill="rgba(0,0,0,0.001)"
-            data-hit-diameter={handle.dataHitDiameter}
             onMouseDown={(event) => onHandlePointerDown?.(handle.vertexId, event)}
             onTouchStart={(event) => onHandlePointerDown?.(handle.vertexId, event)}
           />
