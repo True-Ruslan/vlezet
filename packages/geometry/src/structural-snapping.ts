@@ -324,11 +324,18 @@ export function resolveStructuralSnap(input: ResolveStructuralSnapInput): Struct
 
     for (const guide of constructionGuides) {
       const projected = pointAlongInfiniteLine(rawPoint, startPoint, guide.direction);
+      const constrainedPoint = Number.isFinite(gridStep) && gridStep > 0
+        ? guide.kind === "horizontal"
+          ? { x: snapGrid(projected.x, gridStep), y: projected.y }
+          : guide.kind === "vertical"
+            ? { x: projected.x, y: snapGrid(projected.y, gridStep) }
+            : projected
+        : projected;
       const distance = distanceBetween(rawPoint, projected);
       if (distance <= releaseTolerance) {
         add({
           candidateId: guide.id,
-          point: projected,
+          point: constrainedPoint,
           kind: guide.kind,
           label: guide.label,
           guides: guide.kind === "horizontal"
