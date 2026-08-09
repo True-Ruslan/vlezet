@@ -22,7 +22,12 @@ export type EditorViewportCommandRequest = Readonly<{
 
 export type WheelViewportAction =
   | Readonly<{ kind: "pan"; delta: Point2 }>
-  | Readonly<{ kind: "zoom"; deltaY: number }>;
+  | Readonly<{ kind: "zoom"; deltaY: number; factor: number }>;
+
+const WHEEL_LINE_HEIGHT_PX = 40;
+const WHEEL_PAGE_HEIGHT_PX = 800;
+const MAX_ZOOM_DELTA_PX = 10;
+const ZOOM_EXPONENT_PER_PIXEL = 0.01;
 
 function assertFinite(value: number, label: string): void {
   if (!Number.isFinite(value)) throw new RangeError(`${label} must be finite`);
@@ -52,6 +57,18 @@ function unionWorldBounds(first: WorldBounds, second: WorldBounds): WorldBounds 
     maxX: Math.max(first.maxX, second.maxX),
     maxY: Math.max(first.maxY, second.maxY),
   };
+}
+
+function wheelDeltaToPixels(delta: number, deltaMode: number): number {
+  if (deltaMode === 1) return delta * WHEEL_LINE_HEIGHT_PX;
+  if (deltaMode === 2) return delta * WHEEL_PAGE_HEIGHT_PX;
+  return delta;
+}
+
+function modifiedWheelZoomFactor(deltaY: number, deltaMode: number): number {
+  const pixelDelta = wheelDeltaToPixels(deltaY, deltaMode);
+  const boundedDelta = Math.max(-MAX_ZOOM_DELTA_PX, Math.min(MAX_ZOOM_DELTA_PX, pixelDelta));
+  return Math.exp(-boundedDelta * ZOOM_EXPONENT_PER_PIXEL);
 }
 
 export function panViewportBy(
@@ -159,15 +176,22 @@ export function actualSizeViewport(
 export function wheelGestureToViewportAction(event: Readonly<{
   deltaX: number;
   deltaY: number;
+  deltaMode?: number;
   ctrlKey: boolean;
   metaKey: boolean;
   shiftKey: boolean;
 }>): WheelViewportAction {
   assertFinite(event.deltaX, "Wheel deltaX");
   assertFinite(event.deltaY, "Wheel deltaY");
+  const deltaMode = event.deltaMode ?? 0;
+  assertFinite(deltaMode, "Wheel deltaMode");
 
   if (event.ctrlKey || event.metaKey) {
-    return { kind: "zoom", deltaY: event.deltaY };
+    return {
+      kind: "zoom",
+      deltaY: event.deltaY,
+      factor: modifiedWheelZoomFactor(event.deltaY, deltaMode),
+    };
   }
 
   const verticalOnlyShift = event.shiftKey && Math.abs(event.deltaX) <= 1e-9;
