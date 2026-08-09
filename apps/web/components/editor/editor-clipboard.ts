@@ -9,7 +9,11 @@ export type VlezetClipboardPayloadV1 = Readonly<{
   objects: readonly PlacedObject[];
 }>;
 
-export type EditorClipboardPayload = VlezetClipboardPayloadV1 | StructuralClipboardPayloadV1;
+export type StructuralEditorClipboardPayloadV1 = StructuralClipboardPayloadV1 & Readonly<{
+  copiedAtOrigin: Point2;
+}>;
+
+export type EditorClipboardPayload = VlezetClipboardPayloadV1 | StructuralEditorClipboardPayloadV1;
 
 export type EditorClipboardState = Readonly<{
   payload: EditorClipboardPayload | null;
@@ -72,6 +76,15 @@ export function createPlacedObjectClipboardPayload(
     kind: "placed-objects",
     copiedAtOrigin: { ...copiedAtOrigin },
     objects: snapshots,
+  };
+}
+
+export function createStructuralEditorClipboardPayload(
+  payload: StructuralClipboardPayloadV1,
+): StructuralEditorClipboardPayloadV1 {
+  return {
+    ...payload,
+    copiedAtOrigin: { ...payload.origin },
   };
 }
 
