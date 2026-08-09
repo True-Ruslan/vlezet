@@ -39,6 +39,7 @@ import {
 } from "./editor-context-menu";
 import { deriveEditorEscapeAction } from "./editor-escape-priority";
 import { EditorOnboardingOverlay } from "./editor-onboarding-overlay";
+import { deriveSelectionCapabilities } from "./editor-selection-capabilities";
 import { EditorSideSurface } from "./editor-side-surface";
 import { EditorToolbar } from "./editor-toolbar";
 import {
@@ -144,7 +145,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const document = useStore(editorStore, (state) => state.history.document);
   const selection = useStore(editorStore, (state) => state.selection);
-  const hasPlacedObjectClipboard = useStore(editorStore, (state) => state.clipboard.payload !== null);
+  const clipboardKind = useStore(editorStore, (state) => state.clipboard.payload?.kind ?? null);
   const selectedObjectId = selectedObjectIdFromSelection(selection);
   const selectedOpeningId = selectedOpeningIdFromSelection(selection);
   const selectedOpening = document.openings.find((opening) => opening.id === selectedOpeningId) ?? null;
@@ -295,8 +296,11 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const executeEditorCommand = useCallback((command: EditorCommandId): boolean => {
     const store = editorStore.getState();
     const editingBlocked = props.recognitionPanelOpen;
-    const selectedFurnitureOnly = store.selection.refs.length > 0 &&
-      store.selection.refs.every((ref) => ref.kind === "placed-object");
+    const capabilities = deriveSelectionCapabilities({
+      document: store.history.document,
+      selection: store.selection,
+      clipboardKind: store.clipboard.payload?.kind ?? null,
+    });
 
     switch (command) {
       case "history.undo":
@@ -310,34 +314,27 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         store.selectAllConcreteEntities();
         return true;
       case "selection.copy":
-        if (editingBlocked || !selectedFurnitureOnly) return false;
+        if (editingBlocked || !capabilities.copy.enabled) return false;
         store.copySelection();
         return true;
       case "selection.cut":
-        if (editingBlocked || !selectedFurnitureOnly) return false;
+        if (editingBlocked || !capabilities.cut.enabled) return false;
         store.cutSelection();
         return true;
       case "selection.paste": {
-        if (editingBlocked || !store.clipboard.payload) return false;
+        if (editingBlocked || !capabilities.paste.enabled || !store.clipboard.payload) return false;
         const origin = store.clipboard.payload.copiedAtOrigin;
         store.pasteClipboard({ x: origin.x + 200, y: origin.y + 200 });
         return true;
       }
       case "selection.duplicate":
-        if (editingBlocked || !selectedFurnitureOnly) return false;
+        if (editingBlocked || !capabilities.duplicate.enabled) return false;
         store.duplicateSelection();
         return true;
       case "selection.delete":
-        if (editingBlocked) return false;
-        if (selectedFurnitureOnly) {
-          store.deleteSelection();
-          return true;
-        }
-        if (selectedOpeningIdFromSelection(store.selection)) {
-          store.deleteSelectedOpening();
-          return true;
-        }
-        return false;
+        if (editingBlocked || !capabilities.delete.enabled) return false;
+        store.deleteSelection();
+        return true;
       case "selection.clear":
         if (store.selection.refs.length === 0) return false;
         store.clearSelection();
@@ -511,8 +508,9 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     <MultiSelectionInspector
       document={document}
       selection={selection}
-      hasPlacedObjectClipboard={hasPlacedObjectClipboard}
+      clipboardKind={clipboardKind}
       executeCommand={executeEditorCommand}
+      setSelectedWallsThickness={(thickness) => editorStore.getState().setSelectedWallsThickness(thickness)}
     />
   ) : <WallInspector planningNavigation={workflowNavigation} />;
 
@@ -591,7 +589,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           position={contextMenuRequest.position}
           document={document}
           selection={selection}
-          hasPlacedObjectClipboard={hasPlacedObjectClipboard}
+          clipboardKind={clipboardKind}
           executeCommand={executeEditorCommand}
           onDismiss={() => setOwnedContextMenuRequest(null)}
         />
