@@ -146,11 +146,13 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await fitPlanThroughActions(page);
 
     const box = await canvasBox(page);
-    await page.mouse.click(box.x + box.width * 0.82, box.y + box.height * 0.5, { button: "right" });
+    await page.mouse.click(box.x + box.width * 0.05, box.y + box.height * 0.05, { button: "right" });
 
-    const menu = page.locator(".editor-context-menu");
+    const menu = page.getByRole("menu", { name: "Действия на холсте" });
     await expect(menu).toBeVisible();
-    await expect(menu).toContainText("Нет доступных действий");
+    await expect(menu.getByRole("menuitem", { name: "Выбрать всё" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Показать весь план" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Вставить" })).toHaveCount(0);
 
     const menuBox = await menu.boundingBox();
     if (!menuBox) throw new Error("Context menu did not produce layout bounds.");
@@ -277,10 +279,11 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await page.mouse.click(chair.x, chair.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
     await expect(menu).toBeVisible();
-    for (const label of ["Копировать", "Вырезать", "Дублировать", "Повернуть на 90°", "Удалить"]) {
+    for (const label of ["Копировать", "Вырезать", "Дублировать", "Показать выделение", "Удалить"]) {
       await expect(menu.getByRole("menuitem", { name: label })).toBeVisible();
     }
     await expect(menu.getByRole("menuitem", { name: "Вставить" })).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: "Повернуть на 90°" })).toHaveCount(0);
 
     await menu.getByRole("menuitem", { name: "Дублировать" }).click();
     await expect(menu).toBeHidden();
@@ -389,7 +392,7 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await page.mouse.click(chair.x, chair.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
     await expect(menu).toBeVisible();
-    await expect(menu).toContainText("Нет доступных действий");
-    await expect(menu.getByRole("menuitem")).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: "Показать выделение" })).toBeVisible();
+    await expect(menu.getByRole("menuitem")).toHaveCount(1);
   });
 });
