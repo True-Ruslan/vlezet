@@ -1,8 +1,7 @@
 import { createEmptyDocument, type VlezetDocument } from "@vlezet/domain";
 import { createHistoryState } from "@vlezet/editor-core";
 import { describe, expect, it } from "vitest";
-import { createStructuralEditorSession } from "./structural-editor-session";
-import { createEditorStore } from "./use-editor-store";
+import { createEditorStore, type EditorEntityIdKind } from "./use-editor-store";
 
 function isolatedWall(): VlezetDocument {
   return {
@@ -51,36 +50,50 @@ function closedRoom(): VlezetDocument {
   };
 }
 
+function sequentialIds() {
+  const counters: Record<EditorEntityIdKind, number> = {
+    wall: 0,
+    vertex: 0,
+    "room-annotation": 0,
+    opening: 0,
+    "placed-object": 0,
+  };
+  return (kind: EditorEntityIdKind) => `${kind}-session-${++counters[kind]}`;
+}
+
 function setup(document: VlezetDocument) {
-  const editor = createEditorStore();
+  const editor = createEditorStore({ idFactory: sequentialIds() });
   editor.setState({ history: createHistoryState(document) });
-  const counters = { vertex: 0, wall: 0, opening: 0 };
-  const session = createStructuralEditorSession(editor, {
-    idFactory: (kind) => `${kind}-session-${++counters[kind]}`,
-  });
-  return { editor, session };
+  return editor;
 }
 
 function vertexPosition(document: VlezetDocument, id: string) {
   return document.vertices.find((vertex) => vertex.id === id)?.position;
 }
 
-describe("M8.2 structural runtime session", () => {
+function selectAllWalls(editor: ReturnType<typeof createEditorStore>) {
+  const [first, ...rest] = editor.getState().history.document.walls;
+  if (!first) throw new Error("expected walls");
+  editor.getState().replaceSelection({ kind: "wall", id: first.id });
+  editor.getState().addSelection(rest.map((wall) => ({ kind: "wall" as const, id: wall.id })));
+}
+
+describe("M8.2 structural runtime in the unified editor store", () => {
   it("previews a vertex move without history and commits exactly one semantic command", () => {
-    const { editor, session } = setup(isolatedWall());
+    const editor = setup(isolatedWall());
     const baseline = structuredClone(editor.getState().history.document);
 
-    session.getState().beginVertexGesture("b");
-    session.getState().previewVertexGesture({ x: 4500, y: 500 });
+    editor.getState().beginStructuralVertexGesture("b");
+    editor.getState().previewStructuralVertexGesture({ x: 4500, y: 500 });
 
     expect(editor.getState().history.past).toHaveLength(0);
-    expect(vertexPosition(session.getState().gesture!.previewDocument, "b")).toEqual({ x: 4500, y: 500 });
+    expect(vertexPosition(editor.getState().structuralGesture!.previewDocument, "b")).toEqual({ x: 4500, y: 500 });
 
-    session.getState().commitGesture();
+    editor.getState().commitStructuralGesture();
     expect(editor.getState().history.past).toHaveLength(1);
     expect(editor.getState().history.past[0]?.forward.label).toBe("vertex/move-structural");
     expect(vertexPosition(editor.getState().history.document, "b")).toEqual({ x: 4500, y: 500 });
-    expect(session.getState().gesture).toBeNull();
+    expect(editor.getState().structuralGesture).toBeNull();
 
     editor.getState().undo();
     expect(editor.getState().history.document).toEqual(baseline);
@@ -90,35 +103,35 @@ describe("M8.2 structural runtime session", () => {
     expect(editor.getState().history.document).toEqual(baseline);
   });
 
-  it("keeps an invalid structural preview out of history until the gesture is cancelled or corrected", () => {
-    const { editor, session } = setup(tJunction());
+  it("keeps an invalid structural preview out of history until cancelled or corrected", () => {
+    const editor = setup(tJunction());
     const baseline = structuredClone(editor.getState().history.document);
 
-    session.getState().beginVertexGesture("j");
-    session.getState().previewVertexGesture({ x: 3500, y: 500 });
+    editor.getState().beginStructuralVertexGesture("j");
+    editor.getState().previewStructuralVertexGesture({ x: 3500, y: 500 });
 
-    expect(session.getState().gesture).toMatchObject({ valid: false });
-    expect(session.getState().gesture?.reason).toMatch(/соедин|стен/i);
+    expect(editor.getState().structuralGesture).toMatchObject({ valid: false });
+    expect(editor.getState().structuralGesture?.reason).toMatch(/соедин|стен/i);
     expect(editor.getState().history.past).toHaveLength(0);
 
-    session.getState().commitGesture();
+    editor.getState().commitStructuralGesture();
     expect(editor.getState().history.document).toEqual(baseline);
     expect(editor.getState().history.past).toHaveLength(0);
-    expect(session.getState().gesture).not.toBeNull();
+    expect(editor.getState().structuralGesture).not.toBeNull();
 
-    session.getState().cancelGesture();
-    expect(session.getState().gesture).toBeNull();
+    editor.getState().cancelStructuralGesture();
+    expect(editor.getState().structuralGesture).toBeNull();
     expect(editor.getState().history.document).toEqual(baseline);
   });
 
   it("commits rigid wall translation as one wall/translate history entry", () => {
-    const { editor, session } = setup(isolatedWall());
+    const editor = setup(isolatedWall());
 
-    session.getState().beginWallGesture("wall");
-    session.getState().previewWallGesture({ x: 250, y: 500 });
+    editor.getState().beginStructuralWallGesture("wall");
+    editor.getState().previewStructuralWallGesture({ x: 250, y: 500 });
     expect(editor.getState().history.past).toHaveLength(0);
 
-    session.getState().commitGesture();
+    editor.getState().commitStructuralGesture();
 
     expect(editor.getState().history.past).toHaveLength(1);
     expect(editor.getState().history.past[0]?.forward.label).toBe("wall/translate");
@@ -127,11 +140,11 @@ describe("M8.2 structural runtime session", () => {
   });
 
   it("applies selected-wall thickness atomically as one history entry", () => {
-    const { editor, session } = setup(closedRoom());
+    const editor = setup(closedRoom());
     editor.getState().replaceSelection({ kind: "wall", id: "top" });
     editor.getState().addSelection([{ kind: "wall", id: "right" }]);
 
-    session.getState().setSelectedWallsThickness(300);
+    editor.getState().setSelectedWallsThickness(300);
 
     expect(editor.getState().history.past).toHaveLength(1);
     expect(editor.getState().history.past[0]?.forward.label).toBe("wall/batch-set-thickness");
@@ -140,40 +153,31 @@ describe("M8.2 structural runtime session", () => {
     expect(editor.getState().history.document.walls.slice(0, 2).map((wall) => wall.thickness)).toEqual([200, 180]);
   });
 
-  it("copies a closed wall selection without history and cuts it atomically", () => {
-    const { editor, session } = setup(closedRoom());
-    editor.getState().replaceSelection({ kind: "wall", id: "top" });
-    editor.getState().addSelection([
-      { kind: "wall", id: "right" },
-      { kind: "wall", id: "bottom" },
-      { kind: "wall", id: "left" },
-    ]);
+  it("uses the existing discriminated editor clipboard for structural copy and cut", () => {
+    const editor = setup(closedRoom());
+    selectAllWalls(editor);
 
-    session.getState().copySelection();
-    expect(session.getState().clipboard?.kind).toBe("structural-fragment");
+    editor.getState().copySelection();
+    expect(editor.getState().clipboard.payload?.kind).toBe("structural-fragment");
     expect(editor.getState().history.past).toHaveLength(0);
 
-    session.getState().cutSelection();
+    editor.getState().cutSelection();
     expect(editor.getState().history.past).toHaveLength(1);
     expect(editor.getState().history.past[0]?.forward.label).toBe("structure/cut");
     expect(editor.getState().history.document.walls).toEqual([]);
     expect(editor.getState().selection.refs).toEqual([]);
+    expect(editor.getState().clipboard.payload?.kind).toBe("structural-fragment");
 
     editor.getState().undo();
     expect(editor.getState().history.document.walls).toHaveLength(4);
   });
 
-  it("pastes the structural clipboard as one fresh-id history operation", () => {
-    const { editor, session } = setup(closedRoom());
-    editor.getState().replaceSelection({ kind: "wall", id: "top" });
-    editor.getState().addSelection([
-      { kind: "wall", id: "right" },
-      { kind: "wall", id: "bottom" },
-      { kind: "wall", id: "left" },
-    ]);
-    session.getState().copySelection();
+  it("pastes structural clipboard through the existing paste command as one fresh-id history operation", () => {
+    const editor = setup(closedRoom());
+    selectAllWalls(editor);
+    editor.getState().copySelection();
 
-    session.getState().pasteClipboard({ x: 6000, y: 500 });
+    editor.getState().pasteClipboard({ x: 6000, y: 500 });
 
     expect(editor.getState().history.past).toHaveLength(1);
     expect(editor.getState().history.past[0]?.forward.label).toBe("structure/paste");
@@ -184,6 +188,7 @@ describe("M8.2 structural runtime session", () => {
       { kind: "wall", id: "wall-session-3" },
       { kind: "wall", id: "wall-session-4" },
     ]);
+    expect(editor.getState().clipboard.payload?.kind).toBe("structural-fragment");
 
     editor.getState().undo();
     expect(editor.getState().history.document.walls).toHaveLength(4);
