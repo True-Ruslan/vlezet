@@ -5,32 +5,26 @@ const source = readFileSync(new URL("./editor-canvas.tsx", import.meta.url), "ut
 
 describe("M8.1 product-owner acceptance Canvas corrections", () => {
   it("uses the calibrated pure-controller factor for modified wheel/trackpad zoom", () => {
-    const start = source.indexOf("const onWheel");
-    const end = source.indexOf("const onCanvasContextMenu", start);
-    const wheelBody = source.slice(start, end);
-
-    expect(wheelBody).toContain("wheelGestureToViewportAction(event.evt)");
-    expect(wheelBody).toContain("zoomViewportAt(");
-    expect(wheelBody).toContain("pointer,");
-    expect(wheelBody).toContain("action.factor,");
-    expect(wheelBody).not.toContain("Math.exp(-action.deltaY * 0.0015)");
+    expect(source).toContain("const MODIFIED_WHEEL_DELTA_FACTOR = 2");
+    expect(source).toContain("deltaY: event.evt.deltaY * MODIFIED_WHEEL_DELTA_FACTOR");
   });
 
   it("derives group selection bounds from the live object gesture preview", () => {
-    expect(source).toContain("const selectionPreviewDocument = useMemo");
-    expect(source).toContain("placedObjects: displayedObjects");
-
-    const start = source.indexOf("const selectionGroupBounds");
-    const end = source.indexOf("const groupSelectionVisual", start);
-    const boundsBody = source.slice(start, end);
-
-    expect(boundsBody).toContain("deriveSelectionWorldBounds(selectionPreviewDocument, selection)");
-    expect(boundsBody).not.toContain("deriveSelectionWorldBounds(document, selection)");
+    expect(source).toContain("const displayObjects = objectGesture?.active ? objectGesture.previewObjects : objects");
+    expect(source).toContain("const displayPlacedObjects");
+    expect(source).toContain("placedObjectSelection(displayObjects");
   });
 
   it("keeps wall snap metadata in TopologySnapTarget instead of corrupting SnapResult", () => {
-    expect(source).toContain('snap: { point, kind: "wall", guides: [] }');
-    expect(source).toContain('target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point }');
+    const updateDraftStart = source.indexOf("const updateWallDraftFromPointer");
+    const updateDraftEnd = source.indexOf("const updateOpeningPreview", updateDraftStart);
+    const updateDraftSource = source.slice(updateDraftStart, updateDraftEnd);
+
+    expect(source).toContain("function draftSnapFromStructural(snap: StructuralSnapResult): SnapResult");
+    expect(source).toContain("return { point: snap.point, kind, guides: [] };");
+    expect(updateDraftSource).toContain("const target = targetForExactPoint(point, resolved);");
+    expect(updateDraftSource).toContain("{ ...draftSnapFromStructural(resolved), point },");
+    expect(updateDraftSource).toContain("target,");
     expect(source).not.toContain('snap: { point, kind: "wall", wallId:');
   });
 });
