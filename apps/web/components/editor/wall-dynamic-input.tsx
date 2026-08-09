@@ -27,8 +27,12 @@ export function WallDynamicInput(props: WallDynamicInputProps) {
     if (action === "native" || action === "none") return;
     event.preventDefault();
     event.stopPropagation();
-    if (action === "commit") props.onCommit();
-    else props.onCancelNumericEditing();
+    if (action === "commit") {
+      props.onCommit();
+      return;
+    }
+    props.onCancelNumericEditing();
+    event.currentTarget.blur();
   };
 
   return (
