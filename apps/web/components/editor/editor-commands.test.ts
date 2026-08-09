@@ -82,13 +82,23 @@ describe("M8.1 central editor command registry", () => {
     expect(commandForKeyboardEvent(keyEvent("Backspace"))).toBe("selection.delete");
   });
 
-  it("maps view shortcuts without consuming Escape priority", () => {
-    expect(commandForKeyboardEvent(keyEvent("+"))).toBe("view.zoomIn");
-    expect(commandForKeyboardEvent(keyEvent("="))).toBe("view.zoomIn");
-    expect(commandForKeyboardEvent(keyEvent("-"))).toBe("view.zoomOut");
-    expect(commandForKeyboardEvent(keyEvent("0"))).toBe("view.actualSize");
-    expect(commandForKeyboardEvent(keyEvent("1"))).toBe("view.fitPlan");
-    expect(commandForKeyboardEvent(keyEvent("2"))).toBe("view.fitSelection");
+  it("keeps view commands available to UI surfaces without advertising bare-key shortcuts", () => {
+    const viewCommands = EDITOR_COMMANDS.filter((command) => command.id.startsWith("view."));
+
+    expect(viewCommands.map((command) => command.id)).toEqual([
+      "view.zoomIn",
+      "view.zoomOut",
+      "view.actualSize",
+      "view.fitPlan",
+      "view.fitSelection",
+    ]);
+    expect(viewCommands.every((command) => command.shortcut === null)).toBe(true);
+  });
+
+  it("does not bind bare number or zoom punctuation keys to viewport changes", () => {
+    for (const key of ["+", "=", "-", "0", "1", "2"] as const) {
+      expect(commandForKeyboardEvent(keyEvent(key)), key).toBeNull();
+    }
     expect(commandForKeyboardEvent(keyEvent("Escape"))).toBeNull();
   });
 
