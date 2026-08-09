@@ -48,7 +48,7 @@ function documentWithSelectionTargets(): VlezetDocument {
 }
 
 describe("M8.1 multi-selection inspector", () => {
-  it("summarises a furniture group and exposes only common safe registered commands", () => {
+  it("summarises a furniture group behind one compact safe-actions disclosure", () => {
     const document = documentWithSelectionTargets();
     const selection = addToSelection(
       replaceSelection({ kind: "placed-object", id: "chair-1" }),
@@ -66,11 +66,15 @@ describe("M8.1 multi-selection inspector", () => {
 
     expect(html).toContain("Выбрано: 2");
     expect(html).toContain("Предметы: 2");
-    for (const command of ["Копировать", "Вырезать", "Вставить", "Дублировать", "Удалить"]) {
+    expect(html).toContain('class="multi-selection-actions-menu"');
+    expect(html).toContain("Действия");
+    expect(html).toContain("···");
+    for (const command of ["Копировать", "Вырезать", "Дублировать", "Удалить"]) {
       expect(html).toContain(command);
     }
+    expect(html).not.toContain(">Вставить<");
     expect(html).not.toContain(">Повернуть на 90°<");
-    expect(html).toContain("Групповой поворот мебели будет добавлен в отдельном этапе.");
+    expect(html).not.toContain("Групповой поворот мебели будет добавлен в отдельном этапе.");
     for (const fakeSharedField of ["Ширина", "Глубина", "Позиция X", "Позиция Y"]) {
       expect(html).not.toContain(fakeSharedField);
     }
@@ -97,7 +101,8 @@ describe("M8.1 multi-selection inspector", () => {
     expect(html).toContain("Предметы: 1");
     expect(html.indexOf("Стены: 1")).toBeLessThan(html.indexOf("Предметы: 1"));
     expect(html).toContain("Смешанный набор нельзя изменять одной командой");
-    for (const unsafe of ["Копировать", "Вырезать", "Дублировать", "Удалить"]) {
+    expect(html).not.toContain('class="multi-selection-actions-menu"');
+    for (const unsafe of ["Копировать", "Вырезать", "Вставить", "Дублировать", "Удалить"]) {
       expect(html).not.toContain(`>${unsafe}<`);
     }
   });
@@ -121,6 +126,7 @@ describe("M8.1 multi-selection inspector", () => {
     expect(html).toContain("Выбрано: 2");
     expect(html).toContain("Стены: 2");
     expect(html).toContain("Структурные объекты нельзя изменять пакетно без проверки топологии.");
+    expect(html).not.toContain('class="multi-selection-actions-menu"');
     expect(html).not.toContain(">Удалить<");
   });
 });
