@@ -13,9 +13,12 @@ describe("M8.2 Canvas structural integration contract", () => {
   });
 
   it("converts acquisition, release and replacement hysteresis from CSS pixels only at the web boundary", () => {
-    expect(source).toMatch(/12\s*\/\s*viewport\.pixelsPerMillimeter/);
-    expect(source).toMatch(/18\s*\/\s*viewport\.pixelsPerMillimeter/);
-    expect(source).toMatch(/1\s*\/\s*viewport\.pixelsPerMillimeter/);
+    expect(source).toContain("const SNAP_TOLERANCE_PX = 12;");
+    expect(source).toContain("const STRUCTURAL_SNAP_RELEASE_PX = 18;");
+    expect(source).toContain("const STRUCTURAL_SNAP_REPLACEMENT_PX = 1;");
+    expect(source).toContain("const acquisitionTolerance = SNAP_TOLERANCE_PX / viewport.pixelsPerMillimeter;");
+    expect(source).toContain("const releaseTolerance = STRUCTURAL_SNAP_RELEASE_PX / viewport.pixelsPerMillimeter;");
+    expect(source).toContain("const replacementAdvantage = STRUCTURAL_SNAP_REPLACEMENT_PX / viewport.pixelsPerMillimeter;");
   });
 
   it("renders the approved exact-input, structural handles and named snap overlay", () => {
