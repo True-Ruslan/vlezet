@@ -626,10 +626,6 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
       maxX: world.x,
       maxY: world.y,
     })[0] ?? null;
-    if (!target) {
-      onContextMenuRequest(null);
-      return;
-    }
     event.evt.preventDefault();
     event.cancelBubble = true;
     setMarqueeGesture(null);
