@@ -22,7 +22,7 @@ describe("M8.1 product-owner acceptance Canvas corrections", () => {
 
     expect(source).toContain("function draftSnapFromStructural(snap: StructuralSnapResult): SnapResult");
     expect(source).toContain("return { point: snap.point, kind, guides: [] };");
-    expect(updateDraftSource).toContain("const target = targetForExactPoint(point, resolved);");
+    expect(updateDraftSource).toContain("const target = point === resolved.point ? structuralTargetToTopologyTarget(resolved.target) : null;");
     expect(updateDraftSource).toContain("{ ...draftSnapFromStructural(resolved), point },");
     expect(updateDraftSource).toContain("target,");
     expect(source).not.toContain('snap: { point, kind: "wall", wallId:');
