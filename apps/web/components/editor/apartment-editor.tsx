@@ -422,6 +422,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         const measurement = measurementToolStore.getState();
         const escapeAction = deriveEditorEscapeAction({
           viewMode,
+          hasStructuralGesture: store.structuralGesture !== null,
           hasObjectGesture: store.objectGesture !== null,
           measurementActive: measurement.active,
           measurementPhase: measurement.phase,
@@ -433,6 +434,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           hasSelection: store.selection.refs.length > 0,
         });
         switch (escapeAction) {
+          case "cancel-structural-gesture": store.cancelStructuralGesture(); break;
           case "cancel-object-gesture": store.cancelObjectGesture(); break;
           case "reset-measurement": measurementToolStore.getState().resetMeasurement(); break;
           case "cancel-wall-draft": store.cancelDraft(); break;
