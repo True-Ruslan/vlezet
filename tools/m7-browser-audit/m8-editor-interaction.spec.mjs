@@ -65,6 +65,14 @@ async function projectFacts(page) {
   return details.locator(".editor-actions-facts");
 }
 
+async function fitPlanThroughActions(page) {
+  const details = page.locator("details.editor-actions-menu");
+  if (!(await details.evaluate((element) => element.open))) {
+    await details.locator("summary").click();
+  }
+  await details.getByRole("button", { name: /Показать весь план/ }).click();
+}
+
 async function expectObjectCount(page, count) {
   const details = page.locator("details.editor-actions-menu");
   const wasOpen = await details.evaluate((element) => element.open);
@@ -135,7 +143,7 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await closeInspector.click();
     await expect(closeInspector).toBeHidden();
 
-    await page.keyboard.press("1");
+    await fitPlanThroughActions(page);
 
     const box = await canvasBox(page);
     await page.mouse.click(box.x + box.width * 0.82, box.y + box.height * 0.5, { button: "right" });
@@ -229,7 +237,7 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await expectSemanticHistoryEmpty(page);
   });
 
-  test("routes 0, 1, 2, plus and minus as view commands without semantic history entries", async ({ page }) => {
+  test("does not bind bare view keys and keeps explicit fit action history-free", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     await drawRectangle(page);
@@ -238,23 +246,22 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await expect(initialFacts).toContainText("4 стен");
     await page.keyboard.press("Escape");
 
-    await clickCanvasRatio(page, 0.5, 0.28);
-    await page.keyboard.press("2");
-    await page.keyboard.press("1");
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await page.mouse.wheel(90, 80);
+    const beforeBareKeys = await canvasScreenshot(page);
 
-    const beforeActualSize = await canvasScreenshot(page);
-    await page.keyboard.press("0");
-    await expectCanvasToChange(page, beforeActualSize);
-
-    const beforeZoomIn = await canvasScreenshot(page);
+    for (const key of ["0", "1", "2", "=", "-"]) {
+      await page.keyboard.press(key);
+    }
     await page.keyboard.down("Shift");
     await page.keyboard.press("=");
     await page.keyboard.up("Shift");
-    await expectCanvasToChange(page, beforeZoomIn);
+    await page.waitForTimeout(120);
+    expect((await canvasScreenshot(page)).equals(beforeBareKeys)).toBe(true);
 
-    const beforeZoomOut = await canvasScreenshot(page);
-    await page.keyboard.press("-");
-    await expectCanvasToChange(page, beforeZoomOut);
+    await fitPlanThroughActions(page);
+    await expectCanvasToChange(page, beforeBareKeys);
 
     await page.getByRole("button", { name: "Отменить" }).click();
     const afterUndoFacts = await projectFacts(page);
