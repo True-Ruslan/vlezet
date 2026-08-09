@@ -1,10 +1,11 @@
 "use client";
 
 import type { VlezetDocument } from "@vlezet/domain";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EDITOR_COMMANDS, type EditorCommandId } from "./editor-commands";
 import { deriveSelectionCapabilities } from "./editor-selection-capabilities";
 import {
+  EMPTY_EDITOR_SELECTION,
   replaceSelection,
   sameEditorEntity,
   sanitizeEditorSelection,
@@ -12,32 +13,56 @@ import {
   type EditorSelection,
 } from "./editor-selection";
 
-const CONTEXT_COMMANDS: readonly Readonly<{
-  id: EditorCommandId;
-  capability: "copy" | "cut" | "paste" | "duplicate" | "rotate" | "delete";
-}>[] = [
-  { id: "selection.copy", capability: "copy" },
-  { id: "selection.cut", capability: "cut" },
-  { id: "selection.paste", capability: "paste" },
-  { id: "selection.duplicate", capability: "duplicate" },
-  { id: "object.rotate90", capability: "rotate" },
-  { id: "selection.delete", capability: "delete" },
-];
-
 const COMMAND_BY_ID = new Map(EDITOR_COMMANDS.map((descriptor) => [descriptor.id, descriptor]));
 const CONTEXT_MENU_VIEWPORT_MARGIN = 8;
 
+export type ShortcutPlatform = "mac" | "other";
+
 export type EditorContextMenuRequest = Readonly<{
   position: Readonly<{ x: number; y: number }>;
-  target: EditorEntityRef;
+  target: EditorEntityRef | null;
 }>;
 
 export type EditorContextMenuCommand = Readonly<{
   id: EditorCommandId;
   label: string;
+  shortcut: string | null;
+  separatorBefore: boolean;
 }>;
 
 type ContextMenuSize = Readonly<{ width: number; height: number }>;
+
+function registeredCommand(
+  id: EditorCommandId,
+  separatorBefore = false,
+): EditorContextMenuCommand | null {
+  const descriptor = COMMAND_BY_ID.get(id);
+  return descriptor ? {
+    id,
+    label: descriptor.label,
+    shortcut: descriptor.shortcut,
+    separatorBefore,
+  } : null;
+}
+
+function detectShortcutPlatform(): ShortcutPlatform {
+  if (typeof navigator === "undefined") return "other";
+  const navigatorWithData = navigator as Navigator & {
+    userAgentData?: Readonly<{ platform?: string }>;
+  };
+  const platform = navigatorWithData.userAgentData?.platform ?? navigator.platform ?? "";
+  return /mac|iphone|ipad|ipod/i.test(platform) ? "mac" : "other";
+}
+
+function formatShortcut(shortcut: string | null, platform: ShortcutPlatform): string | null {
+  if (!shortcut) return null;
+  if (shortcut === "Delete") return "⌫";
+  if (shortcut.startsWith("Cmd/Ctrl+")) {
+    const key = shortcut.slice("Cmd/Ctrl+".length);
+    return platform === "mac" ? `⌘${key}` : `Ctrl+${key}`;
+  }
+  return shortcut;
+}
 
 export function clampContextMenuPosition(
   anchor: Readonly<{ x: number; y: number }>,
@@ -55,8 +80,9 @@ export function clampContextMenuPosition(
 
 export function selectionForContextMenuTarget(
   selection: EditorSelection,
-  target: EditorEntityRef,
+  target: EditorEntityRef | null,
 ): EditorSelection {
+  if (!target) return EMPTY_EDITOR_SELECTION;
   return selection.refs.some((ref) => sameEditorEntity(ref, target))
     ? selection
     : replaceSelection(target);
@@ -73,12 +99,25 @@ export function availableContextMenuCommands(
     selection: safeSelection,
     hasPlacedObjectClipboard,
   });
+  const commands: EditorContextMenuCommand[] = [];
+  const append = (id: EditorCommandId, separatorBefore = false) => {
+    const command = registeredCommand(id, separatorBefore);
+    if (command) commands.push(command);
+  };
 
-  return CONTEXT_COMMANDS.flatMap(({ id, capability }) => {
-    if (!capabilities[capability].enabled) return [];
-    const descriptor = COMMAND_BY_ID.get(id);
-    return descriptor ? [{ id, label: descriptor.label }] : [];
-  });
+  if (safeSelection.refs.length === 0) {
+    if (capabilities.paste.enabled) append("selection.paste");
+    append("selection.selectAll");
+    append("view.fitPlan", commands.length > 0);
+    return commands;
+  }
+
+  if (capabilities.copy.enabled) append("selection.copy");
+  if (capabilities.cut.enabled) append("selection.cut");
+  if (capabilities.duplicate.enabled) append("selection.duplicate");
+  append("view.fitSelection", commands.length > 0);
+  if (capabilities.delete.enabled) append("selection.delete", true);
+  return commands;
 }
 
 export function runContextMenuCommand(
@@ -100,6 +139,7 @@ export function EditorContextMenu({
   document,
   selection,
   hasPlacedObjectClipboard,
+  shortcutPlatform,
   executeCommand,
   onDismiss,
 }: Readonly<{
@@ -107,15 +147,23 @@ export function EditorContextMenu({
   document: VlezetDocument;
   selection: EditorSelection;
   hasPlacedObjectClipboard: boolean;
+  shortcutPlatform?: ShortcutPlatform;
   executeCommand: (command: EditorCommandId) => unknown;
   onDismiss: () => void;
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [detectedPlatform, setDetectedPlatform] = useState<ShortcutPlatform>("other");
+  const platform = shortcutPlatform ?? detectedPlatform;
   const commands = availableContextMenuCommands(
     document,
     selection,
     hasPlacedObjectClipboard,
   );
+
+  useEffect(() => {
+    if (shortcutPlatform) return;
+    setDetectedPlatform(detectShortcutPlatform());
+  }, [shortcutPlatform]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -135,7 +183,7 @@ export function EditorContextMenu({
     updatePosition();
     window.addEventListener("resize", updatePosition);
     return () => window.removeEventListener("resize", updatePosition);
-  }, [commands.length, position]);
+  }, [commands.length, platform, position]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -157,23 +205,36 @@ export function EditorContextMenu({
       ref={menuRef}
       className="editor-context-menu"
       role="menu"
-      aria-label="Действия с выделением"
+      aria-label={selection.refs.length === 0 ? "Действия на холсте" : "Действия с выделением"}
       style={{ left: position.x, top: position.y }}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
     >
       {commands.length === 0 ? (
         <p className="editor-context-menu-empty">Нет доступных действий</p>
-      ) : commands.map((command) => (
-        <button
-          key={command.id}
-          type="button"
-          role="menuitem"
-          onClick={() => runContextMenuCommand(command.id, executeCommand, onDismiss)}
-        >
-          {command.label}
-        </button>
-      ))}
+      ) : commands.map((command) => {
+        const shortcut = formatShortcut(command.shortcut, platform);
+        return (
+          <Fragment key={command.id}>
+            {command.separatorBefore ? (
+              <div
+                className="editor-context-menu-separator"
+                role="separator"
+                style={{ height: 1, margin: "4px 6px", background: "var(--line)" }}
+              />
+            ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}
+              onClick={() => runContextMenuCommand(command.id, executeCommand, onDismiss)}
+            >
+              <span>{command.label}</span>
+              {shortcut ? <kbd>{shortcut}</kbd> : null}
+            </button>
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
