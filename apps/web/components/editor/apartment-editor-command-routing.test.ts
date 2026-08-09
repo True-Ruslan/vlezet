@@ -40,7 +40,7 @@ describe("M8 ApartmentEditor semantic command routing", () => {
       source.indexOf('case "selection.delete"'),
       source.indexOf('case "selection.clear"'),
     );
-    expect(deleteCase).toContain("if (!capabilities.delete.enabled) return false");
+    expect(deleteCase).toContain("if (editingBlocked || !capabilities.delete.enabled) return false");
     expect(deleteCase).toContain("store.deleteSelection()");
     expect(deleteCase).not.toContain("selectedFurnitureOnly");
     expect(deleteCase).not.toContain("selectedOpeningIdFromSelection(store.selection)");
