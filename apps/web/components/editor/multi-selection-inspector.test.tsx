@@ -6,7 +6,7 @@ import { MultiSelectionInspector } from "./multi-selection-inspector";
 
 const noop = () => {};
 
-function documentWithSelectionTargets(): VlezetDocument {
+function documentWithSelectionTargets(secondWallThickness = 150): VlezetDocument {
   return {
     schemaVersion: 3,
     vertices: [
@@ -16,7 +16,7 @@ function documentWithSelectionTargets(): VlezetDocument {
     ],
     walls: [
       { id: "wall-1", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 },
-      { id: "wall-2", startVertexId: "b", endVertexId: "c", junctionVertexIds: [], thickness: 150 },
+      { id: "wall-2", startVertexId: "b", endVertexId: "c", junctionVertexIds: [], thickness: secondWallThickness },
     ],
     openings: [],
     roomAnnotations: [],
@@ -47,7 +47,14 @@ function documentWithSelectionTargets(): VlezetDocument {
   };
 }
 
-describe("M8.1 multi-selection inspector", () => {
+function wallSelection() {
+  return addToSelection(
+    replaceSelection({ kind: "wall", id: "wall-1" }),
+    [{ kind: "wall", id: "wall-2" }],
+  );
+}
+
+describe("M8 multi-selection inspector", () => {
   it("summarises a furniture group behind one compact safe-actions disclosure", () => {
     const document = documentWithSelectionTargets();
     const selection = addToSelection(
@@ -59,8 +66,9 @@ describe("M8.1 multi-selection inspector", () => {
       <MultiSelectionInspector
         document={document}
         selection={selection}
-        hasPlacedObjectClipboard
+        clipboardKind="placed-objects"
         executeCommand={noop}
+        setSelectedWallsThickness={noop}
       />,
     );
 
@@ -75,6 +83,7 @@ describe("M8.1 multi-selection inspector", () => {
     expect(html).not.toContain(">Вставить<");
     expect(html).not.toContain(">Повернуть на 90°<");
     expect(html).not.toContain("Групповой поворот мебели будет добавлен в отдельном этапе.");
+    expect(html).not.toContain("Толщина стен, мм");
     for (const fakeSharedField of ["Ширина", "Глубина", "Позиция X", "Позиция Y"]) {
       expect(html).not.toContain(fakeSharedField);
     }
@@ -91,8 +100,9 @@ describe("M8.1 multi-selection inspector", () => {
       <MultiSelectionInspector
         document={document}
         selection={selection}
-        hasPlacedObjectClipboard={false}
+        clipboardKind={null}
         executeCommand={noop}
+        setSelectedWallsThickness={noop}
       />,
     );
 
@@ -102,31 +112,56 @@ describe("M8.1 multi-selection inspector", () => {
     expect(html.indexOf("Стены: 1")).toBeLessThan(html.indexOf("Предметы: 1"));
     expect(html).toContain("Смешанный набор нельзя изменять одной командой");
     expect(html).not.toContain('class="multi-selection-actions-menu"');
+    expect(html).not.toContain("Толщина стен, мм");
     for (const unsafe of ["Копировать", "Вырезать", "Вставить", "Дублировать", "Удалить"]) {
       expect(html).not.toContain(`>${unsafe}<`);
     }
   });
 
-  it("keeps structural batch actions fail-closed with the topology reason visible", () => {
-    const document = documentWithSelectionTargets();
-    const selection = addToSelection(
-      replaceSelection({ kind: "wall", id: "wall-1" }),
-      [{ kind: "wall", id: "wall-2" }],
-    );
-
+  it("exposes safe structural actions and a common atomic thickness for a closed wall selection", () => {
     const html = renderToStaticMarkup(
       <MultiSelectionInspector
-        document={document}
-        selection={selection}
-        hasPlacedObjectClipboard={false}
+        document={documentWithSelectionTargets()}
+        selection={wallSelection()}
+        clipboardKind={null}
         executeCommand={noop}
+        setSelectedWallsThickness={noop}
       />,
     );
 
     expect(html).toContain("Выбрано: 2");
     expect(html).toContain("Стены: 2");
-    expect(html).toContain("Структурные объекты нельзя изменять пакетно без проверки топологии.");
-    expect(html).not.toContain('class="multi-selection-actions-menu"');
+    expect(html).toContain('class="multi-selection-actions-menu"');
+    for (const command of ["Копировать", "Вырезать", "Дублировать"]) expect(html).toContain(command);
+    expect(html).not.toContain(">Удалить<");
+    expect(html).toContain("Толщина стен, мм");
+    expect(html).toContain('name="wall-thickness-mm"');
+    expect(html).toContain('value="150"');
+    expect(html).toContain('min="50"');
+    expect(html).toContain('max="1000"');
+    expect(html).toContain("Применить");
+    expect(html).toContain("атомарно");
+    expect(html).toContain("центральной линии");
+    expect(html).not.toContain("Разные значения");
+  });
+
+  it("shows an explicit mixed-value state instead of averaging wall thicknesses", () => {
+    const html = renderToStaticMarkup(
+      <MultiSelectionInspector
+        document={documentWithSelectionTargets(200)}
+        selection={wallSelection()}
+        clipboardKind="structural-fragment"
+        executeCommand={noop}
+        setSelectedWallsThickness={noop}
+      />,
+    );
+
+    expect(html).toContain("Толщина стен, мм");
+    expect(html).toContain('placeholder="Разные значения"');
+    expect(html).not.toContain('value="175"');
+    expect(html).toContain("Копировать");
+    expect(html).toContain("Вырезать");
+    expect(html).toContain("Дублировать");
     expect(html).not.toContain(">Удалить<");
   });
 });
