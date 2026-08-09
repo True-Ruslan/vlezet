@@ -5,6 +5,7 @@ export type StructuralClipboardPayloadV1 = Readonly<{
   version: 1;
   kind: "structural-fragment";
   origin: Point2;
+  copiedAtOrigin: Point2;
   vertices: readonly Vertex[];
   walls: readonly Wall[];
   openings: readonly Opening[];
@@ -128,11 +129,13 @@ export function createStructuralClipboardPayload(
   const vertices = document.vertices.filter((vertex) => vertexIds.has(vertex.id)).map(copyVertex);
   const walls = document.walls.filter((wall) => selectedWallIds.has(wall.id)).map(copyWall);
   const openings = document.openings.filter((opening) => openingIds.has(opening.id)).map(copyOpening);
+  const origin = payloadOrigin(vertices);
 
   return {
     version: 1,
     kind: "structural-fragment",
-    origin: payloadOrigin(vertices),
+    origin,
+    copiedAtOrigin: { ...origin },
     vertices,
     walls,
     openings,
