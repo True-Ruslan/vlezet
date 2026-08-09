@@ -205,30 +205,64 @@ export function deriveSelectionWorldBounds(
   return bounds;
 }
 
-export function entitiesIntersectingMarquee(
+function concreteEntitiesIntersectingRect(
   document: VlezetDocument,
-  marquee: WorldRect,
+  rect: WorldRect,
 ): readonly EditorEntityRef[] {
   const result: EditorEntityRef[] = [];
 
   for (const opening of document.openings) {
     const polygon = openingBandPolygon(document, opening);
-    if (polygon && polygonIntersectsRect(polygon, marquee)) {
+    if (polygon && polygonIntersectsRect(polygon, rect)) {
       result.push({ kind: "opening", id: opening.id });
     }
   }
 
   for (const object of document.placedObjects) {
-    if (polygonIntersectsRect(objectPolygon(object), marquee)) {
+    if (polygonIntersectsRect(objectPolygon(object), rect)) {
       result.push({ kind: "placed-object", id: object.id });
     }
   }
 
   for (const wall of document.walls) {
-    if (visibleWallPolygons(document, wall).some((polygon) => polygonIntersectsRect(polygon, marquee))) {
+    if (visibleWallPolygons(document, wall).some((polygon) => polygonIntersectsRect(polygon, rect))) {
       result.push({ kind: "wall", id: wall.id });
     }
   }
 
   return result;
+}
+
+export function entitiesAtPoint(
+  document: VlezetDocument,
+  point: Point2,
+): readonly EditorEntityRef[] {
+  const pointRect: WorldRect = {
+    minX: point.x,
+    minY: point.y,
+    maxX: point.x,
+    maxY: point.y,
+  };
+  const result = [...concreteEntitiesIntersectingRect(document, pointRect)];
+
+  for (const room of deriveRooms(document).rooms) {
+    if (polygonIntersectsRect(room.polygon, pointRect)) {
+      result.push({ kind: "room", id: room.id });
+    }
+  }
+
+  return result;
+}
+
+export function entitiesIntersectingMarquee(
+  document: VlezetDocument,
+  marquee: WorldRect,
+): readonly EditorEntityRef[] {
+  const normalized = normalizedRect(marquee);
+  if (Math.abs(normalized.maxX - normalized.minX) <= EPSILON &&
+      Math.abs(normalized.maxY - normalized.minY) <= EPSILON) {
+    return entitiesAtPoint(document, { x: normalized.minX, y: normalized.minY });
+  }
+
+  return concreteEntitiesIntersectingRect(document, normalized);
 }
