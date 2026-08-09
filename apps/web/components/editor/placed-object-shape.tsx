@@ -5,7 +5,7 @@ import type { PlacedObjectPatch } from "@vlezet/editor-core";
 import { screenToWorld, worldToScreen, type FitStatus, type ViewportTransform } from "@vlezet/geometry";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Group, Line, Rect, Text, Transformer } from "react-konva";
 import { canvasEntityName } from "./canvas-entity-identity";
 import type { ObjectGestureKind } from "./use-editor-store";
@@ -90,6 +90,13 @@ export function PlacedObjectShape({
   const width = object.width * viewport.pixelsPerMillimeter;
   const depth = object.depth * viewport.pixelsPerMillimeter;
   const previewLabel = fitStatus === "blocked" ? "Предпросмотр · не влезает" : "Предпросмотр";
+
+  useLayoutEffect(() => {
+    const group = groupRef.current;
+    if (!group || preview) return;
+    group.position(worldToScreen(object.position, viewport));
+    group.getLayer()?.batchDraw();
+  }, [object, preview, viewport]);
 
   useEffect(() => {
     const transformer = transformerRef.current;
