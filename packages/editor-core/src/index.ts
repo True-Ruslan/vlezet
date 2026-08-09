@@ -22,6 +22,15 @@ export { setRectangularRoomClearDimension } from "./room-dimension-editing";
 export type { ClearRoomDimensionAnchor, ClearRoomDimensionAxis } from "./room-dimension-editing";
 export { setRoomName } from "./room-editing";
 export {
+  evaluateStructuralVertexMove,
+  evaluateStructuralWallTranslation,
+  evaluateWallThicknessBatch,
+} from "./structural-editing";
+export type {
+  StructuralTransactionCode,
+  StructuralTransactionResult,
+} from "./structural-editing";
+export {
   addConnectedWall,
   addTJunctionWall,
   addTopologicalWall,
