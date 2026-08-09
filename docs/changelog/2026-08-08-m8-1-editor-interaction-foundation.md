@@ -1,6 +1,6 @@
 # 2026-08-08 — M8.1 Editor Interaction Foundation
 
-**Status:** PRODUCT-OWNER ACCEPTANCE FAILED — CORRECTION IN VERIFICATION  
+**Status:** CORRECTION GREEN — PRODUCT-OWNER RETEST PENDING  
 **Tracker:** #54  
 **Branch:** `feat/m8-1-editor-interaction-foundation`
 
@@ -130,11 +130,11 @@ Context-menu RED `f0a5cd82aa0e51e897f38c10fd6b26bef9b2ff99` / CI #4796 produced 
 Exact code+browser evidence at that head:
 
 ```text
-CI #4801:                  PASS
+CI #4801:                     PASS
 Recognition Benchmark #1137: PASS
-Browser Acceptance #1257: PASS
-  Chromium:                PASS
-  WebKit:                  PASS
+Browser Acceptance #1257:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
 ```
 
 ### Task 14 handoff and product-owner correction
@@ -142,11 +142,11 @@ Browser Acceptance #1257: PASS
 The first handoff head `23be513e963c23a88e9c3c6b6c5e2c58caacd996` changed only this focused changelog after code head `0e6cf9f4...` and passed a fresh exact-head gate:
 
 ```text
-CI #4802:                  PASS
+CI #4802:                     PASS
 Recognition Benchmark #1138: PASS
-Browser Acceptance #1258: PASS
-  Chromium:                PASS
-  WebKit:                  PASS
+Browser Acceptance #1258:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
 ```
 
 Product-owner manual acceptance on 2026-08-09 passed every reviewed area except one reproducible furniture-group drag defect: while dragging a selected furniture group, small cursor oscillations around snap positions can leave the actively dragged visual node diverged from the snapped group preview/bounds. The user described the objects as trying to attach to the grid and then sticking outside the selection rectangle.
@@ -155,9 +155,35 @@ This is treated as a real M8.1 interaction failure, not an accepted limitation.
 
 Dedicated tests-only RED reached `fdc5902ab61d9152f93a0a5cbcfadb37bf59daa5`. CI #4807 failed at unit tests with **509 prior web tests PASS and exactly 2 new failures**, both requiring explicit reconciliation between the imperative Konva drag node and the authoritative snapped preview.
 
+Refined behavioral RED `98a2e053b5b705257e4f5e56307d46ea30c0e5ae` / CI #4808 preserved 510/511 web tests and failed only on the missing layout-time reconciliation behavior.
+
 The correction is intentionally projection-only. Canvas remains the snap authority and still writes `snap.position` into `objectGesture.preview`; store movement remains absolute from gesture originals. `PlacedObjectShape` now uses a layout-time reconciliation on every new authoritative preview object to force its imperative Konva node back to `worldToScreen(object.position, viewport)` before paint. This does not alter grid/edge/centre snap policy, tolerance, batch history or fit authority.
 
-Correction implementation head: `94775496f5d0c7bc504ee9e371c845ef5e148a5e`. Fresh exact-head CI/Recognition/Chromium/WebKit verification is in progress; no GREEN claim is made until all complete.
+Production correction head: `94775496f5d0c7bc504ee9e371c845ef5e148a5e`.
+
+The initial corrected exact head `cd4c67f21c515c9429894d731681bb1c03f6abd5` passed:
+
+```text
+CI #4811:                     PASS
+Recognition Benchmark #1147: PASS
+Browser Acceptance #1267:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+```
+
+Because the original defect depended on cursor oscillation around snap thresholds, the browser regression was then strengthened without changing production behavior. Test-only head `88ec268653bb3034e3254421c8d9f28824b3488e` exercises three deterministic jitter profiles, verifies visual stability after release, checks exact Undo back to the baseline, exact Redo back to the snapped state, and a second Undo back to baseline.
+
+No synthetic RED was manufactured for this test-only hardening: the behavior-changing correction already had genuine RED evidence, and no new production behavior was introduced.
+
+Exact code/test evidence for the strengthened regression head:
+
+```text
+CI #4812:                     PASS
+Recognition Benchmark #1148: PASS
+Browser Acceptance #1268:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+```
 
 The same review requested batch configuration for multiple selected walls, at minimum common wall thickness. That request is intentionally recorded for **M8.2 structural editing**, not implemented in M8.1: wall batch mutation is topology-sensitive and remains outside M8.1's placed-object-only mutation authority.
 
@@ -178,6 +204,6 @@ Verified from the PR diff:
 
 ## Acceptance / merge
 
-**Acceptance currently FAILED pending verification and product-owner retest of the snapped-group drag correction.**
+**Automated correction verification is GREEN. Product-owner acceptance remains pending the focused snapped-group drag retest.**
 
-PR #85 must remain Draft / DO NOT MERGE. Do not create the M8.1 acceptance milestone, update canonical completion state, mark Ready, merge or start M8.2 until the correction receives fresh exact-head automated evidence and explicit product-owner PASS.
+PR #85 must remain Draft / DO NOT MERGE. Do not create the M8.1 acceptance milestone, update canonical completion state, mark Ready, merge or start M8.2 until the product owner repeats the corrected interaction and explicitly reports PASS.
