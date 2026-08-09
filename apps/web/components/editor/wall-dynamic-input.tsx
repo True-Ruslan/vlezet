@@ -1,6 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
+import styles from "./wall-dynamic-input.module.css";
 import { deriveWallDynamicInputKeyAction } from "./wall-dynamic-input-model";
 
 export type WallDynamicInputProps = Readonly<{
@@ -41,6 +42,7 @@ export function WallDynamicInput(props: WallDynamicInputProps) {
         <span>Длина</span>
         <span className="wall-dynamic-input-control">
           <input
+            className={styles.control}
             type="text"
             inputMode="decimal"
             value={props.lengthValue}
@@ -60,6 +62,7 @@ export function WallDynamicInput(props: WallDynamicInputProps) {
         <span>Угол</span>
         <span className="wall-dynamic-input-control">
           <input
+            className={styles.control}
             type="text"
             inputMode="decimal"
             value={props.angleValue}
