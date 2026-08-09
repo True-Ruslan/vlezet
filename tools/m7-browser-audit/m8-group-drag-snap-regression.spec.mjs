@@ -67,7 +67,39 @@ async function movePointerToCanvasSafeArea(page) {
   await page.mouse.move(box.x + box.width * 0.05, box.y + box.height * 0.05);
 }
 
-test("keeps a grid-snapped furniture group visually identical after jittered drag and Undo/Redo", async ({ page }) => {
+async function dragGroupWithJitter(page, origin, pattern) {
+  await page.mouse.move(origin.x, origin.y);
+  await page.mouse.down();
+  await page.mouse.move(origin.x + pattern.deltaX, origin.y + pattern.deltaY, { steps: 6 });
+  for (const [dx, dy] of pattern.jitter) {
+    await page.mouse.move(origin.x + pattern.deltaX + dx, origin.y + pattern.deltaY + dy, { steps: 2 });
+  }
+  await page.mouse.up();
+  await movePointerToCanvasSafeArea(page);
+}
+
+const JITTER_PATTERNS = [
+  {
+    name: "diagonal threshold crossings",
+    deltaX: 91,
+    deltaY: 53,
+    jitter: [[4, -3], [-5, 4], [3, 2], [-2, -4], [5, 3], [-3, 1]],
+  },
+  {
+    name: "vertical-biased threshold crossings",
+    deltaX: 57,
+    deltaY: 89,
+    jitter: [[-4, 3], [5, -2], [-3, -4], [2, 5], [-5, -1], [4, 2]],
+  },
+  {
+    name: "horizontal-biased threshold crossings",
+    deltaX: 103,
+    deltaY: 31,
+    jitter: [[3, 4], [-4, -5], [5, 1], [-2, 4], [4, -3], [-3, -1]],
+  },
+];
+
+test("keeps a grid-snapped furniture group stable across jitter patterns and exact Undo/Redo", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openNewProject(page);
   await drawRectangle(page);
@@ -81,22 +113,33 @@ test("keeps a grid-snapped furniture group visually identical after jittered dra
   await page.keyboard.up("Shift");
   await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
 
-  await page.mouse.move(first.x, first.y);
-  await page.mouse.down();
-  await page.mouse.move(first.x + 91, first.y + 53, { steps: 6 });
-  for (const [dx, dy] of [[4, -3], [-5, 4], [3, 2], [-2, -4], [5, 3], [-3, 1]]) {
-    await page.mouse.move(first.x + 91 + dx, first.y + 53 + dy, { steps: 2 });
+  await movePointerToCanvasSafeArea(page);
+  const baseline = await canvasScreenshot(page);
+
+  for (const pattern of JITTER_PATTERNS) {
+    await test.step(pattern.name, async () => {
+      await dragGroupWithJitter(page, first, pattern);
+      const afterMove = await canvasScreenshot(page);
+
+      expect(afterMove.equals(baseline)).toBe(false);
+      await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+      await page.waitForTimeout(80);
+      expect((await canvasScreenshot(page)).equals(afterMove)).toBe(true);
+
+      await page.getByRole("button", { name: "Отменить" }).click();
+      await movePointerToCanvasSafeArea(page);
+      await expect.poll(async () => (await canvasScreenshot(page)).equals(baseline)).toBe(true);
+      await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+      await page.getByRole("button", { name: "Повторить" }).click();
+      await movePointerToCanvasSafeArea(page);
+      await expect.poll(async () => (await canvasScreenshot(page)).equals(afterMove)).toBe(true);
+      await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+      await page.getByRole("button", { name: "Отменить" }).click();
+      await movePointerToCanvasSafeArea(page);
+      await expect.poll(async () => (await canvasScreenshot(page)).equals(baseline)).toBe(true);
+    });
   }
-  await page.mouse.up();
-  await movePointerToCanvasSafeArea(page);
-
-  const afterJitteredMove = await canvasScreenshot(page);
-  await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
-
-  await page.getByRole("button", { name: "Отменить" }).click();
-  await page.getByRole("button", { name: "Повторить" }).click();
-  await movePointerToCanvasSafeArea(page);
-
-  await expect.poll(async () => (await canvasScreenshot(page)).equals(afterJitteredMove)).toBe(true);
-  await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
 });
