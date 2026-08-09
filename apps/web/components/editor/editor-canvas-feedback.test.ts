@@ -9,6 +9,9 @@ const base: CanvasFeedbackInput = {
   placementPreviewValid: null,
   measurementActive: false,
   measurementPhase: "idle",
+  structuralGestureActive: false,
+  structuralPreviewValid: null,
+  structuralPreviewReason: null,
   tool: "select",
   hasWallDraft: false,
   openingPreviewValid: null,
@@ -73,6 +76,29 @@ describe("M7.4 Canvas mode feedback", () => {
       label: "Измерение готово",
       instruction: "Кликните, чтобы начать новый замер.",
       escapeInstruction: "Esc — очистить результат.",
+    });
+  });
+
+  it("makes structural preview validity explicit without relying on colour", () => {
+    expect(feedback({ structuralGestureActive: true, structuralPreviewValid: true })).toMatchObject({
+      mode: "structural-edit",
+      label: "Редактирование структуры",
+      instruction: "Отпустите, чтобы применить изменение.",
+      escapeInstruction: "Esc — отменить изменение.",
+      cursor: "grabbing",
+      previewState: "valid",
+    });
+    expect(feedback({
+      structuralGestureActive: true,
+      structuralPreviewValid: false,
+      structuralPreviewReason: "Перемещение разорвёт соединение со стеной",
+    })).toEqual({
+      mode: "structural-edit",
+      label: "Изменение недопустимо",
+      instruction: "Перемещение разорвёт соединение со стеной",
+      escapeInstruction: "Esc — отменить изменение.",
+      cursor: "not-allowed",
+      previewState: "invalid",
     });
   });
 
