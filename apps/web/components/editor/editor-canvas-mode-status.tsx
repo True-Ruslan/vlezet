@@ -21,6 +21,7 @@ export function EditorCanvasModeStatus({
   const tool = useStore(editorStore, (state) => state.tool);
   const hasWallDraft = useStore(editorStore, (state) => state.draftWall !== null);
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
+  const structuralGesture = useStore(editorStore, (state) => state.structuralGesture);
   const measurementActive = useStore(measurementToolStore, (state) => state.active);
   const measurementPhase = useStore(measurementToolStore, (state) => state.phase);
   const hoveredSelectable = useStore(canvasTransientFeedbackStore, (state) => state.hoveredSelectable);
@@ -36,6 +37,9 @@ export function EditorCanvasModeStatus({
     placementPreviewValid: placementPresetId ? previewValid : null,
     measurementActive,
     measurementPhase,
+    structuralGestureActive: structuralGesture !== null,
+    structuralPreviewValid: structuralGesture ? structuralGesture.valid : null,
+    structuralPreviewReason: structuralGesture?.reason ?? null,
     tool,
     hasWallDraft,
     openingPreviewValid: tool === "door" || tool === "window" ? previewValid : null,
