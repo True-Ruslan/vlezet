@@ -932,7 +932,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
               listening={false}
             />;
           })() : null}
-          {tool === "wall" && !recognitionReviewActive ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff" stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
+          {tool === "wall" && !recognitionReviewActive ? document.vertices.map((vertex) => { const screen = worldToScreen(vertex.position, viewport); const isJunction = document.walls.some((wall) => wall.junctionVertexIds.includes(vertex.id)); return <Circle key={vertex.id} x={screen.x} y={screen.y} radius={isJunction ? 4.5 : 3.5} fill={isJunction ? "#fff" : "#1769ff"} stroke="#1769ff" strokeWidth={1.5} opacity={0.8} listening={false} />; }) : null}
           {recognitionDraft && referencePlan ? <RecognitionLayer draft={recognitionDraft} referencePlan={referencePlan} viewport={viewport} selectedCandidateId={selectedRecognitionCandidateId} onSelect={onSelectRecognitionCandidate} onEditWall={onEditRecognitionWall} /> : null}
         </Layer>
         <Layer>
