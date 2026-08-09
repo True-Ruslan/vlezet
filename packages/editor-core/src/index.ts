@@ -22,13 +22,25 @@ export { setRectangularRoomClearDimension } from "./room-dimension-editing";
 export type { ClearRoomDimensionAnchor, ClearRoomDimensionAxis } from "./room-dimension-editing";
 export { setRoomName } from "./room-editing";
 export {
+  createStructuralClipboardPayload,
+  cutStructuralFragment,
+  evaluateStructuralClipboardClosure,
+  pasteStructuralFragment,
+} from "./structural-clipboard";
+export type {
+  StructuralClipboardPayloadV1,
+  StructuralClosureResult,
+} from "./structural-clipboard";
+export {
   evaluateStructuralVertexMove,
   evaluateStructuralWallTranslation,
   evaluateWallThicknessBatch,
+  validateStructuralCandidate,
 } from "./structural-editing";
 export type {
   StructuralTransactionCode,
   StructuralTransactionResult,
+  StructuralValidationContext,
 } from "./structural-editing";
 export {
   addConnectedWall,
