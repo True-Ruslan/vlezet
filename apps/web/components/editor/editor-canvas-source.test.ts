@@ -97,7 +97,7 @@ describe("M7.7 furniture fit Canvas explanation", () => {
 });
 
 describe("M8.1 Canvas viewport navigation", () => {
-  it("routes ordinary wheel/trackpad pan and modifier zoom through the pure controller", () => {
+  it("routes ordinary wheel/trackpad pan and calibrated modifier zoom through the pure controller", () => {
     expect(source).toContain('from "./editor-viewport-controller"');
     const start = source.indexOf("const onWheel");
     const end = source.indexOf("const onMouseDown", start);
@@ -109,9 +109,10 @@ describe("M8.1 Canvas viewport navigation", () => {
     expect(wheelBody).toContain("const pointer = pointerPosition(event)");
     expect(wheelBody).toContain("zoomViewportAt(");
     expect(wheelBody).toContain("pointer,");
-    expect(wheelBody).toContain("Math.exp(-action.deltaY * 0.0015)");
+    expect(wheelBody).toContain("action.factor,");
     expect(wheelBody).toContain("{ min: MIN_SCALE, max: MAX_SCALE }");
     expect(wheelBody).toContain("event.evt.preventDefault()");
+    expect(wheelBody).not.toContain("Math.exp(-action.deltaY * 0.0015)");
     expect(wheelBody).not.toContain("Math.exp(-event.evt.deltaY * 0.0015)");
   });
 
@@ -196,12 +197,12 @@ describe("M8.1 Canvas semantic multi-selection", () => {
     expect(source).toContain("additive: event.evt.shiftKey");
   });
 
-  it("lets Space/middle pan win and renders non-interactive group bounds without transform handles", () => {
+  it("lets Space/middle pan win and renders live non-interactive group bounds without transform handles", () => {
     const start = source.indexOf("const onMouseDown");
     const end = source.indexOf("const onMouseMove", start);
     const mouseDownBody = source.slice(start, end);
     expect(mouseDownBody.indexOf("shouldPan")).toBeLessThan(mouseDownBody.indexOf("setMarqueeGesture"));
-    expect(source).toContain("deriveSelectionWorldBounds(document, selection)");
+    expect(source).toContain("deriveSelectionWorldBounds(selectionPreviewDocument, selection)");
     expect(source).toContain('deriveCanvasEntityVisual("group-selection")');
     expect(source).toContain('name="selection-group-bounds"');
     expect(source).toContain("listening={false}");
