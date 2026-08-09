@@ -19,8 +19,13 @@ describe("M8.1 product-owner acceptance Canvas corrections", () => {
   it("derives group selection bounds from the live object gesture preview", () => {
     expect(source).toContain("const selectionPreviewDocument = useMemo");
     expect(source).toContain("placedObjects: displayedObjects");
-    expect(source).toContain("deriveSelectionWorldBounds(selectionPreviewDocument, selection)");
-    expect(source).not.toContain("deriveSelectionWorldBounds(document, selection)");
+
+    const start = source.indexOf("const selectionGroupBounds");
+    const end = source.indexOf("const groupSelectionVisual", start);
+    const boundsBody = source.slice(start, end);
+
+    expect(boundsBody).toContain("deriveSelectionWorldBounds(selectionPreviewDocument, selection)");
+    expect(boundsBody).not.toContain("deriveSelectionWorldBounds(document, selection)");
   });
 
   it("keeps wall snap metadata in TopologySnapTarget instead of corrupting SnapResult", () => {
