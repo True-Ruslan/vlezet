@@ -93,8 +93,8 @@ describe("M8.2 semantic structural snapping", () => {
   it("offers an eligible construction-guide intersection with exactly one host wall", () => {
     const document = documentOf(
       [
-        { id: "a", position: { x: 60, y: -50 } },
-        { id: "b", position: { x: 60, y: 50 } },
+        { id: "a", position: { x: 60, y: -30 } },
+        { id: "b", position: { x: 60, y: 70 } },
       ],
       [{ id: "host", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 }],
     );
@@ -127,7 +127,9 @@ describe("M8.2 semantic structural snapping", () => {
     );
 
     const result = resolveStructuralSnap({ ...baseInput, document, rawPoint: { x: 50, y: 50 } });
-    expect(result.kind).toBe("wall-axis");
+    // The crossing is also the midpoint of both walls, so the approved priority must
+    // keep the existing midpoint snap rather than inventing an authoritative split.
+    expect(result.kind).toBe("midpoint");
     expect(result.kind).not.toBe("intersection");
   });
 
