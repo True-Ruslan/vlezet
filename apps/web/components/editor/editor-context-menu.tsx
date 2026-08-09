@@ -3,7 +3,10 @@
 import type { VlezetDocument } from "@vlezet/domain";
 import { Fragment, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { EDITOR_COMMANDS, type EditorCommandId } from "./editor-commands";
-import { deriveSelectionCapabilities } from "./editor-selection-capabilities";
+import {
+  deriveSelectionCapabilities,
+  type EditorClipboardKind,
+} from "./editor-selection-capabilities";
 import {
   EMPTY_EDITOR_SELECTION,
   replaceSelection,
@@ -93,13 +96,13 @@ export function selectionForContextMenuTarget(
 export function availableContextMenuCommands(
   document: VlezetDocument,
   selection: EditorSelection,
-  hasPlacedObjectClipboard: boolean,
+  clipboardKind: EditorClipboardKind,
 ): readonly EditorContextMenuCommand[] {
   const safeSelection = sanitizeEditorSelection(document, selection);
   const capabilities = deriveSelectionCapabilities({
     document,
     selection: safeSelection,
-    hasPlacedObjectClipboard,
+    clipboardKind,
   });
   const commands: EditorContextMenuCommand[] = [];
   const append = (id: EditorCommandId, separatorBefore = false) => {
@@ -140,7 +143,7 @@ export function EditorContextMenu({
   position,
   document,
   selection,
-  hasPlacedObjectClipboard,
+  clipboardKind,
   shortcutPlatform,
   executeCommand,
   onDismiss,
@@ -148,7 +151,7 @@ export function EditorContextMenu({
   position: Readonly<{ x: number; y: number }>;
   document: VlezetDocument;
   selection: EditorSelection;
-  hasPlacedObjectClipboard: boolean;
+  clipboardKind: EditorClipboardKind;
   shortcutPlatform?: ShortcutPlatform;
   executeCommand: (command: EditorCommandId) => unknown;
   onDismiss: () => void;
@@ -163,7 +166,7 @@ export function EditorContextMenu({
   const commands = availableContextMenuCommands(
     document,
     selection,
-    hasPlacedObjectClipboard,
+    clipboardKind,
   );
 
   useLayoutEffect(() => {
