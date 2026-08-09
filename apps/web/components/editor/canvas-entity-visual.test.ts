@@ -12,6 +12,15 @@ describe("M7.4 Canvas entity visual roles", () => {
     expect(selected).toEqual({ strokeRole: "accent", dash: null, marker: "none", emphasized: true });
   });
 
+  it("marks a multi-selection group bound as selected but visually secondary", () => {
+    expect(deriveCanvasEntityVisual("group-selection")).toEqual({
+      strokeRole: "accent",
+      dash: [6, 4],
+      marker: "none",
+      emphasized: true,
+    });
+  });
+
   it("marks both previews as temporary and invalid preview explicitly", () => {
     expect(deriveCanvasEntityVisual("preview-valid")).toEqual({
       strokeRole: "accent",

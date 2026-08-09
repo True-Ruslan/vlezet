@@ -1,134 +1,102 @@
+import { createPlacedObject, type PlacedObject, type Point2 } from "@vlezet/domain";
 import {
-  createPlacedObject,
-  getVertex,
-  type PlacedObject,
-  type Point2,
-} from "@vlezet/domain";
-import {
-  addOpening,
-  applyPlanningCandidate as applyPlanningCandidateEdit,
-  addPlacedObject,
-  addTopologicalWall,
-  createHistoryState,
-  deleteOpening,
-  deletePlacedObject,
-  duplicatePlacedObject,
+  addPlacedObjects,
+  deletePlacedObjects,
   executeCommand,
-  redo as redoHistory,
-  setRectangularRoomClearDimension,
-  setRoomName,
-  setTopologicalWallLength,
-  setWallThickness,
-  undo as undoHistory,
-  updateOpening,
+  translatePlacedObjects,
   updatePlacedObject,
-  type ClearRoomDimensionAnchor,
-  type ClearRoomDimensionAxis,
-  type HistoryState,
-  type OpeningPatch,
   type PlacedObjectPatch,
-  type WallEndpointIntent,
-  type WallLengthAnchor,
-  type WallThicknessAlignment,
 } from "@vlezet/editor-core";
-import { deriveRooms, proposeOpeningPlacement, type SnapResult } from "@vlezet/geometry";
-import type { PlanningCandidate } from "@vlezet/planning";
-import { createStore, type StoreApi } from "zustand/vanilla";
-import { getFurniturePreset } from "./furniture-presets";
+import type { StoreApi } from "zustand/vanilla";
+import {
+  createEditorStore as createFoundationEditorStore,
+  selectedObjectId,
+  selectedOpeningId,
+  selectedRoomId,
+  selectedWallId,
+  type CreateEditorStoreOptions,
+  type EditorEntityIdKind,
+  type EditorStoreState as FoundationEditorStoreState,
+  type EditorTool,
+  type DraftWall,
+  type TopologySnapTarget,
+} from "./editor-store-foundation";
+import {
+  EMPTY_EDITOR_CLIPBOARD_STATE,
+  createPlacedObjectClipboardPayload,
+  derivePasteObjects,
+  type EditorClipboardState,
+} from "./editor-clipboard";
+import {
+  addToSelection,
+  replaceSelection,
+  sameEditorEntity,
+  sanitizeEditorSelection,
+  type EditorEntityRef,
+  type EditorSelection,
+} from "./editor-selection";
 
-export type EditorTool = "select" | "wall" | "door" | "window";
-export type EditorEntityIdKind = "wall" | "vertex" | "room-annotation" | "opening" | "placed-object";
+export {
+  selectedObjectId,
+  selectedOpeningId,
+  selectedRoomId,
+  selectedWallId,
+};
+export type {
+  CreateEditorStoreOptions,
+  DraftWall,
+  EditorEntityIdKind,
+  EditorTool,
+  TopologySnapTarget,
+};
+
 export type ObjectGestureKind = "move" | "transform";
 
-export type TopologySnapTarget =
-  | Readonly<{ kind: "vertex"; vertexId: string; point: Point2 }>
-  | Readonly<{ kind: "wall"; wallId: string; point: Point2 }>;
-
-export type DraftWall = Readonly<{
-  start: Point2;
-  end: Point2;
-  snap: SnapResult;
-  startTarget: TopologySnapTarget | null;
-  endTarget: TopologySnapTarget | null;
+export type ObjectMoveGesture = Readonly<{
+  kind: "move";
+  anchorObjectId: string;
+  objectIds: readonly string[];
+  before: readonly PlacedObject[];
+  preview: readonly PlacedObject[];
 }>;
 
-export type ObjectGesture = Readonly<{
-  kind: ObjectGestureKind;
+export type ObjectTransformGesture = Readonly<{
+  kind: "transform";
   objectId: string;
   before: PlacedObject;
   preview: PlacedObject;
 }>;
 
-export type EditorStoreState = {
-  history: HistoryState;
-  tool: EditorTool;
-  selectedWallId: string | null;
-  selectedRoomId: string | null;
-  selectedOpeningId: string | null;
-  selectedObjectId: string | null;
-  placementPresetId: string | null;
-  draftWall: DraftWall | null;
+export type ObjectGesture = ObjectMoveGesture | ObjectTransformGesture;
+
+export type EditorStoreState = Omit<
+  FoundationEditorStoreState,
+  | "objectGesture"
+  | "beginObjectGesture"
+  | "previewObjectGesture"
+  | "commitObjectGesture"
+  | "cancelObjectGesture"
+> & {
   objectGesture: ObjectGesture | null;
-  setTool: (tool: EditorTool) => void;
-  setPlacementPreset: (presetId: string | null) => void;
-  selectWall: (wallId: string | null) => void;
-  selectRoom: (roomId: string | null) => void;
-  selectOpening: (openingId: string | null) => void;
-  selectObject: (objectId: string | null) => void;
-  beginWall: (point: Point2, target?: TopologySnapTarget | null) => void;
-  updateDraftWall: (snap: SnapResult, target?: TopologySnapTarget | null) => void;
-  commitDraftWall: () => void;
-  cancelDraft: () => void;
-  cancelCurrentAction: () => void;
-  setSelectedWallLength: (lengthMm: number, anchor?: WallLengthAnchor) => void;
-  setSelectedWallThickness: (thicknessMm: number, alignment?: WallThicknessAlignment) => void;
-  setSelectedRoomName: (name: string) => void;
-  setSelectedRoomClearDimension: (axis: ClearRoomDimensionAxis, lengthMm: number, anchor?: ClearRoomDimensionAnchor) => void;
-  addOpeningAt: (wallId: string, pointerOffset: number) => void;
-  updateSelectedOpening: (patch: OpeningPatch) => void;
-  deleteSelectedOpening: () => void;
-  placeSelectedPreset: (position: Point2) => void;
-  updateSelectedObject: (patch: PlacedObjectPatch) => void;
-  rotateSelectedObject90: () => void;
-  duplicateSelectedObject: () => void;
-  deleteSelectedObject: () => void;
-  applyPlanningCandidate: (candidate: PlanningCandidate) => void;
+  clipboard: EditorClipboardState;
   beginObjectGesture: (objectId: string, kind: ObjectGestureKind) => void;
   previewObjectGesture: (patch: PlacedObjectPatch) => void;
   commitObjectGesture: () => void;
   cancelObjectGesture: () => void;
-  undo: () => void;
-  redo: () => void;
+  copySelection: () => void;
+  cutSelection: () => void;
+  pasteClipboard: (anchor: Point2) => void;
+  duplicateSelection: () => void;
+  deleteSelection: () => void;
 };
 
-export type CreateEditorStoreOptions = Readonly<{
-  idFactory?: (kind: EditorEntityIdKind) => string;
-  defaultWallThicknessMm?: number;
-}>;
-
-function emptySnap(point: Point2): SnapResult {
-  return { point, kind: "none", guides: [] };
-}
-
-function selectedWallAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && history.document.walls.some((wall) => wall.id === id) ? id : null;
-}
-function selectedRoomAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && deriveRooms(history.document).rooms.some((room) => room.id === id) ? id : null;
-}
-function selectedOpeningAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && history.document.openings.some((opening) => opening.id === id) ? id : null;
-}
-function selectedObjectAfterHistory(history: HistoryState, id: string | null): string | null {
-  return id && history.document.placedObjects.some((object) => object.id === id) ? id : null;
-}
-function targetPoint(point: Point2, target: TopologySnapTarget | null): Point2 {
-  return target ? target.point : point;
-}
-function endpointIntent(point: Point2, target: TopologySnapTarget | null, idFactory: (kind: EditorEntityIdKind) => string): WallEndpointIntent {
-  if (target?.kind === "vertex") return { kind: "existing-vertex", vertexId: target.vertexId };
-  if (target?.kind === "wall") return { kind: "wall-junction", vertexId: idFactory("vertex"), wallId: target.wallId, position: target.point };
-  return { kind: "new-vertex", vertexId: idFactory("vertex"), position: point };
+function objectById(
+  state: EditorStoreState,
+  objectId: string,
+): PlacedObject {
+  const object = state.history.document.placedObjects.find((candidate) => candidate.id === objectId);
+  if (!object) throw new Error(`Placed object does not exist: ${objectId}`);
+  return object;
 }
 
 function objectPatchFrom(object: PlacedObject): PlacedObjectPatch {
@@ -157,352 +125,347 @@ function objectsEqual(first: PlacedObject, second: PlacedObject): boolean {
     first.clearance.left === second.clearance.left;
 }
 
-export function createEditorStore(options: CreateEditorStoreOptions = {}): StoreApi<EditorStoreState> {
-  const idFactory = options.idFactory ?? (() => crypto.randomUUID());
-  const defaultWallThicknessMm = options.defaultWallThicknessMm ?? 150;
+function selectedPlacedObjectIds(selection: EditorSelection): readonly string[] | null {
+  if (selection.refs.length === 0) return null;
+  if (selection.refs.some((ref) => ref.kind !== "placed-object")) return null;
+  return selection.refs.map((ref) => ref.id);
+}
 
-  return createStore<EditorStoreState>((set, get) => ({
-    history: createHistoryState(),
-    tool: "select",
-    selectedWallId: null,
-    selectedRoomId: null,
-    selectedOpeningId: null,
-    selectedObjectId: null,
-    placementPresetId: null,
-    draftWall: null,
-    objectGesture: null,
+function selectedPlacedObjects(state: EditorStoreState): readonly PlacedObject[] | null {
+  const objectIds = selectedPlacedObjectIds(state.selection);
+  if (!objectIds) return null;
+  const byId = new Map(state.history.document.placedObjects.map((object) => [object.id, object]));
+  const objects: PlacedObject[] = [];
+  for (const objectId of objectIds) {
+    const object = byId.get(objectId);
+    if (!object) return null;
+    objects.push(object);
+  }
+  return objects;
+}
 
-    setTool: (tool) => set({
-      tool,
-      placementPresetId: null,
-      objectGesture: null,
-      draftWall: tool === "wall" ? get().draftWall : null,
-    }),
-    setPlacementPreset: (placementPresetId) => {
-      if (placementPresetId) getFurniturePreset(placementPresetId);
-      set({
-        placementPresetId,
+function selectionForObject(
+  state: EditorStoreState,
+  objectId: string,
+): EditorSelection {
+  return sanitizeEditorSelection(
+    state.history.document,
+    replaceSelection({ kind: "placed-object", id: objectId }),
+  );
+}
+
+function selectionForPlacedObjects(
+  objects: readonly PlacedObject[],
+): EditorSelection {
+  const [first, ...rest] = objects;
+  if (!first) return { refs: [], primary: null };
+  return addToSelection(
+    replaceSelection({ kind: "placed-object", id: first.id }),
+    rest.map((object) => ({ kind: "placed-object" as const, id: object.id })),
+  );
+}
+
+function selectionWithPrimary(
+  selection: EditorSelection,
+  primary: EditorEntityRef,
+): EditorSelection {
+  return {
+    refs: [...selection.refs],
+    primary,
+  };
+}
+
+function samePoint(first: Point2 | null, second: Point2): boolean {
+  return first !== null && first.x === second.x && first.y === second.y;
+}
+
+function enhanceEditorStore(
+  foundation: StoreApi<FoundationEditorStoreState>,
+  idFactory: (kind: EditorEntityIdKind) => string,
+): StoreApi<EditorStoreState> {
+  const store = foundation as unknown as StoreApi<EditorStoreState>;
+
+  const beginObjectGesture = (objectId: string, kind: ObjectGestureKind) => {
+    const state = store.getState();
+    const object = objectById(state, objectId);
+    const objectRef: EditorEntityRef = { kind: "placed-object", id: objectId };
+
+    if (kind === "transform") {
+      store.setState({
+        objectGesture: {
+          kind: "transform",
+          objectId,
+          before: object,
+          preview: object,
+        },
+        selection: selectionForObject(state, objectId),
+        placementPresetId: null,
         tool: "select",
-        draftWall: null,
-        objectGesture: null,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedOpeningId: null,
-        selectedObjectId: null,
       });
-    },
-    selectWall: (selectedWallId) => set({
-      selectedWallId,
-      selectedRoomId: null,
-      selectedOpeningId: null,
-      selectedObjectId: null,
+      return;
+    }
+
+    const anchorSelected = state.selection.refs.some((ref) => sameEditorEntity(ref, objectRef));
+    if (anchorSelected) {
+      const objectIds = selectedPlacedObjectIds(state.selection);
+      if (!objectIds) return;
+      const before = objectIds.map((id) => objectById(state, id));
+      store.setState({
+        objectGesture: {
+          kind: "move",
+          anchorObjectId: objectId,
+          objectIds,
+          before,
+          preview: before,
+        },
+        selection: selectionWithPrimary(state.selection, objectRef),
+        placementPresetId: null,
+        tool: "select",
+      });
+      return;
+    }
+
+    store.setState({
+      objectGesture: {
+        kind: "move",
+        anchorObjectId: objectId,
+        objectIds: [objectId],
+        before: [object],
+        preview: [object],
+      },
+      selection: selectionForObject(state, objectId),
       placementPresetId: null,
-      objectGesture: null,
-    }),
-    selectRoom: (selectedRoomId) => set({
-      selectedRoomId,
-      selectedWallId: null,
-      selectedOpeningId: null,
-      selectedObjectId: null,
-      placementPresetId: null,
-      objectGesture: null,
-    }),
-    selectOpening: (selectedOpeningId) => set({
-      selectedOpeningId,
-      selectedWallId: null,
-      selectedRoomId: null,
-      selectedObjectId: null,
-      placementPresetId: null,
-      objectGesture: null,
-    }),
-    selectObject: (selectedObjectId) => set({
-      selectedObjectId,
-      selectedWallId: null,
-      selectedRoomId: null,
-      selectedOpeningId: null,
-      placementPresetId: null,
-      objectGesture: null,
       tool: "select",
-    }),
-    beginWall: (point, target = null) => {
-      const resolved = targetPoint(point, target);
-      set({ draftWall: { start: resolved, end: resolved, snap: emptySnap(resolved), startTarget: target, endTarget: null } });
-    },
-    updateDraftWall: (snap, target = null) => {
-      const current = get().draftWall;
-      if (!current) return;
-      const end = targetPoint(snap.point, target);
-      set({ draftWall: { ...current, end, snap: { ...snap, point: end }, endTarget: target } });
-    },
-    commitDraftWall: () => {
-      const current = get().draftWall;
-      if (!current || (current.start.x === current.end.x && current.start.y === current.end.y)) return;
-      const before = get().history.document;
-      const start = endpointIntent(current.start, current.startTarget, idFactory);
-      const end = endpointIntent(current.end, current.endTarget, idFactory);
-      const wallId = idFactory("wall");
-      const edit = addTopologicalWall(before, { wallId, start, end, thickness: defaultWallThicknessMm });
-      const label = start.kind === "wall-junction" || end.kind === "wall-junction" ? "wall/add-t-junction" : "wall/add-connected";
-      const history = executeCommand(get().history, { type: "document/replace", label, before, after: edit.document });
-      const continuation = edit.continuationVertexId ? getVertex(edit.document, edit.continuationVertexId) : null;
-      const continuationTarget = continuation ? ({ kind: "vertex", vertexId: continuation.id, point: continuation.position } as const) : null;
-      set({
-        history,
-        selectedWallId: edit.selectedWallId ?? wallId,
-        selectedRoomId: null,
-        selectedOpeningId: null,
-        selectedObjectId: null,
-        placementPresetId: null,
-        draftWall: get().tool === "wall" && continuation ? {
-          start: continuation.position,
-          end: continuation.position,
-          snap: emptySnap(continuation.position),
-          startTarget: continuationTarget,
-          endTarget: null,
-        } : null,
-      });
-    },
-    cancelDraft: () => set({ draftWall: null }),
-    cancelCurrentAction: () => {
-      const current = get();
-      if (current.objectGesture) {
-        set({ objectGesture: null });
-        return;
-      }
-      if (current.placementPresetId) {
-        set({ placementPresetId: null });
-        return;
-      }
-      set({ draftWall: null, tool: "select" });
-    },
-    setSelectedWallLength: (lengthMm, anchor = "start") => {
-      const { history, selectedWallId } = get();
-      if (!selectedWallId) return;
-      const before = history.document;
-      const after = setTopologicalWallLength(before, selectedWallId, lengthMm, anchor);
-      set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-length", before, after }) });
-    },
-    setSelectedWallThickness: (thicknessMm, alignment = "center") => {
-      const { history, selectedWallId } = get();
-      if (!selectedWallId) return;
-      const before = history.document;
-      const after = setWallThickness(before, selectedWallId, thicknessMm, alignment);
-      set({ history: executeCommand(history, { type: "document/replace", label: "wall/set-thickness", before, after }) });
-    },
-    setSelectedRoomName: (name) => {
-      const { history, selectedRoomId } = get();
-      if (!selectedRoomId) return;
-      const before = history.document;
-      const after = setRoomName(before, selectedRoomId, name, idFactory("room-annotation"));
-      set({ history: executeCommand(history, { type: "document/replace", label: "room-annotation/set-name", before, after }) });
-    },
-    setSelectedRoomClearDimension: (axis, lengthMm, anchor = "min") => {
-      const { history, selectedRoomId } = get();
-      if (!selectedRoomId) return;
-      const before = history.document;
-      const after = setRectangularRoomClearDimension(before, selectedRoomId, axis, lengthMm, anchor);
-      set({ history: executeCommand(history, { type: "document/replace", label: "room/set-clear-dimension", before, after }) });
-    },
-    addOpeningAt: (wallId, pointerOffset) => {
-      const { history, tool } = get();
-      if (tool !== "door" && tool !== "window") return;
-      const width = tool === "door" ? 900 : 1200;
-      const placement = proposeOpeningPlacement(history.document, wallId, pointerOffset, width);
-      const opening = {
-        id: idFactory("opening"),
-        wallId,
-        kind: tool,
-        ...placement,
-        ...(tool === "door" ? { doorSwing: { hinge: "start" as const, side: "left" as const } } : {}),
+    });
+  };
+
+  const previewObjectGesture = (patch: PlacedObjectPatch) => {
+    const gesture = store.getState().objectGesture;
+    if (!gesture) return;
+
+    if (gesture.kind === "move") {
+      if (!patch.position) return;
+      const anchor = gesture.before.find((object) => object.id === gesture.anchorObjectId);
+      if (!anchor) throw new Error(`Move anchor does not exist: ${gesture.anchorObjectId}`);
+      const delta = {
+        x: patch.position.x - anchor.position.x,
+        y: patch.position.y - anchor.position.y,
       };
-      const before = history.document;
-      const after = addOpening(before, opening);
-      set({
-        history: executeCommand(history, { type: "document/replace", label: "opening/add", before, after }),
-        selectedOpeningId: opening.id,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedObjectId: null,
-      });
-    },
-    updateSelectedOpening: (patch) => {
-      const { history, selectedOpeningId } = get();
-      if (!selectedOpeningId) return;
-      const before = history.document;
-      const after = updateOpening(before, selectedOpeningId, patch);
-      set({ history: executeCommand(history, { type: "document/replace", label: "opening/update", before, after }) });
-    },
-    deleteSelectedOpening: () => {
-      const { history, selectedOpeningId } = get();
-      if (!selectedOpeningId) return;
-      const before = history.document;
-      const after = deleteOpening(before, selectedOpeningId);
-      set({
-        history: executeCommand(history, { type: "document/replace", label: "opening/delete", before, after }),
-        selectedOpeningId: null,
-      });
-    },
-    placeSelectedPreset: (position) => {
-      const { history, placementPresetId } = get();
-      if (!placementPresetId) return;
-      const preset = getFurniturePreset(placementPresetId);
-      const object = createPlacedObject({
-        id: idFactory("placed-object"),
-        presetId: preset.id,
-        name: preset.name,
-        category: preset.category,
-        position,
-        width: preset.width,
-        depth: preset.depth,
-        ...(preset.height === undefined ? {} : { height: preset.height }),
-        rotationDeg: 0,
-        clearance: preset.clearance,
-      });
-      const before = history.document;
-      const after = addPlacedObject(before, object);
-      set({
-        history: executeCommand(history, { type: "document/replace", label: "object/add", before, after }),
-        selectedObjectId: object.id,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedOpeningId: null,
-        placementPresetId: null,
-        tool: "select",
-      });
-    },
-    updateSelectedObject: (patch) => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
-      const before = history.document;
-      const after = updatePlacedObject(before, selectedObjectId, patch);
-      set({ history: executeCommand(history, { type: "document/replace", label: "object/update", before, after }) });
-    },
-    rotateSelectedObject90: () => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
-      const current = history.document.placedObjects.find((object) => object.id === selectedObjectId);
-      if (!current) return;
-      const before = history.document;
-      const after = updatePlacedObject(before, selectedObjectId, { rotationDeg: current.rotationDeg + 90 });
-      set({ history: executeCommand(history, { type: "document/replace", label: "object/rotate", before, after }) });
-    },
-    duplicateSelectedObject: () => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
-      const duplicateId = idFactory("placed-object");
-      const before = history.document;
-      const after = duplicatePlacedObject(before, selectedObjectId, duplicateId);
-      set({
-        history: executeCommand(history, { type: "document/replace", label: "object/duplicate", before, after }),
-        selectedObjectId: duplicateId,
-      });
-    },
-    deleteSelectedObject: () => {
-      const { history, selectedObjectId } = get();
-      if (!selectedObjectId) return;
-      const before = history.document;
-      const after = deletePlacedObject(before, selectedObjectId);
-      set({
-        history: executeCommand(history, { type: "document/replace", label: "object/delete", before, after }),
-        selectedObjectId: null,
-        objectGesture: null,
-      });
-    },
-    applyPlanningCandidate: (candidate) => {
-      const { history } = get();
-      const before = history.document;
-      const after = applyPlanningCandidateEdit(before, candidate);
-      set({
-        history: executeCommand(history, {
-          type: "document/replace",
-          label: "planning/apply-candidate",
-          before,
-          after,
-        }),
-        selectedWallId: null,
-        selectedRoomId: candidate.roomId,
-        selectedOpeningId: null,
-        selectedObjectId: null,
-        objectGesture: null,
-        placementPresetId: null,
-      });
-    },
-    beginObjectGesture: (objectId, kind) => {
-      const object = get().history.document.placedObjects.find((candidate) => candidate.id === objectId);
-      if (!object) throw new Error(`Placed object does not exist: ${objectId}`);
-      set({
-        objectGesture: { kind, objectId, before: object, preview: object },
-        selectedObjectId: objectId,
-        selectedWallId: null,
-        selectedRoomId: null,
-        selectedOpeningId: null,
-        placementPresetId: null,
-        tool: "select",
-      });
-    },
-    previewObjectGesture: (patch) => {
-      const gesture = get().objectGesture;
-      if (!gesture) return;
-      const preview = createPlacedObject({
-        ...gesture.preview,
-        ...patch,
-        id: gesture.before.id,
-        presetId: gesture.before.presetId,
-        category: gesture.before.category,
-        position: patch.position ? { ...patch.position } : gesture.preview.position,
-        clearance: patch.clearance ? { ...patch.clearance } : gesture.preview.clearance,
-      });
-      set({ objectGesture: { ...gesture, preview } });
-    },
-    commitObjectGesture: () => {
-      const { history, objectGesture } = get();
-      if (!objectGesture) return;
-      if (objectsEqual(objectGesture.before, objectGesture.preview)) {
-        set({ objectGesture: null });
+      const preview = gesture.before.map((object) => createPlacedObject({
+        ...object,
+        position: {
+          x: object.position.x + delta.x,
+          y: object.position.y + delta.y,
+        },
+      }));
+      store.setState({ objectGesture: { ...gesture, preview } });
+      return;
+    }
+
+    const preview = createPlacedObject({
+      ...gesture.preview,
+      ...patch,
+      id: gesture.before.id,
+      presetId: gesture.before.presetId,
+      category: gesture.before.category,
+      position: patch.position ? { ...patch.position } : gesture.preview.position,
+      clearance: patch.clearance ? { ...patch.clearance } : gesture.preview.clearance,
+    });
+    store.setState({ objectGesture: { ...gesture, preview } });
+  };
+
+  const commitObjectGesture = () => {
+    const state = store.getState();
+    const gesture = state.objectGesture;
+    if (!gesture) return;
+
+    if (gesture.kind === "move") {
+      const anchorBefore = gesture.before.find((object) => object.id === gesture.anchorObjectId);
+      const anchorPreview = gesture.preview.find((object) => object.id === gesture.anchorObjectId);
+      if (!anchorBefore || !anchorPreview) throw new Error("Move anchor preview is incomplete");
+      const delta = {
+        x: anchorPreview.position.x - anchorBefore.position.x,
+        y: anchorPreview.position.y - anchorBefore.position.y,
+      };
+      if (delta.x === 0 && delta.y === 0) {
+        store.setState({ objectGesture: null });
         return;
       }
-      const before = history.document;
-      const after = updatePlacedObject(before, objectGesture.objectId, objectPatchFrom(objectGesture.preview));
-      set({
-        history: executeCommand(history, {
+      const before = state.history.document;
+      const after = translatePlacedObjects(before, gesture.objectIds, delta);
+      store.setState({
+        history: executeCommand(state.history, {
           type: "document/replace",
-          label: objectGesture.kind === "move" ? "object/move" : "object/update",
+          label: "object/batch-move",
           before,
           after,
         }),
+        selection: sanitizeEditorSelection(after, state.selection),
         objectGesture: null,
       });
-    },
-    cancelObjectGesture: () => set({ objectGesture: null }),
-    undo: () => {
-      const current = get();
-      const history = undoHistory(current.history);
-      set({
-        history,
-        draftWall: null,
-        objectGesture: null,
-        placementPresetId: null,
-        selectedWallId: selectedWallAfterHistory(history, current.selectedWallId),
-        selectedRoomId: selectedRoomAfterHistory(history, current.selectedRoomId),
-        selectedOpeningId: selectedOpeningAfterHistory(history, current.selectedOpeningId),
-        selectedObjectId: selectedObjectAfterHistory(history, current.selectedObjectId),
-      });
-    },
-    redo: () => {
-      const current = get();
-      const history = redoHistory(current.history);
-      set({
-        history,
-        draftWall: null,
-        objectGesture: null,
-        placementPresetId: null,
-        selectedWallId: selectedWallAfterHistory(history, current.selectedWallId),
-        selectedRoomId: selectedRoomAfterHistory(history, current.selectedRoomId),
-        selectedOpeningId: selectedOpeningAfterHistory(history, current.selectedOpeningId),
-        selectedObjectId: selectedObjectAfterHistory(history, current.selectedObjectId),
-      });
-    },
-  }));
+      return;
+    }
+
+    if (objectsEqual(gesture.before, gesture.preview)) {
+      store.setState({ objectGesture: null });
+      return;
+    }
+    const before = state.history.document;
+    const after = updatePlacedObject(before, gesture.objectId, objectPatchFrom(gesture.preview));
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/update",
+        before,
+        after,
+      }),
+      selection: sanitizeEditorSelection(after, state.selection),
+      objectGesture: null,
+    });
+  };
+
+  const copySelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    store.setState({
+      clipboard: {
+        payload: createPlacedObjectClipboardPayload(objects),
+        lastPasteAnchor: null,
+        repeatedPasteCount: 0,
+      },
+    });
+  };
+
+  const cutSelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    const payload = createPlacedObjectClipboardPayload(objects);
+    const before = state.history.document;
+    const after = deletePlacedObjects(before, objects.map((object) => object.id));
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-delete",
+        before,
+        after,
+      }),
+      clipboard: {
+        payload,
+        lastPasteAnchor: null,
+        repeatedPasteCount: 0,
+      },
+      selection: sanitizeEditorSelection(after, state.selection),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
+  const deleteSelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    const before = state.history.document;
+    const after = deletePlacedObjects(before, objects.map((object) => object.id));
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-delete",
+        before,
+        after,
+      }),
+      selection: sanitizeEditorSelection(after, state.selection),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
+  const pasteClipboard = (anchor: Point2) => {
+    const state = store.getState();
+    const payload = state.clipboard.payload;
+    if (!payload) return;
+    const repetition = samePoint(state.clipboard.lastPasteAnchor, anchor)
+      ? state.clipboard.repeatedPasteCount
+      : 0;
+    const pasted = derivePasteObjects({
+      payload,
+      anchor,
+      repetition,
+      idFactory: () => idFactory("placed-object"),
+    });
+    const before = state.history.document;
+    const after = addPlacedObjects(before, pasted);
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-add",
+        before,
+        after,
+      }),
+      clipboard: {
+        payload,
+        lastPasteAnchor: { ...anchor },
+        repeatedPasteCount: repetition + 1,
+      },
+      selection: selectionForPlacedObjects(pasted),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
+  const duplicateSelection = () => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    const payload = createPlacedObjectClipboardPayload(objects);
+    const duplicated = derivePasteObjects({
+      payload,
+      anchor: payload.copiedAtOrigin,
+      repetition: 1,
+      idFactory: () => idFactory("placed-object"),
+    });
+    const before = state.history.document;
+    const after = addPlacedObjects(before, duplicated);
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-add",
+        before,
+        after,
+      }),
+      selection: selectionForPlacedObjects(duplicated),
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
+  store.setState({
+    clipboard: EMPTY_EDITOR_CLIPBOARD_STATE,
+    beginObjectGesture,
+    previewObjectGesture,
+    commitObjectGesture,
+    cancelObjectGesture: () => store.setState({ objectGesture: null }),
+    copySelection,
+    cutSelection,
+    pasteClipboard,
+    duplicateSelection,
+    deleteSelection,
+  });
+
+  return store;
+}
+
+export function createEditorStore(
+  options: CreateEditorStoreOptions = {},
+): StoreApi<EditorStoreState> {
+  const idFactory = options.idFactory ?? (() => crypto.randomUUID());
+  const foundation = createFoundationEditorStore({ ...options, idFactory });
+  return enhanceEditorStore(foundation, idFactory);
 }
 
 export const editorStore = createEditorStore();

@@ -3,6 +3,7 @@ import { deriveRooms } from "@vlezet/geometry";
 
 export type ContextKind =
   | "empty"
+  | "multi-selection"
   | "wall"
   | "room"
   | "opening-door"

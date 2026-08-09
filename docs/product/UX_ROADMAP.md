@@ -1,7 +1,7 @@
 # Vlezet — UX Roadmap
 
 **Phase:** M8 Public Beta Editor  
-**Last updated:** 2026-08-08  
+**Last updated:** 2026-08-09  
 **Rule:** trust, precision, interaction quality and complete manual workflows precede cosmetic breadth or speculative automation. Only one implementation slice is `NOW`.
 
 ## 1. Prioritisation model
@@ -30,6 +30,7 @@ M7.6 Geometry and Opening Inspector
 M7.7 Furniture and Fit Workflow
 M7.8A Recognition Benchmark Foundation
 M7.8B Source Normalisation and Wall Topology
+M8.0 Public Beta Product Contract / roadmap reset
 ```
 
 These remain accepted foundations. The new programme does not invalidate them.
@@ -49,11 +50,13 @@ Automatic recognition remains R&D (#27). Assisted Tracing becomes M8.4 and waits
 ## 4. Current beta sequence
 
 ```text
-NOW
+ACCEPTED / MERGE PENDING
 M8.1 Editor Interaction Foundation
 
-THEN
+NEXT AFTER MERGE
 M8.2 Precision Drawing and Structural Editing
+
+THEN
 M8.3 Precision Reference Calibration
 M8.4 Assisted Tracing
 M8.5 Furniture 2.0
@@ -66,32 +69,29 @@ Public free beta
 
 Programme tracker: #53.  
 M8.0 tracker: #55.  
-M8.1 tracker: #54.  
+M8.1 tracker: #54 / PR #85.  
 M8.2: #56. M8.3: #57. M8.4: #51. M8.5: #58. M8.6: #59. M8.7: #60. Final beta acceptance: #61.
+
+M8.2 is the selected next slice but must not start until M8.1 is protected-merged into `main`.
 
 ## 5. M8.1 — Editor Interaction Foundation
 
-### User problem
+**Status:** PRODUCT-OWNER ACCEPTED — PROTECTED MERGE PENDING.
 
-The editor has good domain authority but still behaves like a sequence of specialised single-item forms rather than a mature spatial editor.
+### User problem addressed
 
-Current limitations include:
+Before M8.1 the editor had good domain authority but still behaved like a sequence of specialised single-item forms rather than a mature spatial editor:
 
-- selection split into independent single-entity IDs;
-- no unified multi-selection;
-- no marquee selection;
+- selection was split into independent single-entity IDs;
+- no unified multi-selection or marquee selection;
 - no complete multi-object clipboard workflow;
 - no rigid batch movement of selected furniture;
-- shortcuts are parsed directly rather than sharing one command/capability model;
-- wheel always zooms, which is less natural for trackpad navigation;
+- shortcuts did not share one command/capability model;
+- wheel/trackpad behaviour was less natural than mature-canvas expectations;
 - no fit-selection command;
-- unsupported mixed operations do not yet have one explicit capability model.
+- unsupported mixed operations lacked one explicit capability model.
 
-### UX goal
-
-Make navigation and common editing operations predictable enough that a user can focus on the apartment rather than on editor mechanics.
-
-### Interaction contract
+### Accepted interaction contract
 
 Selection:
 
@@ -101,18 +101,19 @@ Selection:
 - plain marquee replaces;
 - Shift marquee adds;
 - Cmd/Ctrl+A selects concrete editable entities while respecting native text-input Select All;
-- rooms/vertices are excluded from default marquee/select-all in M8.1;
+- rooms/vertices remain excluded from default marquee/select-all in M8.1;
+- direct room click remains supported;
 - single selection retains accepted single-entity inspectors;
 - multiple selection shows dedicated summary/actions.
 
 Safe batch editing:
 
-- one/many placed objects can move rigidly;
+- one/many placed objects move rigidly;
 - relative geometry remains invariant;
 - one object acts as group snap anchor;
 - commit is one semantic command;
 - unsupported mixed/structural batch transforms are disabled rather than partially applied;
-- group graphical scale is always unavailable.
+- graphical group scale is unavailable.
 
 Clipboard:
 
@@ -120,9 +121,9 @@ Clipboard:
 - pasted/duplicated objects receive fresh IDs;
 - relative geometry and physical dimensions remain exact;
 - paste uses last Canvas pointer, otherwise viewport centre;
-- repeated paste and duplicate use deterministic +200 mm/+200 mm offsets;
+- repeated paste and duplicate use deterministic offsets;
 - each paste/duplicate/cut is atomic in semantic history;
-- structural clipboard is intentionally M8.2.
+- structural clipboard is intentionally deferred to M8.2.
 
 Navigation:
 
@@ -130,34 +131,66 @@ Navigation:
 - modified wheel/trackpad pinch zooms around pointer;
 - Space + primary drag pans;
 - middle-button drag pans;
-- `+/-`, actual size, fit plan and fit selection use registered view commands;
-- view changes never create geometry history.
+- fit plan and fit selection use registered view commands;
+- view changes never create geometry history;
+- undocumented bare `0/1/2/+/-` viewport bindings are not consumed.
 
-A minimal right-click context menu is included as a presentation of the same command registry. Floating selection toolbar is deferred.
+A minimal right-click context menu is a presentation of the same command registry. Floating selection toolbar remains deferred.
 
-### UX acceptance
+### Acceptance correction
 
-M8.1 must be demonstrably faster and less surprising in a browser, not merely architecturally cleaner.
+Product-owner testing found one real selected-furniture group drag defect around snap thresholds: small cursor oscillations could leave the imperative Konva node visually diverged from the authoritative snapped preview/bounds.
 
-Representative browser flow covers multi-select, marquee, rigid batch move, copy/paste/duplicate, context commands, Undo/Redo, wheel pan, modified-wheel zoom, Space/middle pan, fit-plan/selection and native text-control shortcuts.
+The correction is projection-only. The Canvas/store remain snap authority; `PlacedObjectShape` reconciles the imperative Konva node from authoritative preview state before paint.
+
+Regression coverage now exercises three deterministic jitter profiles and verifies:
+
+- stable post-release rendering;
+- exact Undo to baseline;
+- exact Redo to snapped state;
+- second Undo to baseline;
+- Chromium and representative WebKit behavior.
+
+Accepted evidence:
+
+```text
+product-accepted head:        db66de524783a43fa021db07a6b67808c4435e9b
+CI #4813:                     PASS
+Recognition Benchmark #1149: PASS
+Browser Acceptance #1269:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+product-owner retest:         PASS — 2026-08-09
+```
+
+Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ## 6. M8.2 — Precision Drawing and Structural Editing
 
+**Status:** SELECTED NEXT — DESIGN/TDD PLAN REQUIRED AFTER M8.1 MERGE.
+
 Primary UX goal:
 
-> draw exact apartment structure with fewer inspector round-trips.
+> draw, repair and batch-edit exact apartment structure with fewer inspector round-trips while preserving topology and hosted-opening validity.
 
 Planned:
 
 - named visible snap guides;
-- endpoint/axis/midpoint/intersection/parallel/perpendicular snaps;
+- endpoint/wall-axis/midpoint/intersection snaps;
+- parallel/perpendicular assistance;
 - inline exact wall length;
 - useful angle constraints/input;
 - direct endpoint/junction dragging;
 - topology-safe wall movement;
+- compatible multi-wall common-property editing, beginning with thickness;
 - structural clipboard/batch operations only with explicit dependency closure;
 - opening preservation/revalidation;
-- one semantic history command per gesture.
+- one semantic history command per gesture;
+- fail-closed behavior for unsafe structural selections.
+
+The M8.1 product-owner request for changing common wall thickness across a selected wall group is explicitly part of the M8.2 design input.
+
+M8.2 may not reuse placed-object batch logic mechanically: topology closure, shared vertices, hosted openings and room derivation must be modeled explicitly and covered through genuine RED tests before production mutation exists.
 
 ## 7. M8.3 — Precision Reference Calibration
 
@@ -257,6 +290,8 @@ Place/edit representative household furniture/appliances and understand fit/conf
 ### BETA-05 — Export
 Export correct whole-plan and selection PNG/SVG.
 
+M8.1 materially advances BETA-03. M8.2 is the next critical dependency for BETA-01 and later BETA-02.
+
 ## 13. Interaction principles
 
 1. Familiar canvas gestures are preferred where they do not conflict with apartment semantics.
@@ -268,6 +303,7 @@ Export correct whole-plan and selection PNG/SVG.
 7. Context controls, shortcuts and menus converge on one command implementation.
 8. Selection, viewport and transient gesture state remain runtime-only.
 9. Browser behaviour is part of the product contract and is tested as browser behaviour.
+10. Structural batch editing must preserve topology and hosted openings atomically.
 
 ## 14. Mandatory TDD policy
 
@@ -281,6 +317,8 @@ Every deterministic M8 interaction change uses genuine RED → GREEN → regress
 - use real Chromium tests for pointer/keyboard/layout flows;
 - use representative WebKit coverage for engine-sensitive gesture/input/storage behaviour.
 
+Test-only regression hardening after an already-proven behavior fix does not require manufacturing a synthetic RED; it must be documented as such and must not introduce hidden production behavior.
+
 ## 15. Mandatory CHANGELOG policy
 
 Every accepted M8 UX slice has a focused changelog and canonical changelog entry containing:
@@ -293,7 +331,7 @@ Every accepted M8 UX slice has a focused changelog and canonical changelog entry
 - intentional deferrals;
 - exact-head CI/browser evidence;
 - explicit product-owner acceptance when required;
-- final merge SHA.
+- final merge SHA only after actual integration.
 
 Do not replace this with commit-title lists or vague “editor improvements”.
 
@@ -308,8 +346,8 @@ The M7.0 finding ledger remains part of repository history and must not disappea
 | `UX-SHELL-003` | M7.2 — complete |
 | `UX-SHELL-004` | M7.4 — complete |
 | `UX-SHELL-005` | M7.3 — complete |
-| `UX-CANVAS-001` | M7.4 foundation complete; M8.1 deepens mature selection interaction |
-| `UX-CANVAS-002` | M7.4 foundation complete; M8.1 deepens navigation/selection interaction |
+| `UX-CANVAS-001` | M7.4 foundation + M8.1 interaction foundation complete/product-accepted |
+| `UX-CANVAS-002` | M7.4 foundation + M8.1 navigation/selection complete/product-accepted |
 | `UX-ONBOARD-001` | M7.5 — complete; final beta discoverability revisited in M8.7 |
 | `UX-GEO-001` | M7.6 — complete; M8.2 adds direct precision editing |
 | `UX-GEO-002` | M7.6 — complete; M8.2 adds direct precision editing |
@@ -354,4 +392,5 @@ No M8 UX slice may:
 - bypass topology/opening/M2 validation;
 - make network/AI availability necessary for core editing;
 - silently apply an operation to only part of a mixed selection;
-- claim product acceptance solely from green automated checks.
+- claim product acceptance solely from green automated checks;
+- claim integration before the protected merge is observable on `main`.

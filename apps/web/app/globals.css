@@ -235,3 +235,14 @@ kbd { padding:1px 5px; border:1px solid #d9dde3; border-bottom-width:2px; border
 .planning-reasons { display: grid; gap: 4px; margin: 0; padding-left: 16px; color: #475569; font-size: 11px; line-height: 1.4; }
 .planning-result-actions { display: flex; gap: 6px; }
 .planning-result-actions button { flex: 1; }
+
+/* M8.1 semantic selection presentation */
+.multi-selection-inspector { min-width:0; }
+.multi-selection-summary { display:grid; gap:8px; margin:0 0 16px; padding:0; list-style:none; }
+.multi-selection-summary li { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; padding:7px 0; border-bottom:1px solid #eef0f3; color:#475569; font-size:11px; }
+.multi-selection-summary li strong { min-width:0; color:var(--text); text-align:right; overflow-wrap:anywhere; }
+.multi-selection-blocked-reason { margin:12px 0 0; padding:10px; border:1px solid #fed7aa; border-radius:8px; background:#fff7ed; color:#9a3412; font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
+.editor-context-menu { position:fixed; z-index:40; display:grid; min-width:190px; max-width:min(280px,calc(100vw - 16px)); padding:6px; border:1px solid var(--line); border-radius:10px; background:var(--panel); box-shadow:0 16px 36px rgba(15,23,42,.18); }
+.editor-context-menu button { width:100%; min-height:34px; padding:7px 9px; border:0; border-radius:7px; background:transparent; text-align:left; color:var(--text); font-size:11px; cursor:pointer; }
+.editor-context-menu button:hover,.editor-context-menu button:focus-visible { outline:none; background:#f4f6f8; }
+.editor-context-menu-empty { margin:0; padding:9px 10px; color:var(--muted); font-size:11px; line-height:1.4; }

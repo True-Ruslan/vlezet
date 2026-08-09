@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
 import { deriveRooms } from "@vlezet/geometry";
-import { createEditorStore, type EditorEntityIdKind } from "./use-editor-store";
+import { describe, expect, it } from "vitest";
+import {
+  createEditorStore,
+  selectedRoomId,
+  selectedWallId,
+  type EditorEntityIdKind,
+} from "./use-editor-store";
 
 const noSnap = (x: number, y: number) => ({ point: { x, y }, kind: "none" as const, guides: [] });
 
@@ -38,8 +43,8 @@ describe("room editor store", () => {
     const room = deriveRooms(store.getState().history.document).rooms[0]!;
 
     store.getState().selectRoom(room.id);
-    expect(store.getState().selectedRoomId).toBe(room.id);
-    expect(store.getState().selectedWallId).toBeNull();
+    expect(selectedRoomId(store.getState().selection)).toBe(room.id);
+    expect(selectedWallId(store.getState().selection)).toBeNull();
 
     const beforeHistory = store.getState().history.past.length;
     store.getState().setSelectedRoomName("Спальня");
@@ -54,13 +59,13 @@ describe("room editor store", () => {
     expect(deriveRooms(store.getState().history.document).rooms[0]?.name).toBe("Спальня");
   });
 
-  it("clears room selection when selecting a wall", () => {
+  it("replaces a room selection when selecting a wall", () => {
     const store = createEditorStore({ idFactory: idFactory() });
     drawRectangle(store);
     const room = deriveRooms(store.getState().history.document).rooms[0]!;
     store.getState().selectRoom(room.id);
     store.getState().selectWall("wall-1");
-    expect(store.getState().selectedRoomId).toBeNull();
-    expect(store.getState().selectedWallId).toBe("wall-1");
+    expect(selectedRoomId(store.getState().selection)).toBeNull();
+    expect(selectedWallId(store.getState().selection)).toBe("wall-1");
   });
 });

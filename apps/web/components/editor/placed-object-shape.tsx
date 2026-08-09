@@ -5,7 +5,7 @@ import type { PlacedObjectPatch } from "@vlezet/editor-core";
 import { screenToWorld, worldToScreen, type FitStatus, type ViewportTransform } from "@vlezet/geometry";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Group, Line, Rect, Text, Transformer } from "react-konva";
 import { canvasEntityName } from "./canvas-entity-identity";
 import type { ObjectGestureKind } from "./use-editor-store";
@@ -17,7 +17,8 @@ export type PlacedObjectShapeProps = Readonly<{
   fitStatus: FitStatus;
   preview?: boolean;
   hovered?: boolean;
-  onSelect?: () => void;
+  transformEnabled?: boolean;
+  onSelect?: (event: KonvaEventObject<MouseEvent | TouchEvent>) => void;
   onGestureStart?: (kind: ObjectGestureKind) => void;
   onGesturePreview?: (patch: PlacedObjectPatch) => void;
   onGestureCommit?: () => void;
@@ -77,6 +78,7 @@ export function PlacedObjectShape({
   fitStatus,
   preview = false,
   hovered = false,
+  transformEnabled = true,
   onSelect,
   onGestureStart,
   onGesturePreview,
@@ -89,13 +91,20 @@ export function PlacedObjectShape({
   const depth = object.depth * viewport.pixelsPerMillimeter;
   const previewLabel = fitStatus === "blocked" ? "Предпросмотр · не влезает" : "Предпросмотр";
 
+  useLayoutEffect(() => {
+    const group = groupRef.current;
+    if (!group || preview) return;
+    group.position(worldToScreen(object.position, viewport));
+    group.getLayer()?.batchDraw();
+  }, [object, preview, viewport]);
+
   useEffect(() => {
     const transformer = transformerRef.current;
     const group = groupRef.current;
-    if (!transformer || !group || !selected || preview) return;
+    if (!transformer || !group || !selected || !transformEnabled || preview) return;
     transformer.nodes([group]);
     transformer.getLayer()?.batchDraw();
-  }, [preview, selected]);
+  }, [preview, selected, transformEnabled]);
 
   const emitTransformPreview = (node: Konva.Group) => {
     const world = screenToWorld({ x: node.x(), y: node.y() }, viewport);
@@ -107,10 +116,14 @@ export function PlacedObjectShape({
     });
   };
 
+  const blockPointerFromCanvas = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!preview) event.cancelBubble = true;
+  };
+
   const selectFromPointer = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (preview) return;
     event.cancelBubble = true;
-    onSelect?.();
+    onSelect?.(event);
   };
 
   return <>
@@ -122,11 +135,12 @@ export function PlacedObjectShape({
       rotation={object.rotationDeg}
       draggable={!preview}
       opacity={preview ? 0.68 : 1}
-      onMouseDown={selectFromPointer}
+      onMouseDown={blockPointerFromCanvas}
+      onTouchStart={blockPointerFromCanvas}
+      onClick={selectFromPointer}
       onTap={selectFromPointer}
       onDragStart={(event) => {
         event.cancelBubble = true;
-        onSelect?.();
         onGestureStart?.("move");
       }}
       onDragMove={(event) => {
@@ -186,7 +200,7 @@ export function PlacedObjectShape({
         />
       ) : null}
     </Group>
-    {selected && !preview ? (
+    {selected && transformEnabled && !preview ? (
       <Transformer
         ref={transformerRef}
         rotateEnabled

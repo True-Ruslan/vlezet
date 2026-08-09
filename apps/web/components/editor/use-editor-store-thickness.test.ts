@@ -1,6 +1,7 @@
 import type { VlezetDocument } from "@vlezet/domain";
 import { createHistoryState } from "@vlezet/editor-core";
 import { describe, expect, it } from "vitest";
+import { replaceSelection } from "./editor-selection";
 import { createEditorStore } from "./use-editor-store";
 
 function rectangleDocument(): VlezetDocument {
@@ -28,7 +29,10 @@ describe("editor store wall thickness alignment", () => {
   it("applies a face-fixed thickness edit as one semantic command", () => {
     const document = rectangleDocument();
     const store = createEditorStore();
-    store.setState({ history: createHistoryState(document), selectedWallId: "top" });
+    store.setState({
+      history: createHistoryState(document),
+      selection: replaceSelection({ kind: "wall", id: "top" }),
+    });
 
     store.getState().setSelectedWallThickness(300, "right-face");
 

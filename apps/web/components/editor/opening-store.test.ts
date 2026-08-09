@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createEditorStore, type EditorEntityIdKind } from "./use-editor-store";
+import {
+  createEditorStore,
+  selectedOpeningId,
+  selectedRoomId,
+  selectedWallId,
+  type EditorEntityIdKind,
+} from "./use-editor-store";
 
 const noSnap = (x: number, y: number) => ({ point: { x, y }, kind: "none" as const, guides: [] });
 
@@ -35,7 +41,7 @@ describe("opening editor store", () => {
       width: 900,
       doorSwing: { hinge: "start", side: "left" },
     });
-    expect(store.getState().selectedOpeningId).toBe("opening-1");
+    expect(selectedOpeningId(store.getState().selection)).toBe("opening-1");
   });
 
   it("adds a default window and supports update/delete with undo", () => {
@@ -53,14 +59,19 @@ describe("opening editor store", () => {
     expect(store.getState().history.document.openings[0]?.offset).toBe(3500);
   });
 
-  it("keeps opening selection mutually exclusive with rooms and walls", () => {
+  it("keeps one opening selection mutually exclusive with rooms and walls", () => {
     const store = createEditorStore({ idFactory: ids() });
     createHost(store);
     store.getState().setTool("door");
     store.getState().addOpeningAt("wall-1", 2000);
-    expect(store.getState().selectedWallId).toBeNull();
-    expect(store.getState().selectedRoomId).toBeNull();
+    let state = store.getState();
+    expect(selectedWallId(state.selection)).toBeNull();
+    expect(selectedRoomId(state.selection)).toBeNull();
+    expect(selectedOpeningId(state.selection)).toBe("opening-1");
+
     store.getState().selectWall("wall-1");
-    expect(store.getState().selectedOpeningId).toBeNull();
+    state = store.getState();
+    expect(selectedOpeningId(state.selection)).toBeNull();
+    expect(selectedWallId(state.selection)).toBe("wall-1");
   });
 });

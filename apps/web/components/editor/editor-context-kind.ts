@@ -1,5 +1,6 @@
 export type EditorContextKind =
   | "empty"
+  | "multi-selection"
   | "wall"
   | "room"
   | "opening-door"
@@ -13,6 +14,7 @@ export type EditorContextInput = Readonly<{
   recognitionPanelOpen: boolean;
   referencePanelOpen: boolean;
   planningRoomId: string | null;
+  selectionCount: number;
   selectedObjectId: string | null;
   selectedOpeningKind: "door" | "window" | null;
   selectedRoomId: string | null;
@@ -32,6 +34,7 @@ export function deriveEditorContextKind(input: EditorContextInput): EditorContex
   if (input.recognitionPanelOpen) return "recognition";
   if (input.referencePanelOpen) return "reference";
   if (input.planningRoomId) return "planning";
+  if (input.selectionCount > 1) return "multi-selection";
   if (input.selectedObjectId) return "object";
   if (input.selectedOpeningKind === "door") return "opening-door";
   if (input.selectedOpeningKind === "window") return "opening-window";
@@ -42,6 +45,7 @@ export function deriveEditorContextKind(input: EditorContextInput): EditorContex
 
 const CONTEXT_LABELS: Readonly<Record<EditorContextKind, string>> = {
   empty: "Свойства",
+  "multi-selection": "Свойства · Выделение",
   wall: "Свойства · Стена",
   room: "Свойства · Комната",
   "opening-door": "Свойства · Дверь",

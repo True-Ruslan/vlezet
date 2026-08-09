@@ -53,7 +53,13 @@ import {
 } from "./geometry-inspector-presentation";
 import { ObjectInspector } from "./object-inspector";
 import { OpeningPositionCue } from "./opening-position-cue";
-import { editorStore } from "./use-editor-store";
+import {
+  editorStore,
+  selectedObjectId as selectedObjectIdFromSelection,
+  selectedOpeningId as selectedOpeningIdFromSelection,
+  selectedRoomId as selectedRoomIdFromSelection,
+  selectedWallId as selectedWallIdFromSelection,
+} from "./use-editor-store";
 import { WallAxisCue } from "./wall-axis-cue";
 import { resolveWallThicknessAlignment, type WallThicknessGrowthIntent } from "./wall-thickness-intent";
 import { WallThicknessCue } from "./wall-thickness-cue";
@@ -558,10 +564,10 @@ export function SelectedOpeningInspector({
 export function WallInspector({
   planningNavigation = DEFAULT_PLANNING_NAVIGATION,
 }: Readonly<{ planningNavigation?: ContextPanelNavigation }> = {}) {
-  const selectedWallId = useStore(editorStore, (state) => state.selectedWallId);
-  const selectedRoomId = useStore(editorStore, (state) => state.selectedRoomId);
-  const selectedOpeningId = useStore(editorStore, (state) => state.selectedOpeningId);
-  const selectedObjectId = useStore(editorStore, (state) => state.selectedObjectId);
+  const selectedWallId = useStore(editorStore, (state) => selectedWallIdFromSelection(state.selection));
+  const selectedRoomId = useStore(editorStore, (state) => selectedRoomIdFromSelection(state.selection));
+  const selectedOpeningId = useStore(editorStore, (state) => selectedOpeningIdFromSelection(state.selection));
+  const selectedObjectId = useStore(editorStore, (state) => selectedObjectIdFromSelection(state.selection));
   const planningRoomId = useStore(planningUiStore, (state) => state.roomId);
   const document = useStore(editorStore, (state) => state.history.document);
   const wall = useMemo(() => document.walls.find((candidate) => candidate.id === selectedWallId) ?? null, [selectedWallId, document.walls]);

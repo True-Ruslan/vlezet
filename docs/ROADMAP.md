@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-08-08  
+**Last updated:** 2026-08-09  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative automation. Manual editing must remain a complete product path.
 
 Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`.
@@ -21,10 +21,14 @@ DONE        M7.0–M7.7 product/UX foundation
 DONE        M7.8A Recognition Benchmark Foundation
 DONE        M7.8B Source Normalisation and Wall Topology
 STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance failed
-NOW         M8.1 Editor Interaction Foundation
-THEN        M8.2–M8.7 Public Beta Editor programme
+DONE        M8.0 Public Beta Product Contract / roadmap reset
+ACCEPTED*   M8.1 Editor Interaction Foundation
+NEXT*       M8.2 Precision Drawing and Structural Editing
+THEN        M8.3–M8.7 Public Beta Editor programme
 R&D         automatic whole-plan recognition (#27)
 ```
+
+`*` M8.1 is product-owner accepted in PR #85 and awaits protected integration into `main`. M8.2 is selected next but must not start until that merge completes.
 
 ## Completed product foundation
 
@@ -88,7 +92,7 @@ Consequences:
 
 ### M8.0 — Public Beta Product Contract / roadmap reset
 
-Status: **PRODUCT DIRECTION APPROVED / DOCUMENTATION CHECKPOINT IN REVIEW**.
+Status: **DONE / MERGED**.
 
 Target: a public free beta that an unfamiliar non-CAD user can use successfully.
 
@@ -102,41 +106,66 @@ Tracker: #53.
 
 ### M8.1 — Editor Interaction Foundation
 
-Status: **NOW after written-spec review**. Tracker: #54.
+Status: **PRODUCT-OWNER ACCEPTED / PROTECTED MERGE PENDING**. Tracker: #54. PR: #85.
 
-Required:
+Accepted behavior:
 
-- unified semantic selection;
-- primary + multi-selection;
+- unified semantic runtime selection with primary + multi-selection;
 - click/modifier/marquee/select-all semantics;
 - capability-aware commands;
 - rigid multi-furniture movement;
 - semantic furniture Copy/Cut/Paste/Duplicate with fresh IDs;
 - central command registry;
-- wheel/trackpad pan + modified-wheel/pinch zoom;
+- wheel/trackpad pan + modified pointer-centred zoom;
 - Space+drag and middle-button pan;
 - fit-plan / fit-selection;
+- compact multi-selection inspector and semantic context menu;
 - existing single-inspector compatibility;
 - fail-closed mixed/structural batch operations;
 - no arbitrary group scale;
-- no project-schema migration expected.
+- no project-schema migration.
 
-Structural clipboard/batch movement is M8.2, not a hidden extension of M8.1.
+The final selected-group drag/snap defect was reproduced through genuine RED tests and fixed at the Konva projection boundary without changing snap or fit authority. The regression now covers three deterministic cursor-jitter profiles plus exact Undo/Redo behavior in Chromium and WebKit.
 
-Design: `docs/superpowers/specs/2026-08-08-m8-1-editor-interaction-foundation-design.md`.
+Acceptance evidence:
+
+```text
+product-accepted head:        db66de524783a43fa021db07a6b67808c4435e9b
+CI #4813:                     PASS
+Recognition Benchmark #1149: PASS
+Browser Acceptance #1269:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+product-owner retest:         PASS
+```
+
+Acceptance record: `docs/milestones/m8-1-acceptance.md`.
+
+Structural clipboard/batch movement and common-property editing for selected walls are M8.2, not hidden extensions of M8.1.
 
 ### M8.2 — Precision Drawing and Structural Editing
+
+Status: **SELECTED NEXT — DO NOT START BEFORE M8.1 MERGE**. Tracker: #56.
+
+Primary outcome:
+
+> Draw, repair and batch-edit exact apartment structure with fewer inspector round-trips while preserving topology and hosted-opening validity.
 
 Planned outcomes:
 
 - named visible snap guides;
-- endpoint/wall-axis/midpoint/intersection/parallel/perpendicular assistance;
+- endpoint/wall-axis/midpoint/intersection snapping;
+- parallel/perpendicular assistance;
 - exact inline wall length and useful angle input;
 - direct vertex/junction editing;
 - topology-safe structural movement;
+- atomic common-property editing for compatible selected walls, beginning with thickness;
 - structural clipboard only with explicit dependency closure;
 - opening preservation/revalidation;
-- one semantic history command per committed gesture.
+- one semantic history command per committed gesture;
+- fail closed rather than partially mutating an unsafe structural selection.
+
+Before implementation, M8.2 requires an explicit design/spec and a task-by-task TDD implementation plan. Placed-object batch semantics from M8.1 may not be copied into structural editing without proving topology safety.
 
 ### M8.3 — Precision Reference Calibration
 
@@ -199,6 +228,8 @@ BETA-05 Export
 
 No public beta until all five journeys have deterministic/unit coverage where possible plus representative Chromium/WebKit browser evidence and no known document-integrity blocker.
 
+M8.1 materially advances `BETA-03`. M8.2 is the next dependency for reliable `BETA-01` structural creation and later `BETA-02` reference tracing.
+
 ## Mandatory TDD delivery rule
 
 Every deterministic M8 behaviour:
@@ -218,7 +249,7 @@ Forbidden:
 
 - weakening existing validation/tests/thresholds merely for green CI;
 - treating a pre-existing passing test as RED evidence;
-- replacing real browser interaction tests with source-string assertions;
+- replacing real browser interaction tests with source-string assertions where behavior can be exercised directly;
 - claiming product acceptance from CI alone.
 
 ## Mandatory CHANGELOG rule
@@ -227,7 +258,8 @@ Every accepted M8 slice must maintain:
 
 - focused `docs/changelog/YYYY-MM-DD-<slice>.md`;
 - concise `docs/CHANGELOG.md` entry;
-- truthful post-merge `PROJECT_STATE`/roadmap sync.
+- truthful canonical `PROJECT_STATE`/roadmap sync;
+- final merge identity only after GitHub reports the protected integration.
 
 Focused history must explain why, user-visible behaviour, architecture boundaries, meaningful RED/GREEN evidence, regressions fixed, intentional deferrals, exact-head automated evidence, product-owner acceptance and merge identity.
 
@@ -246,4 +278,4 @@ Focused history must explain why, user-visible behaviour, architecture boundarie
 
 ## Delivery workflow
 
-Every slice requires focused design, user-reviewed written spec, task-by-task TDD implementation plan, isolated Draft PR, genuine RED/GREEN evidence, full CI, browser evidence, product-owner acceptance where defined, exact-head protected squash merge and canonical documentation sync.
+Every slice requires focused design, user-reviewed written spec, task-by-task TDD implementation plan, isolated Draft PR, genuine RED/GREEN evidence, full CI, browser evidence, product-owner acceptance where defined, canonical acceptance sync, fresh exact-head verification, protected squash merge and post-merge identity/state verification.

@@ -10,6 +10,7 @@ const emptyInput: EditorContextInput = {
   recognitionPanelOpen: false,
   referencePanelOpen: false,
   planningRoomId: null,
+  selectionCount: 0,
   selectedObjectId: null,
   selectedOpeningKind: null,
   selectedRoomId: null,
@@ -23,6 +24,7 @@ describe("M7.1 editor context identity", () => {
       recognitionPanelOpen: true,
       referencePanelOpen: true,
       planningRoomId: "room-1",
+      selectionCount: 4,
       selectedObjectId: "object-1",
       selectedOpeningKind: "door",
       selectedRoomId: "room-1",
@@ -33,17 +35,27 @@ describe("M7.1 editor context identity", () => {
       ...emptyInput,
       referencePanelOpen: true,
       planningRoomId: "room-1",
+      selectionCount: 2,
       selectedObjectId: "object-1",
     })).toBe("reference");
 
     expect(deriveEditorContextKind({
       ...emptyInput,
       planningRoomId: "room-1",
+      selectionCount: 2,
       selectedObjectId: "object-1",
     })).toBe("planning");
 
     expect(deriveEditorContextKind({
       ...emptyInput,
+      selectionCount: 2,
+      selectedObjectId: "object-1",
+      selectedOpeningKind: "door",
+    })).toBe("multi-selection");
+
+    expect(deriveEditorContextKind({
+      ...emptyInput,
+      selectionCount: 1,
       selectedObjectId: "object-1",
       selectedOpeningKind: "door",
       selectedRoomId: "room-1",
@@ -52,6 +64,7 @@ describe("M7.1 editor context identity", () => {
 
     expect(deriveEditorContextKind({
       ...emptyInput,
+      selectionCount: 1,
       selectedOpeningKind: "window",
       selectedRoomId: "room-1",
       selectedWallId: "wall-1",
@@ -59,21 +72,23 @@ describe("M7.1 editor context identity", () => {
 
     expect(deriveEditorContextKind({
       ...emptyInput,
+      selectionCount: 1,
       selectedRoomId: "room-1",
       selectedWallId: "wall-1",
     })).toBe("room");
 
-    expect(deriveEditorContextKind({ ...emptyInput, selectedWallId: "wall-1" })).toBe("wall");
+    expect(deriveEditorContextKind({ ...emptyInput, selectionCount: 1, selectedWallId: "wall-1" })).toBe("wall");
     expect(deriveEditorContextKind(emptyInput)).toBe("empty");
   });
 
   it("distinguishes door and window context", () => {
-    expect(deriveEditorContextKind({ ...emptyInput, selectedOpeningKind: "door" })).toBe("opening-door");
-    expect(deriveEditorContextKind({ ...emptyInput, selectedOpeningKind: "window" })).toBe("opening-window");
+    expect(deriveEditorContextKind({ ...emptyInput, selectionCount: 1, selectedOpeningKind: "door" })).toBe("opening-door");
+    expect(deriveEditorContextKind({ ...emptyInput, selectionCount: 1, selectedOpeningKind: "window" })).toBe("opening-window");
   });
 
   it("provides stable Russian labels for the compact context trigger", () => {
     expect(editorContextLabel("empty")).toBe("Свойства");
+    expect(editorContextLabel("multi-selection")).toBe("Свойства · Выделение");
     expect(editorContextLabel("wall")).toBe("Свойства · Стена");
     expect(editorContextLabel("room")).toBe("Свойства · Комната");
     expect(editorContextLabel("opening-door")).toBe("Свойства · Дверь");
@@ -88,6 +103,7 @@ describe("M7.1 editor context identity", () => {
     expect(nextCompactEditorSurface(null, { kind: "open-catalogue" })).toBe("catalogue");
     expect(nextCompactEditorSurface("catalogue", { kind: "open-context" })).toBe("context");
     expect(nextCompactEditorSurface("catalogue", { kind: "context-changed", context: "object" })).toBe("context");
+    expect(nextCompactEditorSurface("catalogue", { kind: "context-changed", context: "multi-selection" })).toBe("context");
     expect(nextCompactEditorSurface("catalogue", { kind: "context-changed", context: "empty" })).toBe("catalogue");
     expect(nextCompactEditorSurface("context", { kind: "close" })).toBeNull();
     expect(nextCompactEditorSurface("context", { kind: "view-changed", view: "3d" })).toBeNull();
@@ -95,7 +111,7 @@ describe("M7.1 editor context identity", () => {
   });
 
   it("does not mutate source state while deriving presentation", () => {
-    const input = Object.freeze({ ...emptyInput, selectedObjectId: "object-1" });
+    const input = Object.freeze({ ...emptyInput, selectionCount: 1, selectedObjectId: "object-1" });
     const event = Object.freeze({ kind: "context-changed" as const, context: "object" as const });
 
     expect(deriveEditorContextKind(input)).toBe("object");

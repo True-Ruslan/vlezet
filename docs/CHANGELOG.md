@@ -4,6 +4,48 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-09 — M8.1 Editor Interaction Foundation product-accepted
+
+**Status:** product-owner accepted in PR #85; protected squash merge pending.
+
+```text
+product-accepted head:        db66de524783a43fa021db07a6b67808c4435e9b
+CI #4813:                     PASS
+Recognition Benchmark #1149: PASS
+Browser Acceptance #1269:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+product-owner retest:         PASS
+```
+
+M8.1 establishes the public-beta editor interaction substrate without weakening apartment semantics:
+
+- unified semantic runtime selection with primary + multi-selection;
+- click/modifier/marquee/select-all semantics;
+- capability-aware fail-closed mixed/structural operations;
+- rigid multi-furniture movement;
+- semantic placed-object Copy/Cut/Paste/Duplicate with fresh IDs and atomic history;
+- central command registry shared by keyboard/UI/context-menu consumers;
+- ordinary wheel/trackpad pan and modified pointer-centred zoom;
+- Space+drag and middle-button pan;
+- fit-plan and fit-selection;
+- compact multi-selection inspector and semantic context menu;
+- no arbitrary graphical group scaling and no project-schema migration.
+
+Product-owner acceptance initially found one real regression: cursor jitter around grid snap thresholds could leave the imperative dragged Konva node visually diverged from authoritative snapped group bounds. Genuine RED evidence was recorded at `fdc5902ab61d9152f93a0a5cbcfadb37bf59daa5` / CI #4807 and refined at `98a2e053b5b705257e4f5e56307d46ea30c0e5ae` / CI #4808. The production correction `94775496f5d0c7bc504ee9e371c845ef5e148a5e` reconciles the projection from authoritative preview state before paint without changing snap policy, M2 fit authority or semantic history.
+
+Regression hardening `88ec268653bb3034e3254421c8d9f28824b3488e` exercises three deterministic jitter profiles, post-release visual stability and exact Undo → Redo → Undo equivalence in Chromium and representative WebKit. No synthetic RED was manufactured for this test-only hardening because it introduced no new production behavior.
+
+The product owner repeated the focused corrected scenarios on 2026-08-09 and reported: **«Все сценарии PASS.»**
+
+Structural batch movement/clipboard and compatible multi-wall common-property editing, beginning with wall thickness, remain deliberately deferred to M8.2 because topology dependency closure and hosted-opening validity must be designed and tested explicitly.
+
+Canonical acceptance evidence: `docs/milestones/m8-1-acceptance.md` and `docs/changelog/2026-08-08-m8-1-editor-interaction-foundation.md`.
+
+Roadmap consequence: **M8.2 Precision Drawing and Structural Editing is selected next after M8.1 is integrated into `main`.** The actual protected squash-merge identity must be recorded after integration; product acceptance is not treated as an invented merge.
+
+---
+
 ## 2026-08-01 — Canonical engineering-portfolio link
 
 **Status:** merged to `main`; exact-head CI PASS.
@@ -510,7 +552,7 @@ PR #10 squash merge:
 0bffe36d74d2ff0865d700b51b17ee08e7001094
 ```
 
-Accepted head/run:
+Final accepted head and CI:
 
 ```text
 e9980f63d574d1a9cb6614980788270a50cde47e

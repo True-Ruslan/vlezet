@@ -18,6 +18,9 @@ export type EditorCommandLabel =
   | "object/update"
   | "object/duplicate"
   | "object/delete"
+  | "object/batch-add"
+  | "object/batch-move"
+  | "object/batch-delete"
   | "planning/apply-candidate"
   | "recognition/apply";
 

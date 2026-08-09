@@ -2,6 +2,7 @@ export type CanvasEntityVisualState =
   | "ordinary"
   | "hover"
   | "selected"
+  | "group-selection"
   | "preview-valid"
   | "preview-invalid";
 
@@ -28,6 +29,12 @@ const VISUALS: Readonly<Record<CanvasEntityVisualState, CanvasEntityVisual>> = {
   selected: {
     strokeRole: "accent",
     dash: null,
+    marker: "none",
+    emphasized: true,
+  },
+  "group-selection": {
+    strokeRole: "accent",
+    dash: [6, 4],
     marker: "none",
     emphasized: true,
   },

@@ -19,4 +19,15 @@ describe("M7.4 placed-object presentation", () => {
     expect(source).toContain("text={previewLabel}");
     expect(source).not.toContain('fitStatus === "blocked" ? "Недопустимо"');
   });
+
+  it("shows transform handles only when the selected object is transform-enabled", () => {
+    expect(source).toContain("transformEnabled?: boolean");
+    expect(source).toContain("selected && transformEnabled");
+  });
+
+  it("reconciles imperative drag position from each authoritative object preview before paint", () => {
+    expect(source).toContain('import { useEffect, useLayoutEffect, useRef } from "react";');
+    expect(source).toContain("group.position(worldToScreen(object.position, viewport));");
+    expect(source).toContain("}, [object, preview, viewport]);");
+  });
 });
