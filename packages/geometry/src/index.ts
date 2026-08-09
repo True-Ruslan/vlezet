@@ -55,6 +55,7 @@ export type {
 } from "./rooms";
 export { GEOMETRY_EPSILON_MM, isProperInteriorIntersection, pointOnSegment, projectPointToSegment, segmentIntersection } from "./segment";
 export type { SegmentIntersection, SegmentProjection } from "./segment";
+export { normalizeCanvasAngleDeg, pointFromCanvasPolar, vectorToCanvasAngleDeg } from "./structural-angle";
 export { snapWallPoint } from "./snapping";
 export type { SnapGuide, SnapKind, SnapResult, SnapWallPointInput } from "./snapping";
 export { deriveAtomicWallEdges, topologyVertexMap, wallRunLength } from "./topology";
