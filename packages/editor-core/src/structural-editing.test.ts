@@ -197,7 +197,7 @@ describe("M8.2 structural transaction authority", () => {
       ],
     };
 
-    const result = evaluateStructuralWallTranslation(document, "branch", { x: 500, y: 0 });
+    const result = evaluateStructuralWallTranslation(document, "branch", { x: 0, y: 500 });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("topology");
