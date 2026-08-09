@@ -1,6 +1,6 @@
 # 2026-08-08 — M8.1 Editor Interaction Foundation
 
-**Status:** CORRECTION GREEN — PRODUCT-OWNER RETEST PENDING  
+**Status:** PRODUCT-OWNER ACCEPTED — PROTECTED MERGE PENDING  
 **Tracker:** #54  
 **Branch:** `feat/m8-1-editor-interaction-foundation`
 
@@ -185,7 +185,25 @@ Browser Acceptance #1268:    PASS
   WebKit:                     PASS
 ```
 
-The same review requested batch configuration for multiple selected walls, at minimum common wall thickness. That request is intentionally recorded for **M8.2 structural editing**, not implemented in M8.1: wall batch mutation is topology-sensitive and remains outside M8.1's placed-object-only mutation authority.
+The first final handoff head `db66de524783a43fa021db07a6b67808c4435e9b` then passed a fresh exact-head gate:
+
+```text
+CI #4813:                     PASS
+Recognition Benchmark #1149: PASS
+Browser Acceptance #1269:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+```
+
+### Product-owner acceptance — 2026-08-09
+
+The product owner repeated the focused snapped-group drag scenarios on the accepted head and reported:
+
+> «Все сценарии PASS.»
+
+This closes the manual M8.1 product-acceptance gate. Canonical acceptance evidence is recorded in `docs/milestones/m8-1-acceptance.md`.
+
+The same review requested batch configuration for multiple selected walls, at minimum common wall thickness. That request remains intentionally recorded for **M8.2 structural editing**, not implemented in M8.1: wall batch mutation is topology-sensitive and remains outside M8.1's placed-object-only mutation authority.
 
 ## Architecture audit
 
@@ -204,6 +222,6 @@ Verified from the PR diff:
 
 ## Acceptance / merge
 
-**Automated correction verification is GREEN. Product-owner acceptance remains pending the focused snapped-group drag retest.**
+**M8.1 is PRODUCT-OWNER ACCEPTED. Protected merge is the remaining delivery gate.**
 
-PR #85 must remain Draft / DO NOT MERGE. Do not create the M8.1 acceptance milestone, update canonical completion state, mark Ready, merge or start M8.2 until the product owner repeats the corrected interaction and explicitly reports PASS.
+PR #85 must not start M8.2 until it is integrated into `main`. The current branch now carries the acceptance record and canonical state sync; a fresh exact-head automated gate is required before protected merge. The actual squash-merge SHA must be recorded after integration.
