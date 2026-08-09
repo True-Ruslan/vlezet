@@ -35,12 +35,10 @@ export {
   evaluateStructuralVertexMove,
   evaluateStructuralWallTranslation,
   evaluateWallThicknessBatch,
-  validateStructuralCandidate,
 } from "./structural-editing";
 export type {
   StructuralTransactionCode,
   StructuralTransactionResult,
-  StructuralValidationContext,
 } from "./structural-editing";
 export {
   addConnectedWall,
