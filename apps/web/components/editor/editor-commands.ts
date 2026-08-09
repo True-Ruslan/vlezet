@@ -42,11 +42,11 @@ export const EDITOR_COMMANDS: readonly EditorCommandDescriptor[] = Object.freeze
   { id: "selection.duplicate", label: "Дублировать", shortcut: "Cmd/Ctrl+D" },
   { id: "selection.delete", label: "Удалить", shortcut: "Delete" },
   { id: "selection.clear", label: "Снять выделение", shortcut: null },
-  { id: "view.zoomIn", label: "Увеличить", shortcut: "+" },
-  { id: "view.zoomOut", label: "Уменьшить", shortcut: "-" },
-  { id: "view.actualSize", label: "Масштаб 1:1", shortcut: "0" },
-  { id: "view.fitPlan", label: "Показать весь план", shortcut: "1" },
-  { id: "view.fitSelection", label: "Показать выделение", shortcut: "2" },
+  { id: "view.zoomIn", label: "Увеличить", shortcut: null },
+  { id: "view.zoomOut", label: "Уменьшить", shortcut: null },
+  { id: "view.actualSize", label: "Масштаб 1:1", shortcut: null },
+  { id: "view.fitPlan", label: "Показать весь план", shortcut: null },
+  { id: "view.fitSelection", label: "Показать выделение", shortcut: null },
   { id: "tool.select", label: "Выбор", shortcut: "V" },
   { id: "tool.wall", label: "Стена", shortcut: "W" },
   { id: "tool.door", label: "Дверь", shortcut: "D" },
@@ -87,11 +87,6 @@ export function commandForKeyboardEvent(event: ShortcutKeyEvent): EditorCommandI
   }
 
   if (event.key === "Delete" || event.key === "Backspace") return "selection.delete";
-  if (event.key === "+" || event.key === "=") return "view.zoomIn";
-  if (event.key === "-") return "view.zoomOut";
-  if (event.key === "0") return "view.actualSize";
-  if (event.key === "1") return "view.fitPlan";
-  if (event.key === "2") return "view.fitSelection";
   if (key === "v") return "tool.select";
   if (key === "w") return "tool.wall";
   if (key === "d") return "tool.door";
