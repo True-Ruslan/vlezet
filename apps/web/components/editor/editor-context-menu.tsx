@@ -1,7 +1,7 @@
 "use client";
 
 import type { VlezetDocument } from "@vlezet/domain";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { EDITOR_COMMANDS, type EditorCommandId } from "./editor-commands";
 import { deriveSelectionCapabilities } from "./editor-selection-capabilities";
 import {
@@ -15,6 +15,8 @@ import {
 
 const COMMAND_BY_ID = new Map(EDITOR_COMMANDS.map((descriptor) => [descriptor.id, descriptor]));
 const CONTEXT_MENU_VIEWPORT_MARGIN = 8;
+const subscribeShortcutPlatform = () => () => {};
+const serverShortcutPlatform = (): ShortcutPlatform => "other";
 
 export type ShortcutPlatform = "mac" | "other";
 
@@ -152,18 +154,17 @@ export function EditorContextMenu({
   onDismiss: () => void;
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [detectedPlatform, setDetectedPlatform] = useState<ShortcutPlatform>("other");
+  const detectedPlatform = useSyncExternalStore(
+    subscribeShortcutPlatform,
+    detectShortcutPlatform,
+    serverShortcutPlatform,
+  );
   const platform = shortcutPlatform ?? detectedPlatform;
   const commands = availableContextMenuCommands(
     document,
     selection,
     hasPlacedObjectClipboard,
   );
-
-  useEffect(() => {
-    if (shortcutPlatform) return;
-    setDetectedPlatform(detectShortcutPlatform());
-  }, [shortcutPlatform]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
