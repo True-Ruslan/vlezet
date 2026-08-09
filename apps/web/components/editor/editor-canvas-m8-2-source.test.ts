@@ -32,6 +32,11 @@ describe("M8.2 Canvas structural integration contract", () => {
     expect(source).toMatch(/structuralGesture\?\.previewDocument\s*\?\?\s*document/);
   });
 
+  it("does not carry stale snap hysteresis or guides into a fresh structural gesture", () => {
+    expect(source).toContain("activeCandidateId: draftWall || structuralGesture ? activeStructuralSnap?.candidateId ?? null : null");
+    expect(source).toContain("snap={draftWall || structuralGesture ? activeStructuralSnap : null}");
+  });
+
   it("supports gesture-local Alt/Option suppression without consuming native editable controls", () => {
     expect(source).toContain("altKey");
     expect(source).toContain("data-editor-native-editable");
