@@ -1,7 +1,7 @@
 import { createPlacedObject, type VlezetDocument } from "@vlezet/domain";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { addToSelection, replaceSelection } from "./editor-selection";
+import { EMPTY_EDITOR_SELECTION, addToSelection, replaceSelection } from "./editor-selection";
 import {
   EditorContextMenu,
   availableContextMenuCommands,
@@ -51,7 +51,7 @@ function documentFixture(): VlezetDocument {
 }
 
 describe("M8.1 registered-command context menu", () => {
-  it("preserves the current group when right-clicking a selected member and replaces it otherwise", () => {
+  it("preserves a selected group, replaces an unselected target, and clears on empty canvas", () => {
     const group = addToSelection(
       replaceSelection({ kind: "placed-object", id: "chair-1" }),
       [{ kind: "placed-object", id: "chair-2" }],
@@ -61,6 +61,7 @@ describe("M8.1 registered-command context menu", () => {
     expect(selectionForContextMenuTarget(group, { kind: "wall", id: "wall-1" })).toEqual(
       replaceSelection({ kind: "wall", id: "wall-1" }),
     );
+    expect(selectionForContextMenuTarget(group, null)).toEqual(EMPTY_EDITOR_SELECTION);
   });
 
   it("clamps menu bounds to a viewport margin without moving safe anchors", () => {
@@ -83,7 +84,7 @@ describe("M8.1 registered-command context menu", () => {
     )).toEqual({ x: 8, y: 8 });
   });
 
-  it("derives menu availability from the shared capability matrix and command registry", () => {
+  it("derives the exact selection and empty-canvas command sets from shared authority", () => {
     const document = documentFixture();
     const group = addToSelection(
       replaceSelection({ kind: "placed-object", id: "chair-1" }),
@@ -93,21 +94,19 @@ describe("M8.1 registered-command context menu", () => {
     expect(availableContextMenuCommands(document, group, true).map((item) => item.id)).toEqual([
       "selection.copy",
       "selection.cut",
-      "selection.paste",
       "selection.duplicate",
+      "view.fitSelection",
       "selection.delete",
     ]);
 
-    expect(availableContextMenuCommands(
-      document,
-      replaceSelection({ kind: "placed-object", id: "chair-1" }),
-      false,
-    ).map((item) => item.id)).toEqual([
-      "selection.copy",
-      "selection.cut",
-      "selection.duplicate",
-      "object.rotate90",
-      "selection.delete",
+    expect(availableContextMenuCommands(document, EMPTY_EDITOR_SELECTION, true).map((item) => item.id)).toEqual([
+      "selection.paste",
+      "selection.selectAll",
+      "view.fitPlan",
+    ]);
+    expect(availableContextMenuCommands(document, EMPTY_EDITOR_SELECTION, false).map((item) => item.id)).toEqual([
+      "selection.selectAll",
+      "view.fitPlan",
     ]);
 
     const mixed = addToSelection(
@@ -115,52 +114,55 @@ describe("M8.1 registered-command context menu", () => {
       [{ kind: "placed-object", id: "chair-1" }],
     );
     expect(availableContextMenuCommands(document, mixed, true).map((item) => item.id)).toEqual([
-      "selection.paste",
+      "view.fitSelection",
     ]);
   });
 
-  it("renders only available registered commands in deterministic order", () => {
+  it("renders selection actions, separators and macOS-aware shortcut hints in approved order", () => {
     const document = documentFixture();
     const html = renderToStaticMarkup(
       <EditorContextMenu
         position={{ x: 120, y: 80 }}
         document={document}
         selection={replaceSelection({ kind: "placed-object", id: "chair-1" })}
-        hasPlacedObjectClipboard={false}
+        hasPlacedObjectClipboard
+        shortcutPlatform="mac"
         executeCommand={() => true}
         onDismiss={() => {}}
       />,
     );
 
-    for (const label of ["Копировать", "Вырезать", "Дублировать", "Повернуть на 90°", "Удалить"]) {
+    for (const label of ["Копировать", "Вырезать", "Дублировать", "Показать выделение", "Удалить"]) {
       expect(html).toContain(label);
     }
     expect(html).not.toContain(">Вставить<");
-    expect(html.indexOf("Копировать")).toBeLessThan(html.indexOf("Удалить"));
+    expect(html).not.toContain("Повернуть на 90°");
+    expect(html.indexOf("Копировать")).toBeLessThan(html.indexOf("Показать выделение"));
+    expect(html.indexOf("Показать выделение")).toBeLessThan(html.indexOf("Удалить"));
+    expect((html.match(/editor-context-menu-separator/g) ?? []).length).toBe(2);
+    for (const hint of ["⌘C", "⌘X", "⌘D", "⌫"]) expect(html).toContain(hint);
     expect(html).toContain('role="menu"');
   });
 
-  it("keeps a visible Vlezet menu surface when the semantic target has no available commands", () => {
+  it("renders empty-canvas actions with non-Mac shortcut hints and one separator", () => {
     const document = documentFixture();
     const html = renderToStaticMarkup(
       <EditorContextMenu
         position={{ x: 120, y: 80 }}
         document={document}
-        selection={replaceSelection({ kind: "wall", id: "wall-1" })}
-        hasPlacedObjectClipboard={false}
+        selection={EMPTY_EDITOR_SELECTION}
+        hasPlacedObjectClipboard
+        shortcutPlatform="other"
         executeCommand={() => true}
         onDismiss={() => {}}
       />,
     );
 
-    expect(availableContextMenuCommands(
-      document,
-      replaceSelection({ kind: "wall", id: "wall-1" }),
-      false,
-    )).toEqual([]);
-    expect(html).toContain('role="menu"');
-    expect(html).toContain("Нет доступных действий");
-    expect(html).not.toContain("<button");
+    for (const label of ["Вставить", "Выбрать всё", "Показать весь план"]) expect(html).toContain(label);
+    expect(html).not.toContain("Копировать");
+    expect(html).toContain("Ctrl+V");
+    expect(html).toContain("Ctrl+A");
+    expect((html.match(/editor-context-menu-separator/g) ?? []).length).toBe(1);
   });
 
   it("executes through the central command callback and dismisses only after execution", () => {
