@@ -24,4 +24,10 @@ describe("M7.4 placed-object presentation", () => {
     expect(source).toContain("transformEnabled?: boolean");
     expect(source).toContain("selected && transformEnabled");
   });
+
+  it("reconciles imperative drag position from each authoritative object preview before paint", () => {
+    expect(source).toContain('import { useEffect, useLayoutEffect, useRef } from "react";');
+    expect(source).toContain("group.position(worldToScreen(object.position, viewport));");
+    expect(source).toContain("}, [object, preview, viewport]);");
+  });
 });
