@@ -89,6 +89,15 @@ function storeWith(selectionValue: EditorSelection) {
   return store;
 }
 
+function placedClipboardObjects(store: ReturnType<typeof storeWith>) {
+  const payload = store.getState().clipboard.payload;
+  expect(payload?.kind).toBe("placed-objects");
+  if (!payload || payload.kind !== "placed-objects") {
+    throw new Error("Expected a placed-object clipboard payload");
+  }
+  return payload.objects;
+}
+
 describe("M8.1 semantic clipboard store commands", () => {
   it("copies a furniture multi-selection without mutating document/history", () => {
     const store = storeWith(selection("chair-1", "chair-2"));
@@ -99,7 +108,7 @@ describe("M8.1 semantic clipboard store commands", () => {
     const state = store.getState();
     expect(state.history.document).toEqual(before);
     expect(state.history.past).toHaveLength(0);
-    expect(state.clipboard.payload?.objects.map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
+    expect(placedClipboardObjects(store).map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
     expect(state.clipboard.lastPasteAnchor).toBeNull();
     expect(state.clipboard.repeatedPasteCount).toBe(0);
   });
@@ -115,12 +124,12 @@ describe("M8.1 semantic clipboard store commands", () => {
     expect(state.history.past).toHaveLength(1);
     expect(state.history.past[0]?.forward.label).toBe("object/batch-delete");
     expect(state.selection).toEqual({ refs: [], primary: null });
-    expect(state.clipboard.payload?.objects.map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
+    expect(placedClipboardObjects(store).map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
 
     store.getState().undo();
     state = store.getState();
     expect(state.history.document).toEqual(before);
-    expect(state.clipboard.payload?.objects.map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
+    expect(placedClipboardObjects(store).map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
   });
 
   it("deletes the whole furniture selection atomically without changing clipboard and Undo restores it", () => {
