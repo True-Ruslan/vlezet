@@ -138,6 +138,7 @@ describe("M8.1 pure viewport navigation controller", () => {
     expect(wheelGestureToViewportAction({
       deltaX: 18,
       deltaY: -30,
+      deltaMode: 0,
       ctrlKey: false,
       metaKey: false,
       shiftKey: false,
@@ -148,6 +149,7 @@ describe("M8.1 pure viewport navigation controller", () => {
     expect(wheelGestureToViewportAction({
       deltaX: 0,
       deltaY: 42,
+      deltaMode: 0,
       ctrlKey: false,
       metaKey: false,
       shiftKey: true,
@@ -156,27 +158,75 @@ describe("M8.1 pure viewport navigation controller", () => {
     expect(wheelGestureToViewportAction({
       deltaX: 12,
       deltaY: 42,
+      deltaMode: 0,
       ctrlKey: false,
       metaKey: false,
       shiftKey: true,
     })).toEqual({ kind: "pan", delta: { x: -12, y: -42 } });
   });
 
-  it("classifies Ctrl/Cmd modified wheel or pinch as zoom and leaves the raw zoom delta intact", () => {
-    expect(wheelGestureToViewportAction({
+  it("maps small pixel-mode trackpad pinch deltas to a perceptible exponential zoom factor", () => {
+    const action = wheelGestureToViewportAction({
       deltaX: 0,
-      deltaY: -120,
+      deltaY: -4,
+      deltaMode: 0,
       ctrlKey: true,
       metaKey: false,
       shiftKey: false,
-    })).toEqual({ kind: "zoom", deltaY: -120 });
+    });
 
-    expect(wheelGestureToViewportAction({
-      deltaX: 4,
-      deltaY: 85,
+    expect(action.kind).toBe("zoom");
+    if (action.kind !== "zoom") throw new Error("Expected zoom action");
+    expect(action.factor).toBeCloseTo(Math.exp(0.04), 12);
+  });
+
+  it("caps a single modified-wheel zoom event to about ten percent instead of allowing device spikes", () => {
+    const zoomIn = wheelGestureToViewportAction({
+      deltaX: 0,
+      deltaY: -120,
+      deltaMode: 0,
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+    });
+    const zoomOut = wheelGestureToViewportAction({
+      deltaX: 0,
+      deltaY: 120,
+      deltaMode: 0,
       ctrlKey: false,
       metaKey: true,
-      shiftKey: true,
-    })).toEqual({ kind: "zoom", deltaY: 85 });
+      shiftKey: false,
+    });
+
+    expect(zoomIn.kind).toBe("zoom");
+    expect(zoomOut.kind).toBe("zoom");
+    if (zoomIn.kind !== "zoom" || zoomOut.kind !== "zoom") throw new Error("Expected zoom actions");
+    expect(zoomIn.factor).toBeCloseTo(Math.exp(0.1), 12);
+    expect(zoomOut.factor).toBeCloseTo(Math.exp(-0.1), 12);
+  });
+
+  it("normalizes line/page delta modes before applying the same bounded zoom response", () => {
+    const line = wheelGestureToViewportAction({
+      deltaX: 0,
+      deltaY: -1,
+      deltaMode: 1,
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+    });
+    const page = wheelGestureToViewportAction({
+      deltaX: 0,
+      deltaY: 1,
+      deltaMode: 2,
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+    });
+
+    expect(line.kind).toBe("zoom");
+    expect(page.kind).toBe("zoom");
+    if (line.kind !== "zoom" || page.kind !== "zoom") throw new Error("Expected zoom actions");
+    expect(line.factor).toBeCloseTo(Math.exp(0.1), 12);
+    expect(page.factor).toBeCloseTo(Math.exp(-0.1), 12);
   });
 });
