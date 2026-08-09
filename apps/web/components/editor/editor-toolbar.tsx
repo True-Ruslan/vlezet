@@ -8,6 +8,7 @@ import { spatialViewModeStore, type SpatialViewMode } from "../spatial/view-mode
 import { EditorCommandIcon, type EditorCommandIconName } from "./editor-command-icon";
 import { dimensionVisibilityStore } from "./dimension-visibility-store";
 import { measurementToolStore } from "./measurement-tool-store";
+import { structuralSnappingSettingsStore } from "./structural-snapping-settings-store";
 import { editorStore, type EditorTool } from "./use-editor-store";
 
 export type EditorToolbarProps = Readonly<{
@@ -61,6 +62,7 @@ export type EditorToolBarViewProps = Readonly<{
   tool: EditorTool;
   measurementActive: boolean;
   dimensionsVisible: boolean;
+  snappingEnabled?: boolean;
   viewMode: SpatialViewMode;
   placementPresetId: string | null;
   furnitureCatalogOpen: boolean;
@@ -71,6 +73,7 @@ export type EditorToolBarViewProps = Readonly<{
   onChooseTool: (tool: EditorTool) => void;
   onActivateMeasurement: () => void;
   onToggleDimensions: () => void;
+  onToggleSnapping?: () => void;
   onToggleFurniture: () => void;
   onToggleReference: () => void;
   onToggleRecognition: () => void;
@@ -234,6 +237,8 @@ function CommandButton({ icon, label, shortcut, active = false, disabled = false
 }
 
 export function EditorToolBarView(props: EditorToolBarViewProps) {
+  const snappingEnabled = props.snappingEnabled ?? true;
+  const toggleSnapping = props.onToggleSnapping ?? (() => {});
   return (
     <nav className="editor-tool-bar" aria-label="Команды редактора">
       <div className="editor-command-group" aria-label="Инструменты редактирования">
@@ -242,6 +247,7 @@ export function EditorToolBarView(props: EditorToolBarViewProps) {
         <CommandButton icon="door" label="Дверь" shortcut="D" disabled={props.editingDisabled} active={props.tool === "door" && !props.measurementActive} onClick={() => props.onChooseTool("door")} />
         <CommandButton icon="window" label="Окно" shortcut="O" disabled={props.editingDisabled} active={props.tool === "window" && !props.measurementActive} onClick={() => props.onChooseTool("window")} />
         <CommandButton icon="measure" label="Измерить" shortcut="M" disabled={props.editingDisabled} active={props.measurementActive} title="Измерить произвольное расстояние между двумя точками (M)" onClick={props.onActivateMeasurement} />
+        <CommandButton icon="snap" label="Привязки" disabled={props.editingDisabled} active={snappingEnabled} title="Включить или выключить точные привязки" onClick={toggleSnapping} />
       </div>
 
       <div className="editor-command-group" aria-label="Рабочие процессы">
@@ -265,6 +271,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const tool = useStore(editorStore, (state) => state.tool);
   const measurementActive = useStore(measurementToolStore, (state) => state.active);
   const dimensionsVisible = useStore(dimensionVisibilityStore, (state) => state.visible);
+  const snappingEnabled = useStore(structuralSnappingSettingsStore, (state) => state.enabled);
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const canUndo = useStore(editorStore, (state) => state.history.past.length > 0);
@@ -338,6 +345,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       tool={tool}
       measurementActive={measurementActive}
       dimensionsVisible={dimensionsVisible}
+      snappingEnabled={snappingEnabled}
       viewMode={viewMode}
       placementPresetId={placementPresetId}
       furnitureCatalogOpen={props.furnitureCatalogOpen}
@@ -348,6 +356,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       onChooseTool={chooseTool}
       onActivateMeasurement={activateMeasurement}
       onToggleDimensions={() => dimensionVisibilityStore.getState().toggle()}
+      onToggleSnapping={() => structuralSnappingSettingsStore.getState().toggle()}
       onToggleFurniture={toggleFurniture}
       onToggleReference={props.onToggleReferencePanel}
       onToggleRecognition={props.onToggleRecognitionPanel}
