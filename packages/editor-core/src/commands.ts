@@ -2,10 +2,13 @@ import type { VlezetDocument } from "@vlezet/domain";
 
 export type EditorCommandLabel =
   | "vertex/move"
+  | "vertex/move-structural"
   | "wall/add-connected"
   | "wall/add-t-junction"
   | "wall/set-length"
   | "wall/set-thickness"
+  | "wall/translate"
+  | "wall/batch-set-thickness"
   | "opening/add"
   | "opening/update"
   | "opening/delete"
