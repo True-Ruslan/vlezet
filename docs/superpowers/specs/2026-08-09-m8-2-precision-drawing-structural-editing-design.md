@@ -48,10 +48,18 @@ The initial M8.2 clipboard path is deliberately strict:
 
 - only a topologically closed structural fragment may be copied or cut;
 - the payload contains all vertices, junction metadata and hosted openings required by that fragment;
-- a selected opening requires its host wall to be inside the same closure;
-- a selected structural fragment is rejected if it depends on structural entities outside the closure in a way that would change its semantics after copy/cut;
 - unsupported mixed furniture + structural clipboard operations remain disabled;
 - errors explain the missing dependency instead of silently changing selection.
+
+For M8.2, “closed fragment” has an exact conservative meaning:
+
+1. clipboard structural selection consists of walls only; openings are dependencies, not independently required selection items;
+2. every opening hosted on a selected wall is copied automatically into the payload so wall semantics are preserved without expanding visible selection;
+3. every start/end/junction vertex referenced by a selected wall is included in the payload;
+4. if any included vertex is referenced by an unselected wall, closure fails;
+5. if any selected wall declares a junction vertex whose incident branch/host wall lies outside the selected wall set, closure fails;
+6. Cut uses the same closure as Copy, so deleting the fragment cannot leave dangling structural references;
+7. the evaluator reports the first deterministic missing dependency/reason and never changes selection.
 
 This is intentionally more conservative than a general drawing editor. A broader “extract selected walls as a detached fragment” operation may be designed later if product evidence justifies it.
 
@@ -98,7 +106,16 @@ Interaction contract:
 
 The UI deliberately borrows the proven “dynamic dimension near the working point” pattern from mature CAD tools without importing command-line syntax, polar-coordinate notation or other expert-only vocabulary.
 
-User-facing angle convention follows the displayed Canvas direction: `0°` points right; increasing values follow the Canvas/world orientation used by the renderer. The implementation must use one shared conversion/formatting helper so preview, input and persisted endpoint coordinates cannot disagree.
+The user-facing angle convention is explicitly Canvas-oriented and matches the existing world coordinate system (`worldToScreen` preserves the sign of `y`):
+
+```text
+0°   = right
+90°  = down
+180° = left
+270° = up
+```
+
+Angles are normalised to `[0°, 360°)`. One shared pure helper must convert endpoint vectors ↔ displayed angles so preview, numeric input and committed endpoint coordinates cannot disagree.
 
 ## 4. UX and accessibility contract
 
@@ -115,13 +132,13 @@ Equivalent non-drag paths remain available through:
 - common multi-wall thickness editing through the multi-selection inspector;
 - explicit commands for structural clipboard operations.
 
-This is required by the product contract and aligns with WCAG 2.2 SC 2.5.7 Dragging Movements.
+This aligns with WCAG 2.2 SC 2.5.7 Dragging Movements.
 
 ### 4.2 Target size and precision handles
 
 Visible topology handles may remain visually small enough not to obscure the plan, but their interactive hit areas must satisfy a minimum 24×24 CSS px target or an allowed spacing/equivalent-control exception.
 
-For primary endpoint/junction manipulation, M8.2 should normally use an invisible enlarged hit target around the visible handle rather than relying on an exception. This follows WCAG 2.2 SC 2.5.8 Target Size (Minimum).
+For primary endpoint/junction manipulation, M8.2 normally uses an invisible enlarged hit target around the visible handle rather than relying on an exception. This follows WCAG 2.2 SC 2.5.8 Target Size (Minimum).
 
 ### 4.3 Keyboard and focus
 
@@ -199,7 +216,7 @@ A snap is communicated through all of:
 2. minimal geometric guide/marker;
 3. short text label.
 
-The guide is informational only; the `StructuralSnapResult.point` remains the one preview input.
+The guide is informational only; `StructuralSnapResult.point` remains the one preview input.
 
 ### 5.3 Deterministic priority
 
@@ -230,13 +247,17 @@ The current 12 CSS px acquisition concept is preserved as the initial baseline. 
 
 The exact constants are implementation details only after deterministic browser tests prove they are stable; tests must assert the behavioural invariant (no snap flapping around thresholds), not encode arbitrary visual tuning where unnecessary.
 
-### 5.5 Intersection safety
+### 5.5 Structural target materialisation
 
-M8.2 does **not** silently split two existing walls merely because their centrelines cross.
+A snap location and a structural commit target are separate concepts.
 
-An intersection may become a commit-capable snap target only when it maps to an existing topological vertex/junction or when the current creation operation can materialise one unambiguous host-wall junction through existing editor-core semantics.
+- existing endpoint/junction → target is the existing vertex;
+- midpoint on one wall → target is that host wall at its exact midpoint and creation may materialise an explicit junction through existing editor-core semantics;
+- wall-axis projection on one wall → target is that host wall at the projection point;
+- eligible intersection between an active construction guide and exactly one host wall → target is that host wall at the intersection;
+- grid/horizontal/vertical/parallel/perpendicular with no host entity → target is null and creation uses a new free vertex.
 
-A geometric crossing that would require repairing/splitting multiple existing walls is not offered as an authoritative commit target in M8.2. This preserves the no-silent-topology-repair contract.
+M8.2 does **not** silently split two existing walls merely because their centrelines cross. A geometric wall-wall crossing that would require repairing/splitting multiple existing walls is not offered as an authoritative commit target.
 
 ### 5.6 Parallel/perpendicular assistance
 
@@ -251,9 +272,11 @@ Horizontal/vertical assistance remains available even without a reference wall.
 
 ### 5.7 Snap suppression
 
-A visible Snap control is the discoverable source of truth for whether structural snapping is enabled.
+A visible `Привязки` control is the discoverable source of truth for whether structural snapping is enabled.
 
-A temporary keyboard modifier may suppress snapping while held during a pointer gesture. The initial preferred modifier is `Alt/Option` because M8.1 already reserves Shift/Cmd/Ctrl for selection semantics; the implementation plan must verify browser/macOS/Windows conflicts before locking the shortcut.
+Holding `Alt` (Windows/Linux) or `Option` (macOS) while an active Canvas pointer gesture has pointer capture temporarily suppresses snapping. The editor prevents the gesture-local default only while the Canvas owns that gesture; the modifier does nothing special while an input/control has focus.
+
+Shift/Cmd/Ctrl remain reserved for the existing selection semantics and are not overloaded for snap suppression. Browser acceptance must cover the temporary modifier in Chromium and representative WebKit.
 
 The modifier is never the only way to disable snapping.
 
@@ -387,14 +410,14 @@ No wall is changed if any selected wall cannot accept the requested property upd
 
 The structural clipboard is versioned runtime state, separate from project persistence.
 
-Conceptually it contains:
+It contains:
 
 - selected wall definitions;
 - complete required vertex set;
-- required junction relationships;
-- hosted openings inside the closed fragment;
+- junction relationships fully internal to the selected closed fragment;
+- **all openings hosted on selected walls**, regardless of whether the opening was visually selected;
 - fragment-local origin/bounds for deterministic paste placement;
-- no project-specific IDs that may be reused on paste.
+- no IDs that may be reused as committed identities on paste.
 
 ### 10.2 Closure evaluator
 
@@ -412,14 +435,18 @@ or
 
 It never changes selection.
 
-The evaluator is the shared authority for:
+Exact closure algorithm:
 
-- command enabled/disabled state;
-- explanatory UI reason;
-- Copy;
-- Cut;
-- Duplicate;
-- Paste validation.
+1. reject empty, mixed furniture/room, or non-wall structural source selections;
+2. build `selectedWallIds` from selection;
+3. collect every start/end/junction vertex referenced by those walls;
+4. collect every opening whose `wallId` is selected;
+5. for each collected vertex, inspect all document walls that reference it as start, end or junction;
+6. if any referencing wall is outside `selectedWallIds`, reject as an open dependency boundary;
+7. otherwise the fragment is closed and the collected walls/vertices/openings form the payload;
+8. output ordering follows stable source document order so serialization/tests are deterministic.
+
+The evaluator is the shared authority for command availability, explanatory UI, Copy, Cut, Duplicate and pre-Paste payload validation.
 
 ### 10.3 Paste
 
@@ -477,7 +504,7 @@ A test that already passes is not recorded as RED evidence.
 Required table-driven coverage:
 
 - endpoint/junction/midpoint/wall-axis candidates;
-- eligible intersection behaviour and unsafe crossing abstention;
+- structural target materialisation and unsafe wall-wall crossing abstention;
 - parallel/perpendicular/horizontal/vertical construction aids;
 - deterministic priority and stable tie-breaking;
 - acquisition/release hysteresis under pointer jitter;
@@ -498,9 +525,10 @@ Required coverage:
 - collapsed/reversed affected wall rejects;
 - openings remain hosted and valid or the entire edit rejects;
 - multi-wall centred thickness applies atomically;
-- one invalid member rejects whole batch;
+- invalid thickness/selection rejects whole batch;
 - closed structural clipboard closure accepted;
-- incomplete closure rejected with deterministic reason;
+- open dependency boundary rejected with deterministic reason;
+- hosted openings are carried in clipboard payload;
 - paste generates fresh IDs and exact internal topology;
 - invalid paste adds nothing;
 - inputs/documents are not mutated in-place.
@@ -523,9 +551,11 @@ Required:
 
 - dynamic input keyboard focus/Tab/Shift+Tab/Enter/Escape;
 - invalid numeric values and error association;
+- explicit 0/90/180/270-degree conversion contract;
 - visible focus styling contract;
 - endpoint/junction hit area at least the required target size unless a documented equivalent-control exception applies;
 - snap labels use stable product vocabulary;
+- visible `Привязки` toggle plus gesture-local Alt/Option suppression;
 - batch thickness mixed/unsupported states are clearly disabled;
 - no hidden shortcut is required to complete a supported operation.
 
@@ -537,14 +567,15 @@ Chromium full flow plus representative WebKit coverage must include:
 2. draw a wall with exact length + angle through dynamic input;
 3. snap to endpoint, midpoint and wall axis while labels/guides match the committed result;
 4. jitter around a snap threshold without preview flapping/drift;
-5. drag a normal endpoint/junction and verify exact Undo → Redo → Undo;
-6. translate a structurally safe wall and verify connected geometry/openings;
-7. attempt one unsafe structural translation and prove no partial mutation/history entry;
-8. multi-select walls and set common thickness atomically;
-9. copy/paste one valid closed structural fragment with fresh IDs;
-10. attempt an incomplete structural clipboard selection and prove fail-closed behaviour;
-11. keyboard-only dynamic input path;
-12. post-commit screenshot/geometry assertions for representative precision states.
+5. disable/re-enable snapping visibly and temporarily suppress it with Alt/Option;
+6. drag a normal endpoint/junction and verify exact Undo → Redo → Undo;
+7. translate a structurally safe wall and verify connected geometry/openings;
+8. attempt one unsafe structural translation and prove no partial mutation/history entry;
+9. multi-select walls and set common thickness atomically;
+10. copy/paste one valid closed structural fragment with fresh IDs and hosted openings;
+11. attempt an open structural fragment and prove fail-closed behaviour;
+12. keyboard-only dynamic input path;
+13. post-commit screenshot/geometry assertions for representative precision states.
 
 Browser tests must assert semantic geometry/state in addition to screenshots. Green screenshots alone do not prove structural correctness.
 
@@ -558,7 +589,7 @@ Recommended focused manual gate:
 - **M8.2-PO-02 Junction edit:** move a shared corner/T-junction and verify the result feels predictable and remains connected.
 - **M8.2-PO-03 Wall move:** translate a safe wall, then try an intentionally unsafe wall and confirm the latter is blocked clearly.
 - **M8.2-PO-04 Batch thickness:** select multiple walls and set one common thickness.
-- **M8.2-PO-05 Structural clipboard:** copy/paste one supported closed fragment; verify an incomplete fragment is rejected rather than guessed.
+- **M8.2-PO-05 Structural clipboard:** copy/paste one supported closed fragment; verify an open fragment is rejected rather than guessed.
 
 The product owner should not need to manually re-test every edge case already deterministically covered by unit/browser suites.
 
@@ -597,13 +628,13 @@ These sources are precedent/evidence, not authority over Vlezet's apartment sema
 
 The design is ready for an implementation plan when the product owner confirms this written specification and no unresolved semantic ambiguity remains around:
 
-- snap priority/hysteresis;
-- exact length/angle input;
+- snap priority/hysteresis and materialisation;
+- exact length/angle input and angle convention;
 - direct vertex/junction editing;
 - contextual wall-body movement;
 - opening preservation;
 - centred batch thickness;
-- strict structural clipboard closure;
+- exact strict structural clipboard closure;
 - atomic history and fail-closed errors;
 - accessibility/browser acceptance obligations.
 
