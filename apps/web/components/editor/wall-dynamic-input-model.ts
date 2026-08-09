@@ -1,4 +1,5 @@
 import {
+  normalizeCanvasAngleDeg,
   pointFromCanvasPolar,
   vectorToCanvasAngleDeg,
   type Point2,
@@ -31,9 +32,7 @@ export function parseWallLengthInput(value: string): number | null {
 
 export function parseWallAngleInput(value: string): number | null {
   const parsed = parseDecimal(value);
-  if (parsed === null) return null;
-  const normalized = parsed % 360;
-  return normalized < 0 ? normalized + 360 : normalized;
+  return parsed === null ? null : normalizeCanvasAngleDeg(parsed);
 }
 
 export function resolveWallDynamicDraft(
@@ -53,24 +52,21 @@ export function resolveWallDynamicDraft(
 
   const pointerLength = Math.hypot(pointerPoint.x - start.x, pointerPoint.y - start.y);
   const lengthMm = constraints.lengthMm ?? pointerLength;
+  if (lengthMm <= 0) {
+    throw new RangeError("Wall length must be greater than zero");
+  }
 
   let angleDeg: number;
   if (constraints.angleDeg !== null) {
-    const normalized = constraints.angleDeg % 360;
-    angleDeg = normalized < 0 ? normalized + 360 : normalized;
+    angleDeg = normalizeCanvasAngleDeg(constraints.angleDeg);
   } else if (pointerLength > 0) {
     angleDeg = vectorToCanvasAngleDeg(start, pointerPoint);
-  } else if (constraints.lengthMm !== null) {
-    throw new RangeError("Pointer direction is required when only exact length is constrained");
   } else {
-    angleDeg = 0;
+    throw new RangeError("Pointer direction is required when the wall angle is not fixed");
   }
 
   if (constraints.lengthMm === null && constraints.angleDeg === null) {
     return { point: { ...pointerPoint }, lengthMm, angleDeg };
-  }
-  if (lengthMm === 0) {
-    return { point: { ...start }, lengthMm: 0, angleDeg };
   }
 
   return {
