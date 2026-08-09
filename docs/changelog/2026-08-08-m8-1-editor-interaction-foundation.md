@@ -1,6 +1,6 @@
 # 2026-08-08 — M8.1 Editor Interaction Foundation
 
-**Status:** PRODUCT-OWNER ACCEPTANCE FAILED — CORRECTION IN PROGRESS  
+**Status:** PRODUCT-OWNER ACCEPTANCE FAILED — CORRECTION IN VERIFICATION  
 **Tracker:** #54  
 **Branch:** `feat/m8-1-editor-interaction-foundation`
 
@@ -151,7 +151,13 @@ Browser Acceptance #1258: PASS
 
 Product-owner manual acceptance on 2026-08-09 passed every reviewed area except one reproducible furniture-group drag defect: while dragging a selected furniture group, small cursor oscillations around snap positions can leave the actively dragged visual node diverged from the snapped group preview/bounds. The user described the objects as trying to attach to the grid and then sticking outside the selection rectangle.
 
-This is treated as a real M8.1 interaction failure, not an accepted limitation. A dedicated source/browser RED is being added before the correction.
+This is treated as a real M8.1 interaction failure, not an accepted limitation.
+
+Dedicated tests-only RED reached `fdc5902ab61d9152f93a0a5cbcfadb37bf59daa5`. CI #4807 failed at unit tests with **509 prior web tests PASS and exactly 2 new failures**, both requiring explicit reconciliation between the imperative Konva drag node and the authoritative snapped preview.
+
+The correction is intentionally projection-only. Canvas remains the snap authority and still writes `snap.position` into `objectGesture.preview`; store movement remains absolute from gesture originals. `PlacedObjectShape` now uses a layout-time reconciliation on every new authoritative preview object to force its imperative Konva node back to `worldToScreen(object.position, viewport)` before paint. This does not alter grid/edge/centre snap policy, tolerance, batch history or fit authority.
+
+Correction implementation head: `94775496f5d0c7bc504ee9e371c845ef5e148a5e`. Fresh exact-head CI/Recognition/Chromium/WebKit verification is in progress; no GREEN claim is made until all complete.
 
 The same review requested batch configuration for multiple selected walls, at minimum common wall thickness. That request is intentionally recorded for **M8.2 structural editing**, not implemented in M8.1: wall batch mutation is topology-sensitive and remains outside M8.1's placed-object-only mutation authority.
 
@@ -172,6 +178,6 @@ Verified from the PR diff:
 
 ## Acceptance / merge
 
-**Acceptance currently FAILED pending the snapped-group drag correction.**
+**Acceptance currently FAILED pending verification and product-owner retest of the snapped-group drag correction.**
 
 PR #85 must remain Draft / DO NOT MERGE. Do not create the M8.1 acceptance milestone, update canonical completion state, mark Ready, merge or start M8.2 until the correction receives fresh exact-head automated evidence and explicit product-owner PASS.
