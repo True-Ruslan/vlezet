@@ -34,6 +34,19 @@ async function moveCanvasRatio(page, xRatio, yRatio) {
   return point;
 }
 
+function pointAlong(start, end, ratio = 0.5) {
+  return {
+    x: start.x + (end.x - start.x) * ratio,
+    y: start.y + (end.y - start.y) * ratio,
+  };
+}
+
+async function clickScreenPoint(page, point, additive = false) {
+  if (additive) await page.keyboard.down("Shift");
+  await page.mouse.click(point.x, point.y);
+  if (additive) await page.keyboard.up("Shift");
+}
+
 async function setSnapping(page, enabled) {
   const button = page.getByRole("button", { name: "Привязки", exact: true });
   await expect(button).toBeVisible();
@@ -66,27 +79,40 @@ async function enterSelectMode(page) {
 async function drawIsolatedWall(page, start, end) {
   await setSnapping(page, false);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickCanvasRatio(page, ...start);
-  await clickCanvasRatio(page, ...end);
+  const startPoint = await clickCanvasRatio(page, ...start);
+  const endPoint = await clickCanvasRatio(page, ...end);
   await enterSelectMode(page);
+  return { start: startPoint, end: endPoint, probe: pointAlong(startPoint, endPoint) };
 }
 
 async function drawLShape(page) {
   await setSnapping(page, false);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickCanvasRatio(page, 0.34, 0.34);
-  await clickCanvasRatio(page, 0.64, 0.34);
-  await clickCanvasRatio(page, 0.64, 0.66);
+  const start = await clickCanvasRatio(page, 0.34, 0.34);
+  const shared = await clickCanvasRatio(page, 0.64, 0.34);
+  const end = await clickCanvasRatio(page, 0.64, 0.66);
   await enterSelectMode(page);
   await expectWallCount(page, 2);
+  return {
+    start,
+    shared,
+    end,
+    firstProbe: pointAlong(start, shared, 0.4),
+    secondProbe: pointAlong(shared, end, 0.5),
+  };
 }
 
 async function selectAt(page, xRatio, yRatio, additive = false) {
   const point = await canvasPoint(page, xRatio, yRatio);
-  if (additive) await page.keyboard.down("Shift");
-  await page.mouse.click(point.x, point.y);
-  if (additive) await page.keyboard.up("Shift");
+  await clickScreenPoint(page, point, additive);
   return point;
+}
+
+async function wallLengthValue(page, probe) {
+  const input = page.getByLabel("Длина по оси стены");
+  if (!(await input.isVisible())) await clickScreenPoint(page, probe);
+  await expect(input).toBeVisible();
+  return input.inputValue();
 }
 
 async function attachPageScreenshot(page, testInfo, name) {
@@ -122,9 +148,6 @@ test.describe("M8.2 precision structural acceptance", () => {
     await expect(exactGroup).toBeVisible();
     await attachPageScreenshot(page, testInfo, "m8.2-exact-wall-input");
 
-    // Enter commits the exact segment and intentionally starts the next one.
-    // The first Escape leaves the focused numeric field; the second cancels
-    // the continued wall draft. Focus/Escape ordering has its own test below.
     await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await expect(exactGroup).toBeHidden();
@@ -208,71 +231,76 @@ test.describe("M8.2 precision structural acceptance", () => {
   test("moves a shared endpoint atomically through exact Undo Redo Undo", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawLShape(page);
+    const shape = await drawLShape(page);
 
-    await selectAt(page, 0.49, 0.34);
-    await expect(page.locator(".context-panel-title")).toContainText("Стена");
-    const wallLength = page.getByLabel("Длина по оси стены");
-    const initialLength = await wallLength.inputValue();
-    const sharedEndpoint = await canvasPoint(page, 0.64, 0.34);
+    await clickScreenPoint(page, shape.firstProbe);
+    const initialLength = await wallLengthValue(page, shape.firstProbe);
+    const movedShared = { x: shape.shared.x + 44, y: shape.shared.y + 28 };
+    const movedProbe = pointAlong(shape.start, movedShared, 0.4);
 
-    await page.mouse.move(sharedEndpoint.x, sharedEndpoint.y);
+    await page.mouse.move(shape.shared.x, shape.shared.y);
     await page.mouse.down();
-    await page.mouse.move(sharedEndpoint.x + 44, sharedEndpoint.y + 28, { steps: 6 });
+    await page.keyboard.down("Alt");
+    await page.mouse.move(movedShared.x, movedShared.y, { steps: 6 });
+    await page.keyboard.up("Alt");
     await page.mouse.up();
-    const movedLength = await wallLength.inputValue();
+
+    const movedLength = await wallLengthValue(page, movedProbe);
     expect(movedLength).not.toBe(initialLength);
     await attachPageScreenshot(page, testInfo, "m8.2-shared-endpoint-move");
 
     await page.getByRole("button", { name: "Отменить" }).click();
-    await expect(wallLength).toHaveValue(initialLength);
+    await expect.poll(() => wallLengthValue(page, shape.firstProbe)).toBe(initialLength);
     await page.getByRole("button", { name: "Повторить" }).click();
-    await expect(wallLength).toHaveValue(movedLength);
+    await expect.poll(() => wallLengthValue(page, movedProbe)).toBe(movedLength);
     await page.getByRole("button", { name: "Отменить" }).click();
-    await expect(wallLength).toHaveValue(initialLength);
+    await expect.poll(() => wallLengthValue(page, shape.firstProbe)).toBe(initialLength);
   });
 
   test("translates a wall with its opening but rejects a topology-breaking translation without partial history", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === "webkit", "Chromium covers the full safe/unsafe wall translation matrix.");
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawLShape(page);
+    const shape = await drawLShape(page);
 
+    const doorPoint = pointAlong(shape.start, shape.shared, 0.55);
     await page.getByRole("button", { name: "Дверь", exact: true }).click();
-    await clickCanvasRatio(page, 0.49, 0.34);
+    await page.mouse.move(doorPoint.x, doorPoint.y);
+    await page.mouse.click(doorPoint.x, doorPoint.y);
     await expectOpeningCount(page, 1);
     await enterSelectMode(page);
 
-    await selectAt(page, 0.40, 0.34);
-    await expect(page.locator(".context-panel-title")).toContainText("Стена");
-    const wallLength = page.getByLabel("Длина по оси стены");
-    const initialLength = await wallLength.inputValue();
-    const safeStart = await canvasPoint(page, 0.40, 0.34);
-    await page.mouse.move(safeStart.x, safeStart.y);
+    await clickScreenPoint(page, shape.firstProbe);
+    const initialLength = await wallLengthValue(page, shape.firstProbe);
+    const safeDeltaY = -52;
+    const safeProbe = { x: shape.firstProbe.x, y: shape.firstProbe.y + safeDeltaY };
+    await page.mouse.move(shape.firstProbe.x, shape.firstProbe.y);
     await page.mouse.down();
-    await page.mouse.move(safeStart.x, safeStart.y - 52, { steps: 7 });
+    await page.keyboard.down("Alt");
+    await page.mouse.move(safeProbe.x, safeProbe.y, { steps: 7 });
+    await page.keyboard.up("Alt");
     await page.mouse.up();
     await expectOpeningCount(page, 1);
-    await expect(wallLength).toHaveValue(initialLength);
+    await expect.poll(() => wallLengthValue(page, safeProbe)).toBe(initialLength);
     await attachPageScreenshot(page, testInfo, "m8.2-safe-wall-translation");
 
     await page.getByRole("button", { name: "Отменить" }).click();
     await expectOpeningCount(page, 1);
-    await expect(wallLength).toHaveValue(initialLength);
+    await expect.poll(() => wallLengthValue(page, shape.firstProbe)).toBe(initialLength);
 
-    const unsafeStart = await canvasPoint(page, 0.40, 0.34);
-    const unsafeEnd = await canvasPoint(page, 0.40, 0.76);
-    await page.mouse.move(unsafeStart.x, unsafeStart.y);
+    const reversalDelta = shape.end.y - shape.shared.y + 80;
+    const unsafeEnd = { x: shape.firstProbe.x, y: shape.firstProbe.y + reversalDelta };
+    await page.mouse.move(shape.firstProbe.x, shape.firstProbe.y);
     await page.mouse.down();
+    await page.keyboard.down("Alt");
     await page.mouse.move(unsafeEnd.x, unsafeEnd.y, { steps: 12 });
+    await page.keyboard.up("Alt");
     await expect(page.locator(".topology-alert")).toBeVisible();
     await attachPageScreenshot(page, testInfo, "m8.2-unsafe-wall-translation");
     await page.mouse.up();
     await expectOpeningCount(page, 1);
-    await expect(wallLength).toHaveValue(initialLength);
+    await expect.poll(() => wallLengthValue(page, shape.firstProbe)).toBe(initialLength);
 
-    // The rejected gesture must add no history entry, so the next Undo removes
-    // the preceding door creation rather than an invisible partial wall edit.
     await page.getByRole("button", { name: "Отменить" }).click();
     await expectOpeningCount(page, 0);
   });
@@ -282,15 +310,11 @@ test.describe("M8.2 precision structural acceptance", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
 
-    await drawIsolatedWall(page, [0.34, 0.34], [0.64, 0.34]);
-    await drawIsolatedWall(page, [0.34, 0.62], [0.64, 0.62]);
+    const firstWall = await drawIsolatedWall(page, [0.34, 0.34], [0.64, 0.34]);
+    const secondWall = await drawIsolatedWall(page, [0.34, 0.62], [0.64, 0.62]);
     await expectWallCount(page, 2);
-    const first = await canvasPoint(page, 0.49, 0.34);
-    const second = await canvasPoint(page, 0.49, 0.62);
-    await page.mouse.click(first.x, first.y);
-    await page.keyboard.down("Shift");
-    await page.mouse.click(second.x, second.y);
-    await page.keyboard.up("Shift");
+    await clickScreenPoint(page, firstWall.probe);
+    await clickScreenPoint(page, secondWall.probe, true);
 
     await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
     await expect(page.locator(".multi-selection-summary")).toContainText("Стены: 2");
@@ -309,9 +333,9 @@ test.describe("M8.2 precision structural acceptance", () => {
   test("copies and pastes a dependency-closed structure atomically and rejects an open structural fragment", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawIsolatedWall(page, [0.34, 0.40], [0.64, 0.40]);
+    const isolated = await drawIsolatedWall(page, [0.34, 0.40], [0.64, 0.40]);
     await expectWallCount(page, 1);
-    await selectAt(page, 0.49, 0.40);
+    await clickScreenPoint(page, isolated.probe);
     await expect(page.locator(".context-panel-title")).toContainText("Стена");
 
     await page.keyboard.press("Control+C");
@@ -326,9 +350,9 @@ test.describe("M8.2 precision structural acceptance", () => {
     await expectWallCount(page, 1);
 
     await openNewProject(page);
-    await drawLShape(page);
-    const firstWall = await selectAt(page, 0.49, 0.34);
-    await page.mouse.click(firstWall.x, firstWall.y, { button: "right" });
+    const connected = await drawLShape(page);
+    await clickScreenPoint(page, connected.firstProbe);
+    await page.mouse.click(connected.firstProbe.x, connected.firstProbe.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
     await expect(menu).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: "Копировать" })).toHaveCount(0);
