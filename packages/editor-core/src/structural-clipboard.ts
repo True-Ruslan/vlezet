@@ -42,6 +42,9 @@ export type StructuralClosureResult =
       reason: string;
     }>;
 
+const ROOM_PASTE_FALLBACK_ATTEMPTS = 8;
+const ROOM_PASTE_GAP_MM = 250;
+
 function wallReferencesVertex(wall: Wall, vertexId: string): boolean {
   return wall.startVertexId === vertexId ||
     wall.endVertexId === vertexId ||
@@ -72,6 +75,16 @@ function payloadOrigin(vertices: readonly Vertex[]): Point2 {
   return {
     x: Math.min(...vertices.map((vertex) => vertex.position.x)),
     y: Math.min(...vertices.map((vertex) => vertex.position.y)),
+  };
+}
+
+function payloadSize(vertices: readonly Vertex[]): Readonly<{ width: number; height: number }> {
+  if (vertices.length === 0) throw new Error("Структурный фрагмент не содержит вершин");
+  const xs = vertices.map((vertex) => vertex.position.x);
+  const ys = vertices.map((vertex) => vertex.position.y);
+  return {
+    width: Math.max(...xs) - Math.min(...xs),
+    height: Math.max(...ys) - Math.min(...ys),
   };
 }
 
@@ -161,10 +174,7 @@ export function evaluateStructuralClipboardClosure(
   };
 }
 
-function detachedSelectedWalls(
-  document: VlezetDocument,
-  selectedWalls: readonly Wall[],
-): readonly Wall[] {
+function detachedSelectedWalls(selectedWalls: readonly Wall[]): readonly Wall[] {
   return selectedWalls.map((wall) => ({
     ...copyWall(wall),
     junctionVertexIds: wall.junctionVertexIds.filter((junctionVertexId) =>
@@ -179,7 +189,7 @@ export function createStructuralClipboardPayload(
   wallIds: readonly string[],
 ): StructuralClipboardPayloadV1 {
   const selectedWalls = requestedWalls(document, wallIds);
-  const walls = detachedSelectedWalls(document, selectedWalls);
+  const walls = detachedSelectedWalls(selectedWalls);
   const vertexIds = new Set<string>();
   for (const wall of walls) {
     vertexIds.add(wall.startVertexId);
@@ -453,22 +463,66 @@ export function pasteStructuralFragment(
     };
   });
 
-  const candidate: VlezetDocument = {
-    ...document,
-    vertices: [...document.vertices, ...pastedVertices],
-    walls: [...document.walls, ...pastedWalls],
-    openings: [...document.openings, ...pastedOpenings],
-    roomAnnotations: [...document.roomAnnotations, ...pastedAnnotations],
-  };
   const vertexIds = pastedVertices.map((vertex) => vertex.id);
   const wallIds = pastedWalls.map((wall) => wall.id);
   const openingIds = pastedOpenings.map((opening) => opening.id);
   const roomAnnotationIds = pastedAnnotations.map((annotation) => annotation.id);
-  const validation = validateStructuralCandidate(document, candidate, {
-    affectedVertexIds: vertexIds,
-    affectedWallIds: wallIds,
-    preserveDirectionsForWallIds: [],
-  });
+
+  const validateAtAdditionalDelta = (additionalDelta: Point2) => {
+    const candidateVertices = pastedVertices.map((vertex) => ({
+      ...vertex,
+      position: {
+        x: vertex.position.x + additionalDelta.x,
+        y: vertex.position.y + additionalDelta.y,
+      },
+    }));
+    const candidateAnnotations = pastedAnnotations.map((annotation) => ({
+      ...annotation,
+      anchor: {
+        x: annotation.anchor.x + additionalDelta.x,
+        y: annotation.anchor.y + additionalDelta.y,
+      },
+    }));
+    const candidate: VlezetDocument = {
+      ...document,
+      vertices: [...document.vertices, ...candidateVertices],
+      walls: [...document.walls, ...pastedWalls],
+      openings: [...document.openings, ...pastedOpenings],
+      roomAnnotations: [...document.roomAnnotations, ...candidateAnnotations],
+    };
+    return validateStructuralCandidate(document, candidate, {
+      affectedVertexIds: vertexIds,
+      affectedWallIds: wallIds,
+      preserveDirectionsForWallIds: [],
+    });
+  };
+
+  let validation = validateAtAdditionalDelta({ x: 0, y: 0 });
+  if (!validation.ok && payload.scope?.kind === "room") {
+    const size = payloadSize(payload.vertices);
+    const strideX = Math.max(size.width, ROOM_PASTE_GAP_MM) + ROOM_PASTE_GAP_MM;
+    const strideY = Math.max(size.height, ROOM_PASTE_GAP_MM) + ROOM_PASTE_GAP_MM;
+    let found = false;
+
+    for (let step = 1; step <= ROOM_PASTE_FALLBACK_ATTEMPTS && !found; step += 1) {
+      const fallbackAnchors: Point2[] = [
+        { x: payload.origin.x + strideX * step, y: payload.origin.y },
+        { x: payload.origin.x, y: payload.origin.y + strideY * step },
+        { x: payload.origin.x + strideX * step, y: payload.origin.y + strideY * step },
+      ];
+      for (const fallbackAnchor of fallbackAnchors) {
+        const fallbackValidation = validateAtAdditionalDelta({
+          x: fallbackAnchor.x - anchor.x,
+          y: fallbackAnchor.y - anchor.y,
+        });
+        if (!fallbackValidation.ok) continue;
+        validation = fallbackValidation;
+        found = true;
+        break;
+      }
+    }
+  }
+
   if (!validation.ok) throw new Error(validation.reason);
 
   return {
