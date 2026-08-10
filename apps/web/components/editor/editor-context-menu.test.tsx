@@ -113,6 +113,8 @@ describe("M8 registered-command context menu", () => {
     ]);
 
     expect(availableContextMenuCommands(document, replaceSelection({ kind: "wall", id: "wall-1" }), null).map((item) => item.id)).toEqual([
+      "selection.copy",
+      "selection.duplicate",
       "view.fitSelection",
     ]);
 
