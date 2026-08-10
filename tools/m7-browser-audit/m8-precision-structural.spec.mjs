@@ -63,18 +63,46 @@ async function enterSelectMode(page) {
   await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
 }
 
+const ROOM = {
+  topLeft: [0.55, 0.28],
+  topRight: [0.82, 0.28],
+  bottomRight: [0.82, 0.68],
+  bottomLeft: [0.55, 0.68],
+  centre: [0.685, 0.48],
+  topWall: [0.685, 0.28],
+  rightWall: [0.82, 0.48],
+  bottomWall: [0.685, 0.68],
+  leftWall: [0.55, 0.48],
+};
+
+async function roomPoint(page, name) {
+  const [xRatio, yRatio] = ROOM[name];
+  return canvasPoint(page, xRatio, yRatio);
+}
+
+async function clickRoomPoint(page, name) {
+  const [xRatio, yRatio] = ROOM[name];
+  return clickCanvasRatio(page, xRatio, yRatio);
+}
+
 async function drawClosedRectangle(page) {
   await setSnapping(page, true);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickCanvasRatio(page, 0.22, 0.30);
-  await clickCanvasRatio(page, 0.78, 0.30);
-  await clickCanvasRatio(page, 0.78, 0.70);
-  await clickCanvasRatio(page, 0.22, 0.70);
-  await clickCanvasRatio(page, 0.22, 0.30);
+  // Reuse the accepted M7.6 closed-room path. It is already proven in both
+  // browser engines to snap the final segment back to the first real vertex.
+  await clickRoomPoint(page, "topLeft");
+  await clickRoomPoint(page, "topRight");
+  await clickRoomPoint(page, "bottomRight");
+  await clickRoomPoint(page, "bottomLeft");
+  await clickRoomPoint(page, "topLeft");
+
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
+  const guide = page.locator('[data-first-project-phase="room-created"]');
+  await expect(guide).toBeVisible();
+  await guide.getByRole("button", { name: "Завершить", exact: true }).click();
   await page.keyboard.press("Escape");
-  await page.locator('[data-first-project-phase="room-created"]').getByRole("button", { name: "Завершить", exact: true }).click();
-  await enterSelectMode(page);
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
   await expectWallCount(page, 4);
 }
 
@@ -86,11 +114,16 @@ async function selectWallAt(page, xRatio, yRatio, additive = false) {
   return point;
 }
 
+async function selectRoomWall(page, name, additive = false) {
+  const [xRatio, yRatio] = ROOM[name];
+  return selectWallAt(page, xRatio, yRatio, additive);
+}
+
 async function selectRectangleWalls(page) {
-  await selectWallAt(page, 0.50, 0.30);
-  await selectWallAt(page, 0.78, 0.50, true);
-  await selectWallAt(page, 0.50, 0.70, true);
-  await selectWallAt(page, 0.22, 0.50, true);
+  await selectRoomWall(page, "topWall");
+  await selectRoomWall(page, "rightWall", true);
+  await selectRoomWall(page, "bottomWall", true);
+  await selectRoomWall(page, "leftWall", true);
   await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 4");
   await expect(page.locator(".multi-selection-summary")).toContainText("Стены: 4");
 }
@@ -136,6 +169,10 @@ test.describe("M8.2 precision structural acceptance", () => {
     await expect(exactGroup).toBeVisible();
     await attachPageScreenshot(page, testInfo, "m8.2-exact-wall-input");
 
+    // Enter commits the exact segment and intentionally starts the next one.
+    // The first Escape leaves the focused numeric field; the second cancels
+    // the continued wall draft. Focus/Escape ordering has its own test below.
+    await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await expect(exactGroup).toBeHidden();
     await page.getByRole("button", { name: "Отменить" }).click();
@@ -220,9 +257,9 @@ test.describe("M8.2 precision structural acceptance", () => {
     await openNewProject(page);
     await drawClosedRectangle(page);
 
-    await selectWallAt(page, 0.50, 0.30);
+    await selectRoomWall(page, "topWall");
     await expect(page.locator(".context-panel-title")).toContainText("Стена");
-    const endpoint = await canvasPoint(page, 0.22, 0.30);
+    const endpoint = await roomPoint(page, "topLeft");
     const before = await canvasScreenshot(page);
 
     await page.mouse.move(endpoint.x, endpoint.y);
@@ -252,17 +289,17 @@ test.describe("M8.2 precision structural acceptance", () => {
     await drawClosedRectangle(page);
 
     await page.getByRole("button", { name: "Дверь", exact: true }).click();
-    const topMid = await canvasPoint(page, 0.50, 0.30);
+    const topMid = await roomPoint(page, "topWall");
     await page.mouse.move(topMid.x, topMid.y);
     await page.mouse.click(topMid.x, topMid.y);
     await expectOpeningCount(page, 1);
     await enterSelectMode(page);
 
-    await selectWallAt(page, 0.50, 0.30);
+    await selectRoomWall(page, "topWall");
     const wallLength = page.getByLabel("Длина по оси стены");
     const initialLength = await wallLength.inputValue();
     const beforeSafeMove = await canvasScreenshot(page);
-    const safeStart = await canvasPoint(page, 0.50, 0.30);
+    const safeStart = await roomPoint(page, "topWall");
     await page.mouse.move(safeStart.x, safeStart.y);
     await page.mouse.down();
     await page.mouse.move(safeStart.x, safeStart.y - 52, { steps: 7 });
@@ -275,8 +312,8 @@ test.describe("M8.2 precision structural acceptance", () => {
 
     await page.getByRole("button", { name: "Отменить" }).click();
     const beforeUnsafeMove = await canvasScreenshot(page);
-    const unsafeStart = await canvasPoint(page, 0.50, 0.30);
-    const unsafeEnd = await canvasPoint(page, 0.50, 0.70);
+    const unsafeStart = await roomPoint(page, "topWall");
+    const unsafeEnd = await roomPoint(page, "bottomWall");
     await page.mouse.move(unsafeStart.x, unsafeStart.y);
     await page.mouse.down();
     await page.mouse.move(unsafeEnd.x, unsafeEnd.y, { steps: 10 });
@@ -297,8 +334,8 @@ test.describe("M8.2 precision structural acceptance", () => {
     await openNewProject(page);
     await drawClosedRectangle(page);
 
-    await selectWallAt(page, 0.50, 0.30);
-    await selectWallAt(page, 0.78, 0.50, true);
+    await selectRoomWall(page, "topWall");
+    await selectRoomWall(page, "rightWall", true);
     await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
     await expect(page.locator(".multi-selection-summary")).toContainText("Стены: 2");
     const form = page.locator(".multi-selection-thickness-form");
@@ -332,7 +369,7 @@ test.describe("M8.2 precision structural acceptance", () => {
 
     await openNewProject(page);
     await drawClosedRectangle(page);
-    const topMid = await selectWallAt(page, 0.50, 0.30);
+    const topMid = await selectRoomWall(page, "topWall");
     await page.mouse.click(topMid.x, topMid.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
     await expect(menu).toBeVisible();
