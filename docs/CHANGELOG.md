@@ -4,21 +4,68 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
-## 2026-08-09 — M8.1 Editor Interaction Foundation product-accepted
+## 2026-08-10 — M8.2 automated structural acceptance gate green
 
-**Status:** product-owner accepted in PR #85; protected squash merge pending.
+**Status:** implementation and dedicated automated gates GREEN in Draft PR #87; product-owner acceptance and protected merge remain pending.
 
 ```text
-product-accepted head:        db66de524783a43fa021db07a6b67808c4435e9b
-CI #4813:                     PASS
-Recognition Benchmark #1149: PASS
-Browser Acceptance #1269:    PASS
+M8.1 base:                    867ec54d21b1dcb94d519ace3bec0a3635717022
+pre-Task-9 consolidation:    d9a685e69f4fc6d30b5a5264911c8371090c4ede
+Task-9 GREEN head:            66d27a673679f26a4a414213415f1603a02aad6a
+CI #4915:                     PASS
+Browser Acceptance #1365:    PASS
   Chromium:                   PASS
   WebKit:                     PASS
-product-owner retest:         PASS
+browser artifact:             9056208133
+artifact digest:              sha256:00c34117d81ec257ad6f491df5781af0230fdb783e8bd8e2dbb48662d5bd740e
+product-owner acceptance:     PENDING
+protected merge:              PENDING
 ```
 
-M8.1 establishes the public-beta editor interaction substrate without weakening apartment semantics:
+M8.2 now implements the approved precision-structural editing slice:
+
+- deterministic Canvas angle authority and named structural snapping;
+- endpoint/junction/midpoint/intersection/wall-axis plus construction assistance with hysteresis;
+- visible `Привязки` control and gesture-local Alt/Option suppression;
+- exact near-cursor wall length/angle input with explicit keyboard focus/Escape semantics;
+- direct structural handles;
+- complete-candidate topology/opening validation in `@vlezet/editor-core`;
+- topology-safe shared-endpoint and wall-body movement;
+- hosted-opening preservation/revalidation;
+- atomic centred multi-wall thickness editing;
+- dependency-closed structural Copy/Cut/Paste with fresh IDs;
+- one semantic history entry per accepted structural commit and none for preview/cancel/reject;
+- explicit valid/invalid structural feedback.
+
+Task 9 adds real Chromium/WebKit acceptance for exact wall input, snapping/hysteresis, shared-endpoint Undo→Redo→Undo, safe hosted-opening wall translation, unsafe structural rejection without partial history, atomic multi-wall thickness and structural clipboard closure.
+
+The browser hardening phase intentionally produced several test-only RED iterations. They exposed harness assumptions — continued wall chaining after exact Enter, false visual closure with snapping disabled, layout-dependent ratio coordinates, hover-state screenshot instability, onboarding overlap and an opening hit area masking its host wall — rather than a proven production defect. Production topology/opening/M2/recognition policy was not weakened.
+
+Granular RED/GREEN identities for every historical sub-step inside Tasks 5–8 cannot be reconstructed safely from current PR metadata and are deliberately not invented. Their implemented state is anchored to `d9a685e…`; Task 9 supplies the dedicated end-to-end automated evidence.
+
+Focused development record: `docs/changelog/2026-08-09-m8-2-precision-drawing-structural-editing.md`.
+
+Next gate: fresh exact-head verification after documentation truth-sync, then focused product-owner acceptance. CI alone must not mark M8.2 accepted, Ready or merged.
+
+---
+
+## 2026-08-09 — M8.1 Editor Interaction Foundation accepted and merged
+
+**Status:** product-owner accepted and protected squash-merged into `main`.
+
+```text
+product-accepted interaction head: db66de524783a43fa021db07a6b67808c4435e9b
+final documentation head:          f8318182d3a9e7c835ebf079de2710d6106d7829
+CI #4819:                           PASS
+Recognition Benchmark #1155:       PASS
+Browser Acceptance #1275:          PASS
+  Chromium:                         PASS
+  WebKit:                           PASS
+product-owner retest:               PASS
+protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
+```
+
+M8.1 established the public-beta editor interaction substrate without weakening apartment semantics:
 
 - unified semantic runtime selection with primary + multi-selection;
 - click/modifier/marquee/select-all semantics;
@@ -34,15 +81,13 @@ M8.1 establishes the public-beta editor interaction substrate without weakening 
 
 Product-owner acceptance initially found one real regression: cursor jitter around grid snap thresholds could leave the imperative dragged Konva node visually diverged from authoritative snapped group bounds. Genuine RED evidence was recorded at `fdc5902ab61d9152f93a0a5cbcfadb37bf59daa5` / CI #4807 and refined at `98a2e053b5b705257e4f5e56307d46ea30c0e5ae` / CI #4808. The production correction `94775496f5d0c7bc504ee9e371c845ef5e148a5e` reconciles the projection from authoritative preview state before paint without changing snap policy, M2 fit authority or semantic history.
 
-Regression hardening `88ec268653bb3034e3254421c8d9f28824b3488e` exercises three deterministic jitter profiles, post-release visual stability and exact Undo → Redo → Undo equivalence in Chromium and representative WebKit. No synthetic RED was manufactured for this test-only hardening because it introduced no new production behavior.
+Regression hardening `88ec268653bb3034e3254421c8d9f28824b3488e` exercises three deterministic jitter profiles, post-release visual stability and exact Undo → Redo → Undo equivalence in Chromium and representative WebKit.
 
 The product owner repeated the focused corrected scenarios on 2026-08-09 and reported: **«Все сценарии PASS.»**
 
-Structural batch movement/clipboard and compatible multi-wall common-property editing, beginning with wall thickness, remain deliberately deferred to M8.2 because topology dependency closure and hosted-opening validity must be designed and tested explicitly.
-
 Canonical acceptance evidence: `docs/milestones/m8-1-acceptance.md` and `docs/changelog/2026-08-08-m8-1-editor-interaction-foundation.md`.
 
-Roadmap consequence: **M8.2 Precision Drawing and Structural Editing is selected next after M8.1 is integrated into `main`.** The actual protected squash-merge identity must be recorded after integration; product acceptance is not treated as an invented merge.
+Roadmap consequence: M8.2 Precision Drawing and Structural Editing became unblocked and is the active structural precision slice.
 
 ---
 
