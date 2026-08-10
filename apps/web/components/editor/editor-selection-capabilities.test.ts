@@ -88,7 +88,7 @@ describe("semantic selection capabilities", () => {
     {
       name: "one wall from an open structural fragment",
       selection: replaceSelection(ref("wall", "wall-1")),
-      expected: { copy: false, cut: false, paste: false, duplicate: false, delete: false, move: true, rotate: false, scale: false, wallThickness: false },
+      expected: { copy: true, cut: false, paste: false, duplicate: true, delete: false, move: true, rotate: false, scale: false, wallThickness: false },
     },
     {
       name: "closed two-wall structural fragment",
@@ -115,7 +115,7 @@ describe("semantic selection capabilities", () => {
     expect(enabledState(capabilities)).toEqual(expected);
   });
 
-  it("enables safe structural clipboard actions for a standalone wall while keeping raw delete disabled", () => {
+  it("enables all safe structural clipboard actions for a standalone wall while keeping raw delete disabled", () => {
     const capabilities = deriveSelectionCapabilities({
       document: standaloneWallDocument(),
       selection: replaceSelection(ref("wall", "wall-1")),
@@ -158,7 +158,7 @@ describe("semantic selection capabilities", () => {
     }
   });
 
-  it("surfaces the strict structural closure reason instead of silently expanding selection", () => {
+  it("keeps destructive Cut strict while non-destructive Copy and Duplicate project a safe wall fragment", () => {
     const structural = deriveSelectionCapabilities({
       document,
       selection: replaceSelection(ref("wall", "wall-1")),
@@ -170,10 +170,10 @@ describe("semantic selection capabilities", () => {
       clipboardKind: null,
     });
 
-    expect(structural.copy.enabled).toBe(false);
-    expect(structural.copy.reason).toContain("весь связанный фрагмент");
-    expect(structural.cut.reason).toBe(structural.copy.reason);
-    expect(structural.duplicate.reason).toBe(structural.copy.reason);
+    expect(structural.copy.enabled).toBe(true);
+    expect(structural.duplicate.enabled).toBe(true);
+    expect(structural.cut.enabled).toBe(false);
+    expect(structural.cut.reason).toContain("весь связанный фрагмент");
     expect(mixed.move.reason).toMatch(/[А-Яа-яЁё]/);
     expect(mixed.delete.reason).toMatch(/[А-Яа-яЁё]/);
   });
