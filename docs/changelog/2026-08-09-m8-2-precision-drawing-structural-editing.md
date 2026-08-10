@@ -1,6 +1,6 @@
 # 2026-08-09 — M8.2 Precision Drawing and Structural Editing
 
-**Status:** AUTOMATED GATES GREEN / PRODUCT-OWNER ACCEPTANCE PENDING  
+**Status:** AUTOMATED GATES GREEN / PRODUCT-OWNER BASE SCENARIOS PASS / CLIPBOARD EXTENSION RETEST PENDING  
 **Tracker:** #56  
 **Implementation PR:** #87  
 **Design:** PRODUCT-OWNER APPROVED — 2026-08-09  
@@ -18,7 +18,7 @@ Approved scope:
 - direct endpoint/junction editing;
 - contextual topology-safe wall-body translation;
 - atomic centred multi-wall thickness editing;
-- strict fail-closed structural clipboard dependency closure;
+- structural clipboard with copy-safe projection and strict destructive dependency closure;
 - hosted-opening preservation/revalidation;
 - one semantic history command per committed structural operation;
 - WCAG 2.2-oriented drag alternatives, target sizing and keyboard/focus behaviour.
@@ -87,7 +87,7 @@ CI #4838:                   PASS
 
 The transaction layer validates the complete candidate document before acceptance: finite geometry, no collapse/reversal where direction must be preserved, topology diagnostics and every hosted opening. Wall translation moves its mandatory vertices as one candidate rather than chaining partial mutations. Batch thickness reuses centred `setWallThickness` semantics.
 
-### Task 3 — strict structural clipboard
+### Task 3 — strict structural clipboard foundation
 
 ```text
 RED:                        e02a1dc6aa560f10048a4c49e1ddb06fc8d764f9
@@ -99,7 +99,7 @@ GREEN:                      68e8ebb4b47b00ca9a349a3ef09cf2523b47e936
 CI #4842:                   PASS
 ```
 
-Only a dependency-closed structural wall fragment is copyable/cuttable. Required vertices and all hosted openings are carried automatically. Paste creates fresh IDs, remaps internal references, applies one rigid translation and validates the complete candidate before addition.
+The original foundation required a dependency-closed structural wall fragment for Copy/Cut. Required vertices and all hosted openings were carried automatically. Paste created fresh IDs, remapped internal references, applied one rigid translation and validated the complete candidate before addition. Product-owner testing later showed that applying the destructive closure rule to non-destructive Copy made ordinary wall/room clipboard use unnecessarily restrictive; the extension is recorded below without weakening Cut.
 
 ### Task 4 — unified runtime gesture / clipboard / history
 
@@ -122,7 +122,7 @@ Final Task 4 properties:
 - `EditorStoreState` is the single owner of object + structural gestures, semantic history and clipboard state;
 - structural preview creates no history; valid commit creates exactly one semantic command; invalid/no-op/cancel creates none;
 - structural Copy/Cut/Paste share one discriminated editor clipboard with the accepted M8.1 furniture path;
-- structural Cut/Paste use `structure/cut` / `structure/paste` and strict editor-core closure/validation;
+- structural Cut/Paste use `structure/cut` / `structure/paste` and editor-core validation;
 - Escape prioritises structural gesture cancellation before object gesture cancellation;
 - M8.1 furniture clipboard behaviour remains covered and unchanged;
 - an accidentally generated large `ApartmentEditor` rewrite was rejected during self-review and fully removed before Task 4 GREEN.
@@ -178,7 +178,7 @@ tools/m7-browser-audit/m8-precision-structural.spec.mjs
 
 and registered in both Chromium and representative WebKit configs.
 
-Covered behavior:
+Initial covered behavior:
 
 - pointer wall creation + exact numeric wall segment + semantic Undo/Redo;
 - exact-input Tab/Enter/Escape focus ordering;
@@ -189,7 +189,7 @@ Covered behavior:
 - unsafe connected-wall reversal rejection with no partial history entry;
 - atomic multi-wall thickness + Undo;
 - dependency-closed structural Copy/Paste + Undo/Redo;
-- connected open-fragment clipboard rejection.
+- connected open-fragment clipboard rejection under the original Task-3 contract.
 
 ### Browser hardening RED history
 
@@ -216,20 +216,117 @@ browser artifact:             9056208133
 artifact digest:              sha256:00c34117d81ec257ad6f491df5781af0230fdb783e8bd8e2dbb48662d5bd740e
 ```
 
-This is automated implementation evidence only. It does **not** imply product-owner acceptance or merge authorization.
+This was automated implementation evidence only. It did **not** imply product-owner acceptance or merge authorization.
+
+## 2026-08-10 — Product-owner pre-acceptance finding: ordinary wall and room Copy/Paste
+
+The product owner completed the seven requested M8.2 manual scenarios and reported **all PASS**, then identified one material usability gap before acceptance:
+
+> connected walls and whole rooms could not be copied/pasted through ordinary editor commands.
+
+Acceptance was deliberately kept open and the clipboard contract was refined rather than treating the earlier automated green as sufficient product acceptance.
+
+### Refined product semantics
+
+**Wall Copy / Duplicate**
+
+- non-destructive Copy no longer requires destructive dependency closure;
+- a selected connected wall is projected into a self-contained clipboard wall with its endpoint vertices;
+- junction references that belong only to unselected neighbouring walls are pruned in the copy;
+- every opening hosted by the copied full wall is carried automatically;
+- source topology is never modified by Copy.
+
+**Wall Cut**
+
+- remains strict dependency-closed and fail-closed;
+- a connected wall cannot be cut on its own when that would leave dangling topology;
+- no safety rule was weakened to enable Copy.
+
+**Whole-room Copy / Duplicate**
+
+- room selection is projected from the exact derived `PlanarFace` boundary rather than whole backing wall IDs;
+- an atomic room boundary segment is copied even when the source physical wall continues into a neighbouring room through a junction;
+- only openings fully belonging to the copied boundary segments are carried;
+- a partially crossing opening fails closed instead of being clipped or guessed;
+- reversed source-wall traversal remaps opening offset and door swing orientation deterministically;
+- the explicit `RoomAnnotation` name is copied when present;
+- room Cut remains disabled because shared structural topology makes destructive room semantics ambiguous.
+
+Current room clipboard scope is the **structural room shell + hosted openings + explicit room name**. Furniture remains an independent placed-object clipboard concern; automatically including all furniture located inside a room is intentionally not claimed by this extension.
+
+**Safe placement**
+
+- every requested paste position is validated first with the unchanged structural validator;
+- ordinary structural paste may search a bounded deterministic nearby placement if the default offset intersects existing topology;
+- room and ordinary offset wall paste share this safe-nearby behavior;
+- an explicit wall paste exactly at its source origin remains fail-closed, preserving the exact-overlap regression contract;
+- at most eight bounded right/down/diagonal placement steps are considered, each with the same topology/opening validation;
+- no valid placement means no mutation and no history entry.
+
+### TDD evidence
+
+Initial wall/room projection RED:
+
+```text
+RED web head:                5b6409c319afadbe18b2b11cf02ad3773d2ae331
+CI #4921:                    EXPECTED FAIL
+reason:                      connected wall Copy still required strict closure;
+                             room structural clipboard API did not exist
+```
+
+Room ordinary-paste placement RED:
+
+```text
+RED:                         5146252c253fa9490060cfb68b05567aa0ad1ba4
+CI #4930:                    EXPECTED FAIL
+reason:                      projected room was valid, but the ordinary +200 mm paste anchor
+                             overlapped the source and was correctly rejected
+```
+
+First expanded browser run:
+
+```text
+head:                        68c30b062e20b38c3340ccacc4d21fcdb7694737
+CI #4934:                    PASS
+Browser Acceptance #1381:   EXPECTED FAIL
+Chromium:                    32 PASS / 1 FAIL
+whole-room Copy/Paste:       PASS
+connected-wall Copy UI:      PASS — Copy/Duplicate visible, Cut absent
+connected-wall Ctrl+C/V:     FAIL — default offset crossed neighbouring wall and paste was rejected
+```
+
+Focused unit reproduction of the browser failure:
+
+```text
+RED:                         ac031fecfba326a4c472db7ebbc3b3e04c4173ae
+CI #4935:                    EXPECTED FAIL
+existing web tests:          569 PASS
+new focused failure:         connected-wall safe nearby paste created no history/document change
+```
+
+Final GREEN after extending only the placement policy:
+
+```text
+head:                         beb25379e0b6a25af0a8af84da878a62c5692e08
+CI #4936:                     PASS
+Browser Acceptance #1386:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+browser artifact:             9059253821
+artifact digest:              sha256:219d08315515c1264a66f287cf7d21a2e01d8e6d304075d5c9be7619634dbc71
+```
+
+The final browser suite includes both connected-wall Copy/Paste and whole-room Copy/Paste plus Undo/Redo. The existing exact-overlap fail-closed unit regression remains green.
 
 ## Current gate
 
-M8.2 is ready for **focused product-owner acceptance** after the documentation truth-sync receives its own fresh exact-head CI/browser verification.
+M8.2 remains **Draft / not yet product-accepted**. The original seven manual acceptance scenarios were reported PASS, but the newly added clipboard behavior requires a short product-owner retest on the latest verified head.
 
-Required product-owner scenarios:
+Required focused retest:
 
-1. exact wall creation by pointer and numeric length/angle;
-2. visible snapping with endpoint/midpoint/wall-axis behaviour;
-3. direct shared-endpoint edit and Undo/Redo;
-4. safe wall translation with hosted opening preserved;
-5. unsafe structural movement rejected without partial mutation/history;
-6. atomic multi-wall thickness change;
-7. valid dependency-closed Copy/Paste and unsafe connected-fragment rejection.
+1. select one wall that is connected to other walls → Copy/Paste must create a detached valid copy; Copy and Duplicate are available, Cut remains unavailable when dependency closure is incomplete;
+2. select a derived room → Copy/Paste must create a second valid room shell with its doors/windows and explicit room name if present;
+3. Undo/Redo each paste once and verify one semantic history step per paste;
+4. verify that an unsafe structural placement never leaves partial geometry.
 
-Do not create `docs/milestones/m8-2-acceptance.md`, mark PR #87 Ready, close #56, or merge until explicit product-owner acceptance and a separately authorized protected delivery step occur.
+Do not create `docs/milestones/m8-2-acceptance.md`, mark PR #87 Ready, close #56, or merge until this focused clipboard retest passes and the resulting documentation head receives fresh exact-head CI/browser verification.
