@@ -42,6 +42,15 @@ function ids() {
   return (kind: EditorEntityIdKind) => `${kind}-copy-${++counters[kind]}`;
 }
 
+function roomStore() {
+  const document = roomDocument();
+  const room = deriveRooms(document).rooms[0]!;
+  const store = createEditorStore({ idFactory: ids() });
+  store.setState({ history: createHistoryState(document) });
+  store.getState().selectRoom(room.id);
+  return { document, room, store };
+}
+
 describe("wall and room clipboard UX", () => {
   it("enables Copy and Duplicate for one connected wall while keeping Cut fail-closed", () => {
     const document = roomDocument();
@@ -71,11 +80,7 @@ describe("wall and room clipboard UX", () => {
   });
 
   it("copies and pastes a selected room atomically with its shell, opening and explicit name", () => {
-    const document = roomDocument();
-    const room = deriveRooms(document).rooms[0]!;
-    const store = createEditorStore({ idFactory: ids() });
-    store.setState({ history: createHistoryState(document) });
-    store.getState().selectRoom(room.id);
+    const { room, store } = roomStore();
 
     store.getState().copySelection();
     expect(store.getState().clipboard.payload?.kind).toBe("structural-fragment");
@@ -94,5 +99,18 @@ describe("wall and room clipboard UX", () => {
     expect(store.getState().history.document.walls).toHaveLength(4);
     store.getState().redo();
     expect(store.getState().history.document.walls).toHaveLength(8);
+  });
+
+  it("falls back to a deterministic non-overlapping position when the ordinary paste anchor overlaps the source room", () => {
+    const { store } = roomStore();
+    store.getState().copySelection();
+
+    store.getState().pasteClipboard({ x: 200, y: 200 });
+
+    const document = store.getState().history.document;
+    expect(document.walls).toHaveLength(8);
+    expect(document.openings).toHaveLength(2);
+    expect(document.roomAnnotations).toHaveLength(2);
+    expect(deriveRooms(document).rooms).toHaveLength(2);
   });
 });
