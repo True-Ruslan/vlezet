@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-09  
-**Status:** M0–M7.8B are implemented, product-accepted and merged. M8.0 Public Beta Product Contract is merged. M8.1 Editor Interaction Foundation is fully implemented and product-owner accepted in PR #85; protected merge remains the final delivery gate. M8.2 Precision Drawing and Structural Editing is the selected next implementation slice after M8.1 reaches `main`.  
+**Last updated:** 2026-08-10  
+**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing and Structural Editing is implemented in Draft PR #87 through its dedicated Chromium/WebKit automated acceptance gate; product-owner acceptance and protected delivery remain pending.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, the latest focused changelog and the active design/plan.
 
@@ -88,7 +88,9 @@ packages/planning        deterministic planning + reviewed intent
 | M7.8A | recognition benchmark foundation, deterministic corpus/scorer/evidence |
 | M7.8B | region-first source normalisation, wall topology, bounded Draft and verification-only AI |
 | M8.0 | public-beta product contract, roadmap reset and manual-editor-first direction |
-| M8.1 | product-owner accepted in PR #85; protected merge pending |
+| M8.1 | product-owner accepted and squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
+
+M8.2 is **not** listed as accepted yet. Its automated implementation gates are green, while explicit product-owner acceptance remains a separate required state.
 
 ## 5. Recognition experiment outcome
 
@@ -118,9 +120,9 @@ The earlier Assisted Tracing design PR #52 is also closed without merge. Its con
 - semantic Undo/Redo;
 - local projects, autosave, portable backup and PNG export.
 
-### M8.1 interaction foundation — product accepted
+### M8.1 interaction foundation — accepted and merged
 
-M8.1 replaces the former split single-entity interaction substrate with one deterministic runtime interaction model while keeping apartment semantics authoritative.
+M8.1 replaced the former split single-entity interaction substrate with one deterministic runtime interaction model while keeping apartment semantics authoritative.
 
 Accepted behavior:
 
@@ -141,19 +143,56 @@ Accepted behavior:
 
 The final product-owner correction addressed selected-furniture group drag around grid snap thresholds. The fix reconciles the imperative Konva node from authoritative preview state before paint without changing snap policy, M2 fit authority or semantic history.
 
-Acceptance evidence:
+Integration evidence:
 
 ```text
-product-accepted head:       db66de524783a43fa021db07a6b67808c4435e9b
-CI #4813:                    PASS
-Recognition Benchmark #1149: PASS
-Browser Acceptance #1269:   PASS
-  Chromium:                  PASS
-  WebKit:                    PASS
-product-owner retest:        PASS — 2026-08-09
+product-accepted interaction head: db66de524783a43fa021db07a6b67808c4435e9b
+final documentation head:          f8318182d3a9e7c835ebf079de2710d6106d7829
+CI #4819:                           PASS
+Recognition Benchmark #1155:       PASS
+Browser Acceptance #1275:          PASS
+  Chromium:                         PASS
+  WebKit:                           PASS
+product-owner retest:               PASS — 2026-08-09
+protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
 ```
 
 Canonical acceptance record: `docs/milestones/m8-1-acceptance.md`.
+
+### M8.2 structural precision — automated gates green, acceptance pending
+
+Draft PR #87 implements the approved M8.2 design while preserving the M8.1 runtime and the structural authority boundaries above.
+
+Implemented behavior includes:
+
+- renderer-independent Canvas angle authority;
+- named endpoint/junction/midpoint/intersection/wall-axis and construction-assistance snapping with deterministic priority/hysteresis;
+- visible `Привязки` control and gesture-local Alt/Option suppression;
+- exact near-cursor wall length/angle input with keyboard focus/Escape semantics;
+- direct structural endpoint/junction handles with accessible hit targets;
+- atomic structural candidate evaluation in `@vlezet/editor-core`;
+- topology-safe vertex movement and wall-body translation;
+- hosted-opening preservation/revalidation;
+- atomic centred multi-wall thickness editing;
+- strict dependency-closed structural Copy/Cut/Paste with fresh IDs;
+- one semantic history command per valid structural commit and none for preview/cancel/reject;
+- explicit valid/invalid structural feedback rather than colour-only signalling.
+
+Dedicated Task 9 automated acceptance checkpoint:
+
+```text
+head:                         66d27a673679f26a4a414213415f1603a02aad6a
+CI #4915:                     PASS
+Browser Acceptance #1365:    PASS
+  Chromium M8.2 flow:         PASS
+  WebKit representative:      PASS
+browser artifact:             9056208133
+artifact digest:              sha256:00c34117d81ec257ad6f491df5781af0230fdb783e8bd8e2dbb48662d5bd740e
+product-owner acceptance:     PENDING
+protected merge:              PENDING
+```
+
+The browser hardening process intentionally produced several test-only RED iterations while the acceptance harness was aligned with actual product semantics (continued wall chaining after exact Enter, real endpoint closure, stable screen coordinates, onboarding isolation and avoiding the hosted-opening hit area). Those iterations did **not** establish a production defect and did not weaken structural validation.
 
 ### Reference/recognition
 
@@ -166,8 +205,9 @@ Existing deterministic read-only 3D and bounded planning remain available, but t
 ## 7. Public beta programme
 
 ```text
-DONE* M8.1  Editor Interaction Foundation
-NOW*  M8.2  Precision Drawing and Structural Editing
+DONE  M8.1  Editor Interaction Foundation
+NOW   M8.2  Precision Drawing and Structural Editing
+      automated implementation gates GREEN; product-owner acceptance pending
 THEN  M8.3  Precision Reference Calibration
 THEN  M8.4  Assisted Tracing
 THEN  M8.5  Furniture 2.0
@@ -176,35 +216,25 @@ THEN  M8.7  Public Beta Hardening
 TARGET PUBLIC FREE BETA
 ```
 
-`*` M8.1 is product-owner accepted but not yet integrated into `main`; M8.2 is selected next and must not begin until the protected M8.1 merge completes.
+Programme tracker: #53. M8.2 tracker: #56. Implementation PR: #87.
 
-Programme tracker: #53.
+## 8. CURRENT GATE — M8.2 product-owner acceptance
 
-## 8. NEXT — M8.2 Precision Drawing and Structural Editing
-
-Tracker: #56.
-
-Primary goal:
+Primary M8.2 outcome:
 
 > Make exact apartment structure creation and repair fast enough to stay on the Canvas instead of repeatedly creating geometry and correcting it through inspectors.
 
-Required design direction:
+Automated implementation and browser gates are green. The next gate is focused product-owner acceptance on the exact M8.2 candidate. Acceptance should exercise at minimum:
 
-1. named visible snap guides;
-2. endpoint, wall-axis, midpoint and intersection snapping;
-3. parallel/perpendicular assistance;
-4. exact inline wall length and useful angle input;
-5. direct vertex/junction editing;
-6. topology-safe structural movement;
-7. atomic multi-wall common-property editing, starting with wall thickness where valid;
-8. structural clipboard only with explicit dependency closure;
-9. hosted-opening preservation/revalidation;
-10. one semantic history operation per committed structural gesture;
-11. no partial mutation when a structural selection cannot be transformed safely.
+1. exact wall creation by pointer and numeric length/angle;
+2. visible snapping and expected endpoint/midpoint/wall-axis behaviour;
+3. direct shared-endpoint editing with predictable Undo/Redo;
+4. valid wall translation with hosted opening preserved;
+5. invalid structural movement rejected without partial mutation/history;
+6. compatible multi-wall thickness update as one atomic action;
+7. structural Copy/Paste on a dependency-closed fragment and rejection of an unsafe connected fragment.
 
-The M8.1 product-owner request for changing common properties of multiple selected walls, at minimum wall thickness, is explicitly owned by this slice.
-
-Before product implementation begins, M8.2 requires its own written design and task-by-task TDD plan. It must not reuse placed-object batch semantics blindly for topology-sensitive structures.
+Do **not** mark M8.2 accepted, Ready or merged from CI alone. After explicit product-owner PASS, create the acceptance record, synchronize canonical state, run a fresh exact-head gate and only then perform the separately authorized protected squash merge.
 
 ## 9. Public beta acceptance journeys
 
@@ -214,7 +244,7 @@ Before product implementation begins, M8.2 requires its own written design and t
 - `BETA-04 Furnish` — place/edit common furniture and understand fit.
 - `BETA-05 Export` — export the whole plan and selection to PNG/SVG.
 
-M8.1 materially advances `BETA-03`; M8.2 is the next dependency for `BETA-01` and later calibrated-reference tracing.
+M8.1 materially advances `BETA-03`; M8.2 is the structural foundation for `BETA-01` and later calibrated-reference tracing.
 
 ## 10. Mandatory engineering policy — TDD
 
@@ -247,7 +277,7 @@ The focused record must state:
 8. product-owner acceptance when required;
 9. final protected merge identity.
 
-Canonical state/roadmap files must distinguish product acceptance from actual integration truth. Merge identity is recorded only after GitHub reports the protected merge.
+Canonical state/roadmap files must distinguish automated verification, product acceptance and actual integration truth. Merge identity is recorded only after GitHub reports the protected merge.
 
 ## 12. Delivery workflow
 
