@@ -43,7 +43,7 @@ function closedRoomWithOpening(): VlezetDocument {
 }
 
 function deterministicIds() {
-  const counts = { vertex: 0, wall: 0, opening: 0 };
+  const counts = { vertex: 0, wall: 0, opening: 0, "room-annotation": 0 };
   return (kind: keyof typeof counts) => `${kind}-copy-${++counts[kind]}`;
 }
 
@@ -103,7 +103,9 @@ describe("M8.2 strict structural clipboard", () => {
     expect(payload).toMatchObject({
       version: 1,
       kind: "structural-fragment",
+      scope: { kind: "walls" },
       origin: { x: 0, y: 0 },
+      roomAnnotations: [],
     });
     expect(payload.vertices.map((vertex) => vertex.id)).toEqual(["a", "b", "c", "d"]);
     expect(payload.walls.map((wall) => wall.id)).toEqual(["top", "right", "bottom", "left"]);
@@ -151,6 +153,7 @@ describe("M8.2 strict structural clipboard", () => {
     ]);
     expect(result.wallIds).toEqual(["wall-copy-1", "wall-copy-2", "wall-copy-3", "wall-copy-4"]);
     expect(result.openingIds).toEqual(["opening-copy-1", "opening-copy-2"]);
+    expect(result.roomAnnotationIds).toEqual([]);
 
     const pastedWalls = result.document.walls.filter((wall) => result.wallIds.includes(wall.id));
     expect(pastedWalls[0]).toMatchObject({
