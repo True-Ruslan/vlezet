@@ -47,6 +47,14 @@ async function clickScreenPoint(page, point, additive = false) {
   if (additive) await page.keyboard.up("Shift");
 }
 
+async function dismissFirstProjectGuide(page) {
+  const hide = page.getByRole("button", { name: "Скрыть", exact: true });
+  if (await hide.isVisible()) {
+    await hide.click();
+    await expect(hide).toBeHidden();
+  }
+}
+
 async function setSnapping(page, enabled) {
   const button = page.getByRole("button", { name: "Привязки", exact: true });
   await expect(button).toBeVisible();
@@ -82,6 +90,7 @@ async function drawIsolatedWall(page, start, end) {
   const startPoint = await clickCanvasRatio(page, ...start);
   const endPoint = await clickCanvasRatio(page, ...end);
   await enterSelectMode(page);
+  await dismissFirstProjectGuide(page);
   return { start: startPoint, end: endPoint, probe: pointAlong(startPoint, endPoint) };
 }
 
@@ -93,6 +102,7 @@ async function drawLShape(page) {
   const end = await clickCanvasRatio(page, 0.64, 0.66);
   await enterSelectMode(page);
   await expectWallCount(page, 2);
+  await dismissFirstProjectGuide(page);
   return {
     start,
     shared,
