@@ -1,10 +1,10 @@
 import { createPlacedObject, type PlacedObject, type Point2, type VlezetDocument } from "@vlezet/domain";
 import {
   addPlacedObjects,
+  createRoomStructuralClipboardPayload,
   createStructuralClipboardPayload,
   cutStructuralFragment,
   deletePlacedObjects,
-  evaluateStructuralClipboardClosure,
   evaluateStructuralVertexMove,
   evaluateStructuralWallTranslation,
   evaluateWallThicknessBatch,
@@ -227,16 +227,7 @@ function samePoint(first: Point2 | null, second: Point2): boolean {
   return first !== null && first.x === second.x && first.y === second.y;
 }
 
-function structuralSelectionBounds(document: VlezetDocument, wallIds: readonly string[]) {
-  const selected = new Set(wallIds);
-  const vertexIds = new Set<string>();
-  for (const wall of document.walls) {
-    if (!selected.has(wall.id)) continue;
-    vertexIds.add(wall.startVertexId);
-    vertexIds.add(wall.endVertexId);
-    for (const junctionId of wall.junctionVertexIds) vertexIds.add(junctionId);
-  }
-  const vertices = document.vertices.filter((vertex) => vertexIds.has(vertex.id));
+function structuralPayloadBounds(vertices: readonly Readonly<{ position: Point2 }>[]) {
   if (vertices.length === 0) return null;
   return {
     minX: Math.min(...vertices.map((vertex) => vertex.position.x)),
@@ -539,17 +530,35 @@ function enhanceEditorStore(
       return;
     }
 
+    const roomId = selectedRoomId(state.selection);
+    if (roomId) {
+      try {
+        store.setState({
+          clipboard: {
+            payload: createRoomStructuralClipboardPayload(state.history.document, roomId),
+            lastPasteAnchor: null,
+            repeatedPasteCount: 0,
+          },
+        });
+      } catch {
+        return;
+      }
+      return;
+    }
+
     const wallIds = selectedWallIds(state.selection);
     if (!wallIds) return;
-    const closure = evaluateStructuralClipboardClosure(state.history.document, wallIds);
-    if (!closure.ok) return;
-    store.setState({
-      clipboard: {
-        payload: createStructuralClipboardPayload(state.history.document, closure.wallIds),
-        lastPasteAnchor: null,
-        repeatedPasteCount: 0,
-      },
-    });
+    try {
+      store.setState({
+        clipboard: {
+          payload: createStructuralClipboardPayload(state.history.document, wallIds),
+          lastPasteAnchor: null,
+          repeatedPasteCount: 0,
+        },
+      });
+    } catch {
+      return;
+    }
   };
 
   const cutSelection = () => {
@@ -731,13 +740,26 @@ function enhanceEditorStore(
       return;
     }
 
-    const wallIds = selectedWallIds(state.selection);
-    if (!wallIds) return;
-    const closure = evaluateStructuralClipboardClosure(state.history.document, wallIds);
-    if (!closure.ok) return;
-    const bounds = structuralSelectionBounds(state.history.document, closure.wallIds);
+    let payload;
+    const roomId = selectedRoomId(state.selection);
+    if (roomId) {
+      try {
+        payload = createRoomStructuralClipboardPayload(state.history.document, roomId);
+      } catch {
+        return;
+      }
+    } else {
+      const wallIds = selectedWallIds(state.selection);
+      if (!wallIds) return;
+      try {
+        payload = createStructuralClipboardPayload(state.history.document, wallIds);
+      } catch {
+        return;
+      }
+    }
+
+    const bounds = structuralPayloadBounds(payload.vertices);
     if (!bounds) return;
-    const payload = createStructuralClipboardPayload(state.history.document, closure.wallIds);
     const offset = Math.max(
       bounds.maxX - bounds.minX,
       bounds.maxY - bounds.minY,
