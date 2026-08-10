@@ -107,7 +107,7 @@ async function drawLShape(page) {
     start,
     shared,
     end,
-    firstProbe: pointAlong(start, shared, 0.4),
+    firstProbe: pointAlong(start, shared, 0.15),
     secondProbe: pointAlong(shared, end, 0.5),
   };
 }
@@ -246,7 +246,7 @@ test.describe("M8.2 precision structural acceptance", () => {
     await clickScreenPoint(page, shape.firstProbe);
     const initialLength = await wallLengthValue(page, shape.firstProbe);
     const movedShared = { x: shape.shared.x + 44, y: shape.shared.y + 28 };
-    const movedProbe = pointAlong(shape.start, movedShared, 0.4);
+    const movedProbe = pointAlong(shape.start, movedShared, 0.15);
 
     await page.mouse.move(shape.shared.x, shape.shared.y);
     await page.mouse.down();
