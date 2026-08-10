@@ -22,6 +22,7 @@ export { setRectangularRoomClearDimension } from "./room-dimension-editing";
 export type { ClearRoomDimensionAnchor, ClearRoomDimensionAxis } from "./room-dimension-editing";
 export { setRoomName } from "./room-editing";
 export {
+  createRoomStructuralClipboardPayload,
   createStructuralClipboardPayload,
   cutStructuralFragment,
   evaluateStructuralClipboardClosure,
@@ -29,6 +30,7 @@ export {
 } from "./structural-clipboard";
 export type {
   StructuralClipboardPayloadV1,
+  StructuralClipboardScope,
   StructuralClosureResult,
 } from "./structural-clipboard";
 export {
