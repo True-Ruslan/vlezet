@@ -1,5 +1,22 @@
-import type { Opening, Point2, Vertex, VlezetDocument, Wall } from "@vlezet/domain";
+import type {
+  Opening,
+  Point2,
+  RoomAnnotation,
+  Vertex,
+  VlezetDocument,
+  Wall,
+} from "@vlezet/domain";
+import {
+  deriveRooms,
+  extractPlanarFaces,
+  GEOMETRY_EPSILON_MM,
+  projectPointToWallOffset,
+} from "@vlezet/geometry";
 import { validateStructuralCandidate } from "./structural-editing";
+
+export type StructuralClipboardScope =
+  | Readonly<{ kind: "walls" }>
+  | Readonly<{ kind: "room"; sourceRoomId: string }>;
 
 export type StructuralClipboardPayloadV1 = Readonly<{
   version: 1;
@@ -9,6 +26,8 @@ export type StructuralClipboardPayloadV1 = Readonly<{
   vertices: readonly Vertex[];
   walls: readonly Wall[];
   openings: readonly Opening[];
+  scope?: StructuralClipboardScope;
+  roomAnnotations?: readonly RoomAnnotation[];
 }>;
 
 export type StructuralClosureResult =
@@ -44,12 +63,36 @@ function copyOpening(opening: Opening): Opening {
   };
 }
 
+function copyRoomAnnotation(annotation: RoomAnnotation): RoomAnnotation {
+  return { ...annotation, anchor: { ...annotation.anchor } };
+}
+
 function payloadOrigin(vertices: readonly Vertex[]): Point2 {
   if (vertices.length === 0) throw new Error("Структурный фрагмент не содержит вершин");
   return {
     x: Math.min(...vertices.map((vertex) => vertex.position.x)),
     y: Math.min(...vertices.map((vertex) => vertex.position.y)),
   };
+}
+
+function requestedWalls(
+  document: VlezetDocument,
+  wallIds: readonly string[],
+): readonly Wall[] {
+  if (wallIds.length === 0) throw new Error("Для копирования выберите хотя бы одну стену");
+
+  const requested = new Set<string>();
+  for (const wallId of wallIds) {
+    if (!wallId) throw new Error("Идентификатор стены не может быть пустым");
+    if (requested.has(wallId)) {
+      throw new Error("Выбранный структурный фрагмент содержит дубликаты стен");
+    }
+    if (!document.walls.some((wall) => wall.id === wallId)) {
+      throw new Error(`Стена не существует: ${wallId}`);
+    }
+    requested.add(wallId);
+  }
+  return document.walls.filter((wall) => requested.has(wall.id));
 }
 
 function requireClosure(document: VlezetDocument, wallIds: readonly string[]) {
@@ -118,27 +161,149 @@ export function evaluateStructuralClipboardClosure(
   };
 }
 
+function detachedSelectedWalls(
+  document: VlezetDocument,
+  selectedWalls: readonly Wall[],
+): readonly Wall[] {
+  return selectedWalls.map((wall) => ({
+    ...copyWall(wall),
+    junctionVertexIds: wall.junctionVertexIds.filter((junctionVertexId) =>
+      selectedWalls.some((other) =>
+        other.id !== wall.id && wallReferencesVertex(other, junctionVertexId)),
+    ),
+  }));
+}
+
 export function createStructuralClipboardPayload(
   document: VlezetDocument,
   wallIds: readonly string[],
 ): StructuralClipboardPayloadV1 {
-  const closure = requireClosure(document, wallIds);
-  const vertexIds = new Set(closure.vertexIds);
-  const selectedWallIds = new Set(closure.wallIds);
-  const openingIds = new Set(closure.openingIds);
+  const selectedWalls = requestedWalls(document, wallIds);
+  const walls = detachedSelectedWalls(document, selectedWalls);
+  const vertexIds = new Set<string>();
+  for (const wall of walls) {
+    vertexIds.add(wall.startVertexId);
+    vertexIds.add(wall.endVertexId);
+    for (const junctionVertexId of wall.junctionVertexIds) vertexIds.add(junctionVertexId);
+  }
   const vertices = document.vertices.filter((vertex) => vertexIds.has(vertex.id)).map(copyVertex);
-  const walls = document.walls.filter((wall) => selectedWallIds.has(wall.id)).map(copyWall);
-  const openings = document.openings.filter((opening) => openingIds.has(opening.id)).map(copyOpening);
+  if (vertices.length !== vertexIds.size) {
+    const missing = [...vertexIds].find((vertexId) => !document.vertices.some((vertex) => vertex.id === vertexId));
+    throw new Error(`Структурный фрагмент ссылается на отсутствующую вершину: ${missing ?? "неизвестная"}`);
+  }
+  const selectedWallIds = new Set(walls.map((wall) => wall.id));
+  const openings = document.openings
+    .filter((opening) => selectedWallIds.has(opening.wallId))
+    .map(copyOpening);
   const origin = payloadOrigin(vertices);
 
   return {
     version: 1,
     kind: "structural-fragment",
+    scope: { kind: "walls" },
     origin,
     copiedAtOrigin: { ...origin },
     vertices,
     walls,
     openings,
+    roomAnnotations: [],
+  };
+}
+
+function reverseDoorSwing(opening: Opening): Opening["doorSwing"] {
+  if (!opening.doorSwing) return undefined;
+  return {
+    hinge: opening.doorSwing.hinge === "start" ? "end" : "start",
+    side: opening.doorSwing.side === "left" ? "right" : "left",
+  };
+}
+
+export function createRoomStructuralClipboardPayload(
+  document: VlezetDocument,
+  roomId: string,
+): StructuralClipboardPayloadV1 {
+  if (!roomId) throw new Error("Идентификатор комнаты не может быть пустым");
+  const room = deriveRooms(document).rooms.find((candidate) => candidate.id === roomId);
+  if (!room) throw new Error(`Комната не существует: ${roomId}`);
+  const face = extractPlanarFaces(document).find((candidate) => candidate.id === room.faceId);
+  if (!face) throw new Error(`Не удалось восстановить структурный контур комнаты: ${roomId}`);
+
+  const sourceVertexIds = new Set(face.vertexIds);
+  const vertices = document.vertices
+    .filter((vertex) => sourceVertexIds.has(vertex.id))
+    .map(copyVertex);
+  if (vertices.length !== sourceVertexIds.size) {
+    throw new Error(`Контур комнаты ${roomId} ссылается на отсутствующую вершину`);
+  }
+
+  const payloadWalls: Wall[] = [];
+  const payloadOpenings: Opening[] = [];
+  const includedOpeningIds = new Set<string>();
+
+  for (const [index, edge] of face.edges.entries()) {
+    const wallId = `room-edge:${roomId}:${index}:${edge.wallId}`;
+    payloadWalls.push({
+      id: wallId,
+      startVertexId: edge.startVertexId,
+      endVertexId: edge.endVertexId,
+      junctionVertexIds: [],
+      thickness: edge.thickness,
+    });
+
+    const startOffset = projectPointToWallOffset(document, edge.wallId, edge.start);
+    const endOffset = projectPointToWallOffset(document, edge.wallId, edge.end);
+    const low = Math.min(startOffset, endOffset);
+    const high = Math.max(startOffset, endOffset);
+    const forward = endOffset >= startOffset;
+
+    for (const sourceOpening of document.openings.filter((opening) => opening.wallId === edge.wallId)) {
+      const openingStart = sourceOpening.offset;
+      const openingEnd = sourceOpening.offset + sourceOpening.width;
+      const overlaps = openingEnd > low + GEOMETRY_EPSILON_MM &&
+        openingStart < high - GEOMETRY_EPSILON_MM;
+      if (!overlaps) continue;
+
+      const contained = openingStart >= low - GEOMETRY_EPSILON_MM &&
+        openingEnd <= high + GEOMETRY_EPSILON_MM;
+      if (!contained) {
+        throw new Error(`Проём ${sourceOpening.id} пересекает границу копируемого участка стены ${edge.wallId}`);
+      }
+      if (includedOpeningIds.has(sourceOpening.id)) {
+        throw new Error(`Проём ${sourceOpening.id} неоднозначно принадлежит контуру комнаты`);
+      }
+      includedOpeningIds.add(sourceOpening.id);
+
+      const offset = forward
+        ? openingStart - low
+        : high - openingEnd;
+      payloadOpenings.push({
+        ...copyOpening(sourceOpening),
+        wallId,
+        offset: Math.max(0, offset),
+        ...(forward || !sourceOpening.doorSwing
+          ? {}
+          : { doorSwing: reverseDoorSwing(sourceOpening) }),
+      });
+    }
+  }
+
+  const roomAnnotations = room.annotationId
+    ? document.roomAnnotations
+      .filter((annotation) => annotation.id === room.annotationId)
+      .map(copyRoomAnnotation)
+    : [];
+  const origin = payloadOrigin(vertices);
+
+  return {
+    version: 1,
+    kind: "structural-fragment",
+    scope: { kind: "room", sourceRoomId: room.id },
+    origin,
+    copiedAtOrigin: { ...origin },
+    vertices,
+    walls: payloadWalls,
+    openings: payloadOpenings,
+    roomAnnotations,
   };
 }
 
@@ -185,12 +350,13 @@ export function pasteStructuralFragment(
   document: VlezetDocument,
   payload: StructuralClipboardPayloadV1,
   anchor: Point2,
-  idFactory: (kind: "vertex" | "wall" | "opening") => string,
+  idFactory: (kind: "vertex" | "wall" | "opening" | "room-annotation") => string,
 ): Readonly<{
   document: VlezetDocument;
   wallIds: readonly string[];
   vertexIds: readonly string[];
   openingIds: readonly string[];
+  roomAnnotationIds: readonly string[];
 }> {
   if (payload.version !== 1 || payload.kind !== "structural-fragment") {
     throw new Error("Неподдерживаемая версия структурного буфера обмена");
@@ -202,15 +368,18 @@ export function pasteStructuralFragment(
     throw new RangeError("Структурный буфер содержит некорректную точку отсчёта");
   }
 
+  const annotations = payload.roomAnnotations ?? [];
   const existingIds = new Set([
     ...document.vertices.map((vertex) => vertex.id),
     ...document.walls.map((wall) => wall.id),
     ...document.openings.map((opening) => opening.id),
+    ...document.roomAnnotations.map((annotation) => annotation.id),
   ]);
   const generatedIds = new Set<string>();
   const vertexMap = new Map<string, string>();
   const wallMap = new Map<string, string>();
   const openingMap = new Map<string, string>();
+  const annotationMap = new Map<string, string>();
 
   for (const vertex of payload.vertices) {
     if (vertexMap.has(vertex.id)) throw new Error(`Структурный буфер содержит дубликат вершины: ${vertex.id}`);
@@ -223,6 +392,15 @@ export function pasteStructuralFragment(
   for (const opening of payload.openings) {
     if (openingMap.has(opening.id)) throw new Error(`Структурный буфер содержит дубликат проёма: ${opening.id}`);
     openingMap.set(opening.id, freshId(existingIds, generatedIds, () => idFactory("opening"), "проёма"));
+  }
+  for (const annotation of annotations) {
+    if (annotationMap.has(annotation.id)) {
+      throw new Error(`Структурный буфер содержит дубликат названия комнаты: ${annotation.id}`);
+    }
+    annotationMap.set(
+      annotation.id,
+      freshId(existingIds, generatedIds, () => idFactory("room-annotation"), "названия комнаты"),
+    );
   }
 
   const delta = {
@@ -261,16 +439,31 @@ export function pasteStructuralFragment(
       wallId,
     };
   });
+  const pastedAnnotations: RoomAnnotation[] = annotations.map((annotation) => {
+    if (!Number.isFinite(annotation.anchor.x) || !Number.isFinite(annotation.anchor.y)) {
+      throw new Error(`Структурный буфер названия комнаты ${annotation.id} содержит некорректную точку`);
+    }
+    return {
+      ...copyRoomAnnotation(annotation),
+      id: annotationMap.get(annotation.id)!,
+      anchor: {
+        x: annotation.anchor.x + delta.x,
+        y: annotation.anchor.y + delta.y,
+      },
+    };
+  });
 
   const candidate: VlezetDocument = {
     ...document,
     vertices: [...document.vertices, ...pastedVertices],
     walls: [...document.walls, ...pastedWalls],
     openings: [...document.openings, ...pastedOpenings],
+    roomAnnotations: [...document.roomAnnotations, ...pastedAnnotations],
   };
   const vertexIds = pastedVertices.map((vertex) => vertex.id);
   const wallIds = pastedWalls.map((wall) => wall.id);
   const openingIds = pastedOpenings.map((opening) => opening.id);
+  const roomAnnotationIds = pastedAnnotations.map((annotation) => annotation.id);
   const validation = validateStructuralCandidate(document, candidate, {
     affectedVertexIds: vertexIds,
     affectedWallIds: wallIds,
@@ -283,5 +476,6 @@ export function pasteStructuralFragment(
     vertexIds,
     wallIds,
     openingIds,
+    roomAnnotationIds,
   };
 }
