@@ -340,7 +340,7 @@ test.describe("M8.2 precision structural acceptance", () => {
     await expect(thickness).toHaveValue(initial);
   });
 
-  test("copies and pastes a dependency-closed structure atomically and rejects an open structural fragment", async ({ page }, testInfo) => {
+  test("copies structural fragments atomically, projects a connected wall safely, and keeps destructive Cut fail-closed", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     const isolated = await drawIsolatedWall(page, [0.34, 0.40], [0.64, 0.40]);
@@ -365,9 +365,16 @@ test.describe("M8.2 precision structural acceptance", () => {
     await page.mouse.click(connected.firstProbe.x, connected.firstProbe.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
     await expect(menu).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: "Копировать" })).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: "Копировать" })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: "Вырезать" })).toHaveCount(0);
-    await expect(menu.getByRole("menuitem", { name: "Дублировать" })).toHaveCount(0);
-    await expect(menu.getByRole("menuitem", { name: "Показать выделение" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Дублировать" })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.keyboard.press("Control+C");
+    await page.keyboard.press("Control+V");
+    await expectWallCount(page, 3);
+    await attachPageScreenshot(page, testInfo, "m8.2-connected-wall-copy-projection");
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await expectWallCount(page, 2);
   });
 });
