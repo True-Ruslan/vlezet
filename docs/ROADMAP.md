@@ -24,13 +24,14 @@ STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance 
 DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
 NOW         M8.2 Precision Drawing and Structural Editing
-            implementation + dedicated automated browser gates GREEN;
-            product-owner acceptance / protected delivery PENDING
+            original product-owner scenarios PASS;
+            wall/whole-room clipboard extension automated GREEN;
+            focused clipboard retest / protected delivery PENDING
 THEN        M8.3–M8.7 Public Beta Editor programme
 R&D         automatic whole-plan recognition (#27)
 ```
 
-M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`. M8.2 is the active Draft delivery slice in PR #87; automated implementation gates are green but this is **not** product acceptance.
+M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`. M8.2 is the active Draft delivery slice in PR #87; the originally requested acceptance scenarios passed, but product-owner feedback added ordinary wall and whole-room Copy/Paste before acceptance. That extension is automated-green and awaits focused retest.
 
 ## Completed product foundation
 
@@ -147,7 +148,7 @@ Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ### M8.2 — Precision Drawing and Structural Editing
 
-Status: **IN DEVELOPMENT / AUTOMATED GATES GREEN / PRODUCT-OWNER ACCEPTANCE PENDING**. Tracker: #56. Draft PR: #87.
+Status: **IN DEVELOPMENT / ORIGINAL MANUAL SCENARIOS PASS / CLIPBOARD EXTENSION AUTOMATED GREEN / FOCUSED RETEST PENDING**. Tracker: #56. Draft PR: #87.
 
 Primary outcome:
 
@@ -164,36 +165,47 @@ Implemented scope:
 - direct endpoint/junction editing;
 - topology-safe wall-body translation;
 - atomic common-property editing for compatible selected walls, beginning with centred thickness;
-- strict structural clipboard with explicit dependency closure and fresh-ID paste;
+- non-destructive wall Copy/Duplicate through safe detached structural projection, including hosted openings;
+- strict dependency-closed Cut for connected structure;
+- whole-room Copy/Duplicate from the exact derived room boundary, including split backing-wall segments, boundary openings and explicit room name;
+- room Cut deliberately disabled because shared-topology destructive semantics are ambiguous;
+- bounded safe-nearby structural Paste when the normal offset would intersect existing topology, with every candidate revalidated through the unchanged structural authority;
+- exact source-origin wall overlap remains fail-closed;
 - hosted-opening preservation/revalidation;
-- one semantic history operation per committed structural gesture;
+- one semantic history operation per committed structural gesture/paste;
 - fail-closed rejection instead of partial structural mutation;
 - accessible structural handles and explicit valid/invalid feedback.
 
+Current whole-room clipboard scope is structural shell + hosted doors/windows + explicit room name. Furniture is not implicitly captured; placed furniture remains a separate clipboard entity family.
+
 Authority remains separated:
 
-- `@vlezet/geometry` owns pure angle/snap calculations;
-- `@vlezet/editor-core` owns complete candidate mutation/validation and closure rules;
+- `@vlezet/geometry` owns pure angle/snap calculations and derived room/face geometry;
+- `@vlezet/editor-core` owns complete candidate mutation/validation, room-boundary clipboard projection and destructive closure rules;
 - Canvas/web owns intent, projection and transient runtime coordination;
 - `VlezetDocument` remains persistent truth.
 
-Dedicated automated acceptance checkpoint:
+Latest extension evidence:
 
 ```text
-head:                         66d27a673679f26a4a414213415f1603a02aad6a
-CI #4915:                     PASS
-Browser Acceptance #1365:    PASS
-  Chromium M8.2 flow:         PASS
-  WebKit representative:      PASS
-browser artifact:             9056208133
-artifact digest:              sha256:00c34117d81ec257ad6f491df5781af0230fdb783e8bd8e2dbb48662d5bd740e
-product-owner acceptance:     PENDING
+projection RED:               5b6409c319afadbe18b2b11cf02ad3773d2ae331 / CI #4921 — EXPECTED FAIL
+room-paste RED:               5146252c253fa9490060cfb68b05567aa0ad1ba4 / CI #4930 — EXPECTED FAIL
+browser placement RED:        68c30b062e20b38c3340ccacc4d21fcdb7694737 / Browser #1381 — 32 PASS / 1 FAIL
+focused wall-paste RED:       ac031fecfba326a4c472db7ebbc3b3e04c4173ae / CI #4935 — EXPECTED FAIL
+GREEN head:                   beb25379e0b6a25af0a8af84da878a62c5692e08
+CI #4936:                     PASS
+Browser Acceptance #1386:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+browser artifact:             9059253821
+artifact digest:              sha256:219d08315515c1264a66f287cf7d21a2e01d8e6d304075d5c9be7619634dbc71
+product-owner clipboard retest: PENDING
 protected merge:              PENDING
 ```
 
-Task 9 browser hardening intentionally refined test setup several times before GREEN. Those REDs exposed harness assumptions — continued wall chaining after exact Enter, real topology endpoint closure, layout-dependent screen coordinates, onboarding overlap and opening-vs-wall hit areas — rather than a proven production defect. No topology/opening/M2/recognition policy was weakened.
+The first expanded Chromium run already proved whole-room Copy/Paste while exposing one real placement defect for a connected single-wall copy: the ordinary +200 mm offset crossed the neighbouring wall and the validator rejected it. A focused unit RED reproduced that exact condition. The final correction changed placement policy only; no topology/opening/M2/recognition validation policy was weakened.
 
-The next action for M8.2 is **focused product-owner acceptance**, not M8.3 implementation. After explicit acceptance: create the acceptance record, synchronize acceptance truth, run a fresh exact-head gate, then perform the separately authorized protected squash merge.
+The next action for M8.2 is **focused product-owner clipboard retest**, not M8.3 implementation. After explicit PASS: create the M8.2 acceptance record, synchronize canonical acceptance truth including the concise `docs/CHANGELOG.md` entry, run a fresh accepted-head gate, then perform the separately authorized protected squash merge.
 
 ### M8.3 — Precision Reference Calibration
 
