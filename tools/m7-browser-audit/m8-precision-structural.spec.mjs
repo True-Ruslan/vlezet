@@ -63,8 +63,8 @@ async function enterSelectMode(page) {
   await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
 }
 
-async function drawRawRectangle(page) {
-  await setSnapping(page, false);
+async function drawClosedRectangle(page) {
+  await setSnapping(page, true);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
   await clickCanvasRatio(page, 0.22, 0.30);
   await clickCanvasRatio(page, 0.78, 0.30);
@@ -72,21 +72,10 @@ async function drawRawRectangle(page) {
   await clickCanvasRatio(page, 0.22, 0.70);
   await clickCanvasRatio(page, 0.22, 0.30);
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.locator('[data-first-project-phase="room-created"]').getByRole("button", { name: "Завершить", exact: true }).click();
   await enterSelectMode(page);
-  await setSnapping(page, true);
   await expectWallCount(page, 4);
-}
-
-async function drawRawIsolatedWall(page) {
-  await setSnapping(page, false);
-  await page.getByRole("button", { name: "Стена", exact: true }).click();
-  const start = await clickCanvasRatio(page, 0.30, 0.40);
-  const end = await clickCanvasRatio(page, 0.66, 0.40);
-  await enterSelectMode(page);
-  await setSnapping(page, true);
-  await expectWallCount(page, 1);
-  return { start, end };
 }
 
 async function selectWallAt(page, xRatio, yRatio, additive = false) {
@@ -95,6 +84,15 @@ async function selectWallAt(page, xRatio, yRatio, additive = false) {
   await page.mouse.click(point.x, point.y);
   if (additive) await page.keyboard.up("Shift");
   return point;
+}
+
+async function selectRectangleWalls(page) {
+  await selectWallAt(page, 0.50, 0.30);
+  await selectWallAt(page, 0.78, 0.50, true);
+  await selectWallAt(page, 0.50, 0.70, true);
+  await selectWallAt(page, 0.22, 0.50, true);
+  await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 4");
+  await expect(page.locator(".multi-selection-summary")).toContainText("Стены: 4");
 }
 
 async function attachPageScreenshot(page, testInfo, name) {
@@ -123,7 +121,6 @@ test.describe("M8.2 precision structural acceptance", () => {
     await clickCanvasRatio(page, 0.44, 0.28);
     await expectWallCount(page, 1);
 
-    await clickCanvasRatio(page, 0.58, 0.38);
     const exactGroup = page.getByRole("group", { name: "Точные параметры стены" });
     await expect(exactGroup).toBeVisible();
     const length = page.getByRole("textbox", { name: "Длина стены, мм" });
@@ -135,10 +132,12 @@ test.describe("M8.2 precision structural acceptance", () => {
     await angle.fill("90");
     await angle.press("Enter");
 
-    await expect(exactGroup).toBeHidden();
     await expectWallCount(page, 2);
+    await expect(exactGroup).toBeVisible();
     await attachPageScreenshot(page, testInfo, "m8.2-exact-wall-input");
 
+    await page.keyboard.press("Escape");
+    await expect(exactGroup).toBeHidden();
     await page.getByRole("button", { name: "Отменить" }).click();
     await expectWallCount(page, 1);
     await page.getByRole("button", { name: "Повторить" }).click();
@@ -175,17 +174,16 @@ test.describe("M8.2 precision structural acceptance", () => {
     await expectWallCount(page, 1);
     await setSnapping(page, true);
 
-    await clickCanvasRatio(page, 0.48, 0.66);
     const length = page.getByRole("textbox", { name: "Длина стены, мм" });
     await expect(length).toBeVisible();
 
-    await page.mouse.move(b.x + 10, b.y);
+    await page.mouse.move(a.x + 10, a.y);
     const acquired = await length.inputValue();
-    await page.mouse.move(b.x + 15, b.y);
+    await page.mouse.move(a.x + 15, a.y);
     await expect(length).toHaveValue(acquired);
     await attachPageScreenshot(page, testInfo, "m8.2-endpoint-snap-acquired");
 
-    await page.mouse.move(b.x + 22, b.y);
+    await page.mouse.move(a.x + 22, a.y);
     await expect.poll(() => length.inputValue()).not.toBe(acquired);
 
     await page.mouse.move((a.x + b.x) / 2, a.y + 8);
@@ -202,16 +200,17 @@ test.describe("M8.2 precision structural acceptance", () => {
 
     await page.getByRole("button", { name: "Привязки", exact: true }).click();
     await expect(page.getByRole("button", { name: "Привязки", exact: true })).toHaveAttribute("aria-pressed", "false");
-    await page.mouse.move(b.x + 10, b.y);
+    await page.mouse.move(a.x + 10, a.y);
     const disabledValue = await length.inputValue();
     expect(disabledValue).not.toBe(acquired);
 
     await page.getByRole("button", { name: "Привязки", exact: true }).click();
-    await page.mouse.move(b.x + 10, b.y);
+    await page.mouse.move(a.x + 10, a.y);
     await expect(length).toHaveValue(acquired);
 
+    await page.mouse.move(a.x + 12, a.y);
     await page.keyboard.down("Alt");
-    await page.mouse.move(b.x + 10, b.y);
+    await page.mouse.move(a.x + 10, a.y);
     await page.keyboard.up("Alt");
     await expect.poll(() => length.inputValue()).not.toBe(acquired);
   });
@@ -219,7 +218,7 @@ test.describe("M8.2 precision structural acceptance", () => {
   test("moves a shared endpoint atomically through exact Undo Redo Undo", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawRawRectangle(page);
+    await drawClosedRectangle(page);
 
     await selectWallAt(page, 0.50, 0.30);
     await expect(page.locator(".context-panel-title")).toContainText("Стена");
@@ -250,7 +249,7 @@ test.describe("M8.2 precision structural acceptance", () => {
     test.skip(testInfo.project.name === "webkit", "Chromium covers the full safe/unsafe wall translation matrix.");
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawRawRectangle(page);
+    await drawClosedRectangle(page);
 
     await page.getByRole("button", { name: "Дверь", exact: true }).click();
     const topMid = await canvasPoint(page, 0.50, 0.30);
@@ -275,7 +274,6 @@ test.describe("M8.2 precision structural acceptance", () => {
     await attachPageScreenshot(page, testInfo, "m8.2-safe-wall-translation");
 
     await page.getByRole("button", { name: "Отменить" }).click();
-    await selectWallAt(page, 0.50, 0.30);
     const beforeUnsafeMove = await canvasScreenshot(page);
     const unsafeStart = await canvasPoint(page, 0.50, 0.30);
     const unsafeEnd = await canvasPoint(page, 0.50, 0.70);
@@ -297,7 +295,7 @@ test.describe("M8.2 precision structural acceptance", () => {
     test.skip(testInfo.project.name === "webkit", "Chromium covers the full multi-wall inspector path.");
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawRawRectangle(page);
+    await drawClosedRectangle(page);
 
     await selectWallAt(page, 0.50, 0.30);
     await selectWallAt(page, 0.78, 0.50, true);
@@ -315,26 +313,25 @@ test.describe("M8.2 precision structural acceptance", () => {
     await expect(thickness).toHaveValue(initial);
   });
 
-  test("copies and pastes a dependency-closed wall atomically and rejects an open structural fragment", async ({ page }, testInfo) => {
+  test("copies and pastes a dependency-closed structure atomically and rejects an open structural fragment", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawRawIsolatedWall(page);
-    await selectWallAt(page, 0.48, 0.40);
-    await expect(page.locator(".context-panel-title")).toContainText("Стена");
+    await drawClosedRectangle(page);
+    await selectRectangleWalls(page);
 
     await page.keyboard.press("Control+C");
     await page.keyboard.press("Control+V");
-    await expectWallCount(page, 2);
+    await expectWallCount(page, 8);
     await attachPageScreenshot(page, testInfo, "m8.2-structural-paste");
     await page.getByRole("button", { name: "Отменить" }).click();
-    await expectWallCount(page, 1);
+    await expectWallCount(page, 4);
     await page.getByRole("button", { name: "Повторить" }).click();
-    await expectWallCount(page, 2);
+    await expectWallCount(page, 8);
     await page.getByRole("button", { name: "Отменить" }).click();
-    await expectWallCount(page, 1);
+    await expectWallCount(page, 4);
 
     await openNewProject(page);
-    await drawRawRectangle(page);
+    await drawClosedRectangle(page);
     const topMid = await selectWallAt(page, 0.50, 0.30);
     await page.mouse.click(topMid.x, topMid.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
