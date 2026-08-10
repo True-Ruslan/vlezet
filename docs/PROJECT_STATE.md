@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-10  
-**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing and Structural Editing is implemented in Draft PR #87 through its dedicated Chromium/WebKit automated acceptance gate; product-owner acceptance and protected delivery remain pending.  
+**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing and Structural Editing is implemented in Draft PR #87; its original product-owner acceptance scenarios passed, then wall/whole-room clipboard feedback was implemented through additional TDD and Chromium/WebKit gates. A focused product-owner retest of the new clipboard behavior and protected delivery remain pending.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, the latest focused changelog and the active design/plan.
 
@@ -90,7 +90,7 @@ packages/planning        deterministic planning + reviewed intent
 | M8.0 | public-beta product contract, roadmap reset and manual-editor-first direction |
 | M8.1 | product-owner accepted and squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 
-M8.2 is **not** listed as accepted yet. Its automated implementation gates are green, while explicit product-owner acceptance remains a separate required state.
+M8.2 is **not** listed as accepted yet. Its original manual scenarios passed, but product-owner feedback expanded the required clipboard usability before acceptance; the extension is automated-green and awaits focused retest.
 
 ## 5. Recognition experiment outcome
 
@@ -159,7 +159,7 @@ protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
 
 Canonical acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
-### M8.2 structural precision — automated gates green, acceptance pending
+### M8.2 structural precision — automated gates green, focused clipboard retest pending
 
 Draft PR #87 implements the approved M8.2 design while preserving the M8.1 runtime and the structural authority boundaries above.
 
@@ -174,25 +174,42 @@ Implemented behavior includes:
 - topology-safe vertex movement and wall-body translation;
 - hosted-opening preservation/revalidation;
 - atomic centred multi-wall thickness editing;
-- strict dependency-closed structural Copy/Cut/Paste with fresh IDs;
+- copy-safe wall structural projection: a connected wall can be copied/duplicated as a detached self-contained fragment with hosted openings;
+- strict dependency-closed structural Cut remains fail-closed for connected topology;
+- whole-room Copy/Duplicate projects the exact derived room boundary, including atomic segments of longer backing walls, its hosted doors/windows and explicit room name;
+- room Cut remains disabled because destructive shared-topology semantics are ambiguous;
+- ordinary structural Paste can search a bounded deterministic nearby valid position when the default offset intersects existing topology, without weakening validation;
+- exact wall paste at the source origin still fails closed on overlap;
 - one semantic history command per valid structural commit and none for preview/cancel/reject;
 - explicit valid/invalid structural feedback rather than colour-only signalling.
 
-Dedicated Task 9 automated acceptance checkpoint:
+Current room clipboard scope is structural: **room shell + hosted openings + explicit room name**. It does not implicitly capture furniture; furniture remains a separate placed-object clipboard concern.
+
+Product-owner pre-acceptance result on 2026-08-10:
+
+- all original seven requested M8.2 manual scenarios: **PASS**;
+- follow-up usability finding: connected walls and whole rooms were not copy/pasteable in the ordinary editor flow;
+- acceptance remained open while that gap was implemented and tested.
+
+Latest extension evidence:
 
 ```text
-head:                         66d27a673679f26a4a414213415f1603a02aad6a
-CI #4915:                     PASS
-Browser Acceptance #1365:    PASS
-  Chromium M8.2 flow:         PASS
-  WebKit representative:      PASS
-browser artifact:             9056208133
-artifact digest:              sha256:00c34117d81ec257ad6f491df5781af0230fdb783e8bd8e2dbb48662d5bd740e
-product-owner acceptance:     PENDING
+initial projection RED:       5b6409c319afadbe18b2b11cf02ad3773d2ae331 / CI #4921 — EXPECTED FAIL
+room placement RED:           5146252c253fa9490060cfb68b05567aa0ad1ba4 / CI #4930 — EXPECTED FAIL
+browser placement RED:        68c30b062e20b38c3340ccacc4d21fcdb7694737 / Browser #1381 — 32 PASS / 1 FAIL
+focused wall placement RED:   ac031fecfba326a4c472db7ebbc3b3e04c4173ae / CI #4935 — EXPECTED FAIL
+GREEN head:                   beb25379e0b6a25af0a8af84da878a62c5692e08
+CI #4936:                     PASS
+Browser Acceptance #1386:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+browser artifact:             9059253821
+artifact digest:              sha256:219d08315515c1264a66f287cf7d21a2e01d8e6d304075d5c9be7619634dbc71
+product-owner clipboard retest: PENDING
 protected merge:              PENDING
 ```
 
-The browser hardening process intentionally produced several test-only RED iterations while the acceptance harness was aligned with actual product semantics (continued wall chaining after exact Enter, real endpoint closure, stable screen coordinates, onboarding isolation and avoiding the hosted-opening hit area). Those iterations did **not** establish a production defect and did not weaken structural validation.
+No topology/opening/M2/recognition threshold was weakened. Safe-nearby placement is a bounded candidate search over the unchanged structural validator, not auto-repair.
 
 ### Reference/recognition
 
@@ -207,7 +224,8 @@ Existing deterministic read-only 3D and bounded planning remain available, but t
 ```text
 DONE  M8.1  Editor Interaction Foundation
 NOW   M8.2  Precision Drawing and Structural Editing
-      automated implementation gates GREEN; product-owner acceptance pending
+      implementation + wall/room clipboard extension automated GREEN;
+      focused product-owner clipboard retest pending
 THEN  M8.3  Precision Reference Calibration
 THEN  M8.4  Assisted Tracing
 THEN  M8.5  Furniture 2.0
@@ -217,84 +235,3 @@ TARGET PUBLIC FREE BETA
 ```
 
 Programme tracker: #53. M8.2 tracker: #56. Implementation PR: #87.
-
-## 8. CURRENT GATE — M8.2 product-owner acceptance
-
-Primary M8.2 outcome:
-
-> Make exact apartment structure creation and repair fast enough to stay on the Canvas instead of repeatedly creating geometry and correcting it through inspectors.
-
-Automated implementation and browser gates are green. The next gate is focused product-owner acceptance on the exact M8.2 candidate. Acceptance should exercise at minimum:
-
-1. exact wall creation by pointer and numeric length/angle;
-2. visible snapping and expected endpoint/midpoint/wall-axis behaviour;
-3. direct shared-endpoint editing with predictable Undo/Redo;
-4. valid wall translation with hosted opening preserved;
-5. invalid structural movement rejected without partial mutation/history;
-6. compatible multi-wall thickness update as one atomic action;
-7. structural Copy/Paste on a dependency-closed fragment and rejection of an unsafe connected fragment.
-
-Do **not** mark M8.2 accepted, Ready or merged from CI alone. After explicit product-owner PASS, create the acceptance record, synchronize canonical state, run a fresh exact-head gate and only then perform the separately authorized protected squash merge.
-
-## 9. Public beta acceptance journeys
-
-- `BETA-01 Blank` — manually build a small exact apartment with walls/openings.
-- `BETA-02 Reference` — import, calibrate, verify scale and trace a real plan.
-- `BETA-03 Edit` — multi-select/move/copy/paste/duplicate with exact Undo/Redo.
-- `BETA-04 Furnish` — place/edit common furniture and understand fit.
-- `BETA-05 Export` — export the whole plan and selection to PNG/SVG.
-
-M8.1 materially advances `BETA-03`; M8.2 is the structural foundation for `BETA-01` and later calibrated-reference tracing.
-
-## 10. Mandatory engineering policy — TDD
-
-Every deterministic M8 behaviour is developed through genuine **RED → GREEN → regression/refactor**.
-
-- focused failing contract before production behaviour;
-- verify the intended RED failure;
-- smallest correct GREEN implementation;
-- focused + adjacent/full regression gates;
-- no weakening tests, validation or thresholds merely to make CI green;
-- browser gesture/interaction changes require real Chromium coverage and representative WebKit coverage where engine behaviour can differ;
-- manual acceptance is for genuinely observational evidence only, not as a substitute for automatable tests.
-
-## 11. Mandatory documentation policy — CHANGELOG
-
-Every accepted M8 slice must maintain both:
-
-- focused `docs/changelog/YYYY-MM-DD-<slice>.md` history;
-- concise canonical `docs/CHANGELOG.md` entry.
-
-The focused record must state:
-
-1. why the work was required;
-2. user-visible changes;
-3. architecture/authority decisions;
-4. meaningful RED/GREEN evidence;
-5. regressions found/fixed;
-6. intentional deferrals/non-goals;
-7. exact-head CI/browser evidence;
-8. product-owner acceptance when required;
-9. final protected merge identity.
-
-Canonical state/roadmap files must distinguish automated verification, product acceptance and actual integration truth. Merge identity is recorded only after GitHub reports the protected merge.
-
-## 12. Delivery workflow
-
-Every M8 slice requires:
-
-```text
-approved written design
-→ task-by-task implementation plan
-→ isolated Draft PR
-→ TDD RED/GREEN work
-→ focused regressions
-→ full CI + browser evidence
-→ product-owner acceptance where defined
-→ canonical acceptance sync
-→ fresh exact-head gate
-→ protected squash merge
-→ post-merge identity/state verification
-```
-
-A green pipeline alone never implies product acceptance, and product acceptance alone never implies merge.
