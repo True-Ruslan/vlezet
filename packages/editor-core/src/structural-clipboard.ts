@@ -42,8 +42,8 @@ export type StructuralClosureResult =
       reason: string;
     }>;
 
-const ROOM_PASTE_FALLBACK_ATTEMPTS = 8;
-const ROOM_PASTE_GAP_MM = 250;
+const STRUCTURAL_PASTE_FALLBACK_ATTEMPTS = 8;
+const STRUCTURAL_PASTE_GAP_MM = 250;
 
 function wallReferencesVertex(wall: Wall, vertexId: string): boolean {
   return wall.startVertexId === vertexId ||
@@ -498,13 +498,17 @@ export function pasteStructuralFragment(
   };
 
   let validation = validateAtAdditionalDelta({ x: 0, y: 0 });
-  if (!validation.ok && payload.scope?.kind === "room") {
+  const requestedAnchorDiffersFromOrigin =
+    anchor.x !== payload.origin.x || anchor.y !== payload.origin.y;
+  const allowsSafeFallback = payload.scope?.kind === "room" ||
+    (payload.scope?.kind === "walls" && requestedAnchorDiffersFromOrigin);
+  if (!validation.ok && allowsSafeFallback) {
     const size = payloadSize(payload.vertices);
-    const strideX = Math.max(size.width, ROOM_PASTE_GAP_MM) + ROOM_PASTE_GAP_MM;
-    const strideY = Math.max(size.height, ROOM_PASTE_GAP_MM) + ROOM_PASTE_GAP_MM;
+    const strideX = Math.max(size.width, STRUCTURAL_PASTE_GAP_MM) + STRUCTURAL_PASTE_GAP_MM;
+    const strideY = Math.max(size.height, STRUCTURAL_PASTE_GAP_MM) + STRUCTURAL_PASTE_GAP_MM;
     let found = false;
 
-    for (let step = 1; step <= ROOM_PASTE_FALLBACK_ATTEMPTS && !found; step += 1) {
+    for (let step = 1; step <= STRUCTURAL_PASTE_FALLBACK_ATTEMPTS && !found; step += 1) {
       const fallbackAnchors: Point2[] = [
         { x: payload.origin.x + strideX * step, y: payload.origin.y },
         { x: payload.origin.x, y: payload.origin.y + strideY * step },
