@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-08-09  
+**Last updated:** 2026-08-10  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative automation. Manual editing must remain a complete product path.
 
 Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`.
@@ -22,13 +22,15 @@ DONE        M7.8A Recognition Benchmark Foundation
 DONE        M7.8B Source Normalisation and Wall Topology
 STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance failed
 DONE        M8.0 Public Beta Product Contract / roadmap reset
-ACCEPTED*   M8.1 Editor Interaction Foundation
-NEXT*       M8.2 Precision Drawing and Structural Editing
+DONE        M8.1 Editor Interaction Foundation
+NOW         M8.2 Precision Drawing and Structural Editing
+            implementation + dedicated automated browser gates GREEN;
+            product-owner acceptance / protected delivery PENDING
 THEN        M8.3–M8.7 Public Beta Editor programme
 R&D         automatic whole-plan recognition (#27)
 ```
 
-`*` M8.1 is product-owner accepted in PR #85 and awaits protected integration into `main`. M8.2 is selected next but must not start until that merge completes.
+M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`. M8.2 is the active Draft delivery slice in PR #87; automated implementation gates are green but this is **not** product acceptance.
 
 ## Completed product foundation
 
@@ -106,7 +108,7 @@ Tracker: #53.
 
 ### M8.1 — Editor Interaction Foundation
 
-Status: **PRODUCT-OWNER ACCEPTED / PROTECTED MERGE PENDING**. Tracker: #54. PR: #85.
+Status: **DONE / PRODUCT-OWNER ACCEPTED / MERGED**. Tracker: #54. PR: #85.
 
 Accepted behavior:
 
@@ -125,49 +127,77 @@ Accepted behavior:
 - no arbitrary group scale;
 - no project-schema migration.
 
-The final selected-group drag/snap defect was reproduced through genuine RED tests and fixed at the Konva projection boundary without changing snap or fit authority. The regression now covers three deterministic cursor-jitter profiles plus exact Undo/Redo behavior in Chromium and WebKit.
+The final selected-group drag/snap defect was reproduced through genuine RED tests and fixed at the Konva projection boundary without changing snap or fit authority. The regression covers three deterministic cursor-jitter profiles plus exact Undo/Redo behavior in Chromium and representative WebKit.
 
-Acceptance evidence:
+Integration evidence:
 
 ```text
-product-accepted head:        db66de524783a43fa021db07a6b67808c4435e9b
-CI #4813:                     PASS
-Recognition Benchmark #1149: PASS
-Browser Acceptance #1269:    PASS
-  Chromium:                   PASS
-  WebKit:                     PASS
-product-owner retest:         PASS
+product-accepted interaction head: db66de524783a43fa021db07a6b67808c4435e9b
+final documentation head:          f8318182d3a9e7c835ebf079de2710d6106d7829
+CI #4819:                           PASS
+Recognition Benchmark #1155:       PASS
+Browser Acceptance #1275:          PASS
+  Chromium:                         PASS
+  WebKit:                           PASS
+product-owner retest:               PASS
+protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
 ```
 
 Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
-Structural clipboard/batch movement and common-property editing for selected walls are M8.2, not hidden extensions of M8.1.
-
 ### M8.2 — Precision Drawing and Structural Editing
 
-Status: **SELECTED NEXT — DO NOT START BEFORE M8.1 MERGE**. Tracker: #56.
+Status: **IN DEVELOPMENT / AUTOMATED GATES GREEN / PRODUCT-OWNER ACCEPTANCE PENDING**. Tracker: #56. Draft PR: #87.
 
 Primary outcome:
 
 > Draw, repair and batch-edit exact apartment structure with fewer inspector round-trips while preserving topology and hosted-opening validity.
 
-Planned outcomes:
+Implemented scope:
 
 - named visible snap guides;
-- endpoint/wall-axis/midpoint/intersection snapping;
-- parallel/perpendicular assistance;
-- exact inline wall length and useful angle input;
-- direct vertex/junction editing;
-- topology-safe structural movement;
-- atomic common-property editing for compatible selected walls, beginning with thickness;
-- structural clipboard only with explicit dependency closure;
-- opening preservation/revalidation;
-- one semantic history command per committed gesture;
-- fail closed rather than partially mutating an unsafe structural selection.
+- deterministic endpoint/junction/midpoint/intersection/wall-axis snapping;
+- horizontal/vertical/parallel/perpendicular assistance with acquisition/release hysteresis;
+- visible `Привязки` control plus gesture-local Alt/Option suppression;
+- exact near-cursor wall length and angle input;
+- Canvas angle convention `0° right / 90° down / 180° left / 270° up`;
+- direct endpoint/junction editing;
+- topology-safe wall-body translation;
+- atomic common-property editing for compatible selected walls, beginning with centred thickness;
+- strict structural clipboard with explicit dependency closure and fresh-ID paste;
+- hosted-opening preservation/revalidation;
+- one semantic history operation per committed structural gesture;
+- fail-closed rejection instead of partial structural mutation;
+- accessible structural handles and explicit valid/invalid feedback.
 
-Before implementation, M8.2 requires an explicit design/spec and a task-by-task TDD implementation plan. Placed-object batch semantics from M8.1 may not be copied into structural editing without proving topology safety.
+Authority remains separated:
+
+- `@vlezet/geometry` owns pure angle/snap calculations;
+- `@vlezet/editor-core` owns complete candidate mutation/validation and closure rules;
+- Canvas/web owns intent, projection and transient runtime coordination;
+- `VlezetDocument` remains persistent truth.
+
+Dedicated automated acceptance checkpoint:
+
+```text
+head:                         66d27a673679f26a4a414213415f1603a02aad6a
+CI #4915:                     PASS
+Browser Acceptance #1365:    PASS
+  Chromium M8.2 flow:         PASS
+  WebKit representative:      PASS
+browser artifact:             9056208133
+artifact digest:              sha256:00c34117d81ec257ad6f491df5781af0230fdb783e8bd8e2dbb48662d5bd740e
+product-owner acceptance:     PENDING
+protected merge:              PENDING
+```
+
+Task 9 browser hardening intentionally refined test setup several times before GREEN. Those REDs exposed harness assumptions — continued wall chaining after exact Enter, real topology endpoint closure, layout-dependent screen coordinates, onboarding overlap and opening-vs-wall hit areas — rather than a proven production defect. No topology/opening/M2/recognition policy was weakened.
+
+The next action for M8.2 is **focused product-owner acceptance**, not M8.3 implementation. After explicit acceptance: create the acceptance record, synchronize acceptance truth, run a fresh exact-head gate, then perform the separately authorized protected squash merge.
 
 ### M8.3 — Precision Reference Calibration
+
+Status: **PLANNED / BLOCKED BY M8.2 ACCEPTANCE + MERGE**. Tracker: #57.
 
 Planned outcomes:
 
