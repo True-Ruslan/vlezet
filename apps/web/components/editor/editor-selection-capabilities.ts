@@ -39,12 +39,13 @@ const STRUCTURAL_SCALE_REASON = "Масштабирование структур
 const WALL_THICKNESS_SELECTION_REASON = "Для общей толщины выберите не менее двух стен.";
 const FURNITURE_SCALE_REASON = "Масштабирование мебели отключено: размеры предмета задаются явно.";
 const FURNITURE_GROUP_ROTATE_REASON = "Групповой поворот мебели пока недоступен.";
+const ROOM_CUT_REASON = "Комнату можно копировать или дублировать; вырезание контура отключено, чтобы не разрушать соседнюю топологию.";
 
 function clipboardCapability(clipboardKind: EditorClipboardKind): SelectionCapability {
   return clipboardKind === null ? disabled(NO_CLIPBOARD_REASON) : enabled();
 }
 
-function structuralClipboardCapability(
+function structuralCutCapability(
   document: VlezetDocument,
   wallIds: readonly string[],
 ): SelectionCapability {
@@ -111,12 +112,12 @@ export function deriveSelectionCapabilities(input: Readonly<{
 
   if (onlyKind === "wall") {
     const wallIds = selection.refs.map((ref) => ref.id);
-    const clipboard = structuralClipboardCapability(input.document, wallIds);
+    const cut = structuralCutCapability(input.document, wallIds);
     return {
-      copy: clipboard,
-      cut: clipboard,
+      copy: enabled(),
+      cut,
       paste,
-      duplicate: clipboard,
+      duplicate: enabled(),
       delete: disabled(STRUCTURAL_DELETE_REASON),
       move: selection.refs.length === 1 ? enabled() : disabled(STRUCTURAL_MULTI_MOVE_REASON),
       rotate: disabled(STRUCTURAL_ROTATE_REASON),
@@ -124,6 +125,20 @@ export function deriveSelectionCapabilities(input: Readonly<{
       wallThickness: selection.refs.length >= 2
         ? enabled()
         : disabled(WALL_THICKNESS_SELECTION_REASON),
+    };
+  }
+
+  if (onlyKind === "room" && selection.refs.length === 1) {
+    return {
+      copy: enabled(),
+      cut: disabled(ROOM_CUT_REASON),
+      paste,
+      duplicate: enabled(),
+      delete: disabled(STRUCTURAL_SELECTION_REASON),
+      move: disabled(STRUCTURAL_SELECTION_REASON),
+      rotate: disabled(STRUCTURAL_ROTATE_REASON),
+      scale: disabled(STRUCTURAL_SCALE_REASON),
+      wallThickness: disabled(STRUCTURAL_SELECTION_REASON),
     };
   }
 
