@@ -65,6 +65,29 @@ describe("wall and room clipboard UX", () => {
     expect(capabilities.cut.enabled).toBe(false);
   });
 
+  it("copies a connected wall and finds a deterministic safe position when the ordinary paste offset would cross its neighbour", () => {
+    const document = roomDocument();
+    const store = createEditorStore({ idFactory: ids() });
+    store.setState({ history: createHistoryState(document) });
+    store.getState().selectWall("top");
+
+    store.getState().copySelection();
+    expect(store.getState().clipboard.payload?.kind).toBe("structural-fragment");
+
+    const beforeHistory = store.getState().history.past.length;
+    store.getState().pasteClipboard({ x: 200, y: 200 });
+
+    const state = store.getState();
+    expect(state.history.past).toHaveLength(beforeHistory + 1);
+    expect(state.history.document.walls).toHaveLength(5);
+    expect(state.history.document.openings).toHaveLength(2);
+
+    store.getState().undo();
+    expect(store.getState().history.document.walls).toHaveLength(4);
+    store.getState().redo();
+    expect(store.getState().history.document.walls).toHaveLength(5);
+  });
+
   it("enables Copy and Duplicate for one derived room without enabling destructive room Cut", () => {
     const document = roomDocument();
     const room = deriveRooms(document).rooms[0]!;
