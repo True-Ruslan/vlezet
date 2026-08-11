@@ -29,7 +29,14 @@ export {
 export type { OpeningDocumentLike, OpeningLike, OpeningWorldSegment, WallInterval } from "./openings";
 export { distanceBetween } from "./point";
 export type { Point2 } from "./point";
-export { findInteriorPoint, pointInPolygon, polygonPerimeter, polygonSelfIntersects, signedPolygonArea } from "./polygon";
+export {
+  findInteriorPoint,
+  pointInPolygon,
+  polygonContainsPolygonInclusive,
+  polygonPerimeter,
+  polygonSelfIntersects,
+  signedPolygonArea,
+} from "./polygon";
 export {
   alignReferenceCalibration,
   calibrateReferencePlan,
