@@ -332,7 +332,8 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       case "selection.paste": {
         if (editingBlocked || !capabilities.paste.enabled || !store.clipboard.payload) return false;
         const origin = store.clipboard.payload.copiedAtOrigin;
-        store.pasteClipboard({ x: origin.x + 200, y: origin.y + 200 });
+        const anchor = latestCanvasPointerWorldRef.current ?? origin;
+        store.pasteClipboard(anchor);
         return true;
       }
       case "selection.duplicate":
