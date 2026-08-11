@@ -22,4 +22,11 @@ describe("M8.2 Canvas pointer paste anchor", () => {
     expect(editorSource).toContain("onPointerWorldChange={rememberCanvasPointer}");
     expect(editorSource).not.toContain("onViewportChange(latestCanvasPointer");
   });
+
+  it("routes Paste to the latest Canvas pointer with clipboard origin as a deterministic fallback", () => {
+    expect(editorSource).toContain("const anchor = latestCanvasPointerWorldRef.current ?? origin");
+    expect(editorSource).toContain("store.pasteClipboard(anchor)");
+    expect(editorSource).not.toContain("origin.x + 200");
+    expect(editorSource).not.toContain("origin.y + 200");
+  });
 });
