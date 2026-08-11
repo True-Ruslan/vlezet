@@ -414,7 +414,6 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
 
   useEffect(() => {
     latestCanvasPointerWorldRef.current = null;
-    setClipboardNotice(null);
     spatialViewModeStore.getState().setMode("2d");
   }, [props.projectId]);
 
