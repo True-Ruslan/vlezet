@@ -155,7 +155,7 @@ describe("M8.2 atomic room translation gesture", () => {
     expect(store.getState().history.document).toEqual(after);
   });
 
-  it("rejects unsafe shared topology without partial furniture movement or history", () => {
+  it("keeps an invalid room gesture with a visible reason for unsafe shared topology and no partial mutation", () => {
     const document = adjacentRoomsDocument();
     const id = roomId(document);
     const store = preparedStore(document);
@@ -167,11 +167,25 @@ describe("M8.2 atomic room translation gesture", () => {
 
     store.getState().beginStructuralRoomGesture(id);
 
-    const state = store.getState();
-    expect(state.structuralGesture).toBeNull();
+    let state = store.getState();
+    expect(state.structuralGesture?.kind).toBe("translate-room");
+    expect(state.structuralGesture?.valid).toBe(false);
+    expect(state.structuralGesture?.reason).toMatch(/общ|сосед|связан/i);
+    expect(state.structuralGesture?.previewDocument).toBe(document);
     expect(state.history.document).toEqual(document);
     expect(state.history.past).toHaveLength(0);
     expect(objectPosition(state.history.document, "chair")).toEqual({ x: 1500, y: 1500 });
+
+    store.getState().previewStructuralRoomGesture({ x: 600, y: 0 });
+    state = store.getState();
+    expect(state.structuralGesture?.valid).toBe(false);
+    expect(state.structuralGesture?.reason).toMatch(/общ|сосед|связан/i);
+    expect(state.structuralGesture?.previewDocument).toBe(document);
+    expect(objectPosition(state.structuralGesture!.previewDocument, "chair")).toEqual({ x: 1500, y: 1500 });
+
+    store.getState().commitStructuralGesture();
+    expect(store.getState().history.document).toEqual(document);
+    expect(store.getState().history.past).toHaveLength(0);
   });
 
   it("creates no history for zero delta or cancel and rejects a stale concurrent document", () => {
