@@ -49,18 +49,24 @@ describe("room point hit testing", () => {
   });
 
   it("keeps concrete entity priority above a containing room", () => {
-    const document = adjacentConcaveRoomsDocument();
-    document.placedObjects.push({
-      id: "table",
-      presetId: null,
-      name: "Стол",
-      category: "table",
-      position: { x: 4500, y: 4500 },
-      width: 800,
-      depth: 800,
-      rotationDeg: 0,
-      clearance: { front: 0, right: 0, back: 0, left: 0 },
-    });
+    const source = adjacentConcaveRoomsDocument();
+    const document: VlezetDocument = {
+      ...source,
+      placedObjects: [
+        ...source.placedObjects,
+        {
+          id: "table",
+          presetId: null,
+          name: "Стол",
+          category: "table",
+          position: { x: 4500, y: 4500 },
+          width: 800,
+          depth: 800,
+          rotationDeg: 0,
+          clearance: { front: 0, right: 0, back: 0, left: 0 },
+        },
+      ],
+    };
 
     const hits = entitiesAtPoint(document, { x: 4500, y: 4500 });
     expect(hits[0]).toEqual({ kind: "placed-object", id: "table" });
