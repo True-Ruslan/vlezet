@@ -349,6 +349,10 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         if (editingBlocked || !capabilities.delete.enabled) return false;
         store.deleteSelection();
         return true;
+      case "selection.select-furniture-in-room":
+        if (editingBlocked || !capabilities.selectFurnitureInRoom.enabled) return false;
+        store.selectFurnitureInSelectedRoom();
+        return true;
       case "selection.clear":
         if (store.selection.refs.length === 0) return false;
         store.clearSelection();
