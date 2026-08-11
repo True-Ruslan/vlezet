@@ -119,6 +119,14 @@ type StructuralPointerGesture =
       pointerStartWorld: Point2;
       anchorStartWorld: Point2;
       movedVertexIds: ReadonlySet<string>;
+    }>
+  | Readonly<{
+      kind: "translate-room";
+      roomId: string;
+      pointerStartWorld: Point2;
+      anchorStartWorld: Point2;
+      movedVertexIds: ReadonlySet<string>;
+      movedWallIds: ReadonlySet<string>;
     }>;
 type WallInputState = Readonly<{
   lengthValue: string;
@@ -270,6 +278,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const structuralDisplayDocument = structuralGesture?.previewDocument ?? document;
   const selectedWallId = selectedWallIdFromSelection(selection);
   const selectedRoomId = selectedRoomIdFromSelection(selection);
+  const selectedRoomRootId = useMemo(() => {
+    const roomRefs = selection.refs.filter((ref) => ref.kind === "room");
+    return roomRefs.length === 1 ? roomRefs[0]!.id : null;
+  }, [selection]);
   const selectedOpeningId = selectedOpeningIdFromSelection(selection);
   const selectedObjectId = selectedObjectIdFromSelection(selection);
   const selectedObjectIds = useMemo(
@@ -388,17 +400,17 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     return previewById;
   }, [objectGesture]);
   const displayedObjects = useMemo(
-    () => document.placedObjects.map((object) => objectGesturePreviewById.get(object.id) ?? object),
-    [document.placedObjects, objectGesturePreviewById],
+    () => structuralDisplayDocument.placedObjects.map((object) => objectGesturePreviewById.get(object.id) ?? object),
+    [structuralDisplayDocument.placedObjects, objectGesturePreviewById],
   );
   const selectionPreviewDocument = useMemo(() => ({
-    ...document,
+    ...structuralDisplayDocument,
     placedObjects: displayedObjects,
-  }), [displayedObjects, document]);
+  }), [displayedObjects, structuralDisplayDocument]);
   const evaluationDocument = useMemo(() => ({
-    ...document,
+    ...structuralDisplayDocument,
     placedObjects: visiblePlacementPreview ? [...displayedObjects, visiblePlacementPreview] : displayedObjects,
-  }), [displayedObjects, document, visiblePlacementPreview]);
+  }), [displayedObjects, structuralDisplayDocument, visiblePlacementPreview]);
   const fitEvaluation = useMemo(() => evaluateObjectFits(evaluationDocument), [evaluationDocument]);
   const placementPreviewFitStatus = visiblePlacementPreview
     ? fitEvaluation.byObjectId.get(PLACEMENT_PREVIEW_ID)?.status ?? "blocked"
@@ -816,6 +828,44 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     setMarqueeGesture(null);
     setActiveStructuralSnap(null);
   };
+  const beginStructuralRoomGesture = (
+    pointer: Point2,
+    event: KonvaEventObject<MouseEvent>,
+  ): boolean => {
+    if (tool !== "select" || recognitionReviewActive || placementPresetId || structuralPointerGestureRef.current || spacePressed) return false;
+    if (event.evt.button !== 0 || !selectedRoomRootId) return false;
+    if (event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey) return false;
+
+    const stage = event.target.getStage();
+    const hitNode = stage?.getIntersection(pointer) ?? event.target;
+    const hitEntity = canvasEntityFromKonvaNode(hitNode);
+    const directEntity = hitEntity?.kind === "room" ? null : hitEntity;
+    if (directEntity) return false;
+
+    const pointerWorld = screenToWorld(pointer, viewport);
+    const roomId = entitiesAtPoint(document, pointerWorld)
+      .find((ref) => ref.kind === "room" && ref.id === selectedRoomRootId)?.id ?? null;
+    if (!roomId) return false;
+
+    editorStore.getState().beginStructuralRoomGesture(roomId);
+    const roomGesture = editorStore.getState().structuralGesture;
+    if (roomGesture?.kind !== "translate-room") return false;
+
+    event.cancelBubble = true;
+    event.evt.preventDefault();
+    suppressGeometryClickRef.current = true;
+    structuralPointerGestureRef.current = {
+      kind: "translate-room",
+      roomId,
+      pointerStartWorld: pointerWorld,
+      anchorStartWorld: pointerWorld,
+      movedVertexIds: new Set(roomGesture.movedVertexIds),
+      movedWallIds: new Set(roomGesture.movedWallIds),
+    };
+    setMarqueeGesture(null);
+    setActiveStructuralSnap(null);
+    return true;
+  };
   const previewStructuralPointerGesture = (
     pointer: Point2,
     event: KonvaEventObject<MouseEvent | TouchEvent>,
@@ -838,6 +888,22 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
       y: pointerGesture.anchorStartWorld.y + pointerWorld.y - pointerGesture.pointerStartWorld.y,
     };
     const rawAnchorScreen = worldToScreen(rawAnchor, viewport);
+    if (pointerGesture.kind === "translate-room") {
+      const resolved = resolveCanvasStructuralSnap(
+        rawAnchorScreen,
+        pointerGesture.anchorStartWorld,
+        event,
+        {
+          vertexIds: pointerGesture.movedVertexIds,
+          wallIds: pointerGesture.movedWallIds,
+        },
+      );
+      editorStore.getState().previewStructuralRoomGesture({
+        x: resolved.point.x - pointerGesture.anchorStartWorld.x,
+        y: resolved.point.y - pointerGesture.anchorStartWorld.y,
+      });
+      return true;
+    }
     const resolved = resolveCanvasStructuralSnap(
       rawAnchorScreen,
       pointerGesture.anchorStartWorld,
@@ -911,6 +977,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
       editorStore.getState().addOpeningAt(visibleOpeningPreview.wallId, visibleOpeningPreview.pointerOffset);
       return;
     }
+    if (tool === "select" && beginStructuralRoomGesture(pointer, event)) return;
     if (tool === "select") {
       setMarqueeGesture({
         startScreen: pointer,
