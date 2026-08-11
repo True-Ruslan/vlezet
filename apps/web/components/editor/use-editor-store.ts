@@ -33,6 +33,7 @@ import {
   createCompositeEditorClipboardPayload,
   createPlacedObjectClipboardPayload,
   derivePasteObjects,
+  derivePasteObjectsWithDelta,
   type EditorClipboardState,
 } from "./editor-clipboard";
 import { deriveSelectionWorldBounds } from "./editor-selection-geometry";
@@ -229,6 +230,21 @@ function selectionForWalls(
     addToSelection(
       replaceSelection({ kind: "wall", id: first }),
       rest.map((id) => ({ kind: "wall" as const, id })),
+    ),
+  );
+}
+
+function selectionForComposite(
+  document: VlezetDocument,
+  wallIds: readonly string[],
+  objects: readonly PlacedObject[],
+): EditorSelection {
+  const structural = selectionForWalls(document, wallIds);
+  return sanitizeEditorSelection(
+    document,
+    addToSelection(
+      structural,
+      objects.map((object) => ({ kind: "placed-object" as const, id: object.id })),
     ),
   );
 }
@@ -745,7 +761,54 @@ function enhanceEditorStore(
       return;
     }
 
-    if (payload.kind === "composite-selection") return;
+    if (payload.kind === "composite-selection") {
+      if (!payload.structural || payload.objects.length === 0) return;
+      const before = state.history.document;
+      const requestedDelta = {
+        x: anchor.x - payload.copiedAtOrigin.x + repetition * STRUCTURAL_PASTE_OFFSET_MM,
+        y: anchor.y - payload.copiedAtOrigin.y + repetition * STRUCTURAL_PASTE_OFFSET_MM,
+      };
+      const structuralAnchor = {
+        x: payload.structural.origin.x + requestedDelta.x,
+        y: payload.structural.origin.y + requestedDelta.y,
+      };
+
+      try {
+        const pastedStructure = pasteStructuralFragment(
+          before,
+          payload.structural,
+          structuralAnchor,
+          (kind) => idFactory(kind),
+        );
+        const pastedObjects = derivePasteObjectsWithDelta({
+          objects: payload.objects,
+          delta: pastedStructure.appliedDelta,
+          idFactory: () => idFactory("placed-object"),
+        });
+        const after = addPlacedObjects(pastedStructure.document, pastedObjects);
+        store.setState({
+          history: executeCommand(state.history, {
+            type: "document/replace",
+            label: "selection/paste-composite",
+            before,
+            after,
+          }),
+          clipboard: {
+            payload,
+            lastPasteAnchor: { ...anchor },
+            repeatedPasteCount: repetition + 1,
+          },
+          selection: selectionForComposite(after, pastedStructure.wallIds, pastedObjects),
+          objectGesture: null,
+          structuralGesture: null,
+          placementPresetId: null,
+          tool: "select",
+        });
+      } catch {
+        return;
+      }
+      return;
+    }
 
     const effectiveAnchor = {
       x: anchor.x + repetition * STRUCTURAL_PASTE_OFFSET_MM,
