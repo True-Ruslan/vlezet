@@ -30,10 +30,12 @@ import {
 } from "./editor-store-foundation";
 import {
   EMPTY_EDITOR_CLIPBOARD_STATE,
+  createCompositeEditorClipboardPayload,
   createPlacedObjectClipboardPayload,
   derivePasteObjects,
   type EditorClipboardState,
 } from "./editor-clipboard";
+import { deriveSelectionWorldBounds } from "./editor-selection-geometry";
 import {
   addToSelection,
   replaceSelection,
@@ -86,6 +88,10 @@ export type StructuralGesture = Readonly<{
   changed: boolean;
 }>;
 
+export type CopySelectionResult =
+  | Readonly<{ ok: true }>
+  | Readonly<{ ok: false; reason: string }>;
+
 export type EditorStoreState = Omit<
   FoundationEditorStoreState,
   | "objectGesture"
@@ -108,7 +114,7 @@ export type EditorStoreState = Omit<
   commitStructuralGesture: () => void;
   cancelStructuralGesture: () => void;
   setSelectedWallsThickness: (thicknessMm: number) => void;
-  copySelection: () => void;
+  copySelection: () => CopySelectionResult;
   cutSelection: () => void;
   pasteClipboard: (anchor: Point2) => void;
   duplicateSelection: () => void;
@@ -175,6 +181,20 @@ function selectedPlacedObjects(state: EditorStoreState): readonly PlacedObject[]
     objects.push(object);
   }
   return objects;
+}
+
+function explicitPlacedObjects(
+  document: VlezetDocument,
+  selection: EditorSelection,
+): readonly PlacedObject[] {
+  const byId = new Map(document.placedObjects.map((object) => [object.id, object]));
+  return selection.refs
+    .filter((ref) => ref.kind === "placed-object")
+    .map((ref) => {
+      const object = byId.get(ref.id);
+      if (!object) throw new Error(`Placed object does not exist: ${ref.id}`);
+      return object;
+    });
 }
 
 function selectionForObject(
@@ -516,48 +536,97 @@ function enhanceEditorStore(
     });
   };
 
-  const copySelection = () => {
+  const copySelection = (): CopySelectionResult => {
     const state = store.getState();
-    const objects = selectedPlacedObjects(state);
-    if (objects) {
-      store.setState({
-        clipboard: {
-          payload: createPlacedObjectClipboardPayload(objects),
-          lastPasteAnchor: null,
-          repeatedPasteCount: 0,
-        },
-      });
-      return;
+    const document = state.history.document;
+    const selection = sanitizeEditorSelection(document, state.selection);
+    const reject = (reason: string): CopySelectionResult => {
+      store.setState({ clipboard: EMPTY_EDITOR_CLIPBOARD_STATE });
+      return { ok: false, reason };
+    };
+
+    if (selection.refs.length === 0) {
+      return reject("Сначала выберите объект для копирования.");
     }
 
-    const roomId = selectedRoomId(state.selection);
-    if (roomId) {
-      try {
+    const roomRefs = selection.refs.filter((ref) => ref.kind === "room");
+    const wallRefs = selection.refs.filter((ref) => ref.kind === "wall");
+    const objectRefs = selection.refs.filter((ref) => ref.kind === "placed-object");
+    const unsupportedRefs = selection.refs.filter((ref) =>
+      ref.kind !== "room" && ref.kind !== "wall" && ref.kind !== "placed-object");
+
+    if (unsupportedRefs.length > 0) {
+      return reject("Эта комбинация объектов не имеет безопасного контракта копирования.");
+    }
+    if (roomRefs.length > 1) {
+      return reject("За одну операцию можно копировать не более одной комнаты.");
+    }
+    if (roomRefs.length === 1 && wallRefs.length > 0) {
+      return reject("Комнату и отдельные стены нельзя копировать вместе: выберите комнату или стены как один структурный корень.");
+    }
+
+    try {
+      const objects = explicitPlacedObjects(document, selection);
+      const roomId = roomRefs[0]?.id ?? null;
+      const wallIds = wallRefs.map((ref) => ref.id);
+      const hasStructure = roomId !== null || wallIds.length > 0;
+      const hasObjects = objectRefs.length > 0;
+
+      if (!hasStructure && hasObjects) {
         store.setState({
           clipboard: {
-            payload: createRoomStructuralClipboardPayload(state.history.document, roomId),
+            payload: createPlacedObjectClipboardPayload(objects),
             lastPasteAnchor: null,
             repeatedPasteCount: 0,
           },
         });
-      } catch {
-        return;
+        return { ok: true };
       }
-      return;
-    }
 
-    const wallIds = selectedWallIds(state.selection);
-    if (!wallIds) return;
-    try {
+      if (hasStructure && !hasObjects) {
+        const payload = roomId
+          ? createRoomStructuralClipboardPayload(document, roomId)
+          : createStructuralClipboardPayload(document, wallIds);
+        store.setState({
+          clipboard: {
+            payload,
+            lastPasteAnchor: null,
+            repeatedPasteCount: 0,
+          },
+        });
+        return { ok: true };
+      }
+
+      if (!hasStructure || !hasObjects) {
+        return reject("Эта выборка не содержит поддерживаемых объектов для копирования.");
+      }
+
+      const bounds = deriveSelectionWorldBounds(document, selection);
+      if (!bounds) {
+        return reject("Не удалось определить границы выбранного набора.");
+      }
+      const copiedAtOrigin = {
+        x: (bounds.minX + bounds.maxX) / 2,
+        y: (bounds.minY + bounds.maxY) / 2,
+      };
+      const structural = roomId
+        ? createRoomStructuralClipboardPayload(document, roomId)
+        : createStructuralClipboardPayload(document, wallIds);
+      const payload = createCompositeEditorClipboardPayload({
+        copiedAtOrigin,
+        structural,
+        objects,
+      });
       store.setState({
         clipboard: {
-          payload: createStructuralClipboardPayload(state.history.document, wallIds),
+          payload,
           lastPasteAnchor: null,
           repeatedPasteCount: 0,
         },
       });
-    } catch {
-      return;
+      return { ok: true };
+    } catch (error) {
+      return reject(error instanceof Error ? error.message : "Не удалось скопировать выбранный набор.");
     }
   };
 
@@ -675,6 +744,8 @@ function enhanceEditorStore(
       });
       return;
     }
+
+    if (payload.kind === "composite-selection") return;
 
     const effectiveAnchor = {
       x: anchor.x + repetition * STRUCTURAL_PASTE_OFFSET_MM,
