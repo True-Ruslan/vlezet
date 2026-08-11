@@ -35,6 +35,19 @@ async function moveRatio(page, xRatio, yRatio) {
   return point;
 }
 
+async function setSnapping(page, enabled) {
+  const button = page.getByRole("button", { name: "Привязки", exact: true });
+  await expect(button).toBeVisible();
+  const current = await button.getAttribute("aria-pressed");
+  if ((current === "true") !== enabled) await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", enabled ? "true" : "false");
+}
+
+async function clickStageOffset(page, offset) {
+  const box = await canvasBox(page);
+  await page.mouse.click(box.x + offset.x, box.y + offset.y);
+}
+
 async function finishFirstRoomGuide(page) {
   const guide = page.locator('[data-first-project-phase="room-created"]');
   if (await guide.isVisible()) {
@@ -58,29 +71,32 @@ async function drawRectangle(page, bounds = { left: 0.55, top: 0.28, right: 0.82
 }
 
 async function drawConcaveAndSmallRoom(page) {
-  const bounds = { left: 0.24, top: 0.22, right: 0.78, bottom: 0.72 };
-  const splitX = 0.60;
-  const splitY = 0.47;
+  await setSnapping(page, true);
+  const box = await canvasBox(page);
+  const offset = (xRatio, yRatio) => ({ x: box.width * xRatio, y: box.height * yRatio });
+  const a = offset(0.24, 0.22);
+  const b = offset(0.72, 0.22);
+  const c = offset(0.72, 0.47);
+  const d = offset(0.56, 0.47);
+  const e = offset(0.56, 0.70);
+  const f = offset(0.24, 0.70);
+  const g = offset(0.72, 0.70);
 
-  // Build the large room as a closed L. The cut-out corners are authoritative
-  // endpoints from the start, so the adjacent room can close endpoint-to-endpoint.
+  // Draw the large L from one stable Stage coordinate frame. Its cut-out corners
+  // C and E become real endpoint snap targets before the adjacent room is added.
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickRatio(page, bounds.left, bounds.top);
-  await clickRatio(page, bounds.right, bounds.top);
-  await clickRatio(page, bounds.right, splitY);
-  await clickRatio(page, splitX, splitY);
-  await clickRatio(page, splitX, bounds.bottom);
-  await clickRatio(page, bounds.left, bounds.bottom);
-  await clickRatio(page, bounds.left, bounds.top);
+  for (const point of [a, b, c, d, e, f, a]) await clickStageOffset(page, point);
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
   await finishFirstRoomGuide(page);
 
-  // The small room needs only the two missing outer edges; the other two sides
-  // are the existing concave boundary. No T-junction or wall-axis intersection.
+  // Reuse the same Stage-relative offsets instead of recomputing ratios after the
+  // first-room UI changes. Semantic endpoint snapping must bind C and E to the
+  // existing vertices; G is the only new vertex.
+  await setSnapping(page, true);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickRatio(page, bounds.right, splitY);
-  await clickRatio(page, bounds.right, bounds.bottom);
-  await clickRatio(page, splitX, bounds.bottom);
+  await clickStageOffset(page, c);
+  await clickStageOffset(page, g);
+  await clickStageOffset(page, e);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Выбор", exact: true }).click();
@@ -144,8 +160,8 @@ test.describe("M8.2 precise selection and clipboard acceptance", () => {
     await openNewProject(page);
     await drawConcaveAndSmallRoom(page);
 
-    const smallRoom = await canvasPoint(page, 0.69, 0.59);
-    const largeRoom = await canvasPoint(page, 0.42, 0.40);
+    const smallRoom = await canvasPoint(page, 0.64, 0.59);
+    const largeRoom = await canvasPoint(page, 0.40, 0.40);
 
     await page.mouse.move(smallRoom.x, smallRoom.y);
     await expect(page.locator(".canvas-shell")).toHaveClass(/is-hovering-selectable/);
