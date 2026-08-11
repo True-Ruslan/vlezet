@@ -62,20 +62,24 @@ async function drawConcaveAndSmallRoom(page) {
   const splitX = 0.60;
   const splitY = 0.47;
 
+  // Build the large room as a closed L. The cut-out corners are authoritative
+  // endpoints from the start, so the adjacent room can close endpoint-to-endpoint.
   await page.getByRole("button", { name: "Стена", exact: true }).click();
   await clickRatio(page, bounds.left, bounds.top);
   await clickRatio(page, bounds.right, bounds.top);
   await clickRatio(page, bounds.right, splitY);
-  await clickRatio(page, bounds.right, bounds.bottom);
+  await clickRatio(page, splitX, splitY);
   await clickRatio(page, splitX, bounds.bottom);
   await clickRatio(page, bounds.left, bounds.bottom);
   await clickRatio(page, bounds.left, bounds.top);
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
   await finishFirstRoomGuide(page);
 
+  // The small room needs only the two missing outer edges; the other two sides
+  // are the existing concave boundary. No T-junction or wall-axis intersection.
   await page.getByRole("button", { name: "Стена", exact: true }).click();
   await clickRatio(page, bounds.right, splitY);
-  await clickRatio(page, splitX, splitY);
+  await clickRatio(page, bounds.right, bounds.bottom);
   await clickRatio(page, splitX, bounds.bottom);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
