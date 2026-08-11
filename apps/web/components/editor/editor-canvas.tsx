@@ -212,6 +212,7 @@ function formatDynamicNumber(value: number): string {
 export type EditorCanvasProps = Readonly<{
   initialViewport: ViewportTransform;
   onViewportChange: (viewport: ViewportTransform) => void;
+  onPointerWorldChange: (point: Point2) => void;
   viewCommandRequest: EditorViewportCommandRequest | null;
   fitReferenceRequest: number;
   referencePlan: ReferencePlan | null;
@@ -226,7 +227,7 @@ export type EditorCanvasProps = Readonly<{
   onContextMenuRequest: (request: EditorContextMenuRequest | null) => void;
 }>;
 type ViewportUpdater = ViewportTransform | ((current: ViewportTransform) => ViewportTransform);
-export function EditorCanvas({ initialViewport, onViewportChange, viewCommandRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, recognitionDraft, selectedRecognitionCandidateId, recognitionReviewActive, onSelectRecognitionCandidate, onEditRecognitionWall, onReferenceMoveEnd, onContextMenuRequest }: EditorCanvasProps) {
+export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorldChange, viewCommandRequest, fitReferenceRequest, referencePlan, referenceAssetBlob, tracingMode, recognitionDraft, selectedRecognitionCandidateId, recognitionReviewActive, onSelectRecognitionCandidate, onEditRecognitionWall, onReferenceMoveEnd, onContextMenuRequest }: EditorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
@@ -919,6 +920,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, viewCommandReq
   };
   const onMouseMove = (event: KonvaEventObject<MouseEvent>) => {
     const pointer = pointerPosition(event); if (!pointer) return;
+    onPointerWorldChange(screenToWorld(pointer, viewport));
     if (panRef.current.active) {
       const dx = pointer.x - panRef.current.last.x, dy = pointer.y - panRef.current.last.y;
       panRef.current = { active: true, last: pointer };
