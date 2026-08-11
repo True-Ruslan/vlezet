@@ -29,7 +29,28 @@ describe("M8 ApartmentEditor semantic command routing", () => {
     expect(source).not.toContain("store.duplicateSelectedObject()");
   });
 
-  it("gates all selection mutations through the shared capability authority", () => {
+  it("treats keyboard Copy as an explicit attempt, reports rejection, and clears notice after accepted clipboard work", () => {
+    const copyCase = source.slice(
+      source.indexOf('case "selection.copy"'),
+      source.indexOf('case "selection.cut"'),
+    );
+    expect(copyCase).toContain("if (editingBlocked) return false");
+    expect(copyCase).not.toContain("!capabilities.copy.enabled");
+    expect(copyCase).toContain("const result = store.copySelection()");
+    expect(copyCase).toContain("if (!result.ok) setClipboardNotice(result.reason)");
+    expect(copyCase).toContain("else setClipboardNotice(null)");
+
+    const pasteCase = source.slice(
+      source.indexOf('case "selection.paste"'),
+      source.indexOf('case "selection.duplicate"'),
+    );
+    expect(pasteCase).toContain("setClipboardNotice(null)");
+    expect(source).toContain("const [clipboardNotice, setClipboardNotice]");
+    expect(source).toContain('role="status"');
+    expect(source).toContain("clipboardNotice");
+  });
+
+  it("gates destructive selection mutations through the shared capability authority", () => {
     expect(source).toContain('from "./editor-selection-capabilities"');
     expect(source).toContain("const capabilities = deriveSelectionCapabilities({");
     expect(source).toContain("document: store.history.document");
