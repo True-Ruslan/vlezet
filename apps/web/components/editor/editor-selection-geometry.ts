@@ -247,7 +247,7 @@ export function entitiesAtPoint(
   const result = [...concreteEntitiesIntersectingRect(document, pointRect)];
   const roomHits = deriveRooms(document).rooms
     .filter((room) => pointInPolygon(point, room.polygon))
-    .sort((first, second) => first.area - second.area);
+    .sort((first, second) => first.areaMm2 - second.areaMm2);
 
   for (const room of roomHits) {
     result.push({ kind: "room", id: room.id });
