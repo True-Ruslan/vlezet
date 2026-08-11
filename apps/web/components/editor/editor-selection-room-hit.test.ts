@@ -37,8 +37,8 @@ describe("room point hit testing", () => {
     const rooms = deriveRooms(document).rooms;
     expect(rooms).toHaveLength(2);
 
-    const smallRoom = [...rooms].sort((a, b) => a.area - b.area)[0]!;
-    const largeRoom = [...rooms].sort((a, b) => b.area - a.area)[0]!;
+    const smallRoom = [...rooms].sort((a, b) => a.areaMm2 - b.areaMm2)[0]!;
+    const largeRoom = [...rooms].sort((a, b) => b.areaMm2 - a.areaMm2)[0]!;
     const pointInsideSmallRoom = { x: 4500, y: 4500 };
 
     const roomHits = entitiesAtPoint(document, pointInsideSmallRoom)
