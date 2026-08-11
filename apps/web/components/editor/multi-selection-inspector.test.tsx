@@ -89,7 +89,7 @@ describe("M8 multi-selection inspector", () => {
     }
   });
 
-  it("reports deterministic mixed type counts and explains why unsafe batch mutation is unavailable", () => {
+  it("reports deterministic mixed type counts and exposes only the approved safe Copy action", () => {
     const document = documentWithSelectionTargets();
     const selection = addToSelection(
       replaceSelection({ kind: "wall", id: "wall-1" }),
@@ -110,10 +110,10 @@ describe("M8 multi-selection inspector", () => {
     expect(html).toContain("Стены: 1");
     expect(html).toContain("Предметы: 1");
     expect(html.indexOf("Стены: 1")).toBeLessThan(html.indexOf("Предметы: 1"));
-    expect(html).toContain("Смешанный набор нельзя изменять одной командой");
-    expect(html).not.toContain('class="multi-selection-actions-menu"');
+    expect(html).toContain('class="multi-selection-actions-menu"');
+    expect(html).toContain(">Копировать<");
     expect(html).not.toContain("Толщина стен, мм");
-    for (const unsafe of ["Копировать", "Вырезать", "Вставить", "Дублировать", "Удалить"]) {
+    for (const unsafe of ["Вырезать", "Вставить", "Дублировать", "Удалить"]) {
       expect(html).not.toContain(`>${unsafe}<`);
     }
   });
