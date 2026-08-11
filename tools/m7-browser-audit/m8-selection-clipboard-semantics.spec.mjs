@@ -46,7 +46,7 @@ async function finishFirstRoomGuide(page) {
   await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
 }
 
-async function drawRectangle(page, bounds = { left: 0.50, top: 0.25, right: 0.82, bottom: 0.70 }) {
+async function drawRectangle(page, bounds = { left: 0.55, top: 0.28, right: 0.82, bottom: 0.68 }) {
   await page.getByRole("button", { name: "Стена", exact: true }).click();
   await clickRatio(page, bounds.left, bounds.top);
   await clickRatio(page, bounds.right, bounds.top);
@@ -192,7 +192,7 @@ test.describe("M8.2 precise selection and clipboard acceptance", () => {
     await placeChair(page, 0.76, 0.43);
     await expectCounts(page, { walls: 4, objects: 3 });
 
-    const roomPoint = await canvasPoint(page, 0.54, 0.62);
+    const roomPoint = await canvasPoint(page, 0.57, 0.62);
     await selectRoomAndObjects(page, roomPoint, [first, second]);
     await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 3");
     const sourceSummary = page.locator(".multi-selection-summary");
@@ -219,7 +219,7 @@ test.describe("M8.2 precise selection and clipboard acceptance", () => {
     await openNewProject(page);
     await drawRectangle(page);
 
-    const wallPoint = await canvasPoint(page, 0.66, 0.25);
+    const wallPoint = await canvasPoint(page, 0.66, 0.28);
     const roomPoint = await canvasPoint(page, 0.66, 0.48);
     await page.mouse.click(wallPoint.x, wallPoint.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Стена");
@@ -251,7 +251,7 @@ test.describe("M8.2 precise selection and clipboard acceptance", () => {
     await drawRectangle(page);
     const chair = await placeChair(page, 0.66, 0.48);
 
-    const roomPoint = await canvasPoint(page, 0.56, 0.60);
+    const roomPoint = await canvasPoint(page, 0.57, 0.62);
     await selectRoomAndObjects(page, roomPoint, [chair]);
     await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
     await page.keyboard.press("Control+C");
