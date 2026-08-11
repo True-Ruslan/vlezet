@@ -7,6 +7,7 @@ export type EditorCommandId =
   | "selection.paste"
   | "selection.duplicate"
   | "selection.delete"
+  | "selection.select-furniture-in-room"
   | "selection.clear"
   | "view.zoomIn"
   | "view.zoomOut"
@@ -41,6 +42,7 @@ export const EDITOR_COMMANDS: readonly EditorCommandDescriptor[] = Object.freeze
   { id: "selection.paste", label: "Вставить", shortcut: "Cmd/Ctrl+V" },
   { id: "selection.duplicate", label: "Дублировать", shortcut: "Cmd/Ctrl+D" },
   { id: "selection.delete", label: "Удалить", shortcut: "Delete" },
+  { id: "selection.select-furniture-in-room", label: "Выбрать мебель в комнате", shortcut: null },
   { id: "selection.clear", label: "Снять выделение", shortcut: null },
   { id: "view.zoomIn", label: "Увеличить", shortcut: null },
   { id: "view.zoomOut", label: "Уменьшить", shortcut: null },
