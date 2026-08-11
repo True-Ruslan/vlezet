@@ -23,15 +23,21 @@ async function canvasPoint(page, xRatio, yRatio) {
   return { x: box.x + box.width * xRatio, y: box.y + box.height * yRatio };
 }
 
+async function stagePoint(page, offset) {
+  const box = await canvasBox(page);
+  return { x: box.x + offset.x, y: box.y + offset.y };
+}
+
 async function clickRatio(page, xRatio, yRatio, options = {}) {
   const point = await canvasPoint(page, xRatio, yRatio);
   await page.mouse.click(point.x, point.y, options);
   return point;
 }
 
-async function clickStageOffset(page, offset) {
-  const box = await canvasBox(page);
-  await page.mouse.click(box.x + offset.x, box.y + offset.y);
+async function clickStageOffset(page, offset, options = {}) {
+  const point = await stagePoint(page, offset);
+  await page.mouse.click(point.x, point.y, options);
+  return point;
 }
 
 async function setSnapping(page, enabled) {
@@ -54,41 +60,40 @@ async function finishFirstRoomGuide(page) {
 }
 
 async function drawRoom(page) {
-  await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickRatio(page, 0.55, 0.28);
-  await clickRatio(page, 0.82, 0.28);
-  await clickRatio(page, 0.82, 0.68);
-  await clickRatio(page, 0.55, 0.68);
-  await clickRatio(page, 0.55, 0.28);
-  await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
-  await finishFirstRoomGuide(page);
-  await expect(page.locator(".topology-alert")).toHaveCount(0);
-}
-
-async function drawAdjacentRooms(page) {
-  await setSnapping(page, true);
   const box = await canvasBox(page);
   const point = (xRatio, yRatio) => ({ x: box.width * xRatio, y: box.height * yRatio });
-  const a = point(0.22, 0.30);
-  const b = point(0.48, 0.30);
-  const c = point(0.48, 0.66);
-  const d = point(0.22, 0.66);
-  const e = point(0.74, 0.30);
-  const f = point(0.74, 0.66);
+  const a = point(0.55, 0.28);
+  const b = point(0.82, 0.28);
+  const c = point(0.82, 0.68);
+  const d = point(0.55, 0.68);
 
   await page.getByRole("button", { name: "Стена", exact: true }).click();
   for (const offset of [a, b, c, d, a]) await clickStageOffset(page, offset);
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
   await finishFirstRoomGuide(page);
+  await expect(page.locator(".topology-alert")).toHaveCount(0);
+  return {
+    corners: { a, b, c, d },
+    sourceOffset: point(0.60, 0.61),
+    targetOffset: point(0.30, 0.61),
+  };
+}
 
+async function drawUnsafeConnectedRoom(page) {
+  const room = await drawRoom(page);
   await setSnapping(page, true);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  for (const offset of [b, e, f, c]) await clickStageOffset(page, offset);
+  await clickStageOffset(page, room.corners.a);
+  await clickStageOffset(page, {
+    x: room.corners.a.x - 120,
+    y: room.corners.a.y - 100,
+  });
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Выбор", exact: true }).click();
   await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
   await expect(page.locator(".topology-alert")).toHaveCount(0);
+  return room;
 }
 
 async function ensureFurnitureCatalog(page) {
@@ -157,12 +162,12 @@ test.describe("M8.2 room translation acceptance", () => {
   test("room-only drag moves the room while unselected furniture stays fixed and Undo Redo is one operation", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawRoom(page);
+    const room = await drawRoom(page);
     const chair = await placeChair(page, 0.685, 0.48);
     await expectCounts(page, { walls: 4, objects: 1 });
 
-    const source = await canvasPoint(page, 0.60, 0.61);
-    const target = await canvasPoint(page, 0.30, 0.61);
+    const source = await stagePoint(page, room.sourceOffset);
+    const target = await stagePoint(page, room.targetOffset);
     await page.mouse.click(source.x, source.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
     await setSnapping(page, false);
@@ -171,16 +176,20 @@ test.describe("M8.2 room translation acceptance", () => {
 
     await page.getByRole("button", { name: "Отменить" }).click();
     await clearSelection(page);
-    await page.mouse.click(source.x, source.y);
+    const restoredSource = await stagePoint(page, room.sourceOffset);
+    await page.mouse.click(restoredSource.x, restoredSource.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
 
     await page.getByRole("button", { name: "Повторить" }).click();
     await clearSelection(page);
-    await page.mouse.click(target.x, target.y);
+    const restoredTarget = await stagePoint(page, room.targetOffset);
+    await page.mouse.click(restoredTarget.x, restoredTarget.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
 
-    await page.mouse.click(chair.x, chair.y);
+    const currentChair = await canvasPoint(page, 0.685, 0.48);
+    await page.mouse.click(currentChair.x, currentChair.y);
     await expect(page.locator(".context-panel-title")).toHaveText("Стул");
+    expect(chair).toBeTruthy();
   });
 
   test("room plus exactly two explicitly selected furniture items translates as one rigid group", async ({ page }) => {
@@ -255,16 +264,16 @@ test.describe("M8.2 room translation acceptance", () => {
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
   });
 
-  test("unsafe shared-room topology visibly rejects the drag and commits no structural movement", async ({ page }) => {
+  test("unsafe connected topology visibly rejects the drag and commits no structural movement", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    await drawAdjacentRooms(page);
-    const leftRoom = await canvasPoint(page, 0.35, 0.48);
-    const target = await canvasPoint(page, 0.18, 0.48);
-    await page.mouse.click(leftRoom.x, leftRoom.y);
+    const room = await drawUnsafeConnectedRoom(page);
+    const source = await stagePoint(page, room.sourceOffset);
+    const target = await stagePoint(page, room.targetOffset);
+    await page.mouse.click(source.x, source.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
 
-    await page.mouse.move(leftRoom.x, leftRoom.y);
+    await page.mouse.move(source.x, source.y);
     await page.mouse.down();
     await page.mouse.move(target.x, target.y, { steps: 8 });
     await expect(page.locator(".topology-alert")).toBeVisible();
@@ -272,7 +281,8 @@ test.describe("M8.2 room translation acceptance", () => {
     await page.mouse.up();
 
     await clearSelection(page);
-    await page.mouse.click(leftRoom.x, leftRoom.y);
+    const original = await stagePoint(page, room.sourceOffset);
+    await page.mouse.click(original.x, original.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
   });
 
