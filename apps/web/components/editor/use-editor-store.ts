@@ -491,11 +491,31 @@ function enhanceEditorStore(
     if (roomRefs.length !== 1 || roomRefs[0]!.id !== roomId) return;
     if (selection.refs.some((ref) => ref.kind !== "room" && ref.kind !== "placed-object")) return;
 
-    const closure = resolveStructuralRoomTranslationClosure(state.history.document, roomId);
-    if (!closure.ok) return;
     const placedObjectIds = selection.refs
       .filter((ref) => ref.kind === "placed-object")
       .map((ref) => ref.id);
+    const closure = resolveStructuralRoomTranslationClosure(state.history.document, roomId);
+    if (!closure.ok) {
+      store.setState({
+        structuralGesture: {
+          kind: "translate-room",
+          entityId: roomId,
+          before: state.history.document,
+          previewDocument: state.history.document,
+          valid: false,
+          reason: closure.reason,
+          changed: false,
+          movedVertexIds: [],
+          movedWallIds: [],
+          placedObjectIds,
+          delta: { x: 0, y: 0 },
+        },
+        objectGesture: null,
+        placementPresetId: null,
+        tool: "select",
+      });
+      return;
+    }
 
     store.setState({
       structuralGesture: {
