@@ -2,8 +2,10 @@ import { createPlacedObject, type PlacedObject } from "@vlezet/domain";
 import { objectRectangle, orientedRectangleCorners } from "@vlezet/geometry";
 import { describe, expect, it } from "vitest";
 import {
+  createCompositeEditorClipboardPayload,
   createPlacedObjectClipboardPayload,
   derivePasteObjects,
+  derivePasteObjectsWithDelta,
 } from "./editor-clipboard";
 
 function sourceObjects() {
@@ -138,5 +140,47 @@ describe("M8.1 semantic placed-object clipboard", () => {
     expect(payload).toEqual(payloadSnapshot);
     expect(pasted[0]?.clearance).not.toBe(source[0].clearance);
     expect(pasted[1]?.clearance).not.toBe(source[1].clearance);
+  });
+});
+
+describe("M8.2 composite clipboard primitives", () => {
+  it("creates a versioned composite payload around the explicit selection origin", () => {
+    const source = sourceObjects();
+    const copiedAtOrigin = { x: 2500, y: 1750 };
+
+    const payload = createCompositeEditorClipboardPayload({
+      copiedAtOrigin,
+      structural: null,
+      objects: source,
+    });
+
+    expect(payload).toMatchObject({
+      version: 1,
+      kind: "composite-selection",
+      copiedAtOrigin,
+      structural: null,
+    });
+    expect(payload.objects).toEqual(source);
+    expect(payload.objects).not.toBe(source);
+    expect(payload.objects[0]?.clearance).not.toBe(source[0].clearance);
+  });
+
+  it("applies one rigid delta to every explicit object with fresh IDs", () => {
+    const source = sourceObjects();
+    const pasted = derivePasteObjectsWithDelta({
+      objects: source,
+      delta: { x: 5000, y: -1000 },
+      idFactory: ids("delta-chair", "delta-table"),
+    });
+
+    expect(pasted.map((object) => object.id)).toEqual(["delta-chair", "delta-table"]);
+    expect(pasted[0]?.position).toEqual({ x: 6000, y: 0 });
+    expect(pasted[1]?.position).toEqual({ x: 8000, y: 1000 });
+    expect(pasted[1]!.position.x - pasted[0]!.position.x).toBe(
+      source[1].position.x - source[0].position.x,
+    );
+    expect(pasted[1]!.position.y - pasted[0]!.position.y).toBe(
+      source[1].position.y - source[0].position.y,
+    );
   });
 });
