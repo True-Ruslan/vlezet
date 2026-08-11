@@ -13,7 +13,18 @@ export type StructuralEditorClipboardPayloadV1 = StructuralClipboardPayloadV1 & 
   copiedAtOrigin: Point2;
 }>;
 
-export type EditorClipboardPayload = VlezetClipboardPayloadV1 | StructuralEditorClipboardPayloadV1;
+export type CompositeEditorClipboardPayloadV1 = Readonly<{
+  version: 1;
+  kind: "composite-selection";
+  copiedAtOrigin: Point2;
+  structural: StructuralEditorClipboardPayloadV1 | null;
+  objects: readonly PlacedObject[];
+}>;
+
+export type EditorClipboardPayload =
+  | VlezetClipboardPayloadV1
+  | StructuralEditorClipboardPayloadV1
+  | CompositeEditorClipboardPayloadV1;
 
 export type EditorClipboardState = Readonly<{
   payload: EditorClipboardPayload | null;
@@ -88,6 +99,60 @@ export function createStructuralEditorClipboardPayload(
   };
 }
 
+export function createCompositeEditorClipboardPayload(input: Readonly<{
+  copiedAtOrigin: Point2;
+  structural: StructuralEditorClipboardPayloadV1 | null;
+  objects: readonly PlacedObject[];
+}>): CompositeEditorClipboardPayloadV1 {
+  assertFinitePoint(input.copiedAtOrigin, "Composite clipboard origin");
+  return {
+    version: 1,
+    kind: "composite-selection",
+    copiedAtOrigin: { ...input.copiedAtOrigin },
+    structural: input.structural
+      ? {
+          ...input.structural,
+          origin: { ...input.structural.origin },
+          copiedAtOrigin: { ...input.structural.copiedAtOrigin },
+        }
+      : null,
+    objects: input.objects.map(clonePlacedObject),
+  };
+}
+
+export function derivePasteObjectsWithDelta(input: Readonly<{
+  objects: readonly PlacedObject[];
+  delta: Point2;
+  idFactory: () => string;
+}>): readonly PlacedObject[] {
+  const { objects, delta, idFactory } = input;
+  assertFinitePoint(delta, "Paste delta");
+  const sourceIds = new Set(objects.map((object) => object.id));
+  const generatedIds = new Set<string>();
+
+  return objects.map((source) => {
+    const id = idFactory().trim();
+    if (!id) throw new RangeError("Generated placed-object id cannot be blank");
+    if (sourceIds.has(id)) {
+      throw new RangeError(`Paste cannot reuse source placed-object id: ${id}`);
+    }
+    if (generatedIds.has(id)) {
+      throw new RangeError(`Duplicate generated placed-object id: ${id}`);
+    }
+    generatedIds.add(id);
+
+    return createPlacedObject({
+      ...source,
+      id,
+      position: {
+        x: source.position.x + delta.x,
+        y: source.position.y + delta.y,
+      },
+      clearance: { ...source.clearance },
+    });
+  });
+}
+
 export function derivePasteObjects(input: Readonly<{
   payload: VlezetClipboardPayloadV1;
   anchor: Point2;
@@ -108,32 +173,12 @@ export function derivePasteObjects(input: Readonly<{
   }
 
   const repeatedOffset = repetition * 200;
-  const delta = {
-    x: anchor.x - payload.copiedAtOrigin.x + repeatedOffset,
-    y: anchor.y - payload.copiedAtOrigin.y + repeatedOffset,
-  };
-  const sourceIds = new Set(payload.objects.map((object) => object.id));
-  const generatedIds = new Set<string>();
-
-  return payload.objects.map((source) => {
-    const id = idFactory().trim();
-    if (!id) throw new RangeError("Generated placed-object id cannot be blank");
-    if (sourceIds.has(id)) {
-      throw new RangeError(`Paste cannot reuse source placed-object id: ${id}`);
-    }
-    if (generatedIds.has(id)) {
-      throw new RangeError(`Duplicate generated placed-object id: ${id}`);
-    }
-    generatedIds.add(id);
-
-    return createPlacedObject({
-      ...source,
-      id,
-      position: {
-        x: source.position.x + delta.x,
-        y: source.position.y + delta.y,
-      },
-      clearance: { ...source.clearance },
-    });
+  return derivePasteObjectsWithDelta({
+    objects: payload.objects,
+    delta: {
+      x: anchor.x - payload.copiedAtOrigin.x + repeatedOffset,
+      y: anchor.y - payload.copiedAtOrigin.y + repeatedOffset,
+    },
+    idFactory,
   });
 }
