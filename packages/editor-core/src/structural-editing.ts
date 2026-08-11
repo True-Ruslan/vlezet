@@ -1,5 +1,11 @@
 import { getWallEndpoints, type Point2, type VlezetDocument, type Wall } from "@vlezet/domain";
-import { GEOMETRY_EPSILON_MM, validateTopology } from "@vlezet/geometry";
+import {
+  deriveRooms,
+  extractPlanarFaces,
+  GEOMETRY_EPSILON_MM,
+  pointInPolygon,
+  validateTopology,
+} from "@vlezet/geometry";
 import { validateOpening } from "./opening-editing";
 import {
   MAX_WALL_THICKNESS_MM,
@@ -30,6 +36,17 @@ export type StructuralValidationContext = Readonly<{
   affectedWallIds: readonly string[];
   preserveDirectionsForWallIds: readonly string[];
 }>;
+
+export type StructuralRoomTranslationClosure = Readonly<{
+  roomId: string;
+  vertexIds: readonly string[];
+  wallIds: readonly string[];
+  annotationIds: readonly string[];
+}>;
+
+export type StructuralRoomClosureResult =
+  | Readonly<{ ok: true; closure: StructuralRoomTranslationClosure }>
+  | Readonly<{ ok: false; reason: string }>;
 
 function finitePoint(point: Point2): boolean {
   return Number.isFinite(point.x) && Number.isFinite(point.y);
@@ -172,6 +189,139 @@ export function validateStructuralCandidate(
   }
 
   return accepted(candidate, context.affectedVertexIds, context.affectedWallIds);
+}
+
+export function resolveStructuralRoomTranslationClosure(
+  document: VlezetDocument,
+  roomId: string,
+): StructuralRoomClosureResult {
+  if (!roomId) return { ok: false, reason: "Комната не указана" };
+
+  const room = deriveRooms(document).rooms.find((candidate) => candidate.id === roomId);
+  if (!room) return { ok: false, reason: `Комната не существует: ${roomId}` };
+
+  const faces = extractPlanarFaces(document);
+  const face = faces.find((candidate) => candidate.id === room.faceId);
+  if (!face) return { ok: false, reason: `Не удалось восстановить структурную границу комнаты ${roomId}` };
+
+  const boundaryWallSet = new Set(face.edges.map((edge) => edge.wallId));
+  const boundaryVertexSet = new Set(face.vertexIds);
+
+  for (const edge of face.edges) {
+    const wall = wallById(document, edge.wallId);
+    if (!wall) return { ok: false, reason: `Граница комнаты ссылается на отсутствующую стену ${edge.wallId}` };
+
+    if (wall.junctionVertexIds.length > 0) {
+      return {
+        ok: false,
+        reason: "Граница комнаты разделена структурным стыком и не может быть перемещена отдельно",
+      };
+    }
+
+    const matchesForward = wall.startVertexId === edge.startVertexId && wall.endVertexId === edge.endVertexId;
+    const matchesReverse = wall.startVertexId === edge.endVertexId && wall.endVertexId === edge.startVertexId;
+    if (!matchesForward && !matchesReverse) {
+      return {
+        ok: false,
+        reason: "Граница комнаты использует только часть физической стены и не может быть перемещена отдельно",
+      };
+    }
+  }
+
+  for (const otherFace of faces) {
+    if (otherFace.id === face.id) continue;
+    if (otherFace.edges.some((edge) => boundaryWallSet.has(edge.wallId))) {
+      return {
+        ok: false,
+        reason: "Комната имеет общую стену с соседней комнатой и не может быть перемещена отдельно",
+      };
+    }
+  }
+
+  for (const wall of document.walls) {
+    if (boundaryWallSet.has(wall.id)) continue;
+    if (
+      boundaryVertexSet.has(wall.startVertexId) ||
+      boundaryVertexSet.has(wall.endVertexId) ||
+      wall.junctionVertexIds.some((vertexId) => boundaryVertexSet.has(vertexId))
+    ) {
+      return {
+        ok: false,
+        reason: "Комната связана с внешней конструкцией и не может быть перемещена отдельно",
+      };
+    }
+  }
+
+  const annotationSet = new Set(
+    document.roomAnnotations
+      .filter((annotation) => pointInPolygon(annotation.anchor, room.polygon))
+      .map((annotation) => annotation.id),
+  );
+
+  return {
+    ok: true,
+    closure: {
+      roomId,
+      vertexIds: uniqueDocumentOrder(boundaryVertexSet, document.vertices),
+      wallIds: uniqueDocumentOrder(boundaryWallSet, document.walls),
+      annotationIds: uniqueDocumentOrder(annotationSet, document.roomAnnotations),
+    },
+  };
+}
+
+export function evaluateStructuralRoomTranslation(
+  document: VlezetDocument,
+  roomId: string,
+  delta: Point2,
+): StructuralTransactionResult {
+  if (!roomId || !finitePoint(delta)) {
+    return rejection("invalid-input", "Смещение комнаты должно состоять из конечных чисел", null);
+  }
+
+  const roomExists = deriveRooms(document).rooms.some((room) => room.id === roomId);
+  if (!roomExists) return rejection("invalid-input", `Комната не существует: ${roomId}`, null);
+
+  const closureResult = resolveStructuralRoomTranslationClosure(document, roomId);
+  if (!closureResult.ok) return rejection("topology", closureResult.reason, null);
+  const { closure } = closureResult;
+
+  if (delta.x === 0 && delta.y === 0) {
+    return accepted(document, closure.vertexIds, closure.wallIds);
+  }
+
+  const movedVertexSet = new Set(closure.vertexIds);
+  const movedAnnotationSet = new Set(closure.annotationIds);
+  const candidate: VlezetDocument = {
+    ...document,
+    vertices: document.vertices.map((vertex) =>
+      movedVertexSet.has(vertex.id)
+        ? {
+            ...vertex,
+            position: {
+              x: vertex.position.x + delta.x,
+              y: vertex.position.y + delta.y,
+            },
+          }
+        : vertex,
+    ),
+    roomAnnotations: document.roomAnnotations.map((annotation) =>
+      movedAnnotationSet.has(annotation.id)
+        ? {
+            ...annotation,
+            anchor: {
+              x: annotation.anchor.x + delta.x,
+              y: annotation.anchor.y + delta.y,
+            },
+          }
+        : annotation,
+    ),
+  };
+
+  return validateStructuralCandidate(document, candidate, {
+    affectedVertexIds: closure.vertexIds,
+    affectedWallIds: closure.wallIds,
+    preserveDirectionsForWallIds: closure.wallIds,
+  });
 }
 
 export function evaluateStructuralVertexMove(
