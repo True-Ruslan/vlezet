@@ -82,6 +82,7 @@ import {
 } from "./editor-viewport-controller";
 import {
   deriveSelectionWorldBounds,
+  entitiesAtPoint,
   entitiesIntersectingMarquee,
   type WorldRect,
 } from "./editor-selection-geometry";
@@ -934,7 +935,16 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     }
     const stage = event.target.getStage();
     const hitNode = stage?.getIntersection(pointer) ?? event.target;
-    setHoveredCanvasEntity(hoverEnabled ? canvasEntityFromKonvaNode(hitNode) : null);
+    if (hoverEnabled) {
+      const hoveredFromNode = canvasEntityFromKonvaNode(hitNode);
+      const pointerWorld = screenToWorld(pointer, viewport);
+      const hoveredRoom = hoveredFromNode
+        ? null
+        : entitiesAtPoint(structuralDisplayDocument, pointerWorld).find((ref) => ref.kind === "room") ?? null;
+      setHoveredCanvasEntity(hoveredFromNode ?? hoveredRoom);
+    } else {
+      setHoveredCanvasEntity(null);
+    }
     if (recognitionReviewActive) return;
     if (placementPresetId) updatePlacementPreview(pointer);
     else if (tool === "wall" && draftWall) updateWallDraftFromPointer(pointer, event);
