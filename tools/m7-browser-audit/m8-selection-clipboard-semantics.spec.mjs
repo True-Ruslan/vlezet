@@ -59,16 +59,29 @@ async function drawRectangle(page, bounds = { left: 0.55, top: 0.28, right: 0.82
 
 async function drawConcaveAndSmallRoom(page) {
   const bounds = { left: 0.24, top: 0.22, right: 0.78, bottom: 0.72 };
-  await drawRectangle(page, bounds);
+  const splitX = 0.60;
+  const splitY = 0.47;
 
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await clickRatio(page, bounds.right, 0.47);
-  await clickRatio(page, 0.60, 0.47);
-  await clickRatio(page, 0.60, bounds.bottom);
+  await clickRatio(page, bounds.left, bounds.top);
+  await clickRatio(page, bounds.right, bounds.top);
+  await clickRatio(page, bounds.right, splitY);
+  await clickRatio(page, bounds.right, bounds.bottom);
+  await clickRatio(page, splitX, bounds.bottom);
+  await clickRatio(page, bounds.left, bounds.bottom);
+  await clickRatio(page, bounds.left, bounds.top);
+  await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
+  await finishFirstRoomGuide(page);
+
+  await page.getByRole("button", { name: "Стена", exact: true }).click();
+  await clickRatio(page, bounds.right, splitY);
+  await clickRatio(page, splitX, splitY);
+  await clickRatio(page, splitX, bounds.bottom);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Выбор", exact: true }).click();
   await expect(page.locator('[data-canvas-mode="select"]')).toBeVisible();
+  await expect(page.locator(".topology-alert")).toHaveCount(0);
 }
 
 async function ensureFurnitureCatalog(page) {
