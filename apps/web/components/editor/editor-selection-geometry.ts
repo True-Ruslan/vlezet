@@ -24,6 +24,15 @@ export type WorldRect = Readonly<{
   maxY: number;
 }>;
 
+type ConcretePointHitEntityRef =
+  | Readonly<{ kind: "opening"; id: string }>
+  | Readonly<{ kind: "placed-object"; id: string }>
+  | Readonly<{ kind: "wall"; id: string }>;
+
+export type PointHitEntityRef =
+  | ConcretePointHitEntityRef
+  | Readonly<{ kind: "room"; id: string }>;
+
 const EPSILON = 1e-6;
 
 function normalizedRect(rect: WorldRect): WorldRect {
@@ -209,8 +218,8 @@ export function deriveSelectionWorldBounds(
 function concreteEntitiesIntersectingRect(
   document: VlezetDocument,
   rect: WorldRect,
-): readonly EditorEntityRef[] {
-  const result: EditorEntityRef[] = [];
+): readonly ConcretePointHitEntityRef[] {
+  const result: ConcretePointHitEntityRef[] = [];
 
   for (const opening of document.openings) {
     const polygon = openingBandPolygon(document, opening);
@@ -237,14 +246,14 @@ function concreteEntitiesIntersectingRect(
 export function entitiesAtPoint(
   document: VlezetDocument,
   point: Point2,
-): readonly EditorEntityRef[] {
+): readonly PointHitEntityRef[] {
   const pointRect: WorldRect = {
     minX: point.x,
     minY: point.y,
     maxX: point.x,
     maxY: point.y,
   };
-  const result = [...concreteEntitiesIntersectingRect(document, pointRect)];
+  const result: PointHitEntityRef[] = [...concreteEntitiesIntersectingRect(document, pointRect)];
   const roomHits = deriveRooms(document).rooms
     .filter((room) => pointInPolygon(point, room.polygon))
     .sort((first, second) => first.areaMm2 - second.areaMm2);
