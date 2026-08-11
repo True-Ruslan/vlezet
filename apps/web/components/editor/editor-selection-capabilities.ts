@@ -1,5 +1,8 @@
 import type { VlezetDocument } from "@vlezet/domain";
-import { evaluateStructuralClipboardClosure } from "@vlezet/editor-core";
+import {
+  evaluateStructuralClipboardClosure,
+  resolveStructuralRoomTranslationClosure,
+} from "@vlezet/editor-core";
 import type { EditorClipboardPayload } from "./editor-clipboard";
 import {
   sanitizeEditorSelection,
@@ -23,6 +26,7 @@ export type SelectionCapabilities = Readonly<{
   rotate: SelectionCapability;
   scale: SelectionCapability;
   wallThickness: SelectionCapability;
+  selectFurnitureInRoom: SelectionCapability;
 }>;
 
 const enabled = (): SelectionCapability => ({ enabled: true, reason: null });
@@ -43,6 +47,7 @@ const WALL_THICKNESS_SELECTION_REASON = "Для общей толщины выб
 const FURNITURE_SCALE_REASON = "Масштабирование мебели отключено: размеры предмета задаются явно.";
 const FURNITURE_GROUP_ROTATE_REASON = "Групповой поворот мебели пока недоступен.";
 const ROOM_CUT_REASON = "Комнату можно копировать или дублировать; вырезание контура отключено, чтобы не разрушать соседнюю топологию.";
+const ROOM_FURNITURE_SELECTION_REASON = "Для выбора мебели нужна ровно одна выбранная комната без отдельных структурных объектов.";
 
 function clipboardCapability(clipboardKind: EditorClipboardKind): SelectionCapability {
   return clipboardKind === null ? disabled(NO_CLIPBOARD_REASON) : enabled();
@@ -53,6 +58,14 @@ function structuralCutCapability(
   wallIds: readonly string[],
 ): SelectionCapability {
   const closure = evaluateStructuralClipboardClosure(document, wallIds);
+  return closure.ok ? enabled() : disabled(closure.reason);
+}
+
+function roomMoveCapability(
+  document: VlezetDocument,
+  roomId: string,
+): SelectionCapability {
+  const closure = resolveStructuralRoomTranslationClosure(document, roomId);
   return closure.ok ? enabled() : disabled(closure.reason);
 }
 
@@ -76,6 +89,7 @@ export function deriveSelectionCapabilities(input: Readonly<{
       rotate: none,
       scale: none,
       wallThickness: none,
+      selectFurnitureInRoom: none,
     };
   }
 
@@ -97,6 +111,7 @@ export function deriveSelectionCapabilities(input: Readonly<{
       rotate: structural,
       scale: structural,
       wallThickness: structural,
+      selectFurnitureInRoom: disabled(ROOM_FURNITURE_SELECTION_REASON),
     };
   }
 
@@ -114,16 +129,20 @@ export function deriveSelectionCapabilities(input: Readonly<{
     }
 
     const mixed = disabled(MIXED_SELECTION_REASON);
+    const roomObjectSelection = unsupported.length === 0 && rooms.length === 1 && walls.length === 0 && objects.length > 0;
     return {
       copy,
       cut: mixed,
       paste,
       duplicate: mixed,
       delete: mixed,
-      move: mixed,
+      move: roomObjectSelection ? roomMoveCapability(input.document, rooms[0]!.id) : mixed,
       rotate: mixed,
       scale: mixed,
       wallThickness: mixed,
+      selectFurnitureInRoom: roomObjectSelection
+        ? enabled()
+        : disabled(ROOM_FURNITURE_SELECTION_REASON),
     };
   }
 
@@ -142,6 +161,7 @@ export function deriveSelectionCapabilities(input: Readonly<{
       rotate,
       scale: disabled(FURNITURE_SCALE_REASON),
       wallThickness: disabled(STRUCTURAL_SELECTION_REASON),
+      selectFurnitureInRoom: disabled(ROOM_FURNITURE_SELECTION_REASON),
     };
   }
 
@@ -160,6 +180,7 @@ export function deriveSelectionCapabilities(input: Readonly<{
       wallThickness: selection.refs.length >= 2
         ? enabled()
         : disabled(WALL_THICKNESS_SELECTION_REASON),
+      selectFurnitureInRoom: disabled(ROOM_FURNITURE_SELECTION_REASON),
     };
   }
 
@@ -170,10 +191,11 @@ export function deriveSelectionCapabilities(input: Readonly<{
       paste,
       duplicate: enabled(),
       delete: disabled(STRUCTURAL_SELECTION_REASON),
-      move: disabled(STRUCTURAL_SELECTION_REASON),
+      move: roomMoveCapability(input.document, selection.refs[0]!.id),
       rotate: disabled(STRUCTURAL_ROTATE_REASON),
       scale: disabled(STRUCTURAL_SCALE_REASON),
       wallThickness: disabled(STRUCTURAL_SELECTION_REASON),
+      selectFurnitureInRoom: enabled(),
     };
   }
 
@@ -188,5 +210,6 @@ export function deriveSelectionCapabilities(input: Readonly<{
     rotate: structural,
     scale: structural,
     wallThickness: structural,
+    selectFurnitureInRoom: disabled(ROOM_FURNITURE_SELECTION_REASON),
   };
 }
