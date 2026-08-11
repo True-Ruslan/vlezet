@@ -1,9 +1,10 @@
 "use client";
 
+import type { Point2 } from "@vlezet/domain";
 import type { ProjectViewport, ReferencePlan, SaveStatus } from "@vlezet/projects";
 import type { NormalizedPoint, RecognitionDecision, RecognitionOpeningCandidate } from "@vlezet/recognition";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionPanel } from "../recognition/recognition-panel";
@@ -141,6 +142,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const [dismissedContextKey, setDismissedContextKey] = useState<string | null>(null);
   const [workflowReturnTarget, setWorkflowReturnTarget] = useState<WorkflowReturnTarget | null>(null);
   const [ownedContextMenuRequest, setOwnedContextMenuRequest] = useState<OwnedEditorContextMenuRequest | null>(null);
+  const latestCanvasPointerWorldRef = useRef<Point2 | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const document = useStore(editorStore, (state) => state.history.document);
@@ -208,6 +210,12 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       serial: (current?.serial ?? 0) + 1,
       command,
     }));
+  }, []);
+
+  const rememberCanvasPointer = useCallback((point: Point2) => {
+    if (Number.isFinite(point.x) && Number.isFinite(point.y)) {
+      latestCanvasPointerWorldRef.current = { ...point };
+    }
   }, []);
 
   const openCatalogueSurface = useCallback(() => {
@@ -399,6 +407,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   }, [contextMenuOwnerKey]);
 
   useEffect(() => {
+    latestCanvasPointerWorldRef.current = null;
     spatialViewModeStore.getState().setMode("2d");
   }, [props.projectId]);
 
@@ -563,6 +572,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             key={props.projectId}
             initialViewport={props.initialViewport}
             onViewportChange={props.onViewportChange}
+            onPointerWorldChange={rememberCanvasPointer}
             viewCommandRequest={viewCommandRequest}
             fitReferenceRequest={fitReferenceRequest}
             referencePlan={props.referencePlan}
