@@ -13,6 +13,7 @@ import {
   openingSegment,
   orientedRectangleCorners,
   pointAtWallOffset,
+  pointInPolygon,
 } from "@vlezet/geometry";
 import type { EditorEntityRef, EditorSelection } from "./editor-selection";
 
@@ -244,11 +245,12 @@ export function entitiesAtPoint(
     maxY: point.y,
   };
   const result = [...concreteEntitiesIntersectingRect(document, pointRect)];
+  const roomHits = deriveRooms(document).rooms
+    .filter((room) => pointInPolygon(point, room.polygon))
+    .sort((first, second) => first.area - second.area);
 
-  for (const room of deriveRooms(document).rooms) {
-    if (polygonIntersectsRect(room.polygon, pointRect)) {
-      result.push({ kind: "room", id: room.id });
-    }
+  for (const room of roomHits) {
+    result.push({ kind: "room", id: room.id });
   }
 
   return result;
