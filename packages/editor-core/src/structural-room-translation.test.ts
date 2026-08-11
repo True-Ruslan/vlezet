@@ -161,7 +161,7 @@ describe("M8.2 room translation structural authority", () => {
     const document = adjacentRoomsDocument();
     const rooms = deriveRooms(document).rooms;
     expect(rooms).toHaveLength(2);
-    const leftRoom = rooms.find((room) => room.polygon.some((point) => point.x === 0));
+    const leftRoom = [...rooms].sort((first, second) => first.labelPoint.x - second.labelPoint.x)[0];
     expect(leftRoom).toBeDefined();
 
     const closure = resolveStructuralRoomTranslationClosure(document, leftRoom!.id);
