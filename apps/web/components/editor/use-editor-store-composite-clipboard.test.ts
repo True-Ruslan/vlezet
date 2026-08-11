@@ -23,7 +23,7 @@ function documentFixture(): VlezetDocument {
     openings: [{ id: "door", wallId: "top", kind: "door", offset: 1200, width: 900 }],
     roomAnnotations: [],
     placedObjects: [
-      createPlacedObject({ id: "sofa", presetId: null, name: "Диван", category: "sofa", position: { x: 1500, y: 1600 }, width: 1800, depth: 800, rotationDeg: 0, clearance: { front: 0, right: 0, back: 0, left: 0 } }),
+      createPlacedObject({ id: "sofa", presetId: null, name: "Диван", category: "chair", position: { x: 1500, y: 1600 }, width: 1800, depth: 800, rotationDeg: 0, clearance: { front: 0, right: 0, back: 0, left: 0 } }),
       createPlacedObject({ id: "table", presetId: null, name: "Стол", category: "table", position: { x: 3500, y: 1800 }, width: 1000, depth: 700, rotationDeg: 0, clearance: { front: 0, right: 0, back: 0, left: 0 } }),
       createPlacedObject({ id: "lamp", presetId: null, name: "Лампа", category: "custom", position: { x: 2500, y: 3000 }, width: 300, depth: 300, rotationDeg: 0, clearance: { front: 0, right: 0, back: 0, left: 0 } }),
     ],
