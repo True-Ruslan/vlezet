@@ -64,7 +64,7 @@ function closedRoomDocument(): VlezetDocument {
       id: "object-1",
       presetId: null,
       name: "Диван",
-      category: "sofa",
+      category: "chair",
       position: { x: 1800, y: 1800 },
       width: 1600,
       depth: 800,
