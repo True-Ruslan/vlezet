@@ -5,11 +5,13 @@ import {
   createStructuralClipboardPayload,
   cutStructuralFragment,
   deletePlacedObjects,
+  evaluateStructuralRoomTranslation,
   evaluateStructuralVertexMove,
   evaluateStructuralWallTranslation,
   evaluateWallThicknessBatch,
   executeCommand,
   pasteStructuralFragment,
+  resolveStructuralRoomTranslationClosure,
   translatePlacedObjects,
   updatePlacedObject,
   type PlacedObjectPatch,
@@ -45,6 +47,7 @@ import {
   type EditorEntityRef,
   type EditorSelection,
 } from "./editor-selection";
+import { selectFurnitureInSelectedRoom as deriveRoomFurnitureSelection } from "./room-furniture-selection";
 
 export {
   selectedObjectId,
@@ -79,8 +82,7 @@ export type ObjectTransformGesture = Readonly<{
 
 export type ObjectGesture = ObjectMoveGesture | ObjectTransformGesture;
 
-export type StructuralGesture = Readonly<{
-  kind: "move-vertex" | "translate-wall";
+type StructuralGestureBase = Readonly<{
   entityId: string;
   before: VlezetDocument;
   previewDocument: VlezetDocument;
@@ -88,6 +90,18 @@ export type StructuralGesture = Readonly<{
   reason: string | null;
   changed: boolean;
 }>;
+
+export type StructuralGesture =
+  | (StructuralGestureBase & Readonly<{
+      kind: "move-vertex" | "translate-wall";
+    }>)
+  | (StructuralGestureBase & Readonly<{
+      kind: "translate-room";
+      movedVertexIds: readonly string[];
+      movedWallIds: readonly string[];
+      placedObjectIds: readonly string[];
+      delta: Point2;
+    }>);
 
 export type CopySelectionResult =
   | Readonly<{ ok: true }>
@@ -110,11 +124,14 @@ export type EditorStoreState = Omit<
   cancelObjectGesture: () => void;
   beginStructuralVertexGesture: (vertexId: string) => void;
   beginStructuralWallGesture: (wallId: string) => void;
+  beginStructuralRoomGesture: (roomId: string) => void;
   previewStructuralVertexGesture: (position: Point2) => void;
   previewStructuralWallGesture: (delta: Point2) => void;
+  previewStructuralRoomGesture: (delta: Point2) => void;
   commitStructuralGesture: () => void;
   cancelStructuralGesture: () => void;
   setSelectedWallsThickness: (thicknessMm: number) => void;
+  selectFurnitureInSelectedRoom: () => void;
   copySelection: () => CopySelectionResult;
   cutSelection: () => void;
   pasteClipboard: (anchor: Point2) => void;
@@ -467,6 +484,39 @@ function enhanceEditorStore(
     });
   };
 
+  const beginStructuralRoomGesture = (roomId: string) => {
+    const state = store.getState();
+    const selection = sanitizeEditorSelection(state.history.document, state.selection);
+    const roomRefs = selection.refs.filter((ref) => ref.kind === "room");
+    if (roomRefs.length !== 1 || roomRefs[0]!.id !== roomId) return;
+    if (selection.refs.some((ref) => ref.kind !== "room" && ref.kind !== "placed-object")) return;
+
+    const closure = resolveStructuralRoomTranslationClosure(state.history.document, roomId);
+    if (!closure.ok) return;
+    const placedObjectIds = selection.refs
+      .filter((ref) => ref.kind === "placed-object")
+      .map((ref) => ref.id);
+
+    store.setState({
+      structuralGesture: {
+        kind: "translate-room",
+        entityId: roomId,
+        before: state.history.document,
+        previewDocument: state.history.document,
+        valid: true,
+        reason: null,
+        changed: false,
+        movedVertexIds: closure.closure.vertexIds,
+        movedWallIds: closure.closure.wallIds,
+        placedObjectIds,
+        delta: { x: 0, y: 0 },
+      },
+      objectGesture: null,
+      placementPresetId: null,
+      tool: "select",
+    });
+  };
+
   const previewStructuralVertexGesture = (position: Point2) => {
     const gesture = store.getState().structuralGesture;
     if (!gesture || gesture.kind !== "move-vertex") return;
@@ -499,6 +549,50 @@ function enhanceEditorStore(
     });
   };
 
+  const previewStructuralRoomGesture = (delta: Point2) => {
+    const gesture = store.getState().structuralGesture;
+    if (!gesture || gesture.kind !== "translate-room") return;
+    const result = evaluateStructuralRoomTranslation(gesture.before, gesture.entityId, delta);
+    if (!result.ok) {
+      store.setState({
+        structuralGesture: {
+          ...gesture,
+          previewDocument: result.candidate ?? gesture.before,
+          valid: false,
+          reason: result.reason,
+          changed: delta.x !== 0 || delta.y !== 0,
+          delta: { ...delta },
+        },
+      });
+      return;
+    }
+
+    try {
+      const previewDocument = translatePlacedObjects(result.document, gesture.placedObjectIds, delta);
+      store.setState({
+        structuralGesture: {
+          ...gesture,
+          previewDocument,
+          valid: true,
+          reason: null,
+          changed: delta.x !== 0 || delta.y !== 0,
+          delta: { ...delta },
+        },
+      });
+    } catch (error) {
+      store.setState({
+        structuralGesture: {
+          ...gesture,
+          previewDocument: gesture.before,
+          valid: false,
+          reason: error instanceof Error ? error.message : "Не удалось переместить выбранную мебель вместе с комнатой",
+          changed: delta.x !== 0 || delta.y !== 0,
+          delta: { ...delta },
+        },
+      });
+    }
+  };
+
   const commitStructuralGesture = () => {
     const state = store.getState();
     const gesture = state.structuralGesture;
@@ -519,10 +613,15 @@ function enhanceEditorStore(
       return;
     }
     const after = gesture.previewDocument;
+    const label = gesture.kind === "move-vertex"
+      ? "vertex/move-structural"
+      : gesture.kind === "translate-wall"
+        ? "wall/translate"
+        : "room/translate";
     store.setState({
       history: executeCommand(state.history, {
         type: "document/replace",
-        label: gesture.kind === "move-vertex" ? "vertex/move-structural" : "wall/translate",
+        label,
         before: gesture.before,
         after,
       }),
@@ -550,6 +649,13 @@ function enhanceEditorStore(
       selection: sanitizeEditorSelection(result.document, state.selection),
       structuralGesture: null,
     });
+  };
+
+  const selectFurnitureInSelectedRoom = () => {
+    const state = store.getState();
+    const selection = deriveRoomFurnitureSelection(state.history.document, state.selection);
+    if (selection === state.selection) return;
+    store.setState({ selection });
   };
 
   const copySelection = (): CopySelectionResult => {
@@ -934,11 +1040,14 @@ function enhanceEditorStore(
     cancelObjectGesture: () => store.setState({ objectGesture: null }),
     beginStructuralVertexGesture,
     beginStructuralWallGesture,
+    beginStructuralRoomGesture,
     previewStructuralVertexGesture,
     previewStructuralWallGesture,
+    previewStructuralRoomGesture,
     commitStructuralGesture,
     cancelStructuralGesture: () => store.setState({ structuralGesture: null }),
     setSelectedWallsThickness,
+    selectFurnitureInSelectedRoom,
     copySelection,
     cutSelection,
     pasteClipboard,
