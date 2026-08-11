@@ -135,6 +135,7 @@ describe("M8 registered-command context menu", () => {
       [{ kind: "placed-object", id: "chair-1" }],
     );
     expect(availableContextMenuCommands(document, mixed, "structural-fragment").map((item) => item.id)).toEqual([
+      "selection.copy",
       "view.fitSelection",
     ]);
   });
