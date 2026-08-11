@@ -14,6 +14,7 @@ export type EditorCommandLabel =
   | "opening/delete"
   | "room-annotation/set-name"
   | "room/set-clear-dimension"
+  | "room/translate"
   | "object/add"
   | "object/move"
   | "object/rotate"
