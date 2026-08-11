@@ -34,11 +34,15 @@ export type {
   StructuralClosureResult,
 } from "./structural-clipboard";
 export {
+  evaluateStructuralRoomTranslation,
   evaluateStructuralVertexMove,
   evaluateStructuralWallTranslation,
   evaluateWallThicknessBatch,
+  resolveStructuralRoomTranslationClosure,
 } from "./structural-editing";
 export type {
+  StructuralRoomClosureResult,
+  StructuralRoomTranslationClosure,
   StructuralTransactionCode,
   StructuralTransactionResult,
 } from "./structural-editing";
