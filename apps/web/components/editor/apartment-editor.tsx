@@ -142,6 +142,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const [dismissedContextKey, setDismissedContextKey] = useState<string | null>(null);
   const [workflowReturnTarget, setWorkflowReturnTarget] = useState<WorkflowReturnTarget | null>(null);
   const [ownedContextMenuRequest, setOwnedContextMenuRequest] = useState<OwnedEditorContextMenuRequest | null>(null);
+  const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
   const latestCanvasPointerWorldRef = useRef<Point2 | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
@@ -321,10 +322,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         if (editingBlocked) return false;
         store.selectAllConcreteEntities();
         return true;
-      case "selection.copy":
-        if (editingBlocked || !capabilities.copy.enabled) return false;
-        store.copySelection();
+      case "selection.copy": {
+        if (editingBlocked) return false;
+        const result = store.copySelection();
+        if (!result.ok) setClipboardNotice(result.reason);
+        else setClipboardNotice(null);
         return true;
+      }
       case "selection.cut":
         if (editingBlocked || !capabilities.cut.enabled) return false;
         store.cutSelection();
@@ -334,6 +338,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         const origin = store.clipboard.payload.copiedAtOrigin;
         const anchor = latestCanvasPointerWorldRef.current ?? origin;
         store.pasteClipboard(anchor);
+        setClipboardNotice(null);
         return true;
       }
       case "selection.duplicate":
@@ -409,8 +414,15 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
 
   useEffect(() => {
     latestCanvasPointerWorldRef.current = null;
+    setClipboardNotice(null);
     spatialViewModeStore.getState().setMode("2d");
   }, [props.projectId]);
+
+  useEffect(() => {
+    if (!clipboardNotice) return;
+    const timeoutId = window.setTimeout(() => setClipboardNotice(null), 3500);
+    return () => window.clearTimeout(timeoutId);
+  }, [clipboardNotice]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -605,6 +617,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           onDismiss={() => setOwnedContextMenuRequest(null)}
         />
       ) : null}
+      {clipboardNotice ? <div className="recognition-banner clipboard-notice" role="status"><strong>Копирование недоступно</strong><span>{clipboardNotice}</span></div> : null}
       {viewMode === "2d" && props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
       {viewMode === "2d" && props.recognitionPanelOpen && recognitionDraft ? <div className="recognition-banner" role="status"><strong>Проверка распознавания</strong><span>Цветные линии — только черновик. Реальная квартира не изменится до применения.</span></div> : null}
     </main>
