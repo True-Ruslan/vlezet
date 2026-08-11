@@ -23,21 +23,8 @@ function closedRoomWithOpening(): VlezetDocument {
       { id: "left", startVertexId: "d", endVertexId: "a", junctionVertexIds: [], thickness: 140 },
     ],
     openings: [
-      {
-        id: "door",
-        wallId: "top",
-        kind: "door",
-        offset: 1000,
-        width: 900,
-        doorSwing: { hinge: "start", side: "left" },
-      },
-      {
-        id: "window",
-        wallId: "right",
-        kind: "window",
-        offset: 800,
-        width: 1200,
-      },
+      { id: "door", wallId: "top", kind: "door", offset: 1000, width: 900, doorSwing: { hinge: "start", side: "left" } },
+      { id: "window", wallId: "right", kind: "window", offset: 800, width: 1200 },
     ],
   };
 }
@@ -56,12 +43,7 @@ function byId(document: VlezetDocument, vertexId: string): Point2 {
 describe("M8.2 strict structural clipboard", () => {
   it("accepts a complete wall closure in source-document order", () => {
     const document = closedRoomWithOpening();
-
-    const result = evaluateStructuralClipboardClosure(
-      document,
-      ["bottom", "top", "left", "right"],
-    );
-
+    const result = evaluateStructuralClipboardClosure(document, ["bottom", "top", "left", "right"]);
     expect(result).toEqual({
       ok: true,
       wallIds: ["top", "right", "bottom", "left"],
@@ -74,9 +56,7 @@ describe("M8.2 strict structural clipboard", () => {
     const document = closedRoomWithOpening();
     const selection = ["top"] as const;
     const beforeSelection = [...selection];
-
     const result = evaluateStructuralClipboardClosure(document, selection);
-
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected open closure rejection");
     expect(result.reason).toMatch(/связан|фрагмент|стен/i);
@@ -85,7 +65,6 @@ describe("M8.2 strict structural clipboard", () => {
 
   it("rejects empty, duplicate and missing wall selections deterministically", () => {
     const document = closedRoomWithOpening();
-
     expect(evaluateStructuralClipboardClosure(document, [])).toMatchObject({ ok: false });
     expect(evaluateStructuralClipboardClosure(document, ["top", "top"])).toMatchObject({ ok: false });
     expect(evaluateStructuralClipboardClosure(document, ["missing"])).toMatchObject({ ok: false });
@@ -94,19 +73,8 @@ describe("M8.2 strict structural clipboard", () => {
   it("includes every hosted opening automatically and keeps payload source order", () => {
     const document = closedRoomWithOpening();
     const before = structuredClone(document);
-
-    const payload = createStructuralClipboardPayload(
-      document,
-      ["top", "right", "bottom", "left"],
-    );
-
-    expect(payload).toMatchObject({
-      version: 1,
-      kind: "structural-fragment",
-      scope: { kind: "walls" },
-      origin: { x: 0, y: 0 },
-      roomAnnotations: [],
-    });
+    const payload = createStructuralClipboardPayload(document, ["top", "right", "bottom", "left"]);
+    expect(payload).toMatchObject({ version: 1, kind: "structural-fragment", scope: { kind: "walls" }, origin: { x: 0, y: 0 }, roomAnnotations: [] });
     expect(payload.vertices.map((vertex) => vertex.id)).toEqual(["a", "b", "c", "d"]);
     expect(payload.walls.map((wall) => wall.id)).toEqual(["top", "right", "bottom", "left"]);
     expect(payload.openings.map((opening) => opening.id)).toEqual(["door", "window"]);
@@ -117,12 +85,7 @@ describe("M8.2 strict structural clipboard", () => {
   it("cuts one complete fragment atomically without dangling structural references", () => {
     const document = closedRoomWithOpening();
     const before = structuredClone(document);
-
-    const result = cutStructuralFragment(
-      document,
-      ["top", "right", "bottom", "left"],
-    );
-
+    const result = cutStructuralFragment(document, ["top", "right", "bottom", "left"]);
     expect(result.document.walls).toEqual([]);
     expect(result.document.vertices).toEqual([]);
     expect(result.document.openings).toEqual([]);
@@ -131,43 +94,20 @@ describe("M8.2 strict structural clipboard", () => {
     expect(document).toEqual(before);
   });
 
-  it("pastes a rigid translated fragment with fresh IDs and remapped references", () => {
+  it("pastes a rigid translated fragment with fresh IDs, remapped references and the applied delta", () => {
     const source = closedRoomWithOpening();
-    const payload = createStructuralClipboardPayload(
-      source,
-      ["top", "right", "bottom", "left"],
-    );
+    const payload = createStructuralClipboardPayload(source, ["top", "right", "bottom", "left"]);
+    const result = pasteStructuralFragment(source, payload, { x: 6000, y: 500 }, deterministicIds());
 
-    const result = pasteStructuralFragment(
-      source,
-      payload,
-      { x: 6000, y: 500 },
-      deterministicIds(),
-    );
-
-    expect(result.vertexIds).toEqual([
-      "vertex-copy-1",
-      "vertex-copy-2",
-      "vertex-copy-3",
-      "vertex-copy-4",
-    ]);
+    expect(result.appliedDelta).toEqual({ x: 6000, y: 500 });
+    expect(result.vertexIds).toEqual(["vertex-copy-1", "vertex-copy-2", "vertex-copy-3", "vertex-copy-4"]);
     expect(result.wallIds).toEqual(["wall-copy-1", "wall-copy-2", "wall-copy-3", "wall-copy-4"]);
     expect(result.openingIds).toEqual(["opening-copy-1", "opening-copy-2"]);
     expect(result.roomAnnotationIds).toEqual([]);
 
     const pastedWalls = result.document.walls.filter((wall) => result.wallIds.includes(wall.id));
-    expect(pastedWalls[0]).toMatchObject({
-      id: "wall-copy-1",
-      startVertexId: "vertex-copy-1",
-      endVertexId: "vertex-copy-2",
-      thickness: 200,
-    });
-    expect(pastedWalls[1]).toMatchObject({
-      id: "wall-copy-2",
-      startVertexId: "vertex-copy-2",
-      endVertexId: "vertex-copy-3",
-      thickness: 180,
-    });
+    expect(pastedWalls[0]).toMatchObject({ id: "wall-copy-1", startVertexId: "vertex-copy-1", endVertexId: "vertex-copy-2", thickness: 200 });
+    expect(pastedWalls[1]).toMatchObject({ id: "wall-copy-2", startVertexId: "vertex-copy-2", endVertexId: "vertex-copy-3", thickness: 180 });
 
     expect(byId(result.document, "vertex-copy-1")).toEqual({ x: 6000, y: 500 });
     expect(byId(result.document, "vertex-copy-2")).toEqual({ x: 10000, y: 500 });
@@ -183,20 +123,10 @@ describe("M8.2 strict structural clipboard", () => {
 
   it("rejects an invalid overlapping paste atomically and never mutates source or payload", () => {
     const document = closedRoomWithOpening();
-    const payload = createStructuralClipboardPayload(
-      document,
-      ["top", "right", "bottom", "left"],
-    );
+    const payload = createStructuralClipboardPayload(document, ["top", "right", "bottom", "left"]);
     const beforeDocument = structuredClone(document);
     const beforePayload = structuredClone(payload);
-
-    expect(() => pasteStructuralFragment(
-      document,
-      payload,
-      { x: 0, y: 0 },
-      deterministicIds(),
-    )).toThrow(/стен|геометр|перес|наклад/i);
-
+    expect(() => pasteStructuralFragment(document, payload, { x: 0, y: 0 }, deterministicIds())).toThrow(/стен|геометр|перес|наклад/i);
     expect(document).toEqual(beforeDocument);
     expect(payload).toEqual(beforePayload);
   });
