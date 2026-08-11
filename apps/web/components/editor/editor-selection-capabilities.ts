@@ -30,7 +30,10 @@ const disabled = (reason: string): SelectionCapability => ({ enabled: false, rea
 
 const NO_SELECTION_REASON = "Сначала выберите объект.";
 const NO_CLIPBOARD_REASON = "Буфер обмена пуст.";
-const MIXED_SELECTION_REASON = "Смешанный набор нельзя изменять одной командой. Выберите объекты одного типа.";
+const MIXED_SELECTION_REASON = "Смешанный набор нельзя изменять одной командой. Для него доступно только безопасное копирование.";
+const MULTIPLE_ROOMS_REASON = "За одну операцию можно копировать не более одной комнаты.";
+const ROOM_WITH_WALLS_REASON = "Комнату и отдельные стены нельзя копировать вместе: выберите комнату или стены как один структурный корень.";
+const UNSUPPORTED_COPY_REASON = "Эта комбинация объектов не имеет безопасного контракта копирования.";
 const STRUCTURAL_SELECTION_REASON = "Для этой структурной выборки нет безопасной пакетной команды.";
 const STRUCTURAL_DELETE_REASON = "Структурные объекты удаляются только через безопасную команду «Вырезать».";
 const STRUCTURAL_MULTI_MOVE_REASON = "Пакетное перемещение стен недоступно: перемещайте конкретную стену или узел структурным жестом.";
@@ -76,11 +79,43 @@ export function deriveSelectionCapabilities(input: Readonly<{
     };
   }
 
+  const rooms = selection.refs.filter((ref) => ref.kind === "room");
+  const walls = selection.refs.filter((ref) => ref.kind === "wall");
+  const objects = selection.refs.filter((ref) => ref.kind === "placed-object");
+  const unsupported = selection.refs.filter((ref) =>
+    ref.kind !== "room" && ref.kind !== "wall" && ref.kind !== "placed-object");
+
+  if (rooms.length > 1) {
+    const structural = disabled(STRUCTURAL_SELECTION_REASON);
+    return {
+      copy: disabled(MULTIPLE_ROOMS_REASON),
+      cut: structural,
+      paste,
+      duplicate: structural,
+      delete: structural,
+      move: structural,
+      rotate: structural,
+      scale: structural,
+      wallThickness: structural,
+    };
+  }
+
   const kinds = new Set(selection.refs.map((ref) => ref.kind));
   if (kinds.size > 1) {
+    let copy = disabled(UNSUPPORTED_COPY_REASON);
+    if (unsupported.length === 0 && rooms.length === 1 && walls.length > 0) {
+      copy = disabled(ROOM_WITH_WALLS_REASON);
+    } else if (
+      unsupported.length === 0 &&
+      objects.length > 0 &&
+      ((rooms.length === 1 && walls.length === 0) || (rooms.length === 0 && walls.length > 0))
+    ) {
+      copy = enabled();
+    }
+
     const mixed = disabled(MIXED_SELECTION_REASON);
     return {
-      copy: mixed,
+      copy,
       cut: mixed,
       paste,
       duplicate: mixed,
