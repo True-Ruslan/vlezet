@@ -124,10 +124,13 @@ test("pastes an explicit room and furniture selection at the latest Canvas point
   await expect(sourceSummary).toContainText("Предметы: 1");
 
   const actions = page.locator(".multi-selection-inspector .context-panel-action-area");
-  await expect(actions.getByRole("button", { name: "Копировать" })).toBeVisible();
-  await expect(actions.getByRole("button", { name: "Вырезать" })).toHaveCount(0);
+  const disclosure = actions.locator("details.multi-selection-actions-menu");
+  await disclosure.locator("summary").click();
+  const copyAction = disclosure.getByRole("button", { name: "Копировать" });
+  await expect(copyAction).toBeVisible();
+  await expect(disclosure.getByRole("button", { name: "Вырезать" })).toHaveCount(0);
+  await copyAction.click();
 
-  await page.keyboard.press("Control+C");
   const pasteTarget = await canvasPoint(page, 0.30, 0.48);
   await page.mouse.move(pasteTarget.x, pasteTarget.y);
   await page.keyboard.press("Control+V");
