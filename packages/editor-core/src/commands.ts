@@ -26,6 +26,7 @@ export type EditorCommandLabel =
   | "object/batch-delete"
   | "structure/cut"
   | "structure/paste"
+  | "selection/paste-composite"
   | "planning/apply-candidate"
   | "recognition/apply";
 
