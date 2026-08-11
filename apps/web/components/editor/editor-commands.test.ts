@@ -40,6 +40,7 @@ describe("M8.1 central editor command registry", () => {
       "selection.paste",
       "selection.duplicate",
       "selection.delete",
+      "selection.select-furniture-in-room",
       "selection.clear",
       "view.zoomIn",
       "view.zoomOut",
