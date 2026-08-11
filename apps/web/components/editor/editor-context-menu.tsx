@@ -120,6 +120,7 @@ export function availableContextMenuCommands(
   if (capabilities.copy.enabled) append("selection.copy");
   if (capabilities.cut.enabled) append("selection.cut");
   if (capabilities.duplicate.enabled) append("selection.duplicate");
+  if (capabilities.selectFurnitureInRoom.enabled) append("selection.select-furniture-in-room");
   append("view.fitSelection", commands.length > 0);
   if (capabilities.delete.enabled) append("selection.delete", true);
   return commands;
