@@ -1,7 +1,7 @@
 # Vlezet — UX Roadmap
 
 **Phase:** M8 Public Beta Editor  
-**Last updated:** 2026-08-12  
+**Last updated:** 2026-08-13  
 **Rule:** trust, precision, interaction quality and complete manual workflows precede cosmetic breadth or speculative automation. Only one implementation slice is `NOW`.
 
 Read together with `docs/product/COMPETITIVE_BENCHMARK.md` and `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`.
@@ -55,7 +55,9 @@ Automatic recognition remains R&D (#27). Assisted Tracing becomes M8.4 and waits
 
 A second product-evidence correction occurred on 2026-08-12. After M8.2 room/composite clipboard and free-interior room translation reached automated GREEN, product-owner retesting found that a visibly selected `room + furniture` composite did not move as a group when drag started on an already selected furniture member. The user also requested direct door movement constrained to its host wall. The supplied screenshot exposed room-label overlap/density.
 
-That evidence broadened M8.2 from “structural precision implementation awaiting acceptance” into a **Direct Manipulation Foundation**. The correction is now implemented and automated GREEN: selected mixed-composite gesture ownership, current-host door/window drag and deterministic compact room-label degradation all have focused tests plus real Chromium/WebKit acceptance. M8.2 still cannot advance until the focused product-owner correction retest explicitly passes.
+That evidence broadened M8.2 from “structural precision implementation awaiting acceptance” into a **Direct Manipulation Foundation**. The selected-composite, current-host opening and compact-label correction was implemented and automated, but product acceptance correctly remained open.
+
+A third product-evidence correction occurred on 2026-08-13. A real Turbopack development session exposed `beginStructuralOpeningGesture is not a function`, ordinary no-modifier marquee could not select one room + its furniture as a semantic movable group, and visible windows remained difficult to drag because their listening stroke was too narrow. These failures were reproduced with genuine unit and Playwright REDs. They are now fixed and automated GREEN on the product-code head in Chromium and representative WebKit. This evidence further strengthens the rule that **fresh-process browser GREEN is not sufficient when a real preserved dev-runtime state or ordinary pointer tolerance is part of the user journey**.
 
 ## 4. Market benchmark policy
 
@@ -93,8 +95,10 @@ M8.1 Editor Interaction Foundation
 
 NOW
 M8.2 Precision Drawing / Direct Manipulation Foundation
-  - direct-manipulation/opening/label correction AUTOMATED GREEN
-  - focused product-owner correction retest PENDING
+  - latest runtime/marquee/window regressions FIXED
+  - product-code Chromium + WebKit GREEN
+  - final docs-head CI/Browser gate required
+  - product-owner acceptance PENDING
   - Draft / not accepted
 
 THEN
@@ -135,7 +139,7 @@ Selection:
 - plain marquee replaces;
 - Shift marquee adds;
 - Cmd/Ctrl+A selects concrete editable entities while respecting native text-input Select All;
-- rooms/vertices remain excluded from default marquee/select-all in M8.1;
+- rooms/vertices were excluded from default marquee/select-all in M8.1; M8.2 deliberately extends whole-room marquee semantics without retroactively changing the accepted M8.1 furniture-only contract;
 - direct room click remains supported;
 - single selection retains accepted single-entity inspectors;
 - multiple selection shows dedicated summary/actions.
@@ -174,7 +178,7 @@ Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ## 7. M8.2 — Precision Drawing / Direct Manipulation Foundation
 
-**Status:** IN DEVELOPMENT — DIRECT-MANIPULATION CORRECTION AUTOMATED GREEN / PRODUCT-OWNER CORRECTION RETEST PENDING.
+**Status:** IN DEVELOPMENT — LATEST PRODUCT-OWNER REGRESSIONS FIXED / PRODUCT-CODE AUTOMATED GREEN / PRODUCT-OWNER ACCEPTANCE PENDING.
 
 Primary UX goal:
 
@@ -197,15 +201,19 @@ Primary UX goal:
 - direct selected-room translation when drag starts from free room interior;
 - `Выбрать мебель в комнате` explicit helper;
 - atomic room + explicitly selected furniture translation from free room interior **or an ordinary already-selected furniture body**;
+- **ordinary whole-room marquee:** a no-modifier marquee that fully encloses a derived room selects one semantic room root plus the furniture hit by the marquee, not the room's backing walls/openings as separate members;
+- partial marquee remains concrete wall/opening/furniture selection when a full room is not enclosed;
 - unselected furniture and specialized structural/opening/Transformer handles retain their own gesture priority;
 - direct door/window movement constrained to the current host wall with stable `wallId`, valid-span clamping/validation and no silent re-host;
 - overlap/invalid opening drag shows fail-closed feedback and commits nothing;
+- missing hosted-opening actions in a preserved Turbopack/Fast Refresh live store are restored narrowly and rebound directly to the live editor singleton before use;
+- window lines keep their thin visual appearance while exposing a practical 12 px pointer hit stroke;
 - deterministic compact room-label degradation with non-overlapping slots, bounded wrap/ellipsis and keyed renderer fragments;
 - fail-closed structural validation/history semantics.
 
-### Product-owner failure that triggered the correction
+### Previous mixed-composite failure
 
-The 2026-08-12 retest exposed this exact missing gesture owner:
+The 2026-08-12 retest exposed this missing gesture owner:
 
 ```text
 room + furniture visibly selected
@@ -216,34 +224,57 @@ room + furniture visibly selected
 → no single composite gesture owner
 ```
 
-This was treated as a product behavior defect, not an acceptable limitation. The implementation now resolves one semantic gesture owner before mutation: an ordinary selected furniture body in the selected room composite delegates to the same room-composite movement as free room interior. Unselected furniture and specialized handles keep their independent semantics.
+This was treated as a product behavior defect. The implementation now resolves one semantic gesture owner before mutation: an ordinary selected furniture body in the selected room composite delegates to the same room-composite movement as free room interior. Unselected furniture and specialized handles keep their independent semantics.
 
-### Correction contract now implemented / automated GREEN
+### Latest runtime / marquee / window correction
 
-1. **Selection-aware gesture arbitration.** If `room + furniture` is explicitly selected, dragging the free room interior or any ordinary already selected furniture member moves the same explicit selected composite.
-2. **Specialized controls keep priority.** Resize/rotate handles, structural handles and opening-specific direct manipulation are not swallowed by generic group movement.
-3. **One gesture owner.** Pointer-down resolves one semantic movement transaction before preview; renderer bubbling is not the product contract.
-4. **Atomic movement.** Structural room closure and selected furniture apply the same accepted delta and commit as one history operation.
-5. **No implicit furniture ownership.** Only explicit selection or `Выбрать мебель в комнате` adds furniture to the move.
-6. **Hosted-opening direct drag.** Doors and windows move along the current host wall. Cursor motion is projected onto that wall, `wallId` remains stable, invalid overlap/extents fail closed and no silent re-hosting occurs.
-7. **Readable room labels.** Room name/area/dimensions degrade deterministically so compact rooms do not become unreadable; dimensions are removed before area, then the name can compact/hide only when safe fit requires it.
-8. **TDD/browser coverage.** The exact selected-furniture-origin composite path, free-interior equivalent path, ordinary unselected furniture behavior, Transformer behavior, hosted door/window drag, invalid opening collision and compact-label smoke/evidence are covered in the dedicated real browser suite.
-9. **Product gate still open.** Fresh Chromium + representative WebKit GREEN is necessary but not sufficient; explicit product-owner correction PASS remains required.
+The 2026-08-13 product-owner retest identified three additional concrete UX/runtime defects:
 
-Verified implementation-head evidence before canonical truth-sync:
+1. selecting/dragging a hosted door could throw `beginStructuralOpeningGesture is not a function` in a preserved Turbopack/Fast Refresh session;
+2. selecting a room + furniture by ordinary marquee required an unintuitive modifier-assisted workaround because the marquee selected the room's backing structure instead of the room semantic root;
+3. a user could see a window but miss its 1.5–2 px listening line during drag.
+
+The correction is deliberately backed by user-level tests rather than idealized source geometry:
+
+- live-store unit regression removes the hosted-opening actions from the actual singleton and verifies document load repairs them and a real `translate-opening` gesture starts;
+- Playwright marquee test draws a room, places two chairs, selects the whole group with an ordinary no-modifier rectangle, drags the group and verifies Undo/Redo;
+- Playwright door test performs ordinary selection/drag with global `pageerror` / `console.error` guards;
+- Playwright window test begins several pixels away from the exact visual line so the test proves practical pointer tolerance rather than mathematical aim.
+
+Transparent TDD evidence:
 
 ```text
-head:                         ee5f923346251e759d99d9bcda3cb6cc0a019980
-CI #5058 / run 31605042971:  PASS
-Browser Acceptance #1508:   PASS — Chromium + WebKit
-browser artifact:            9145064452
-artifact digest:             sha256:978b5493ac309ca52b45d0555a0a5c11615ef5e933ea8c8684d63362ed4b8646
-review threads:              0
+RED head:                      08efe070df59fc1c9a0d661a42130ae98875c2e7
+CI #5064:                     EXPECTED FAIL — 2 new unit failures
+Browser #1514:               EXPECTED FAIL — 53 PASS / 2 FAIL
+first partial fix:             e2d80f581471e68f33f9c08a14b7c40ccabf6295
+marquee/runtime GREEN head:    bf04db8a5cd75818891849e7d05742e80eea8211
+CI #5066:                     PASS
+Browser #1516:               54 PASS / 1 FAIL — window only
+final product-code head:       357c92c36fc6c72b3e727b00f4b342b742efeb72
+CI #5067 / run 31648753553:   PASS
+Browser #1517:               PASS — Chromium + WebKit
+browser artifact:             9161930810
+artifact digest:              sha256:dfbf78d25fa4b6ce32d7ce5f25ca01746ebe9b7c332575776f1953a4466b74ab
 ```
 
-Focused provenance: `docs/changelog/2026-08-12-m8-2-direct-manipulation-opening-drag-correction.md`.
+The failed first fix remains part of the evidence: copied action closures were bound to a temporary store. The corrected repair binds directly to the live singleton. The following browser checkpoint isolated the window as the only remaining failure before its hit target was widened. No product validator or assertion was weakened to force GREEN.
 
-The first dedicated correction Browser #1503 failed only because its new room fixture disabled snapping required to close the contour and opening drag began outside the actual listening door/window geometry. Those harness defects were corrected without weakening product validation, and later browser hardening asserts rendered interaction bounds and persisted furniture transforms.
+Focused provenance: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regressions.md`.
+
+### Current correction contract
+
+1. **Selection-aware gesture arbitration.** If `room + furniture` is explicitly selected, dragging the free room interior or any ordinary already selected furniture member moves the same explicit selected composite.
+2. **Whole-room marquee.** A normal rectangle around a full room and furniture can create the same semantic room-composite selection without Shift.
+3. **Specialized controls keep priority.** Resize/rotate handles, structural handles and opening-specific direct manipulation are not swallowed by generic group movement.
+4. **One gesture owner.** Pointer-down resolves one semantic movement transaction before preview; renderer bubbling is not the product contract.
+5. **Atomic movement.** Structural room closure and selected furniture apply the same accepted delta and commit as one history operation.
+6. **No implicit clipboard ownership.** Furniture enters room clipboard/movement only through explicit selection, marquee hit or `Выбрать мебель в комнате`; mere containment remains insufficient for Copy.
+7. **Hosted-opening direct drag.** Doors and windows move along the current host wall. Cursor motion is projected onto that wall, `wallId` remains stable, invalid overlap/extents fail closed and no silent re-hosting occurs.
+8. **Practical hit targets.** Thin visual geometry may use a larger invisible interaction target so the ordinary pointer journey is usable without pixel-perfect aim.
+9. **Dev-runtime resilience.** A preserved HMR singleton may repair missing editor actions, but repair cannot replace document/history state or introduce a second authority.
+10. **Readable room labels.** Room name/area/dimensions degrade deterministically so compact rooms do not become unreadable.
+11. **Product gate still open.** Chromium + representative WebKit GREEN is necessary but not sufficient; explicit product-owner PASS remains required.
 
 ### Interaction reference direction
 
@@ -352,13 +383,13 @@ Owns beta-wide:
 ## 13. Beta journeys
 
 ### BETA-01 — Blank
-Create a small exact apartment manually with walls, doors and windows, then directly correct structure/opening positions without fighting gesture ownership.
+Create a small exact apartment manually with walls, doors and windows, then directly correct structure/opening positions without fighting gesture ownership or pixel-perfect opening hit targets.
 
 ### BETA-02 — Reference
 Import a real source, calibrate, verify scale and trace it reliably.
 
 ### BETA-03 — Edit
-Multi-select, move, copy, paste, duplicate and Undo/Redo without semantic corruption, including supported mixed room/furniture composites.
+Multi-select, including whole-room marquee selection, move, copy, paste, duplicate and Undo/Redo without semantic corruption, including supported mixed room/furniture composites.
 
 ### BETA-04 — Furnish
 Place/edit representative household furniture/appliances and understand fit/conflicts.
@@ -366,7 +397,7 @@ Place/edit representative household furniture/appliances and understand fit/conf
 ### BETA-05 — Export
 Export correct whole-plan and selection PNG/SVG with explicit presentation controls.
 
-M8.1 materially advanced BETA-03. M8.2 now has automated-green coverage for the latest direct-manipulation correction but remains the current dependency until product-owner correction PASS. M8.3/M8.4 then complete the dependable BETA-02 path.
+M8.1 materially advanced BETA-03. M8.2 now has product-code automated-green coverage for the latest runtime/direct-manipulation correction but remains the current dependency until exact docs-head gates and product-owner PASS. M8.3/M8.4 then complete the dependable BETA-02 path.
 
 ## 14. Interaction principles
 
@@ -383,6 +414,9 @@ M8.1 materially advanced BETA-03. M8.2 now has automated-green coverage for the 
 11. An already visibly selected composite must have a predictable drag owner; renderer event bubbling may not define product semantics accidentally.
 12. Openings remain host-wall semantic entities, not free-floating furniture.
 13. Labels may never obscure core geometry indefinitely; presentation degrades deterministically in tight space.
+14. Whole-room marquee should produce a meaningful semantic room selection rather than exposing backing topology as accidental selection membership.
+15. Thin rendered entities need usable interaction hit targets; visual stroke width and pointer hit width are separate UX concerns.
+16. Dev-runtime hot-reload state may not invalidate the action contract expected by current UI code.
 
 ## 15. Mandatory TDD policy
 
@@ -394,7 +428,9 @@ Every deterministic M8 interaction change uses genuine RED → GREEN → regress
 - run focused GREEN and adjacent/full regressions;
 - do not lower validation/thresholds or weaken accepted tests for green CI;
 - use real Chromium tests for pointer/keyboard/layout flows;
-- use representative WebKit coverage for engine-sensitive gesture/input/storage behaviour.
+- use representative WebKit coverage for engine-sensitive gesture/input/storage behaviour;
+- when a bug depends on preserved runtime/HMR state, add a state-shape regression that a fresh store/process cannot accidentally satisfy;
+- pointer tests must exercise realistic hit tolerance rather than only mathematically exact coordinates.
 
 External open-source code or competitor behavior does not waive TDD. If a pattern is adapted, tests must prove the Vlezet contract rather than merely mirror upstream output.
 
@@ -436,12 +472,12 @@ The M7.0 finding ledger remains part of repository history and must not disappea
 | `UX-SHELL-003` | M7.2 — complete |
 | `UX-SHELL-004` | M7.4 — complete |
 | `UX-SHELL-005` | M7.3 — complete |
-| `UX-CANVAS-001` | M7.4 foundation + M8.1 accepted; M8.2 closes structural/mixed direct manipulation |
-| `UX-CANVAS-002` | M7.4 foundation + M8.1 navigation/selection accepted; M8.2 closes direct structural gestures |
+| `UX-CANVAS-001` | M7.4 foundation + M8.1 accepted; M8.2 closes structural/mixed direct manipulation and whole-room marquee |
+| `UX-CANVAS-002` | M7.4 foundation + M8.1 navigation/selection accepted; M8.2 closes direct structural gestures and practical opening hit targets |
 | `UX-ONBOARD-001` | M7.5 — complete; final beta discoverability revisited in M8.7 |
 | `UX-GEO-001` | M7.6 — complete; M8.2 direct precision editing |
 | `UX-GEO-002` | M7.6 — complete; M8.2 direct precision editing |
-| `UX-GEO-003` | M7.6 — complete; M8.2 opening direct manipulation correction |
+| `UX-GEO-003` | M7.6 — complete; M8.2 opening direct manipulation / runtime correction |
 | `UX-FURN-001` | M7.7 foundation complete; M8.5 Furniture + Materials 2.0 |
 | `UX-FURN-002` | M7.7 foundation complete; M8.5 Furniture + Materials 2.0 |
 | `UX-FURN-003` | M7.7 foundation complete; M8.5 Furniture + Materials 2.0 |
@@ -496,6 +532,8 @@ No M8 UX slice may:
 - silently apply an operation to only part of a mixed selection;
 - let renderer event ownership define an ambiguous selected-group mutation contract;
 - silently re-host an opening while the user intends to move it on the current wall;
+- make pixel-perfect pointer placement a hidden requirement for ordinary opening manipulation;
+- replace live document/history state merely to repair a dev-runtime action-surface mismatch;
 - copy incompatible third-party licensed code without explicit review;
 - claim product acceptance solely from green automated checks;
 - claim integration before the protected merge is observable on `main`.
