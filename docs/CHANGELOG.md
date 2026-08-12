@@ -4,6 +4,51 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-13 — M8.2 runtime / marquee / window regressions automated GREEN
+
+**Status:** three additional product-owner regressions are fixed and automated GREEN on the product-code head in Draft PR #87. Final documentation-head verification and explicit product-owner acceptance remain **PENDING**.
+
+The real product-owner session exposed gaps that the previous GREEN suite did not protect honestly:
+
+- Turbopack/Fast Refresh could preserve an older live Zustand singleton and cause hosted-door interaction to throw `beginStructuralOpeningGesture is not a function`;
+- ordinary no-modifier marquee around a room + furniture selected backing walls/openings instead of one semantic room root + furniture;
+- visible windows had a mathematically hittable but impractically narrow 1.5–2 px drag target.
+
+The new tests were introduced before the fixes and failed for the intended reasons:
+
+```text
+RED head:                      08efe070df59fc1c9a0d661a42130ae98875c2e7
+CI #5064:                     EXPECTED FAIL — 2 focused unit failures
+Browser Acceptance #1514:    EXPECTED FAIL — 53 PASS / 2 FAIL
+first partial candidate:       e2d80f581471e68f33f9c08a14b7c40ccabf6295
+marquee/runtime GREEN head:    bf04db8a5cd75818891849e7d05742e80eea8211
+CI #5066:                     PASS
+Browser Acceptance #1516:    54 PASS / 1 FAIL — window only
+final product-code head:       357c92c36fc6c72b3e727b00f4b342b742efeb72
+CI #5067 / run 31648753553:   PASS
+Browser Acceptance #1517:    PASS — Chromium + WebKit
+browser artifact:             9161930810
+artifact digest:              sha256:dfbf78d25fa4b6ce32d7ce5f25ca01746ebe9b7c332575776f1953a4466b74ab
+```
+
+Final semantics:
+
+- missing hosted-opening actions are repaired narrowly on the preserved **live** editor store before use; document/history state is not replaced;
+- a marquee fully enclosing a derived room selects the room as one semantic structural root plus furniture hit by the marquee, while partial marquee retains concrete wall/opening/furniture behavior;
+- both visible window lines retain their existing thin visual stroke but use a 12 px interaction hit stroke;
+- the new Playwright file runs in both Chromium and WebKit, performs real pointer interactions and fails on `pageerror` or `console.error`;
+- the marquee browser path additionally proves group drag and exact Undo/Redo.
+
+The first production candidate was deliberately not called GREEN: copying action closures from a temporary store meant they mutated that temporary store rather than the preserved singleton. The subsequent browser checkpoint deliberately left the window unfixed until it was isolated as the **only** remaining failure. This evidence is retained rather than hidden.
+
+No project schema, topology authority, M2 authority, hosted-wall validation, `wallId`, recognition behavior or semantic-history contract was weakened.
+
+Focused record: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regressions.md`.
+
+Next gate: exact-head CI + Chromium/WebKit after canonical documentation sync, then explicit product-owner acceptance. M8.2 remains Draft/not accepted and M8.3 remains blocked.
+
+---
+
 ## 2026-08-12 — M8.2 direct-manipulation / hosted-opening correction automated GREEN
 
 **Status:** focused correction is implemented and automated GREEN in Draft PR #87; product-owner correction retest, M8.2 acceptance and protected merge remain **PENDING**.
