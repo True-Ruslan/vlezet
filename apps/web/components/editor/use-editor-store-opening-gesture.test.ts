@@ -109,7 +109,7 @@ describe("M8.2 hosted opening structural gesture", () => {
     store.getState().previewStructuralOpeningGesture({ x: 3400, y: 600 });
 
     store.getState().commitStructuralGesture();
-    let state = store.getState();
+    const state = store.getState();
     const after = structuredClone(state.history.document);
     expect(state.structuralGesture).toBeNull();
     expect(state.history.past).toHaveLength(1);
