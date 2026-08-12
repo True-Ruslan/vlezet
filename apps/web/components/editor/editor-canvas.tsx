@@ -36,7 +36,7 @@ import { DEFAULT_PROJECT_VIEWPORT, type ReferencePlan } from "@vlezet/projects";
 import type { NormalizedPoint, RecognitionDraft } from "@vlezet/recognition";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Layer, Line, Stage, Text } from "react-konva";
 import { useStore } from "zustand";
 import { deriveExactGapAnnotation } from "../planning/exact-gap-annotation";
@@ -1261,7 +1261,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
               fill: "#4b5563",
               listening: false,
             };
-            return <>
+            return <Fragment key={`room-label-${room.id}`}>
               <Text
                 key={`label-name-${room.id}`}
                 {...common}
@@ -1289,7 +1289,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
                 wrap="none"
                 ellipsis
               /> : null}
-            </>;
+            </Fragment>;
           })}
           {resolvedWalls.flatMap(({ wall }) => deriveVisibleWallIntervals(structuralDisplayDocument, wall.id).map((interval, index) => {
             const a = worldToScreen(pointAtWallOffset(structuralDisplayDocument, wall.id, interval.startOffset), viewport);
