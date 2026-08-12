@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-12  
-**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation is implemented in Draft PR #87 but is **not product-accepted**. The latest product-owner retest exposed a real mixed-composite drag failure and added hosted-opening movement plus compact room-label readability to acceptance scope; those correction paths are now implemented and automated GREEN in Chromium and representative WebKit. The focused product-owner correction retest is still **PENDING**.  
+**Last updated:** 2026-08-13  
+**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation is implemented in Draft PR #87 but is **not product-accepted**. The latest product-owner retest found three additional real gaps — a Turbopack/Fast Refresh live-store runtime error on hosted-door interaction, missing whole-room marquee semantics and an impractically narrow window hit target. All three are now fixed and automated GREEN on the product-code head in Chromium and representative WebKit; a fresh exact-head gate is still required after this documentation truth-sync. Product-owner acceptance remains **PENDING**.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, the latest focused changelog and the active design/plan.
 
@@ -67,6 +67,8 @@ Priorities:
 21. Renderer event bubbling/hit ownership may not define ambiguous product semantics for an already selected composite; pointer-down must resolve one semantic gesture owner.
 22. Ordinary opening drag must preserve current host-wall semantics unless the user explicitly invokes a future re-host action.
 23. Third-party/open-source implementation may be adopted only after license review and Vlezet-specific contract/tests; external code never bypasses the authorities above.
+24. Dev-runtime/HMR state must not silently lose semantic editor actions; runtime compatibility repairs may restore missing actions only and must bind them to the live authoritative store rather than replace document/history state.
+25. A marquee that fully encloses a derived room selects that room as one structural semantic root; backing walls/openings are not duplicated into the same selection merely because they lie inside the rectangle.
 
 ## 3. Repository and stack
 
@@ -101,7 +103,7 @@ packages/planning        deterministic planning + reviewed intent
 | M8.0 | public-beta product contract, roadmap reset and manual-editor-first direction |
 | M8.1 | product-owner accepted and squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 
-M8.2 is **not** listed as accepted. Earlier GREEN evidence did not cover the exact later selected-furniture composite path, but the focused correction now does: direct mixed-composite ownership, current-host opening drag and compact label behavior are covered by dedicated Chromium/WebKit acceptance. Automated GREEN still does not replace the required explicit product-owner correction retest.
+M8.2 is **not** listed as accepted. Earlier GREEN evidence did not protect all real product-owner paths. The current correction suite now includes selected-furniture composite drag, current-host opening movement, whole-room no-modifier marquee, practical window hit targeting and a simulated preserved Turbopack/Fast Refresh store shape. Automated GREEN still does not replace explicit product-owner acceptance.
 
 ## 5. Recognition experiment outcome
 
@@ -174,7 +176,7 @@ Canonical acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ### M8.2 structural precision / direct manipulation — not accepted
 
-Draft PR #87 implements the approved structural precision design plus several later product-owner corrections while preserving M8.1 runtime and structural authority boundaries.
+Draft PR #87 implements the approved structural precision design plus later product-owner corrections while preserving M8.1 runtime and structural authority boundaries.
 
 Implemented/automated-green behavior includes:
 
@@ -193,6 +195,8 @@ Implemented/automated-green behavior includes:
 - room Cut remains disabled because destructive shared-topology semantics are ambiguous;
 - exact room point-hit uses polygon containment with deterministic smallest/canonical-area ordering, including concave-room cut-outs;
 - empty room interiors expose hover/selectability through a geometry fallback without overriding higher-priority Konva entities;
+- a no-modifier marquee that fully encloses a room now selects **one derived room root + explicitly hit furniture**, not the room's backing walls/openings as separate members;
+- partial marquee behavior remains concrete wall/opening/furniture selection when no whole room is enclosed;
 - approved explicit mixed Copy can combine structural room/wall content with **explicitly selected** placed furniture while unsupported mixes remain fail-closed;
 - furniture merely located inside a copied room is not implicitly captured;
 - ordinary structural Paste can search a bounded deterministic nearby valid position when the requested position intersects existing topology, without weakening validation;
@@ -208,6 +212,8 @@ Implemented/automated-green behavior includes:
 - shared/connected unsafe room topology rejects fail-closed with a visible reason and no partial structural/furniture mutation;
 - accepted room movement is exactly one semantic `room/translate` history command; reject/no-op/cancel/stale gesture creates none;
 - doors/windows can be dragged directly along their **current** host wall; `wallId` is preserved, movement is constrained to the valid host span and overlap/invalid positions reject visibly with no partial commit;
+- both window visual lines now retain their thin appearance but expose a practical 12 px listening hit stroke for ordinary pointer drag;
+- missing hosted-opening actions in a preserved Turbopack/Fast Refresh live Zustand singleton are repaired narrowly and bound to the live store before use, without replacing document/history state;
 - room labels use deterministic screen-space degradation (`name + area + dimensions` → `name + area` → compact `name + area` → `name only` → hidden) with non-overlapping slots, bounded wrap/ellipsis and keyed React fragments;
 - exact wall paste at the source origin still fails closed on overlap;
 - one semantic history command per valid structural/composite commit and none for preview/cancel/reject;
@@ -285,9 +291,9 @@ review threads:                0
 
 The browser RED distinguished a genuine product issue from acceptance-harness defects. Unsafe topology originally caused the store to silently refuse gesture start; the focused RED reproduced that missing feedback and the production fix preserved an invalid room gesture with the structural reason. Browser checks were separately corrected to use stable Stage-relative coordinates and a deterministic connected-topology fixture. No production validator was weakened.
 
-### Latest product-owner retest and focused correction — 2026-08-12
+### Product-owner direct-manipulation correction — 2026-08-12
 
-The latest manual round originally reported:
+The manual round originally reported:
 
 - **FAIL:** complete `room + furniture` selection did not move when the user started dragging an already selected furniture item;
 - requested: doors should be directly movable at least along their current host wall;
@@ -296,38 +302,54 @@ The latest manual round originally reported:
 
 The mixed-composite root cause was isolated as a missing semantic gesture owner: the room gesture rejected a direct furniture hit, `PlacedObjectShape` stopped propagation and ordinary object movement only supports an all-placed-object selection. The correction now resolves one selection-aware gesture owner before mutation, so an ordinary selected furniture body in a selected room composite delegates to the room-composite gesture while unselected furniture and specialized handles retain their own semantics.
 
-Focused correction scope is now implemented and automated GREEN:
+Focused correction scope was implemented and automated GREEN:
 
 1. selection-aware mixed-composite gesture arbitration;
 2. hosted door/window movement constrained to the current wall with no silent re-hosting;
 3. deterministic compact room-label degradation and keyed renderer fragments;
-4. dedicated real browser acceptance for selected-furniture-origin composite drag, free-interior equivalent movement, ordinary unselected furniture behavior, Transformer behavior, door/window host movement, invalid overlap rejection and compact-label smoke/evidence.
+4. dedicated browser acceptance for selected-furniture-origin composite drag, free-interior equivalent movement, ordinary unselected furniture behavior, Transformer behavior, door/window host movement, invalid overlap rejection and compact-label smoke/evidence.
 
-Correction provenance is recorded in `docs/changelog/2026-08-12-m8-2-direct-manipulation-opening-drag-correction.md`.
+Correction provenance: `docs/changelog/2026-08-12-m8-2-direct-manipulation-opening-drag-correction.md`.
 
-Verified implementation-head checkpoint:
+That checkpoint was later superseded by the additional product-owner runtime/marquee/window findings below; historical evidence is retained but is not treated as final acceptance evidence.
+
+### Latest runtime / marquee / window product-owner regressions — 2026-08-13
+
+The next real product-owner round found three additional failures that the earlier GREEN suite did not honestly protect:
+
+1. **Runtime FAIL:** selecting/dragging a hosted door in a Turbopack development session could throw `beginStructuralOpeningGesture is not a function` even though current source declared the action.
+2. **Selection UX gap:** a normal no-modifier marquee around a room and furniture selected backing walls/openings instead of one semantic room root plus furniture, making ordinary group movement unnecessarily depend on modifier-assisted selection.
+3. **Window UX FAIL:** a window did not move reliably in normal pointer use because its listening lines were visually and interactively only about 1.5–2 px wide.
+
+The correction used genuine product/user-flow RED rather than source assertions:
 
 ```text
-implementation head:              ee5f923346251e759d99d9bcda3cb6cc0a019980
-CI #5058 / run 31605042971:       PASS
-  documentation contract:          PASS
-  unit tests:                      PASS
-  Core Recognition Benchmark:      PASS
-  typecheck:                       PASS
-  lint:                            PASS
-  build:                           PASS
-Browser Acceptance #1508:         PASS
-  Chromium:                        PASS
-  WebKit:                          PASS
-browser run:                       31605042975
-browser artifact:                  9145064452
-artifact digest:                   sha256:978b5493ac309ca52b45d0555a0a5c11615ef5e933ea8c8684d63362ed4b8646
-unresolved review threads:         0
+regression RED head:               08efe070df59fc1c9a0d661a42130ae98875c2e7
+CI #5064:                          EXPECTED FAIL — 2 focused unit failures
+Browser Acceptance #1514:         EXPECTED FAIL — 53 PASS / 2 FAIL
+first partial candidate:           e2d80f581471e68f33f9c08a14b7c40ccabf6295
+marquee/runtime GREEN candidate:   bf04db8a5cd75818891849e7d05742e80eea8211
+CI #5066:                          PASS
+Browser Acceptance #1516:         54 PASS / 1 FAIL — window only
+final product-code head:           357c92c36fc6c72b3e727b00f4b342b742efeb72
+CI #5067 / run 31648753553:        PASS
+Browser Acceptance #1517:         PASS — Chromium + WebKit
+browser run:                       31648753509
+browser artifact:                  9161930810
+artifact digest:                   sha256:dfbf78d25fa4b6ce32d7ce5f25ca01746ebe9b7c332575776f1953a4466b74ab
 ```
 
-The first dedicated correction browser run (#1503) failed only because of two verified harness defects: the new room fixture disabled endpoint snapping required to close its room contour, and opening drag began outside the actual listening door/window geometry. Those fixtures were corrected without weakening production runtime or validation authority.
+The first production candidate was deliberately **not** called GREEN: it revealed that copying action closures from a temporary store mutates that temporary store, not the preserved live singleton. The final runtime repair therefore binds narrowly scoped opening handlers directly to the live `editorStore`. The same intermediate evidence isolated the window as the only remaining browser failure before its 12 px hit target was added.
 
-**Current acceptance state:** correction automation is GREEN; the focused product-owner correction retest is still **PENDING**. M8.2 therefore remains Draft/not accepted, and M8.3 remains blocked until explicit PASS, canonical acceptance sync and fresh accepted-head gates.
+The new browser regression file runs in both Chromium and WebKit and covers:
+
+- no-modifier whole-room marquee → `room + 2 furniture` semantic selection → group drag → Undo/Redo;
+- ordinary door select/drag with global `pageerror` and `console.error` guards;
+- user-like window drag beginning a few pixels away from the exact thin line.
+
+Focused provenance: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regressions.md`.
+
+**Current acceptance state:** these newly reported regressions are fixed and automated GREEN on the product-code head. A fresh exact-head CI + Browser Acceptance run is required after this documentation truth-sync. M8.2 remains Draft/not accepted until explicit product-owner PASS.
 
 ### Reference/recognition
 
@@ -360,8 +382,9 @@ When an external implementation materially influences a design, the active desig
 ```text
 DONE  M8.1  Editor Interaction Foundation
 NOW   M8.2  Precision Drawing / Direct Manipulation Foundation
-      direct-manipulation/opening/label correction AUTOMATED GREEN;
-      focused product-owner correction retest PENDING;
+      latest runtime/marquee/window correction AUTOMATED GREEN on product-code head;
+      final docs-head gate required;
+      product-owner acceptance PENDING;
       M8.2 remains Draft / not accepted
 THEN  M8.3  Precision Reference Calibration
 THEN  M8.4  Assisted Tracing
