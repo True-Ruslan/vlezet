@@ -84,7 +84,6 @@ async function drawRoom(page, geometry = {}) {
   const c = point(right, bottom);
   const d = point(left, bottom);
 
-  await setSnapping(page, false);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
   for (const offset of [a, b, c, d, a]) await clickStageOffset(page, offset);
   await expect(page.locator('[data-operation-kind="first-room-created"]')).toBeVisible();
@@ -177,8 +176,12 @@ async function drawIsolatedWall(page, startRatio = [0.20, 0.34], endRatio = [0.8
   await expect(lengthInput).toBeVisible();
   const lengthMm = Number((await lengthInput.inputValue()).replace(",", "."));
   expect(lengthMm).toBeGreaterThan(0);
+  const thicknessInput = page.locator("#wall-thickness");
+  await expect(thicknessInput).toBeVisible();
+  const thicknessMm = Number((await thicknessInput.inputValue()).replace(",", "."));
+  expect(thicknessMm).toBeGreaterThan(0);
   await clearSelection(page);
-  return { start, end, lengthMm };
+  return { start, end, lengthMm, thicknessMm };
 }
 
 async function placeOpening(page, kind, wall, ratio) {
@@ -207,6 +210,32 @@ async function openingWidth(page) {
   const value = Number((await input.inputValue()).replace(",", "."));
   expect(value).toBeGreaterThan(0);
   return value;
+}
+
+function wallScreenBasis(wall) {
+  const dx = wall.end.x - wall.start.x;
+  const dy = wall.end.y - wall.start.y;
+  const lengthPx = Math.hypot(dx, dy);
+  expect(lengthPx).toBeGreaterThan(0);
+  return {
+    pixelsPerMm: lengthPx / wall.lengthMm,
+    tangent: { x: dx / lengthPx, y: dy / lengthPx },
+    normal: { x: -dy / lengthPx, y: dx / lengthPx },
+  };
+}
+
+function renderedOpeningHandle(wall, kind, offsetMm, widthMm) {
+  const { pixelsPerMm, tangent, normal } = wallScreenBasis(wall);
+  const alongMm = kind === "door" ? offsetMm : offsetMm + widthMm / 2;
+  const normalMm = kind === "door" ? widthMm / 2 : wall.thicknessMm * 0.22;
+  const base = {
+    x: wall.start.x + tangent.x * alongMm * pixelsPerMm,
+    y: wall.start.y + tangent.y * alongMm * pixelsPerMm,
+  };
+  return {
+    x: base.x + normal.x * normalMm * pixelsPerMm,
+    y: base.y + normal.y * normalMm * pixelsPerMm,
+  };
 }
 
 async function wallPixelsPerMillimeter(page, room) {
@@ -353,13 +382,14 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     const wall = await drawIsolatedWall(page);
-    const door = await placeOpening(page, "door", wall, 0.38);
+    await placeOpening(page, "door", wall, 0.38);
     await expectOpeningCount(page, 1);
     const initialOffset = await openingOffset(page);
     const width = await openingWidth(page);
+    const doorHandle = renderedOpeningHandle(wall, "door", initialOffset, width);
 
     const movedDoor = pointAlong(wall.start, wall.end, 0.56);
-    await drag(page, door, movedDoor);
+    await drag(page, doorHandle, movedDoor);
     await expect(page.locator(".context-panel-title")).toHaveText("Дверь");
     const movedOffset = await openingOffset(page);
     expect(movedOffset).not.toBe(initialOffset);
@@ -371,8 +401,9 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     await page.getByRole("button", { name: "Повторить" }).click();
     await expect.poll(() => openingOffset(page)).toBe(movedOffset);
 
+    const movedDoorHandle = renderedOpeningHandle(wall, "door", movedOffset, width);
     const beyondEnd = { x: wall.end.x + 320, y: wall.end.y };
-    await drag(page, movedDoor, beyondEnd, { steps: 14 });
+    await drag(page, movedDoorHandle, beyondEnd, { steps: 14 });
     await expect(page.locator(".context-panel-title")).toHaveText("Дверь");
     await expectOpeningCount(page, 1);
     const clampedOffset = await openingOffset(page);
@@ -386,6 +417,8 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     const wall = await drawIsolatedWall(page, [0.16, 0.36], [0.84, 0.36]);
     const first = await placeOpening(page, "door", wall, 0.32);
     const initialOffset = await openingOffset(page);
+    const firstWidth = await openingWidth(page);
+    const firstHandle = renderedOpeningHandle(wall, "door", initialOffset, firstWidth);
     await clearSelection(page);
     const second = await placeOpening(page, "door", wall, 0.70);
     await expectOpeningCount(page, 2);
@@ -393,7 +426,7 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     await clearSelection(page);
     await page.mouse.click(first.x, first.y);
     await expect(page.locator(".context-panel-title")).toHaveText("Дверь");
-    await page.mouse.move(first.x, first.y);
+    await page.mouse.move(firstHandle.x, firstHandle.y);
     await page.mouse.down();
     await page.mouse.move(second.x, second.y, { steps: 14 });
     await expect(page.locator(".topology-alert")).toBeVisible();
@@ -410,12 +443,13 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     const wall = await drawIsolatedWall(page);
-    const windowPoint = await placeOpening(page, "window", wall, 0.34);
+    await placeOpening(page, "window", wall, 0.34);
     const initialOffset = await openingOffset(page);
     const width = await openingWidth(page);
+    const windowHandle = renderedOpeningHandle(wall, "window", initialOffset, width);
     const target = pointAlong(wall.start, wall.end, 0.57);
 
-    await drag(page, windowPoint, target);
+    await drag(page, windowHandle, target);
     await expect(page.locator(".context-panel-title")).toHaveText("Окно");
     const movedOffset = await openingOffset(page);
     expect(movedOffset).not.toBe(initialOffset);
