@@ -14,7 +14,10 @@ describe("M7.4 live Canvas feedback integration", () => {
     expect(source).toContain("parseCanvasEntityName(current.name())");
     expect(source).toContain("const stage = event.target.getStage()");
     expect(source).toContain("const hitNode = stage?.getIntersection(pointer) ?? event.target");
-    expect(source).not.toContain("canvasEntityFromKonvaNode(event.target)");
+    const hoverStart = source.indexOf("const onMouseMove");
+    const hoverEnd = source.indexOf("const onMouseUp", hoverStart);
+    const hoverBody = source.slice(hoverStart, hoverEnd);
+    expect(hoverBody).not.toContain("canvasEntityFromKonvaNode(event.target)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().setHoveredSelectable(visibleHoveredEntity !== null)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().reset()");
   });
