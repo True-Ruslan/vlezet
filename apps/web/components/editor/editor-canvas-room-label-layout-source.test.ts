@@ -19,6 +19,10 @@ describe("room Canvas label layout integration", () => {
     expect(source).toContain("ellipsis");
   });
 
+  it("keys the room-label fragment at the rooms map boundary", () => {
+    expect(source).toContain('key={`room-label-${room.id}`}');
+  });
+
   it("does not use the legacy single auto-wrapping room label block", () => {
     const roomLabelRenderStart = source.indexOf("derivedRooms.rooms.map((room) => {");
     const wallRenderStart = source.indexOf("resolvedWalls.flatMap", roomLabelRenderStart);
