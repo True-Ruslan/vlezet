@@ -12,6 +12,7 @@ export type EditorCommandLabel =
   | "opening/add"
   | "opening/update"
   | "opening/delete"
+  | "opening/move-host"
   | "room-annotation/set-name"
   | "room/set-clear-dimension"
   | "room/translate"
