@@ -19,4 +19,13 @@ describe("M8.2 direct manipulation Canvas routing", () => {
     expect(shapeSource).toContain('draggable={!preview && moveGestureOwner !== "room-composite"}');
     expect(shapeSource).toContain('if (moveGestureOwner === "room-composite")');
   });
+
+  it("routes door and window bodies through one hosted-opening structural gesture", () => {
+    expect(canvasSource).toContain('kind: "translate-opening"');
+    expect(canvasSource).toContain("beginStructuralOpeningGesture");
+    expect(canvasSource).toContain("previewStructuralOpeningGesture");
+    expect(canvasSource).toContain("beginHostedOpeningPointerGesture(opening.id, event)");
+    expect(canvasSource.match(/onMouseDown=\{\(event\) => beginHostedOpeningPointerGesture\(opening\.id, event\)\}/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(canvasSource.match(/onTouchStart=\{\(event\) => beginHostedOpeningPointerGesture\(opening\.id, event\)\}/g)?.length).toBeGreaterThanOrEqual(2);
+  });
 });
