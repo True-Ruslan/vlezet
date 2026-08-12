@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-11  
-**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing and Structural Editing is implemented in Draft PR #87. Its original product-owner acceptance scenarios passed; the wall/whole-room clipboard extension and the subsequent precise-selection/composite-clipboard correction are automated-green in Chromium and representative WebKit. A focused product-owner correction retest and protected delivery remain pending.  
+**Last updated:** 2026-08-12  
+**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing and Structural Editing is implemented in Draft PR #87. Its original product-owner acceptance scenarios passed; the wall/whole-room clipboard extension, precise-selection/composite-clipboard correction and direct room-translation correction are automated-green in Chromium and representative WebKit. A focused product-owner retest of the latest M8.2 behavior and protected delivery remain pending.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, the latest focused changelog and the active design/plan.
 
@@ -90,7 +90,7 @@ packages/planning        deterministic planning + reviewed intent
 | M8.0 | public-beta product contract, roadmap reset and manual-editor-first direction |
 | M8.1 | product-owner accepted and squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 
-M8.2 is **not** listed as accepted yet. Its original manual scenarios passed, but product-owner feedback expanded clipboard usability and exposed a related precise-selection/composite-clipboard interaction class. The correction is automated-green and awaits focused product-owner retest.
+M8.2 is **not** listed as accepted yet. Its original manual scenarios passed, but product-owner feedback expanded clipboard usability, precise room/composite selection semantics and direct room movement. All three follow-up corrections are automated-green; focused product-owner retest of the latest combined behavior remains pending.
 
 ## 5. Recognition experiment outcome
 
@@ -159,7 +159,7 @@ protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
 
 Canonical acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
-### M8.2 structural precision — automated correction green, focused product-owner retest pending
+### M8.2 structural precision — automated room-translation green, focused product-owner retest pending
 
 Draft PR #87 implements the approved M8.2 design while preserving the M8.1 runtime and the structural authority boundaries above.
 
@@ -186,17 +186,25 @@ Implemented behavior includes:
 - composite structural + furniture Paste applies the actual accepted structural delta to the complete group so safe-nearby fallback stays rigid and atomic;
 - Paste is anchored to the latest Canvas world pointer; a deterministic clipboard-origin fallback is used only before any Canvas pointer has been observed;
 - rejected explicit Copy clears stale clipboard content and reports a non-modal status reason instead of leaving an older payload silently pasteable;
+- direct drag of a selected isolated room from a free room-interior point moves the room structure as one rigid structural gesture;
+- room-only drag does **not** move unselected furniture;
+- room + explicitly selected furniture moves by one identical delta and commits atomically;
+- `Выбрать мебель в комнате` expands selection only with furniture whose full physical footprint is contained by the derived room polygon; boundary touch is accepted, boundary crossing is excluded;
+- higher-priority furniture/wall/opening/structural-handle hits are never stolen by room drag;
+- room translation snapping excludes the moving room's own structure, while Alt/Option suppresses snapping only for the current gesture;
+- shared/connected unsafe room topology rejects fail-closed with a visible reason and no partial structural/furniture mutation;
+- accepted room movement is exactly one semantic `room/translate` history command; reject/no-op/cancel/stale gesture creates none;
 - exact wall paste at the source origin still fails closed on overlap;
 - one semantic history command per valid structural/composite commit and none for preview/cancel/reject;
 - explicit valid/invalid structural feedback rather than colour-only signalling.
 
-Current room clipboard scope remains structural when the room is copied alone: **room shell + hosted openings + explicit room name**. Furniture is included only when the user explicitly selects it as part of an approved composite selection; spatial containment alone never implies Copy.
+Current room clipboard scope remains structural when the room is copied alone: **room shell + hosted openings + explicit room name**. Furniture is included only when the user explicitly selects it as part of an approved composite selection; spatial containment alone never implies Copy. Direct room movement follows the same explicit-membership rule: room-only movement leaves furniture fixed unless it is explicitly selected or added through `Выбрать мебель в комнате`.
 
 Product-owner pre-acceptance result on 2026-08-10:
 
 - all original seven requested M8.2 manual scenarios: **PASS**;
 - follow-up usability finding: connected walls and whole rooms were not copy/pasteable in the ordinary editor flow;
-- acceptance remained open while that gap and the subsequent precise-selection/composite-clipboard interaction class were implemented and tested.
+- acceptance remained open while that gap, the precise-selection/composite-clipboard correction and the later direct-room-movement requirement were implemented and tested.
 
 Prior wall/room clipboard extension evidence:
 
@@ -212,7 +220,7 @@ Browser Acceptance #1386:    PASS
   WebKit:                     PASS
 ```
 
-Latest precise-selection/composite-clipboard correction evidence:
+Precise-selection/composite-clipboard correction evidence:
 
 ```text
 concave room hit RED:         14dc065e3e73de66a6c7b2b89364ce28ac97b744 / CI #4942 — EXPECTED FAIL
@@ -228,12 +236,45 @@ Browser Acceptance #1436:    PASS
   WebKit:                     PASS
 browser artifact:             9115252220
 artifact digest:              sha256:df067068672383db97cead6b75c224f26ad5adea63ffc513ef6c572ca281d7df
-review threads:                0
-product-owner correction retest: PENDING
-protected merge:              PENDING
 ```
 
-No topology/opening/M2/recognition threshold was weakened. Safe-nearby placement remains a bounded candidate search over the unchanged structural validator, not auto-repair. Intermediate browser failures after the production fixes were test-fixture topology/layout defects; they were corrected without changing product mutation or validation policy.
+Direct room-translation correction evidence:
+
+```text
+design:                       31075d42841c706d5d8f07839b1e4e946e412e3c
+plan:                         feb930e279edeb5a3546a71008f2d1b03b041a8f
+editor-core RED:              38876ad1b6d92f719b1a1e26a72c8fbcf2f02720 / CI #4993 — EXPECTED FAIL
+editor-core GREEN:            4dd9c65324bcc110569a394208fa759c68b32cac / CI #4995 PASS
+footprint containment RED:    ad4116f8d808618609c517de4aa12017634a57e7 / CI #4996 — EXPECTED FAIL
+selection-helper RED:         7ec10b6c40e1a115b866d7db68466d5c15b8e25f / CI #4998 — EXPECTED FAIL
+selection/helper GREEN:       8759ceb4ddc083c044293c228dc8944e7c096e3a / CI #5000 PASS
+room gesture RED:             eaa39b02ac93d067b5d09d55ea78cad65c9328c8 / CI #5001 — EXPECTED FAIL
+room gesture GREEN:           57ada4bc285f1a940a40d2b192e58a305582925e / CI #5003 PASS
+capability RED:               8a88f0a0263f73803469fcebfeeb68d20baa9f0f / CI #5004 — EXPECTED FAIL
+command/UI RED:               6671579fb56669a3c8bdd9ab0ea5fb0281a2a251 / CI #5006 — EXPECTED FAIL
+command/UI GREEN:             6fd107fe8c2646433bb372cca865cb8a1cb0539a / CI #5010 PASS
+Canvas routing RED:           acead652c019906ccc7d6e8870cb4c5878a7d374 — EXPECTED FAIL
+Canvas GREEN:                 61c5dd0a81df7425df52cf247941310a669bfe58 / CI #5012 PASS
+browser interaction RED:      e1eb2c81457a6d1b003ab1b1b6cf8fe7fc693d5a / Browser #1463 FAIL
+focused feedback RED:         81beec015cf1194d421d7dd4b4473a10d3ffa22f / CI #5016 — EXPECTED FAIL
+feedback GREEN:               501059e69c87583ff6f06b3a283f1e9effe42a6d / CI #5017 PASS
+implementation/test head:     00cfae03ca66610414ef7451f37f67192efa1f97
+CI #5018:                     PASS
+Browser Acceptance #1468:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+browser artifact:             9122287038
+artifact digest:              sha256:b6683f810bb9c9a07d44b8b46118b8be9776d52eec81a8e201584c76ebcc114b
+review threads:                0
+product-owner latest retest:   PENDING
+protected merge:               PENDING
+```
+
+The browser RED distinguished a genuine product issue from acceptance-harness defects. Unsafe topology originally caused the store to silently refuse gesture start; the focused RED reproduced that missing feedback and the production fix now preserves an invalid room gesture with the structural reason so Canvas can show a fail-closed rejection. Separately, browser checks were corrected to use stable Stage-relative coordinates and a deterministic connected-topology fixture. No production validator was weakened for those harness corrections.
+
+Scope review from the pre-room-translation documentation head `1eda34b409247ddb1a6509c09221ea87b57b8f68` to implementation head `00cfae03ca66610414ef7451f37f67192efa1f97` changes only room translation/selection/editor-core/geometry/browser/spec-plan surfaces. `packages/domain`, persistent schema and recognition behavior are unchanged.
+
+No topology/opening/M2/recognition threshold was weakened. Safe-nearby placement remains a bounded candidate search over the unchanged structural validator, not auto-repair.
 
 ### Reference/recognition
 
@@ -248,8 +289,8 @@ Existing deterministic read-only 3D and bounded planning remain available, but t
 ```text
 DONE  M8.1  Editor Interaction Foundation
 NOW   M8.2  Precision Drawing and Structural Editing
-      implementation + clipboard/selection correction automated GREEN;
-      focused product-owner correction retest pending
+      clipboard/selection + direct room translation automated GREEN;
+      focused product-owner latest-behavior retest pending
 THEN  M8.3  Precision Reference Calibration
 THEN  M8.4  Assisted Tracing
 THEN  M8.5  Furniture 2.0
