@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["m7-audit.spec.mjs", "m7-context-scroll.spec.mjs", "m7-design-system.spec.mjs", "m7-canvas-feedback.spec.mjs", "m7-geometry-inspector.spec.mjs", "m7-furniture-fit.spec.mjs", "m7-reference-calibration.spec.mjs", "m8-editor-interaction.spec.mjs", "m8-group-drag-snap-regression.spec.mjs", "m8-precision-structural.spec.mjs", "m8-room-copy.spec.mjs", "m8-selection-clipboard-semantics.spec.mjs", "m8-room-translation.spec.mjs", "m8-direct-manipulation-opening.spec.mjs"],
+  testMatch: ["m7-audit.spec.mjs", "m7-context-scroll.spec.mjs", "m7-design-system.spec.mjs", "m7-canvas-feedback.spec.mjs", "m7-geometry-inspector.spec.mjs", "m7-furniture-fit.spec.mjs", "m7-reference-calibration.spec.mjs", "m8-editor-interaction.spec.mjs", "m8-group-drag-snap-regression.spec.mjs", "m8-precision-structural.spec.mjs", "m8-room-copy.spec.mjs", "m8-selection-clipboard-semantics.spec.mjs", "m8-room-translation.spec.mjs", "m8-direct-manipulation-opening.spec.mjs", "m8-product-owner-regressions.spec.mjs"],
   fullyParallel: false,
   workers: 1,
   retries: 0,
