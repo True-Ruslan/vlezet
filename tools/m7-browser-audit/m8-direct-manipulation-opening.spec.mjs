@@ -238,18 +238,45 @@ function renderedOpeningHandle(wall, kind, offsetMm, widthMm) {
   };
 }
 
-async function wallPixelsPerMillimeter(page, room) {
-  const start = await stagePoint(page, room.corners.a);
-  const end = await stagePoint(page, room.corners.b);
-  const probe = pointAlong(start, end, 0.5);
-  await page.mouse.click(probe.x, probe.y);
-  const input = page.locator("#wall-length");
-  await expect(input).toBeVisible();
-  const lengthMm = Number((await input.inputValue()).replace(",", "."));
-  expect(lengthMm).toBeGreaterThan(0);
-  const lengthPx = Math.hypot(end.x - start.x, end.y - start.y);
+async function objectHitAt(page, point) {
   await clearSelection(page);
-  return lengthPx / lengthMm;
+  await page.mouse.click(point.x, point.y);
+  return (await page.locator(".context-panel-title").textContent()) === "Стул";
+}
+
+async function findObjectEdge(page, inside, direction) {
+  let inner = { ...inside };
+  let outer = null;
+  for (let distance = 8; distance <= 96; distance += 8) {
+    const candidate = {
+      x: inside.x + direction.x * distance,
+      y: inside.y + direction.y * distance,
+    };
+    if (await objectHitAt(page, candidate)) inner = candidate;
+    else { outer = candidate; break; }
+  }
+  if (!outer) throw new Error("Could not bracket the rendered furniture edge.");
+  for (let index = 0; index < 5; index += 1) {
+    const middle = { x: (inner.x + outer.x) / 2, y: (inner.y + outer.y) / 2 };
+    if (await objectHitAt(page, middle)) inner = middle;
+    else outer = middle;
+  }
+  return { x: (inner.x + outer.x) / 2, y: (inner.y + outer.y) / 2 };
+}
+
+async function renderedObjectBounds(page, inside) {
+  const left = await findObjectEdge(page, inside, { x: -1, y: 0 });
+  const right = await findObjectEdge(page, inside, { x: 1, y: 0 });
+  const centerX = (left.x + right.x) / 2;
+  const verticalInside = { x: centerX, y: inside.y };
+  if (!(await objectHitAt(page, verticalInside))) throw new Error("Rendered furniture center probe missed the object.");
+  const top = await findObjectEdge(page, verticalInside, { x: 0, y: -1 });
+  const bottom = await findObjectEdge(page, verticalInside, { x: 0, y: 1 });
+  const center = { x: centerX, y: (top.y + bottom.y) / 2 };
+  await clearSelection(page);
+  await page.mouse.click(center.x, center.y);
+  await expect(page.locator(".context-panel-title")).toHaveText("Стул");
+  return { left: left.x, right: right.x, top: top.y, bottom: bottom.y, center };
 }
 
 function trackBrowserErrors(page) {
@@ -338,8 +365,7 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
   test("unselected furniture keeps ordinary drag priority and single-object Transformer handles remain usable", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    const room = await drawRoom(page);
-    const pixelsPerMm = await wallPixelsPerMillimeter(page, room);
+    await drawRoom(page);
     const chair = await placeChair(page, 0.685, 0.48);
     const roomPoint = await canvasPoint(page, 0.60, 0.61);
     await page.mouse.click(roomPoint.x, roomPoint.y);
@@ -361,16 +387,16 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     await expect(page.locator("#object-depth")).toHaveValue("500");
     await expect(page.locator("#object-rotation")).toHaveValue("0");
 
-    const halfSizePx = 250 * pixelsPerMm;
-    const rotateHandle = { x: movedChair.x, y: movedChair.y - halfSizePx - 24 };
-    const rotateTarget = { x: movedChair.x + 48, y: movedChair.y - 48 };
+    const bounds = await renderedObjectBounds(page, movedChair);
+    const rotateHandle = { x: bounds.center.x, y: bounds.top - 24 };
+    const rotateTarget = { x: bounds.center.x + 48, y: bounds.center.y - 48 };
     await drag(page, rotateHandle, rotateTarget, { steps: 12 });
     await expect.poll(async () => Number(await page.locator("#object-rotation").inputValue())).not.toBe(0);
 
     await page.getByRole("button", { name: "Отменить" }).click();
     await expect(page.locator("#object-rotation")).toHaveValue("0");
 
-    const resizeHandle = { x: movedChair.x + halfSizePx, y: movedChair.y + halfSizePx };
+    const resizeHandle = { x: bounds.right, y: bounds.bottom };
     await drag(page, resizeHandle, { x: resizeHandle.x + 24, y: resizeHandle.y + 18 }, { steps: 10 });
     await expect.poll(async () => ({
       width: Number(await page.locator("#object-width").inputValue()),
@@ -461,7 +487,7 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     const browserErrors = trackBrowserErrors(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    const room = await drawRoom(page, { left: 0.56, right: 0.69, top: 0.42, bottom: 0.50 });
+    const room = await drawRoom(page, { left: 0.54, right: 0.72, top: 0.38, bottom: 0.56 });
     const roomPoint = await stagePoint(page, room.interior);
     await page.mouse.click(roomPoint.x, roomPoint.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
