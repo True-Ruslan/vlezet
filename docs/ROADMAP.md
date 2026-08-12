@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-08-12  
+**Last updated:** 2026-08-13  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative automation. Manual editing must remain a complete product path.
 
 Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`. Product/market direction is additionally governed by `docs/product/COMPETITIVE_BENCHMARK.md`; implementation research policy is in `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`.
@@ -25,8 +25,9 @@ DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
 NOW         M8.2 Precision Drawing / Direct Manipulation Foundation
             original product-owner scenarios PASS;
-            direct-manipulation/opening/label correction AUTOMATED GREEN;
-            focused product-owner correction retest PENDING;
+            latest runtime/marquee/window regressions FIXED + product-code AUTOMATED GREEN;
+            final documentation-head CI/Browser gate required;
+            product-owner acceptance PENDING;
             M8.2 remains Draft / not accepted
 THEN        M8.3 Precision Reference Calibration
 THEN        M8.4 Assisted Tracing
@@ -39,7 +40,7 @@ POST-BETA   richer walkthrough/3D, professional docs, structured exchange, mobil
 
 M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`.
 
-M8.2 remains the active Draft delivery slice in PR #87 and is **not product-accepted**. The originally requested scenarios passed. The 2026-08-12 product-owner retest later exposed a real direct-manipulation gap when a visibly selected `room + furniture` composite was dragged from an already selected furniture member, requested direct hosted-opening movement and exposed compact room-label overflow. Those exact correction paths are now implemented and covered by focused/unit/store plus real Chromium/WebKit acceptance. The remaining gate is an explicit focused product-owner correction retest; automation alone does not accept M8.2.
+M8.2 remains the active Draft delivery slice in PR #87 and is **not product-accepted**. Multiple product-owner rounds have deliberately reopened the acceptance gate when real interaction gaps were found. The latest round exposed a Turbopack/Fast Refresh live-store action mismatch during hosted-door interaction, the lack of semantic whole-room no-modifier marquee selection and an impractically narrow window drag hit target. Those exact paths now have genuine RED evidence, causal fixes and product-code GREEN in Chromium and representative WebKit. A fresh exact-head gate is still required after documentation truth-sync; automation alone does not accept M8.2.
 
 Market research now makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -176,7 +177,7 @@ Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ### M8.2 — Precision Drawing and Direct Manipulation Foundation
 
-Status: **IN DEVELOPMENT / ORIGINAL MANUAL SCENARIOS PASS / DIRECT-MANIPULATION CORRECTION AUTOMATED GREEN / PRODUCT-OWNER CORRECTION RETEST PENDING**. Tracker: #56. Draft PR: #87.
+Status: **IN DEVELOPMENT / LATEST PRODUCT-OWNER REGRESSIONS FIXED / PRODUCT-CODE AUTOMATED GREEN / PRODUCT-OWNER ACCEPTANCE PENDING**. Tracker: #56. Draft PR: #87.
 
 Primary outcome:
 
@@ -199,6 +200,8 @@ Implemented/automated-green scope:
 - room Cut deliberately disabled because shared-topology destructive semantics are ambiguous;
 - polygon-based room targeting with deterministic ordering for concave and adjacent rooms;
 - room hover discoverability over empty room interiors through geometry fallback;
+- **whole-room no-modifier marquee:** when a marquee fully encloses a derived room, selection uses the room as one semantic structural root and adds furniture hit by the marquee without separately selecting the room's backing walls/openings;
+- partial marquee that does not enclose a complete room retains concrete wall/opening/furniture semantics;
 - approved explicit mixed Copy for structural room/wall content plus explicitly selected placed furniture, while unsupported mixes fail closed;
 - no implicit copying of furniture merely because it is spatially inside a selected room;
 - bounded safe-nearby structural Paste when the requested position intersects existing topology, with every candidate revalidated through the unchanged structural authority;
@@ -214,6 +217,8 @@ Implemented/automated-green scope:
 - unsafe shared/connected room topology rejects visibly and fail-closed, with no partial structure/furniture mutation;
 - accepted room movement is one semantic `room/translate` command; invalid/no-op/cancel/stale movement creates no history;
 - direct door/window drag projects onto the existing host wall, preserves `wallId`, stays inside the valid host span and rejects overlap/invalid candidates visibly with no partial commit;
+- hosted-opening actions missing from a preserved Turbopack/Fast Refresh live Zustand singleton are repaired narrowly and rebound directly to the live store without replacing document/history state;
+- window direct manipulation uses a 12 px listening hit width while retaining the original thin visible stroke;
 - compact room labels use deterministic degradation (`name + area + dimensions` → `name + area` → compact `name + area` → `name only` → hidden), non-overlapping slots, bounded wrap/ellipsis and keyed React fragments;
 - exact source-origin wall overlap remains fail-closed;
 - hosted-opening preservation/revalidation;
@@ -221,7 +226,7 @@ Implemented/automated-green scope:
 - fail-closed rejection instead of partial structural mutation;
 - accessible structural handles and explicit valid/invalid feedback.
 
-Whole-room Copy by itself remains **structural shell + hosted doors/windows + explicit room name**. Placed furniture is included only when explicitly selected as part of an approved composite selection; room containment alone never implies clipboard membership. Room movement follows the same explicit-membership rule: unselected furniture stays put unless the user explicitly selects it or invokes `Выбрать мебель в комнате`.
+Whole-room Copy by itself remains **structural shell + hosted doors/windows + explicit room name**. Placed furniture is included only when explicitly selected as part of an approved composite selection; room containment alone never implies clipboard membership. Room movement follows the same explicit-membership rule: unselected furniture stays put unless the user explicitly selects it, selects it by marquee, or invokes `Выбрать мебель в комнате`.
 
 Authority remains separated:
 
@@ -263,7 +268,7 @@ browser artifact:             9115252220
 artifact digest:              sha256:df067068672383db97cead6b75c224f26ad5adea63ffc513ef6c572ca281d7df
 ```
 
-Direct room-translation evidence before the latest manual finding:
+Direct room-translation evidence before the later manual findings:
 
 ```text
 design:                       31075d42841c706d5d8f07839b1e4e946e412e3c
@@ -295,42 +300,44 @@ review threads:                0
 
 The room-translation browser RED exposed one real product issue and separate harness defects. The real issue was silent rejection when unsafe topology prevented gesture start; the focused RED required preservation of an invalid gesture with an explicit structural reason, now rendered as visible fail-closed feedback. The harness was separately hardened to use Stage-relative coordinates and a deterministic connected-topology fixture. Structural validation was not weakened.
 
-### Latest product-owner correction gate — 2026-08-12
+### Product-owner direct-manipulation correction — 2026-08-12
 
-The latest product-owner retest originally found:
+A later product-owner round found selected `room + furniture` drag ownership, hosted-opening movement and compact-label readability gaps. Those were corrected under the approved direct-manipulation design and remain documented in `docs/changelog/2026-08-12-m8-2-direct-manipulation-opening-drag-correction.md`.
 
-- **FAIL:** `room + furniture` visibly selected, drag begins on selected furniture, but the complete composite did not move;
-- requested: direct movement of doors, and by extension hosted openings, constrained to the current host wall;
-- observed UX debt: room name/area/dimension text could overlap and become unreadable in compact room geometry;
-- **PASS:** all other focused tests in that retest round.
+That checkpoint is retained as historical evidence but was subsequently superseded as a final acceptance gate by the additional runtime/marquee/window findings below.
 
-The focused correction is now implemented under the approved design/plan. The missing mixed-composite gesture authority is resolved by selection-aware arbitration; an ordinary already-selected furniture member delegates to room-composite movement, while unselected furniture and specialized handles preserve their own semantics. Hosted openings move only on their current wall with no silent re-host. Compact labels degrade deterministically instead of overlapping.
+### Latest runtime / marquee / window correction — 2026-08-13
 
-Focused correction evidence:
+Product-owner feedback identified three further real gaps:
+
+1. hosted-door interaction could throw `beginStructuralOpeningGesture is not a function` in a preserved Turbopack/Fast Refresh development session;
+2. whole-room marquee did not produce the semantic `room + furniture` selection expected for ordinary group movement without Shift;
+3. a window's practical pointer hit area was too narrow for reliable movement.
+
+The new correction was delivered as a transparent RED→GREEN sequence:
 
 ```text
-mixed arbitration RED:             8ea1d629b1fde1ff450d7bcd2fa0dbb1a4433eb4
-mixed selected-member RED:         fc41bce676747f19506194648979b41c3f3f3c84
-mixed Canvas GREEN:                c0192916151ace09bf9713e6c7cf0efabe14e9c8
-hosted-opening evaluator RED:      779005daeb8dcbbb22e7722b03f07f18aa0d4c8c
-hosted-opening Canvas GREEN:       e274f268fd3ed598c70cafc9fabb9b86e4559208
-room-label layout RED/GREEN:       cc153c66810c784a3f1f7e1796ab48e6783b159c / 74fa3ebe9102461a287deb58f2531adb818ffc35
-room-label projection GREEN:       868719a8c8e308f275a0e8e4052a7aeadad9672e
-room-label keyed GREEN:            ee5f923346251e759d99d9bcda3cb6cc0a019980
-implementation head:               ee5f923346251e759d99d9bcda3cb6cc0a019980
-CI #5058 / run 31605042971:        PASS
-Browser Acceptance #1508:          PASS — Chromium + WebKit
-browser run:                        31605042975
-browser artifact:                   9145064452
-artifact digest:                    sha256:978b5493ac309ca52b45d0555a0a5c11615ef5e933ea8c8684d63362ed4b8646
-review threads:                     0
+regression RED head:               08efe070df59fc1c9a0d661a42130ae98875c2e7
+CI #5064:                          EXPECTED FAIL — 2 focused unit failures
+Browser Acceptance #1514:         EXPECTED FAIL — 53 PASS / 2 FAIL
+first partial candidate:           e2d80f581471e68f33f9c08a14b7c40ccabf6295
+marquee/runtime GREEN candidate:   bf04db8a5cd75818891849e7d05742e80eea8211
+CI #5066:                          PASS
+Browser Acceptance #1516:         54 PASS / 1 FAIL — window only
+final product-code head:           357c92c36fc6c72b3e727b00f4b342b742efeb72
+CI #5067 / run 31648753553:        PASS
+Browser Acceptance #1517:         PASS — Chromium + WebKit
+browser artifact:                  9161930810
+artifact digest:                   sha256:dfbf78d25fa4b6ce32d7ce5f25ca01746ebe9b7c332575776f1953a4466b74ab
 ```
 
-Dedicated Browser #1503 initially failed only because the new room fixture disabled snapping required to close its contour and opening drag began outside the actual listening door/window geometry. Those harness defects were corrected and the assertions were then strengthened around rendered interaction bounds/persisted transforms without weakening runtime validation.
+The intermediate failure is part of the evidence rather than hidden noise: the first runtime repair incorrectly copied action closures from a temporary store. The corrected implementation binds the repair directly to the live singleton. The next browser checkpoint then isolated the window as the **only** remaining failure before its hit region was widened.
 
-**Remaining gate:** focused product-owner correction retest **PENDING**. Only explicit PASS can create the M8.2 acceptance record, unblock accepted-head gates, Ready state, issue #56 closure and protected merge.
+The new Playwright regression runs in **both Chromium and WebKit**, captures uncaught page errors and `console.error`, and verifies real pointer behavior for marquee → group movement → Undo/Redo, ordinary door selection/drag and user-like window dragging with a small pointer offset from the visual line.
 
-M8.3 remains blocked until this correction is accepted and PR #87 is protected-merged.
+Focused record: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regressions.md`.
+
+**Remaining M8.2 gate:** fresh exact-head verification after documentation sync, then explicit product-owner PASS. M8.3 remains blocked until M8.2 is accepted and protected-merged.
 
 ### M8.3 — Precision Reference Calibration
 
