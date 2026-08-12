@@ -882,9 +882,11 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     return beginResolvedRoomCompositeGesture(moveIntent.roomId, pointer, event);
   };
   const beginHostedOpeningPointerGesture = (
-    openingId: string,
     event: KonvaEventObject<MouseEvent | TouchEvent>,
   ) => {
+    const identity = canvasEntityFromKonvaNode(event.target);
+    if (!identity || identity.kind !== "opening") return;
+    const openingId = identity.id;
     if (tool !== "select" || recognitionReviewActive || placementPresetId || structuralPointerGestureRef.current || spacePressed) return;
     if (("button" in event.evt && event.evt.button !== 0) || event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey) return;
     const intent = resolveEditorPointerGestureIntent(selection, { kind: "opening-body", openingId });
@@ -1121,7 +1123,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
       for (const sign of [-1, 1]) {
         const a = worldToScreen({ x: segment.start.x + normal.x * sign, y: segment.start.y + normal.y * sign }, viewport);
         const b = worldToScreen({ x: segment.end.x + normal.x * sign, y: segment.end.y + normal.y * sign }, viewport);
-        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseDown={(event) => beginHostedOpeningPointerGesture(opening.id, event)} onTouchStart={(event) => beginHostedOpeningPointerGesture(opening.id, event)} onMouseEnter={enter} onMouseLeave={leave} />);
+        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseDown={beginHostedOpeningPointerGesture} onTouchStart={beginHostedOpeningPointerGesture} onMouseEnter={enter} onMouseLeave={leave} />);
       }
     } else {
       const effectiveDoorSwing = doorSwingPreview?.openingId === opening.id && opening.id === selectedOpeningId
@@ -1134,7 +1136,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
       const openDirection = { x: segment.leftNormal.x * sideSign, y: segment.leftNormal.y * sideSign };
       const openEnd = { x: hinge.x + openDirection.x * opening.width, y: hinge.y + openDirection.y * opening.width };
       const hingeScreen = worldToScreen(hinge, viewport), openScreen = worldToScreen(openEnd, viewport);
-      elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseDown={(event) => beginHostedOpeningPointerGesture(opening.id, event)} onTouchStart={(event) => beginHostedOpeningPointerGesture(opening.id, event)} onMouseEnter={enter} onMouseLeave={leave} />);
+      elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseDown={beginHostedOpeningPointerGesture} onTouchStart={beginHostedOpeningPointerGesture} onMouseEnter={enter} onMouseLeave={leave} />);
       const arc = arcPoints(hinge, closedDirection, openDirection, opening.width).flatMap((point) => { const s = worldToScreen(point, viewport); return [s.x, s.y]; });
       elements.push(<Line key={`${opening.id}-arc`} points={arc} stroke={stroke} strokeWidth={1} dash={preview ? [7, 5] : [4, 3]} opacity={0.75} listening={false} />);
     }
