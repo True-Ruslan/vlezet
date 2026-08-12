@@ -1,21 +1,67 @@
-import type { VlezetDocument } from "@vlezet/domain";
-import { createHistoryState } from "@vlezet/editor-core";
-import { EMPTY_EDITOR_SELECTION } from "./editor-selection";
-import { createEditorStore, editorStore, type EditorStoreState } from "./use-editor-store";
+import type { Point2, VlezetDocument } from "@vlezet/domain";
+import { createHistoryState, evaluateHostedOpeningMove } from "@vlezet/editor-core";
+import {
+  EMPTY_EDITOR_SELECTION,
+  replaceSelection,
+  sanitizeEditorSelection,
+} from "./editor-selection";
+import { editorStore, type EditorStoreState } from "./use-editor-store";
+
+function beginHostedOpeningGesture(openingId: string): void {
+  const state = editorStore.getState();
+  if (!state.history.document.openings.some((opening) => opening.id === openingId)) return;
+  editorStore.setState({
+    structuralGesture: {
+      kind: "translate-opening",
+      entityId: openingId,
+      before: state.history.document,
+      previewDocument: state.history.document,
+      valid: true,
+      reason: null,
+      changed: false,
+    },
+    objectGesture: null,
+    placementPresetId: null,
+    selection: sanitizeEditorSelection(
+      state.history.document,
+      replaceSelection({ kind: "opening", id: openingId }),
+    ),
+    tool: "select",
+  });
+}
+
+function previewHostedOpeningGesture(pointerWorld: Point2): void {
+  const gesture = editorStore.getState().structuralGesture;
+  if (!gesture || gesture.kind !== "translate-opening") return;
+  const source = gesture.before.openings.find((opening) => opening.id === gesture.entityId);
+  if (!source) return;
+  const result = evaluateHostedOpeningMove(gesture.before, gesture.entityId, pointerWorld);
+  const previewDocument = result.ok ? result.document : (result.candidate ?? gesture.before);
+  const previewOpening = previewDocument.openings.find((opening) => opening.id === gesture.entityId);
+  editorStore.setState({
+    structuralGesture: {
+      ...gesture,
+      previewDocument,
+      valid: result.ok,
+      reason: result.ok ? null : result.reason,
+      changed: previewOpening ? previewOpening.offset !== source.offset : false,
+    },
+  });
+}
 
 export function ensureEditorStoreRuntimeActions(): void {
-  const current = editorStore.getState() as unknown as Record<string, unknown>;
-  const fresh = createEditorStore().getState() as unknown as Record<string, unknown>;
-  const repairs: Record<string, unknown> = {};
+  const current = editorStore.getState();
+  const repairs: Partial<EditorStoreState> = {};
 
-  for (const [key, value] of Object.entries(fresh)) {
-    if (typeof value === "function" && typeof current[key] !== "function") {
-      repairs[key] = value;
-    }
+  if (typeof current.beginStructuralOpeningGesture !== "function") {
+    repairs.beginStructuralOpeningGesture = beginHostedOpeningGesture;
+  }
+  if (typeof current.previewStructuralOpeningGesture !== "function") {
+    repairs.previewStructuralOpeningGesture = previewHostedOpeningGesture;
   }
 
   if (Object.keys(repairs).length > 0) {
-    editorStore.setState(repairs as Partial<EditorStoreState>);
+    editorStore.setState(repairs);
   }
 }
 
@@ -31,7 +77,7 @@ export function loadEditorDocument(document: VlezetDocument): void {
   });
 }
 
-// Fast Refresh can preserve a live Zustand singleton while replacing modules that
-// add newer actions. Reconcile the action surface on module evaluation without
-// touching document/runtime state when the store shape is already current.
+// Turbopack/Fast Refresh can preserve the live Zustand singleton while newer
+// modules expect opening actions that were added after the singleton was created.
+// Repair only the missing opening actions and bind them directly to the live store.
 ensureEditorStoreRuntimeActions();
