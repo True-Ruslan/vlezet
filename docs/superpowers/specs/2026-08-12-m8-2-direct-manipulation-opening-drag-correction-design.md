@@ -26,7 +26,7 @@ The product-owner retest reproduced exactly this path. Earlier Chromium/WebKit G
 
 The same retest added two adjacent direct-manipulation requirements:
 
-1. hosted openings, at minimum doors and preferably windows through the same primitive, must move directly along their current host wall;
+1. hosted doors and windows must move directly through one shared host-wall-constrained interaction primitive;
 2. room labels must remain readable in compact rooms and under long room names instead of overlapping area/dimension text.
 
 M8.2 remains Draft and not product-accepted until this correction is implemented, automated and manually retested.
