@@ -5,6 +5,7 @@ import {
   createStructuralClipboardPayload,
   cutStructuralFragment,
   deletePlacedObjects,
+  evaluateHostedOpeningMove,
   evaluateStructuralRoomTranslation,
   evaluateStructuralVertexMove,
   evaluateStructuralWallTranslation,
@@ -93,7 +94,7 @@ type StructuralGestureBase = Readonly<{
 
 export type StructuralGesture =
   | (StructuralGestureBase & Readonly<{
-      kind: "move-vertex" | "translate-wall";
+      kind: "move-vertex" | "translate-wall" | "translate-opening";
     }>)
   | (StructuralGestureBase & Readonly<{
       kind: "translate-room";
@@ -125,9 +126,11 @@ export type EditorStoreState = Omit<
   beginStructuralVertexGesture: (vertexId: string) => void;
   beginStructuralWallGesture: (wallId: string) => void;
   beginStructuralRoomGesture: (roomId: string) => void;
+  beginStructuralOpeningGesture: (openingId: string) => void;
   previewStructuralVertexGesture: (position: Point2) => void;
   previewStructuralWallGesture: (delta: Point2) => void;
   previewStructuralRoomGesture: (delta: Point2) => void;
+  previewStructuralOpeningGesture: (pointerWorld: Point2) => void;
   commitStructuralGesture: () => void;
   cancelStructuralGesture: () => void;
   setSelectedWallsThickness: (thicknessMm: number) => void;
@@ -537,6 +540,29 @@ function enhanceEditorStore(
     });
   };
 
+  const beginStructuralOpeningGesture = (openingId: string) => {
+    const state = store.getState();
+    if (!state.history.document.openings.some((opening) => opening.id === openingId)) return;
+    store.setState({
+      structuralGesture: {
+        kind: "translate-opening",
+        entityId: openingId,
+        before: state.history.document,
+        previewDocument: state.history.document,
+        valid: true,
+        reason: null,
+        changed: false,
+      },
+      objectGesture: null,
+      placementPresetId: null,
+      selection: sanitizeEditorSelection(
+        state.history.document,
+        replaceSelection({ kind: "opening", id: openingId }),
+      ),
+      tool: "select",
+    });
+  };
+
   const previewStructuralVertexGesture = (position: Point2) => {
     const gesture = store.getState().structuralGesture;
     if (!gesture || gesture.kind !== "move-vertex") return;
@@ -613,6 +639,25 @@ function enhanceEditorStore(
     }
   };
 
+  const previewStructuralOpeningGesture = (pointerWorld: Point2) => {
+    const gesture = store.getState().structuralGesture;
+    if (!gesture || gesture.kind !== "translate-opening") return;
+    const source = gesture.before.openings.find((opening) => opening.id === gesture.entityId);
+    if (!source) return;
+    const result = evaluateHostedOpeningMove(gesture.before, gesture.entityId, pointerWorld);
+    const previewDocument = result.ok ? result.document : (result.candidate ?? gesture.before);
+    const previewOpening = previewDocument.openings.find((opening) => opening.id === gesture.entityId);
+    store.setState({
+      structuralGesture: {
+        ...gesture,
+        previewDocument,
+        valid: result.ok,
+        reason: result.ok ? null : result.reason,
+        changed: previewOpening ? previewOpening.offset !== source.offset : false,
+      },
+    });
+  };
+
   const commitStructuralGesture = () => {
     const state = store.getState();
     const gesture = state.structuralGesture;
@@ -637,7 +682,9 @@ function enhanceEditorStore(
       ? "vertex/move-structural"
       : gesture.kind === "translate-wall"
         ? "wall/translate"
-        : "room/translate";
+        : gesture.kind === "translate-opening"
+          ? "opening/move-host"
+          : "room/translate";
     store.setState({
       history: executeCommand(state.history, {
         type: "document/replace",
@@ -1061,9 +1108,11 @@ function enhanceEditorStore(
     beginStructuralVertexGesture,
     beginStructuralWallGesture,
     beginStructuralRoomGesture,
+    beginStructuralOpeningGesture,
     previewStructuralVertexGesture,
     previewStructuralWallGesture,
     previewStructuralRoomGesture,
+    previewStructuralOpeningGesture,
     commitStructuralGesture,
     cancelStructuralGesture: () => store.setState({ structuralGesture: null }),
     setSelectedWallsThickness,
