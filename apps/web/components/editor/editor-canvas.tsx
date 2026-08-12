@@ -1124,7 +1124,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
       for (const sign of [-1, 1]) {
         const a = worldToScreen({ x: segment.start.x + normal.x * sign, y: segment.start.y + normal.y * sign }, viewport);
         const b = worldToScreen({ x: segment.end.x + normal.x * sign, y: segment.end.y + normal.y * sign }, viewport);
-        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} listening={!preview} onMouseDown={beginHostedOpeningPointerGesture} onTouchStart={beginHostedOpeningPointerGesture} onMouseEnter={enter} onMouseLeave={leave} />);
+        elements.push(<Line key={`${opening.id}-window-${sign}`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[a.x, a.y, b.x, b.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2 : 1.5} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseDown={beginHostedOpeningPointerGesture} onTouchStart={beginHostedOpeningPointerGesture} onMouseEnter={enter} onMouseLeave={leave} />);
       }
     } else {
       const effectiveDoorSwing = doorSwingPreview?.openingId === opening.id && opening.id === selectedOpeningId
