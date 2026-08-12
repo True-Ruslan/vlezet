@@ -71,6 +71,7 @@ import {
   resolveWallDynamicDraft,
 } from "./wall-dynamic-input-model";
 import type { EditorContextMenuRequest } from "./editor-context-menu";
+import { resolveEditorPointerGestureIntent } from "./editor-pointer-gesture-intent";
 import {
   actualSizeViewport,
   fitDocumentViewport,
@@ -828,25 +829,16 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     setMarqueeGesture(null);
     setActiveStructuralSnap(null);
   };
-  const beginStructuralRoomGesture = (
+  const beginResolvedRoomCompositeGesture = (
+    roomId: string,
     pointer: Point2,
-    event: KonvaEventObject<MouseEvent>,
+    event: KonvaEventObject<MouseEvent | TouchEvent>,
   ): boolean => {
     if (tool !== "select" || recognitionReviewActive || placementPresetId || structuralPointerGestureRef.current || spacePressed) return false;
-    if (event.evt.button !== 0 || !selectedRoomRootId) return false;
+    if (("button" in event.evt && event.evt.button !== 0) || selectedRoomRootId !== roomId) return false;
     if (event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey) return false;
 
-    const stage = event.target.getStage();
-    const hitNode = stage?.getIntersection(pointer) ?? event.target;
-    const hitEntity = canvasEntityFromKonvaNode(hitNode);
-    const directEntity = hitEntity?.kind === "room" ? null : hitEntity;
-    if (directEntity) return false;
-
     const pointerWorld = screenToWorld(pointer, viewport);
-    const roomId = entitiesAtPoint(document, pointerWorld)
-      .find((ref) => ref.kind === "room" && ref.id === selectedRoomRootId)?.id ?? null;
-    if (!roomId) return false;
-
     editorStore.getState().beginStructuralRoomGesture(roomId);
     const roomGesture = editorStore.getState().structuralGesture;
     if (roomGesture?.kind !== "translate-room") return false;
@@ -865,6 +857,28 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     setMarqueeGesture(null);
     setActiveStructuralSnap(null);
     return true;
+  };
+  const beginStructuralRoomGesture = (
+    pointer: Point2,
+    event: KonvaEventObject<MouseEvent>,
+  ): boolean => {
+    if (tool !== "select" || recognitionReviewActive || placementPresetId || structuralPointerGestureRef.current || spacePressed) return false;
+    if (event.evt.button !== 0 || !selectedRoomRootId) return false;
+    if (event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey) return false;
+
+    const stage = event.target.getStage();
+    const hitNode = stage?.getIntersection(pointer) ?? event.target;
+    const hitEntity = canvasEntityFromKonvaNode(hitNode);
+    const directEntity = hitEntity?.kind === "room" ? null : hitEntity;
+    if (directEntity) return false;
+
+    const pointerWorld = screenToWorld(pointer, viewport);
+    const roomId = entitiesAtPoint(document, pointerWorld)
+      .find((ref) => ref.kind === "room" && ref.id === selectedRoomRootId)?.id ?? null;
+    if (!roomId) return false;
+    const moveIntent = resolveEditorPointerGestureIntent(selection, { kind: "room-interior", roomId });
+    if (moveIntent.kind !== "room-composite-move") return false;
+    return beginResolvedRoomCompositeGesture(moveIntent.roomId, pointer, event);
   };
   const previewStructuralPointerGesture = (
     pointer: Point2,
@@ -1248,6 +1262,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
           {clearancePolygon ? <Line points={screenPolygon(clearancePolygon, viewport)} closed fill="#f59e0b" opacity={0.08} stroke="#d97706" strokeWidth={1.2} dash={[6, 5]} listening={false} /> : null}
           {displayedObjects.map((object) => {
             const objectSelected = selectedObjectIds.has(object.id) && isEntitySelected("placed-object", object.id);
+            const moveIntent = resolveEditorPointerGestureIntent(selection, { kind: "placed-object-body", objectId: object.id });
             return (
               <PlacedObjectShape
                 key={object.id}
@@ -1257,7 +1272,13 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
                 transformEnabled={selectedObjectId === object.id}
                 hovered={visibleHoveredEntity?.kind === "object" && visibleHoveredEntity.id === object.id}
                 fitStatus={fitEvaluation.byObjectId.get(object.id)?.status ?? "blocked"}
+                moveGestureOwner={moveIntent.kind === "room-composite-move" ? "room-composite" : "object"}
                 onSelect={(event) => selectEntityFromPointer(event, { kind: "placed-object", id: object.id })}
+                onRoomCompositePointerDown={(event) => {
+                  const pointer = pointerPosition(event);
+                  if (!pointer || moveIntent.kind !== "room-composite-move") return;
+                  beginResolvedRoomCompositeGesture(moveIntent.roomId, pointer, event);
+                }}
                 onGestureStart={(kind) => editorStore.getState().beginObjectGesture(object.id, kind)}
                 onGesturePreview={(patch) => previewObjectGesture(object.id, patch)}
                 onGestureCommit={() => { editorStore.getState().commitObjectGesture(); setObjectGuides([]); }}
