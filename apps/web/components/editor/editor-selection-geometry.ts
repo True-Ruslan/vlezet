@@ -167,6 +167,17 @@ function polygonIntersectsRect(polygon: readonly Point2[], rect: WorldRect): boo
   return axes.every((axis) => intervalsOverlap(project(polygon, axis), project(marqueePolygon, axis)));
 }
 
+function polygonFullyInsideRect(polygon: readonly Point2[], rect: WorldRect): boolean {
+  if (polygon.length < 3) return false;
+  const normalized = normalizedRect(rect);
+  return polygon.every((point) =>
+    point.x >= normalized.minX - EPSILON &&
+    point.x <= normalized.maxX + EPSILON &&
+    point.y >= normalized.minY - EPSILON &&
+    point.y <= normalized.maxY + EPSILON
+  );
+}
+
 function boundsForWall(document: VlezetDocument, wall: Wall): WorldRect | null {
   let bounds: WorldRect | null = null;
   for (const polygon of visibleWallPolygons(document, wall)) {
@@ -275,5 +286,13 @@ export function entitiesIntersectingMarquee(
     return entitiesAtPoint(document, { x: normalized.minX, y: normalized.minY });
   }
 
-  return concreteEntitiesIntersectingRect(document, normalized);
+  const concreteHits = concreteEntitiesIntersectingRect(document, normalized);
+  const enclosedRooms = deriveRooms(document).rooms
+    .filter((room) => polygonFullyInsideRect(room.polygon, normalized));
+  if (enclosedRooms.length === 0) return concreteHits;
+
+  return [
+    ...enclosedRooms.map((room) => ({ kind: "room" as const, id: room.id })),
+    ...concreteHits.filter((ref) => ref.kind === "placed-object"),
+  ];
 }
