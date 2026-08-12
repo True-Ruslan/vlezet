@@ -50,7 +50,7 @@ import { canvasTransientFeedbackStore } from "./canvas-transient-feedback-store"
 import {
   deriveRectangularRoomDimensionAnnotations,
   deriveWallCentrelineDimensionAnnotation,
-  formatRoomCanvasLabel,
+  formatRoomCanvasLabelContent,
 } from "./dimension-annotations";
 import { DimensionOverlay } from "./dimension-overlay";
 import { ExactGapOverlay } from "./exact-gap-overlay";
@@ -59,6 +59,7 @@ import { getFurniturePreset } from "./furniture-presets";
 import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-store";
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
+import { deriveRoomCanvasLabelLayout } from "./room-canvas-label-layout";
 import { StructuralHandleLayer } from "./structural-handle-layer";
 import { StructuralSnapOverlay } from "./structural-snap-overlay";
 import { structuralSnappingSettingsStore } from "./structural-snapping-settings-store";
@@ -1227,10 +1228,68 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
             />;
           })}
           {derivedRooms.rooms.map((room) => {
-            const label = worldToScreen(room.labelPoint, viewport);
-            const text = formatRoomCanvasLabel(room);
-            const lineCount = text.split("\n").length;
-            return <Text key={`label-${room.id}`} x={label.x - 100} y={label.y - (lineCount === 3 ? 27 : 18)} width={200} align="center" text={text} fontSize={11} lineHeight={1.35} fill="#4b5563" listening={false} />;
+            const roomScreenPoints = room.polygon.map((point) => worldToScreen(point, viewport));
+            const roomScreenBounds = {
+              minX: Math.min(...roomScreenPoints.map((point) => point.x)),
+              maxX: Math.max(...roomScreenPoints.map((point) => point.x)),
+              minY: Math.min(...roomScreenPoints.map((point) => point.y)),
+              maxY: Math.max(...roomScreenPoints.map((point) => point.y)),
+            };
+            const content = formatRoomCanvasLabelContent(room);
+            const layout = deriveRoomCanvasLabelLayout({
+              widthPx: roomScreenBounds.maxX - roomScreenBounds.minX,
+              heightPx: roomScreenBounds.maxY - roomScreenBounds.minY,
+              hasDimensions: content.dimensions !== null,
+            });
+            if (layout.hidden || !layout.nameBox) return null;
+            const labelPoint = worldToScreen(room.labelPoint, viewport);
+            const horizontalPadding = 7;
+            const verticalPadding = 4;
+            const minCenterX = roomScreenBounds.minX + horizontalPadding + layout.textWidthPx / 2;
+            const maxCenterX = roomScreenBounds.maxX - horizontalPadding - layout.textWidthPx / 2;
+            const centerX = Math.min(Math.max(labelPoint.x, minCenterX), maxCenterX);
+            const minTopY = roomScreenBounds.minY + verticalPadding;
+            const maxTopY = roomScreenBounds.maxY - verticalPadding - layout.totalHeightPx;
+            const topY = Math.min(Math.max(labelPoint.y - layout.totalHeightPx / 2, minTopY), maxTopY);
+            const x = centerX - layout.textWidthPx / 2;
+            const common = {
+              x,
+              width: layout.textWidthPx,
+              align: "center" as const,
+              verticalAlign: "middle" as const,
+              fontSize: 11,
+              fill: "#4b5563",
+              listening: false,
+            };
+            return <>
+              <Text
+                key={`label-name-${room.id}`}
+                {...common}
+                y={topY + layout.nameBox.y}
+                height={layout.nameBox.height}
+                text={content.name}
+                wrap="word"
+                ellipsis
+              />
+              {layout.showArea && layout.areaBox ? <Text
+                key={`label-area-${room.id}`}
+                {...common}
+                y={topY + layout.areaBox.y}
+                height={layout.areaBox.height}
+                text={content.area}
+                wrap="none"
+                ellipsis
+              /> : null}
+              {layout.showDimensions && layout.dimensionsBox && content.dimensions ? <Text
+                key={`label-dimensions-${room.id}`}
+                {...common}
+                y={topY + layout.dimensionsBox.y}
+                height={layout.dimensionsBox.height}
+                text={content.dimensions}
+                wrap="none"
+                ellipsis
+              /> : null}
+            </>;
           })}
           {resolvedWalls.flatMap(({ wall }) => deriveVisibleWallIntervals(structuralDisplayDocument, wall.id).map((interval, index) => {
             const a = worldToScreen(pointAtWallOffset(structuralDisplayDocument, wall.id, interval.startOffset), viewport);
