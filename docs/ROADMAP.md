@@ -3,7 +3,7 @@
 **Last updated:** 2026-08-12  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative automation. Manual editing must remain a complete product path.
 
-Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`.
+Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`. Product/market direction is additionally governed by `docs/product/COMPETITIVE_BENCHMARK.md`; implementation research policy is in `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`.
 
 ## Summary
 
@@ -23,15 +23,25 @@ DONE        M7.8B Source Normalisation and Wall Topology
 STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance failed
 DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
-NOW         M8.2 Precision Drawing and Structural Editing
+NOW         M8.2 Precision Drawing / Direct Manipulation Foundation
             original product-owner scenarios PASS;
-            clipboard/selection + direct room translation automated GREEN;
-            focused latest-behavior retest / protected delivery PENDING
-THEN        M8.3–M8.7 Public Beta Editor programme
+            clipboard/selection + free-interior room translation automated GREEN;
+            latest product-owner retest found composite-drag FAIL;
+            hosted-opening drag + label hardening added before acceptance
+THEN        M8.3 Precision Reference Calibration
+THEN        M8.4 Assisted Tracing
+THEN        M8.5 Furniture + Materials 2.0
+THEN        M8.6 Export + Presentation
+THEN        M8.7 Public Beta Hardening
 R&D         automatic whole-plan recognition (#27)
+POST-BETA   richer walkthrough/3D, professional docs, structured exchange, mobile capture
 ```
 
-M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`. M8.2 is the active Draft delivery slice in PR #87. The originally requested acceptance scenarios passed; subsequent product-owner feedback expanded ordinary wall/room clipboard use, precise room/composite selection semantics and direct room movement. Those follow-up corrections are automated-green and await focused product-owner retest before acceptance and protected delivery.
+M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`.
+
+M8.2 remains the active Draft delivery slice in PR #87 and is **not product-accepted**. The originally requested scenarios passed and later clipboard/selection/direct-room work reached automated GREEN, but the 2026-08-12 product-owner retest found a real direct-manipulation gap: a visibly selected `room + furniture` composite cannot be dragged as one group when the drag begins on an already selected furniture member. The product owner also requested direct door movement constrained to its host wall; the screenshot exposed room-label density/overflow. All other focused scenarios in that retest were reported PASS.
+
+Market research now makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
 ## Completed product foundation
 
@@ -91,6 +101,24 @@ Consequences:
 - #51 reframed as **M8.4 Assisted Tracing** after the editor/calibration foundation;
 - public beta prioritises a strong manual editor.
 
+## Market benchmark decision — 2026-08-12
+
+Canonical research:
+
+- `docs/product/COMPETITIVE_BENCHMARK.md`;
+- `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`;
+- `docs/changelog/2026-08-12-market-benchmark-roadmap-correction.md`.
+
+Product rules introduced by this evidence:
+
+1. RoomPlan is the minimum practical interaction benchmark for the ordinary apartment-planning journey.
+2. Planner 5D, Floorplanner, RoomSketcher and Planoplan are deeper references for editable import/AI, catalogue scale, output/presentation and professional workflows.
+3. RemPlanner and magicplan are later references for renovation documentation and field/mobile capture.
+4. Mature commercial products define UX expectations; open-source projects are implementation/architecture references only.
+5. Before material new editor behavior, inspect a relevant mature UX flow and relevant open-source implementation where useful, then write the Vlezet contract and RED tests.
+6. Third-party code never weakens Vlezet topology, hosted-opening, M2, persistence or semantic-history authority.
+7. Automatic recognition stays outside the beta critical path even though competitors offer AI conversion; market evidence instead reinforces that recognized geometry must remain ordinarily editable.
+
 ## M8 Public Beta Editor programme
 
 ### M8.0 — Public Beta Product Contract / roadmap reset
@@ -146,15 +174,15 @@ protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
 
 Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
-### M8.2 — Precision Drawing and Structural Editing
+### M8.2 — Precision Drawing and Direct Manipulation Foundation
 
-Status: **IN DEVELOPMENT / ORIGINAL MANUAL SCENARIOS PASS / CLIPBOARD-SELECTION + DIRECT ROOM-TRANSLATION CORRECTIONS AUTOMATED GREEN / FOCUSED RETEST PENDING**. Tracker: #56. Draft PR: #87.
+Status: **IN DEVELOPMENT / ORIGINAL MANUAL SCENARIOS PASS / PRIOR AUTOMATION GREEN / LATEST PRODUCT RETEST HAS ONE REAL COMPOSITE-DRAG FAIL**. Tracker: #56. Draft PR: #87.
 
 Primary outcome:
 
-> Draw, repair and batch-edit exact apartment structure with fewer inspector round-trips while preserving topology and hosted-opening validity.
+> Draw, repair, select and directly manipulate exact apartment structure with mature-editor interaction quality while preserving topology and hosted-opening validity.
 
-Implemented scope:
+Implemented scope before the latest feedback:
 
 - named visible snap guides;
 - deterministic endpoint/junction/midpoint/intersection/wall-axis snapping;
@@ -177,11 +205,11 @@ Implemented scope:
 - composite structural + furniture Paste keeps the entire group rigid by applying the actual accepted structural fallback delta to furniture;
 - Paste uses the latest Canvas world pointer as its ordinary anchor;
 - rejected explicit Copy clears stale clipboard state and exposes a non-modal reason;
-- direct selected-room drag from a free room-interior point, with room structure translated rigidly through `@vlezet/editor-core`;
+- direct selected-room drag from a **free room-interior point**, with room structure translated rigidly through `@vlezet/editor-core`;
 - room-only drag leaves unselected furniture fixed;
-- `room + explicitly selected furniture` moves with one identical delta and one atomic history commit;
+- free-interior-started `room + explicitly selected furniture` movement applies one identical delta and one atomic history commit;
 - `Выбрать мебель в комнате` adds only furniture whose full physical footprint is contained by the derived room polygon; boundary crossing is never captured implicitly;
-- higher-priority furniture/wall/opening/handle pointer gestures stay authoritative over room drag;
+- higher-priority furniture/wall/opening/handle pointer gestures currently stay authoritative over room drag;
 - room snap targets exclude the room's moving structure; Alt/Option suppresses snapping only for the current gesture;
 - unsafe shared/connected room topology rejects visibly and fail-closed, with no partial structure/furniture mutation;
 - accepted room movement is one semantic `room/translate` command; invalid/no-op/cancel/stale movement creates no history;
@@ -191,7 +219,7 @@ Implemented scope:
 - fail-closed rejection instead of partial structural mutation;
 - accessible structural handles and explicit valid/invalid feedback.
 
-Whole-room Copy by itself remains **structural shell + hosted doors/windows + explicit room name**. Placed furniture is included only when explicitly selected as part of an approved composite selection; room containment alone never implies clipboard membership. Room movement follows the same rule: unselected furniture stays put unless the user explicitly selects it or invokes `Выбрать мебель в комнате`.
+Whole-room Copy by itself remains **structural shell + hosted doors/windows + explicit room name**. Placed furniture is included only when explicitly selected as part of an approved composite selection; room containment alone never implies clipboard membership. Room movement follows the same explicit-membership rule: unselected furniture stays put unless the user explicitly selects it or invokes `Выбрать мебель в комнате`.
 
 Authority remains separated:
 
@@ -233,7 +261,7 @@ browser artifact:             9115252220
 artifact digest:              sha256:df067068672383db97cead6b75c224f26ad5adea63ffc513ef6c572ca281d7df
 ```
 
-Direct room-translation evidence:
+Direct room-translation evidence before the latest manual finding:
 
 ```text
 design:                       31075d42841c706d5d8f07839b1e4e946e412e3c
@@ -261,26 +289,40 @@ Browser Acceptance #1468:    PASS
 browser artifact:             9122287038
 artifact digest:              sha256:b6683f810bb9c9a07d44b8b46118b8be9776d52eec81a8e201584c76ebcc114b
 review threads:                0
-product-owner focused retest:  PENDING
-protected merge:               PENDING
 ```
 
 The room-translation browser RED exposed one real product issue and separate harness defects. The real issue was silent rejection when unsafe topology prevented gesture start; the focused RED required preservation of an invalid gesture with an explicit structural reason, now rendered as visible fail-closed feedback. The harness was separately hardened to use Stage-relative coordinates and a deterministic connected-topology fixture. Structural validation was not weakened.
 
-Scope audit from pre-room-translation head `1eda34b409247ddb1a6509c09221ea87b57b8f68` to implementation head `00cfae03ca66610414ef7451f37f67192efa1f97` changes only room translation/selection/editor-core/geometry/browser/spec-plan surfaces. `packages/domain`, persistent schema and recognition behavior are unchanged.
+### Latest product-owner correction gate — 2026-08-12
 
-The next action for M8.2 is the **focused product-owner latest-behavior retest**, not M8.3 implementation. Required room-movement scenarios are:
+Product-owner feedback after the automated GREEN found:
 
-1. move an isolated room by dragging a free room-interior point; only the structure moves;
-2. explicitly select `room + 2 furniture` and drag; all three move by the same delta;
-3. invoke `Выбрать мебель в комнате`; fully contained furniture is added to selection;
-4. furniture crossing the room boundary is not implicitly selected;
-5. furniture/wall/opening/handle pointer hits keep their higher-priority behavior;
-6. with snapping enabled, room movement exposes snap feedback; Alt/Option suppresses it locally;
-7. unsafe shared/connected room topology rejects visibly and mouseup commits nothing;
-8. Undo/Redo treats each accepted room move as exactly one semantic operation.
+- **FAIL:** `room + furniture` visibly selected, drag begins on selected furniture, but the complete composite does not move;
+- requested: direct movement of doors, and by extension hosted openings, constrained to the current host wall;
+- observed UX debt: room name/area/dimension text can overlap and become unreadable in compact room geometry;
+- **PASS:** all other focused tests in this retest round.
 
-The prior precise-selection/composite-clipboard focused scenarios also remain part of final M8.2 product acceptance until explicitly confirmed. After explicit PASS: create the M8.2 acceptance record, synchronize canonical acceptance truth including the concise `docs/CHANGELOG.md` entry, run a fresh accepted-head gate, then perform the separately authorized protected squash merge.
+Root-cause class for the composite FAIL:
+
+```text
+selected room + selected furniture
+→ furniture owns Konva pointer/drag
+→ room gesture refuses higher-priority direct entity hit
+→ object batch gesture requires all-placed-object selection
+→ mixed selection has no single gesture owner
+```
+
+Required correction contract before M8.2 acceptance:
+
+1. introduce one **selection-aware gesture arbiter** so a drag that starts on any already selected ordinary composite member can move the explicit selected composite;
+2. specialized handles/openings remain higher priority than generic group movement;
+3. one accepted composite move remains one atomic semantic history operation;
+4. opening drag projects cursor movement onto the existing host wall, preserves `wallId` by default and validates/clamps/fails closed rather than silently re-hosting;
+5. room labels use deterministic wrapping/ellipsis/hiding priority and must not obscure basic dimensions;
+6. add genuine focused RED tests for the exact screenshot/user flow before production correction;
+7. rerun full Chromium and representative WebKit acceptance and obtain explicit product-owner PASS.
+
+M8.3 remains blocked until this correction is accepted and PR #87 is protected-merged.
 
 ### M8.3 — Precision Reference Calibration
 
@@ -297,37 +339,48 @@ Planned outcomes:
 - visible residual/error and distortion warning;
 - no false claim of precision beyond raster/source quality.
 
+Market evidence reinforces M8.3 rather than changing its architecture: background/blueprint tracing is a standard mature-planner journey and requires trustworthy calibration before any assistance is allowed to feel precise.
+
 ### M8.4 — Assisted Tracing
 
 Tracker: #51.
 
 Optional high-confidence source-image snapping inside normal wall/door/window tools after M8.1–M8.3. Explicit user intent and existing topology remain stronger than source-image assistance. Ambiguity abstains. No AI/network dependency required.
 
-### M8.5 — Furniture 2.0
+Additional market rule: any traced/recognized result must become ordinary editable Vlezet geometry. AI/image assistance accelerates the normal editor; it may never create a parallel opaque plan state.
+
+### M8.5 — Furniture + Materials 2.0
 
 Planned outcomes:
 
-- parameterised household furniture/appliance/sanitary library;
+- scalable parameterised household furniture/appliance/sanitary catalogue;
+- catalogue/preset definitions separated from placed document instances;
 - direct physical resize/rotation on Canvas;
 - live dimensions;
-- richer snapping;
+- richer wall/alignment snapping;
 - multi-selection alignment/distribution;
+- material/texture groundwork for objects and surfaces;
 - wall-relative specialist actions where useful;
-- inspector retained for exact numeric editing.
+- inspector retained for exact numeric editing;
+- user-imported assets only after explicit persistence/versioning design.
 
-### M8.6 — Export, Appearance and Presentation
+This milestone targets **useful breadth and scalable architecture**, not immediate catalogue-count parity with Floorplanner/Planner 5D.
+
+### M8.6 — Export + Presentation
 
 Planned outcomes:
 
 - renderer-neutral `ExportScene` concept;
 - PNG + SVG;
+- PDF after vector/export semantics are stable if low risk;
 - whole plan + selection export;
 - reference/background/presentation options;
+- dimensions/furniture/zones visibility controls;
 - transparent PNG where applicable;
-- application Light/Dark/System theme separated from canonical light plan appearance;
-- export result independent of UI theme.
-
-PDF is included only if it is low-risk once vector export exists; it is not allowed to delay beta by itself.
+- high-resolution deterministic output;
+- application Light/Dark/System theme separated from canonical plan appearance;
+- export result independent of UI theme;
+- architecture prepared for later 3D/share output without making that a beta blocker.
 
 ### M8.7 — Public Beta Hardening
 
@@ -345,7 +398,30 @@ BETA-05 Export
 
 No public beta until all five journeys have deterministic/unit coverage where possible plus representative Chromium/WebKit browser evidence and no known document-integrity blocker.
 
-M8.1 materially advances `BETA-03`. M8.2 is the next dependency for reliable `BETA-01` structural creation and later `BETA-02` reference tracing.
+M8.1 materially advances `BETA-03`. M8.2 is the current dependency for reliable `BETA-01` structural creation and mature direct manipulation, then M8.3/M8.4 complete `BETA-02` reference tracing.
+
+## Implementation research rule
+
+For material new editor behavior:
+
+```text
+relevant mature-product UX review
+→ relevant open-source code/architecture review where useful
+→ explicit Vlezet contract and authority boundaries
+→ license/adoption note
+→ genuine focused RED
+→ minimal implementation
+→ focused/full/browser GREEN
+→ product-owner acceptance
+```
+
+Preferred current references:
+
+- UX/product: RoomPlan first; Planner 5D, Floorplanner, RoomSketcher, Planoplan as deeper references;
+- code/architecture: `charmlinn/blueprint3d-modern`, `fedepaj/arcada-planner`, `cvdlab/react-planner`, `floorplanner/polygon-tools` where relevant;
+- Sweet Home 3D: behavior/architecture reference with GPL caution, not a default code-copy source.
+
+No external implementation may become geometry/history authority merely because it is mature or open-source.
 
 ## Mandatory TDD delivery rule
 
@@ -389,6 +465,19 @@ Focused history must explain why, user-visible behaviour, architecture boundarie
 - automatic whole-plan reconstruction as a release gate;
 - autonomous AI layout design;
 - photorealistic 3D;
-- BIM/DXF/DWG;
+- BIM/DXF/DWG as beta gates;
 - arbitrary user layer stacks;
-- full phone/tablet editor parity.
+- full phone/tablet editor parity;
+- matching competitor catalogue counts before interaction quality is accepted.
+
+## Evidence-supported post-beta directions
+
+After public-beta manual/editor trust is established, current market evidence supports evaluating:
+
+- richer deterministic 3D and walkthrough/presentation parity;
+- deeper multi-floor workflows;
+- wall elevations/specifications and renovation documentation;
+- structured external exchange such as DXF/FML/IFC after schema maturity;
+- mobile/LiDAR/RoomPlan-style capture as an optional source of ordinary editable geometry.
+
+These are opportunities, not commitments, and may be reprioritized only from user evidence.
