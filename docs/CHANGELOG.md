@@ -4,6 +4,48 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-12 — M8.2 direct-manipulation / hosted-opening correction automated GREEN
+
+**Status:** focused correction is implemented and automated GREEN in Draft PR #87; product-owner correction retest, M8.2 acceptance and protected merge remain **PENDING**.
+
+The latest product-owner retest had exposed one real mixed-composite gesture defect: a visibly selected `room + furniture` group did not move when drag began on an already selected furniture member. The same feedback round requested direct hosted-door movement and exposed unreadable room-label overlap in compact geometry.
+
+The correction now provides:
+
+- selection-aware gesture arbitration so the selected room composite can move from free room interior or an ordinary already-selected furniture body;
+- unselected furniture plus specialized structural/opening/Transformer handles retain their own semantics;
+- hosted doors/windows move only along their current host wall, preserve `wallId`, constrain to a valid span and reject overlap/invalid candidates fail-closed with no silent re-host;
+- deterministic compact room-label degradation with non-overlapping name/area/dimension slots, bounded wrap/ellipsis and keyed React fragments;
+- dedicated real Chromium/WebKit acceptance for the exact mixed-composite, ordinary-furniture, Transformer, hosted-opening and compact-label paths.
+
+Verified implementation-head evidence:
+
+```text
+implementation head:              ee5f923346251e759d99d9bcda3cb6cc0a019980
+CI #5058 / run 31605042971:       PASS
+  documentation contract:          PASS
+  unit tests:                      PASS
+  Core Recognition Benchmark:      PASS
+  typecheck:                       PASS
+  lint:                            PASS
+  build:                           PASS
+Browser Acceptance #1508:         PASS
+  Chromium:                        PASS
+  WebKit:                          PASS
+browser run:                       31605042975
+browser artifact:                  9145064452
+artifact digest:                   sha256:978b5493ac309ca52b45d0555a0a5c11615ef5e933ea8c8684d63362ed4b8646
+unresolved review threads:         0
+```
+
+Dedicated Browser #1503 initially failed only because of two verified acceptance-harness defects: its new room fixture disabled endpoint snapping needed to close the room contour, and opening drag began outside the actual listening door/window geometry. The harness was corrected and later hardened around rendered interaction bounds and persisted furniture transforms. No topology/opening/M2/recognition authority was weakened.
+
+Focused RED/GREEN provenance and external-reference/license notes are recorded in `docs/changelog/2026-08-12-m8-2-direct-manipulation-opening-drag-correction.md`. `fedepaj/arcada-planner` and `charmlinn/blueprint3d-modern` were used only as MIT-licensed idea/architecture references; copied code: **none**.
+
+Next gate: fresh exact-head CI + Chromium/WebKit after canonical truth-sync, then the focused product-owner correction retest. Automation must not mark M8.2 accepted, Ready, issue #56 closed or merged.
+
+---
+
 ## 2026-08-10 — M8.2 automated structural acceptance gate green
 
 **Status:** implementation and dedicated automated gates GREEN in Draft PR #87; product-owner acceptance and protected merge remain pending.
