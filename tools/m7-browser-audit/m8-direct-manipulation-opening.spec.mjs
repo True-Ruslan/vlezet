@@ -391,13 +391,24 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     const rotateHandle = { x: bounds.center.x, y: bounds.top - 24 };
     const rotateTarget = { x: bounds.center.x + 48, y: bounds.center.y - 48 };
     await drag(page, rotateHandle, rotateTarget, { steps: 12 });
+
+    await clearSelection(page);
+    await page.mouse.click(bounds.center.x, bounds.center.y);
+    await expect(page.locator(".context-panel-title")).toHaveText("Стул");
     await expect.poll(async () => Number(await page.locator("#object-rotation").inputValue())).not.toBe(0);
 
     await page.getByRole("button", { name: "Отменить" }).click();
+    await clearSelection(page);
+    await page.mouse.click(bounds.center.x, bounds.center.y);
+    await expect(page.locator(".context-panel-title")).toHaveText("Стул");
     await expect(page.locator("#object-rotation")).toHaveValue("0");
 
-    const resizeHandle = { x: bounds.right, y: bounds.bottom };
+    const resetBounds = await renderedObjectBounds(page, bounds.center);
+    const resizeHandle = { x: resetBounds.right, y: resetBounds.bottom };
     await drag(page, resizeHandle, { x: resizeHandle.x + 24, y: resizeHandle.y + 18 }, { steps: 10 });
+    await clearSelection(page);
+    await page.mouse.click(resetBounds.center.x, resetBounds.center.y);
+    await expect(page.locator(".context-panel-title")).toHaveText("Стул");
     await expect.poll(async () => ({
       width: Number(await page.locator("#object-width").inputValue()),
       depth: Number(await page.locator("#object-depth").inputValue()),
@@ -487,7 +498,7 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     const browserErrors = trackBrowserErrors(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
-    const room = await drawRoom(page, { left: 0.54, right: 0.72, top: 0.38, bottom: 0.56 });
+    const room = await drawRoom(page);
     const roomPoint = await stagePoint(page, room.interior);
     await page.mouse.click(roomPoint.x, roomPoint.y);
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
