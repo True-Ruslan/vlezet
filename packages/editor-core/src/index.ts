@@ -1,6 +1,8 @@
 export type { EditorCommand, EditorCommandLabel } from "./commands";
 export { createHistoryState, executeCommand, redo, undo } from "./history";
 export type { HistoryEntry, HistoryState } from "./history";
+export { evaluateHostedOpeningMove } from "./hosted-opening-move";
+export type { HostedOpeningMoveResult } from "./hosted-opening-move";
 export {
   addPlacedObject,
   addPlacedObjects,
