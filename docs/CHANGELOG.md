@@ -4,21 +4,205 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
-## 2026-08-09 — M8.1 Editor Interaction Foundation product-accepted
+## 2026-08-13 — M8.2 product-owner accepted; protected integration pending
 
-**Status:** product-owner accepted in PR #85; protected squash merge pending.
+**Status:** PRODUCT-OWNER ACCEPTED on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`; protected merge remains pending fresh acceptance-head delivery gates.
+
+The final focused door-UX retest returned **«Все 3 теста PASS»**. The product owner confirmed comfortable door acquisition from the wall-opening area, continued leaf/arc targeting and that the deliberately non-listening filled swing sector does not steal surrounding room/furniture interaction. Earlier room + furniture marquee/movement and representative window movement scenarios were already PASS.
+
+Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`.
+
+Pre-acceptance exact-head evidence:
 
 ```text
-product-accepted head:        db66de524783a43fa021db07a6b67808c4435e9b
-CI #4813:                     PASS
-Recognition Benchmark #1149: PASS
-Browser Acceptance #1269:    PASS
-  Chromium:                   PASS
-  WebKit:                     PASS
-product-owner retest:         PASS
+accepted head:                  c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7
+CI #5090 / run 31680995080:    PASS
+Browser Acceptance #1540:      PASS — Chromium + WebKit
+browser artifact:               9173706386
+artifact digest:                sha256:b020c1cf31ef4ecbfdb1dbc1907f54ceaa60abf0f11b8b89082adf7a9220f1c0
+unresolved review threads:      0
+product-owner final retest:     PASS — «Все 3 теста PASS»
 ```
 
-M8.1 establishes the public-beta editor interaction substrate without weakening apartment semantics:
+No architecture authority, project schema, M2 fit/collision rules, hosted-opening validation, `wallId`, recognition threshold or semantic-history contract was weakened to obtain acceptance.
+
+Next delivery gate: fresh exact-head CI + Chromium/WebKit after this acceptance truth-sync, then Ready state and protected squash merge. M8.3 remains blocked until M8.2 is integrated into `main`.
+
+---
+
+## 2026-08-13 — M8.2 door hit-target usability correction automated GREEN
+
+**Status:** product-code GREEN and final product-owner door-UX confirmation **PASS**; superseded by the M8.2 milestone acceptance entry above.
+
+After the product owner reported room marquee **PASS**, window movement **PASS** and functional door movement/runtime **PASS**, one usability issue remained: the door was still difficult to acquire because pointer-down effectively required the thin leaf.
+
+The permanent Playwright regression now starts drag from the centre of the door's wall-opening span. Clean RED `e41c695b193a9e20ec0173453cd23d093f1bfaab` kept CI #5074 GREEN while Browser #1524 produced 54 PASS / 1 FAIL, with only the new door opening-span path failing. Production patch `9f37c7c0db394e7f924c732e4d191d3bff724ecf` makes the wall opening, leaf and swing arc practical targets without making the entire swing sector clickable.
+
+```text
+clean product-code head:       8f9317db650bd076df957028035f6a643d0ec470
+CI #5082 / run 31679924606:   PASS
+Browser Acceptance #1532:     PASS — Chromium + WebKit
+browser artifact:              9173229566
+artifact digest:               sha256:14ff9ba47d708c881adfdccf89f11218efac4af9f54862f332ebd0f487b65ea3
+```
+
+No schema, geometry authority, `wallId`, host-wall validation, M2, recognition or semantic-history contract changed. The full swing sector deliberately remains non-listening so nearby room/furniture interaction is not captured accidentally.
+
+Focused record: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.md`.
+
+Next gate: fresh exact-head CI + Chromium/WebKit after this canonical truth-sync, then only the focused real-session door-acquisition confirmation. The already reported marquee/window PASS does not need to be repeated.
+
+---
+
+## 2026-08-13 — M8.2 runtime / marquee / window regressions automated GREEN
+
+**Status:** three additional product-owner regressions are fixed and automated GREEN on the product-code head in Draft PR #87. Final documentation-head verification and explicit product-owner acceptance remain **PENDING**.
+
+The real product-owner session exposed gaps that the previous GREEN suite did not protect honestly:
+
+- Turbopack/Fast Refresh could preserve an older live Zustand singleton and cause hosted-door interaction to throw `beginStructuralOpeningGesture is not a function`;
+- ordinary no-modifier marquee around a room + furniture selected backing walls/openings instead of one semantic room root + furniture;
+- visible windows had a mathematically hittable but impractically narrow 1.5–2 px drag target.
+
+The new tests were introduced before the fixes and failed for the intended reasons:
+
+```text
+RED head:                      08efe070df59fc1c9a0d661a42130ae98875c2e7
+CI #5064:                     EXPECTED FAIL — 2 focused unit failures
+Browser Acceptance #1514:    EXPECTED FAIL — 53 PASS / 2 FAIL
+first partial candidate:       e2d80f581471e68f33f9c08a14b7c40ccabf6295
+marquee/runtime GREEN head:    bf04db8a5cd75818891849e7d05742e80eea8211
+CI #5066:                     PASS
+Browser Acceptance #1516:    54 PASS / 1 FAIL — window only
+final product-code head:       357c92c36fc6c72b3e727b00f4b342b742efeb72
+CI #5067 / run 31648753553:   PASS
+Browser Acceptance #1517:    PASS — Chromium + WebKit
+browser artifact:             9161930810
+artifact digest:              sha256:dfbf78d25fa4b6ce32d7ce5f25ca01746ebe9b7c332575776f1953a4466b74ab
+```
+
+Final semantics:
+
+- missing hosted-opening actions are repaired narrowly on the preserved **live** editor store before use; document/history state is not replaced;
+- a marquee fully enclosing a derived room selects the room as one semantic structural root plus furniture hit by the marquee, while partial marquee retains concrete wall/opening/furniture behavior;
+- both visible window lines retain their existing thin visual stroke but use a 12 px interaction hit stroke;
+- the new Playwright file runs in both Chromium and WebKit, performs real pointer interactions and fails on `pageerror` or `console.error`;
+- the marquee browser path additionally proves group drag and exact Undo/Redo.
+
+The first production candidate was deliberately not called GREEN: copying action closures from a temporary store meant they mutated that temporary store rather than the preserved singleton. The subsequent browser checkpoint deliberately left the window unfixed until it was isolated as the **only** remaining failure. This evidence is retained rather than hidden.
+
+No project schema, topology authority, M2 authority, hosted-wall validation, `wallId`, recognition behavior or semantic-history contract was weakened.
+
+Focused record: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regressions.md`.
+
+Next gate: exact-head CI + Chromium/WebKit after canonical documentation sync, then explicit product-owner acceptance. M8.2 remains Draft/not accepted and M8.3 remains blocked.
+
+---
+
+## 2026-08-12 — M8.2 direct-manipulation / hosted-opening correction automated GREEN
+
+**Status:** focused correction is implemented and automated GREEN in Draft PR #87; product-owner correction retest, M8.2 acceptance and protected merge remain **PENDING**.
+
+The latest product-owner retest had exposed one real mixed-composite gesture defect: a visibly selected `room + furniture` group did not move when drag began on an already selected furniture member. The same feedback round requested direct hosted-door movement and exposed unreadable room-label overlap in compact geometry.
+
+The correction now provides:
+
+- selection-aware gesture arbitration so the selected room composite can move from free room interior or an ordinary already-selected furniture body;
+- unselected furniture plus specialized structural/opening/Transformer handles retain their own semantics;
+- hosted doors/windows move only along their current host wall, preserve `wallId`, constrain to a valid span and reject overlap/invalid candidates fail-closed with no silent re-host;
+- deterministic compact room-label degradation with non-overlapping name/area/dimension slots, bounded wrap/ellipsis and keyed React fragments;
+- dedicated real Chromium/WebKit acceptance for the exact mixed-composite, ordinary-furniture, Transformer, hosted-opening and compact-label paths.
+
+Verified implementation-head evidence:
+
+```text
+implementation head:              ee5f923346251e759d99d9bcda3cb6cc0a019980
+CI #5058 / run 31605042971:       PASS
+  documentation contract:          PASS
+  unit tests:                      PASS
+  Core Recognition Benchmark:      PASS
+  typecheck:                       PASS
+  lint:                            PASS
+  build:                           PASS
+Browser Acceptance #1508:         PASS
+  Chromium:                        PASS
+  WebKit:                          PASS
+browser run:                       31605042975
+browser artifact:                  9145064452
+artifact digest:                   sha256:978b5493ac309ca52b45d0555a0a5c11615ef5e933ea8c8684d63362ed4b8646
+unresolved review threads:         0
+```
+
+Dedicated Browser #1503 initially failed only because of two verified acceptance-harness defects: its new room fixture disabled endpoint snapping needed to close the room contour, and opening drag began outside the actual listening door/window geometry. The harness was corrected and later hardened around rendered interaction bounds and persisted furniture transforms. No topology/opening/M2/recognition authority was weakened.
+
+Focused RED/GREEN provenance and external-reference/license notes are recorded in `docs/changelog/2026-08-12-m8-2-direct-manipulation-opening-drag-correction.md`. `fedepaj/arcada-planner` and `charmlinn/blueprint3d-modern` were used only as MIT-licensed idea/architecture references; copied code: **none**.
+
+Next gate: fresh exact-head CI + Chromium/WebKit after canonical truth-sync, then the focused product-owner correction retest. Automation must not mark M8.2 accepted, Ready, issue #56 closed or merged.
+
+---
+
+## 2026-08-10 — M8.2 automated structural acceptance gate green
+
+**Status:** implementation and dedicated automated gates GREEN in Draft PR #87; product-owner acceptance and protected merge remain pending.
+
+```text
+M8.1 base:                    867ec54d21b1dcb94d519ace3bec0a3635717022
+pre-Task-9 consolidation:    d9a685e69f4fc6d30b5a5264911c8371090c4ede
+Task-9 GREEN head:            66d27a673679f26a4a414213415f1603a02aad6a
+CI #4915:                     PASS
+Browser Acceptance #1365:    PASS
+  Chromium:                   PASS
+  WebKit:                     PASS
+browser artifact:             9056208133
+artifact digest:              sha256:00c34117d81ec257ad6f491df5781af0230fdb783e8bd8e2dbb48662d5bd740e
+product-owner acceptance:     PENDING
+protected merge:              PENDING
+```
+
+M8.2 now implements the approved precision-structural editing slice:
+
+- deterministic Canvas angle authority and named structural snapping;
+- endpoint/junction/midpoint/intersection/wall-axis plus construction assistance with hysteresis;
+- visible `Привязки` control and gesture-local Alt/Option suppression;
+- exact near-cursor wall length/angle input with explicit keyboard focus/Escape semantics;
+- direct structural handles;
+- complete-candidate topology/opening validation in `@vlezet/editor-core`;
+- topology-safe shared-endpoint and wall-body movement;
+- hosted-opening preservation/revalidation;
+- atomic centred multi-wall thickness editing;
+- dependency-closed structural Copy/Cut/Paste with fresh IDs;
+- one semantic history entry per accepted structural commit and none for preview/cancel/reject;
+- explicit valid/invalid structural feedback.
+
+Task 9 adds real Chromium/WebKit acceptance for exact wall input, snapping/hysteresis, shared-endpoint Undo→Redo→Undo, safe hosted-opening wall translation, unsafe structural rejection without partial history, atomic multi-wall thickness and structural clipboard closure.
+
+The browser hardening phase intentionally produced several test-only RED iterations. They exposed harness assumptions — continued wall chaining after exact Enter, false visual closure with snapping disabled, layout-dependent ratio coordinates, hover-state screenshot instability, onboarding overlap and an opening hit area masking its host wall — rather than a proven production defect. Production topology/opening/M2/recognition policy was not weakened.
+
+Granular RED/GREEN identities for every historical sub-step inside Tasks 5–8 cannot be reconstructed safely from current PR metadata and are deliberately not invented. Their implemented state is anchored to `d9a685e…`; Task 9 supplies the dedicated end-to-end automated evidence.
+
+Focused development record: `docs/changelog/2026-08-09-m8-2-precision-drawing-structural-editing.md`.
+
+Next gate: fresh exact-head verification after documentation truth-sync, then focused product-owner acceptance. CI alone must not mark M8.2 accepted, Ready or merged.
+
+---
+
+## 2026-08-09 — M8.1 Editor Interaction Foundation accepted and merged
+
+**Status:** product-owner accepted and protected squash-merged into `main`.
+
+```text
+product-accepted interaction head: db66de524783a43fa021db07a6b67808c4435e9b
+final documentation head:          f8318182d3a9e7c835ebf079de2710d6106d7829
+CI #4819:                           PASS
+Recognition Benchmark #1155:       PASS
+Browser Acceptance #1275:          PASS
+  Chromium:                         PASS
+  WebKit:                           PASS
+product-owner retest:               PASS
+protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
+```
+
+M8.1 established the public-beta editor interaction substrate without weakening apartment semantics:
 
 - unified semantic runtime selection with primary + multi-selection;
 - click/modifier/marquee/select-all semantics;
@@ -34,15 +218,13 @@ M8.1 establishes the public-beta editor interaction substrate without weakening 
 
 Product-owner acceptance initially found one real regression: cursor jitter around grid snap thresholds could leave the imperative dragged Konva node visually diverged from authoritative snapped group bounds. Genuine RED evidence was recorded at `fdc5902ab61d9152f93a0a5cbcfadb37bf59daa5` / CI #4807 and refined at `98a2e053b5b705257e4f5e56307d46ea30c0e5ae` / CI #4808. The production correction `94775496f5d0c7bc504ee9e371c845ef5e148a5e` reconciles the projection from authoritative preview state before paint without changing snap policy, M2 fit authority or semantic history.
 
-Regression hardening `88ec268653bb3034e3254421c8d9f28824b3488e` exercises three deterministic jitter profiles, post-release visual stability and exact Undo → Redo → Undo equivalence in Chromium and representative WebKit. No synthetic RED was manufactured for this test-only hardening because it introduced no new production behavior.
+Regression hardening `88ec268653bb3034e3254421c8d9f28824b3488e` exercises three deterministic jitter profiles, post-release visual stability and exact Undo → Redo → Undo equivalence in Chromium and representative WebKit.
 
 The product owner repeated the focused corrected scenarios on 2026-08-09 and reported: **«Все сценарии PASS.»**
 
-Structural batch movement/clipboard and compatible multi-wall common-property editing, beginning with wall thickness, remain deliberately deferred to M8.2 because topology dependency closure and hosted-opening validity must be designed and tested explicitly.
-
 Canonical acceptance evidence: `docs/milestones/m8-1-acceptance.md` and `docs/changelog/2026-08-08-m8-1-editor-interaction-foundation.md`.
 
-Roadmap consequence: **M8.2 Precision Drawing and Structural Editing is selected next after M8.1 is integrated into `main`.** The actual protected squash-merge identity must be recorded after integration; product acceptance is not treated as an invented merge.
+Roadmap consequence: M8.2 Precision Drawing and Structural Editing became unblocked and is the active structural precision slice.
 
 ---
 

@@ -2,15 +2,20 @@ import type { VlezetDocument } from "@vlezet/domain";
 
 export type EditorCommandLabel =
   | "vertex/move"
+  | "vertex/move-structural"
   | "wall/add-connected"
   | "wall/add-t-junction"
   | "wall/set-length"
   | "wall/set-thickness"
+  | "wall/translate"
+  | "wall/batch-set-thickness"
   | "opening/add"
   | "opening/update"
   | "opening/delete"
+  | "opening/move-host"
   | "room-annotation/set-name"
   | "room/set-clear-dimension"
+  | "room/translate"
   | "object/add"
   | "object/move"
   | "object/rotate"
@@ -21,6 +26,9 @@ export type EditorCommandLabel =
   | "object/batch-add"
   | "object/batch-move"
   | "object/batch-delete"
+  | "structure/cut"
+  | "structure/paste"
+  | "selection/paste-composite"
   | "planning/apply-candidate"
   | "recognition/apply";
 

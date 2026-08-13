@@ -14,7 +14,10 @@ describe("M7.4 live Canvas feedback integration", () => {
     expect(source).toContain("parseCanvasEntityName(current.name())");
     expect(source).toContain("const stage = event.target.getStage()");
     expect(source).toContain("const hitNode = stage?.getIntersection(pointer) ?? event.target");
-    expect(source).not.toContain("canvasEntityFromKonvaNode(event.target)");
+    const hoverStart = source.indexOf("const onMouseMove");
+    const hoverEnd = source.indexOf("const onMouseUp", hoverStart);
+    const hoverBody = source.slice(hoverStart, hoverEnd);
+    expect(hoverBody).not.toContain("canvasEntityFromKonvaNode(event.target)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().setHoveredSelectable(visibleHoveredEntity !== null)");
     expect(source).toContain("canvasTransientFeedbackStore.getState().reset()");
   });
@@ -77,7 +80,8 @@ describe("M7.6 geometry inspector Canvas preview integration", () => {
     expect(source).toContain(": opening.doorSwing;");
     expect(source).toContain('effectiveDoorSwing?.hinge !== "end"');
     expect(source).toContain('effectiveDoorSwing?.side === "right"');
-    expect(source).toContain("openingSegment(document, opening)");
+    expect(source).toContain("const sourceDocument = preview ? document : structuralDisplayDocument;");
+    expect(source).toContain("openingSegment(sourceDocument, opening)");
   });
 });
 
@@ -134,7 +138,7 @@ describe("M8.1 Canvas semantic multi-selection", () => {
     expect(source).toContain('from "./editor-selection-geometry"');
     expect(source).toContain("const onCanvasClick");
     const clickStart = source.indexOf("const onCanvasClick");
-    const clickEnd = source.indexOf("const snapPointer", clickStart);
+    const clickEnd = source.indexOf("const resolveCanvasStructuralSnap", clickStart);
     const clickBody = source.slice(clickStart, clickEnd);
     expect(clickBody).toContain("entitiesIntersectingMarquee(document");
     expect(clickBody).toContain("store.toggleSelection(target)");
@@ -172,7 +176,7 @@ describe("M8.1 Canvas semantic multi-selection", () => {
   it("suppresses the Stage geometry click emitted after a completed marquee drag", () => {
     expect(source).toContain("const suppressGeometryClickRef = useRef(false)");
     const clickStart = source.indexOf("const onCanvasClick");
-    const clickEnd = source.indexOf("const snapPointer", clickStart);
+    const clickEnd = source.indexOf("const resolveCanvasStructuralSnap", clickStart);
     const clickBody = source.slice(clickStart, clickEnd);
     expect(clickBody).toContain("if (suppressGeometryClickRef.current)");
     expect(clickBody).toContain("suppressGeometryClickRef.current = false");

@@ -1,9 +1,10 @@
 "use client";
 
+import type { Point2 } from "@vlezet/domain";
 import type { ProjectViewport, ReferencePlan, SaveStatus } from "@vlezet/projects";
 import type { NormalizedPoint, RecognitionDecision, RecognitionOpeningCandidate } from "@vlezet/recognition";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { planningUiStore } from "../planning/planning-ui-store";
 import { RecognitionPanel } from "../recognition/recognition-panel";
@@ -39,6 +40,7 @@ import {
 } from "./editor-context-menu";
 import { deriveEditorEscapeAction } from "./editor-escape-priority";
 import { EditorOnboardingOverlay } from "./editor-onboarding-overlay";
+import { deriveSelectionCapabilities } from "./editor-selection-capabilities";
 import { EditorSideSurface } from "./editor-side-surface";
 import { EditorToolbar } from "./editor-toolbar";
 import {
@@ -140,11 +142,13 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const [dismissedContextKey, setDismissedContextKey] = useState<string | null>(null);
   const [workflowReturnTarget, setWorkflowReturnTarget] = useState<WorkflowReturnTarget | null>(null);
   const [ownedContextMenuRequest, setOwnedContextMenuRequest] = useState<OwnedEditorContextMenuRequest | null>(null);
+  const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
+  const latestCanvasPointerWorldRef = useRef<Point2 | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const document = useStore(editorStore, (state) => state.history.document);
   const selection = useStore(editorStore, (state) => state.selection);
-  const hasPlacedObjectClipboard = useStore(editorStore, (state) => state.clipboard.payload !== null);
+  const clipboardKind = useStore(editorStore, (state) => state.clipboard.payload?.kind ?? null);
   const selectedObjectId = selectedObjectIdFromSelection(selection);
   const selectedOpeningId = selectedOpeningIdFromSelection(selection);
   const selectedOpening = document.openings.find((opening) => opening.id === selectedOpeningId) ?? null;
@@ -207,6 +211,12 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       serial: (current?.serial ?? 0) + 1,
       command,
     }));
+  }, []);
+
+  const rememberCanvasPointer = useCallback((point: Point2) => {
+    if (Number.isFinite(point.x) && Number.isFinite(point.y)) {
+      latestCanvasPointerWorldRef.current = { ...point };
+    }
   }, []);
 
   const openCatalogueSurface = useCallback(() => {
@@ -295,8 +305,11 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const executeEditorCommand = useCallback((command: EditorCommandId): boolean => {
     const store = editorStore.getState();
     const editingBlocked = props.recognitionPanelOpen;
-    const selectedFurnitureOnly = store.selection.refs.length > 0 &&
-      store.selection.refs.every((ref) => ref.kind === "placed-object");
+    const capabilities = deriveSelectionCapabilities({
+      document: store.history.document,
+      selection: store.selection,
+      clipboardKind: store.clipboard.payload?.kind ?? null,
+    });
 
     switch (command) {
       case "history.undo":
@@ -309,35 +322,37 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         if (editingBlocked) return false;
         store.selectAllConcreteEntities();
         return true;
-      case "selection.copy":
-        if (editingBlocked || !selectedFurnitureOnly) return false;
-        store.copySelection();
+      case "selection.copy": {
+        if (editingBlocked) return false;
+        const result = store.copySelection();
+        if (!result.ok) setClipboardNotice(result.reason);
+        else setClipboardNotice(null);
         return true;
+      }
       case "selection.cut":
-        if (editingBlocked || !selectedFurnitureOnly) return false;
+        if (editingBlocked || !capabilities.cut.enabled) return false;
         store.cutSelection();
         return true;
       case "selection.paste": {
-        if (editingBlocked || !store.clipboard.payload) return false;
+        if (editingBlocked || !capabilities.paste.enabled || !store.clipboard.payload) return false;
         const origin = store.clipboard.payload.copiedAtOrigin;
-        store.pasteClipboard({ x: origin.x + 200, y: origin.y + 200 });
+        const anchor = latestCanvasPointerWorldRef.current ?? origin;
+        store.pasteClipboard(anchor);
+        setClipboardNotice(null);
         return true;
       }
       case "selection.duplicate":
-        if (editingBlocked || !selectedFurnitureOnly) return false;
+        if (editingBlocked || !capabilities.duplicate.enabled) return false;
         store.duplicateSelection();
         return true;
       case "selection.delete":
-        if (editingBlocked) return false;
-        if (selectedFurnitureOnly) {
-          store.deleteSelection();
-          return true;
-        }
-        if (selectedOpeningIdFromSelection(store.selection)) {
-          store.deleteSelectedOpening();
-          return true;
-        }
-        return false;
+        if (editingBlocked || !capabilities.delete.enabled) return false;
+        store.deleteSelection();
+        return true;
+      case "selection.select-furniture-in-room":
+        if (editingBlocked || !capabilities.selectFurnitureInRoom.enabled) return false;
+        store.selectFurnitureInSelectedRoom();
+        return true;
       case "selection.clear":
         if (store.selection.refs.length === 0) return false;
         store.clearSelection();
@@ -402,8 +417,15 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   }, [contextMenuOwnerKey]);
 
   useEffect(() => {
+    latestCanvasPointerWorldRef.current = null;
     spatialViewModeStore.getState().setMode("2d");
   }, [props.projectId]);
+
+  useEffect(() => {
+    if (!clipboardNotice) return;
+    const timeoutId = window.setTimeout(() => setClipboardNotice(null), 3500);
+    return () => window.clearTimeout(timeoutId);
+  }, [clipboardNotice]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -422,6 +444,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         const measurement = measurementToolStore.getState();
         const escapeAction = deriveEditorEscapeAction({
           viewMode,
+          hasStructuralGesture: store.structuralGesture !== null,
           hasObjectGesture: store.objectGesture !== null,
           measurementActive: measurement.active,
           measurementPhase: measurement.phase,
@@ -433,6 +456,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           hasSelection: store.selection.refs.length > 0,
         });
         switch (escapeAction) {
+          case "cancel-structural-gesture": store.cancelStructuralGesture(); break;
           case "cancel-object-gesture": store.cancelObjectGesture(); break;
           case "reset-measurement": measurementToolStore.getState().resetMeasurement(); break;
           case "cancel-wall-draft": store.cancelDraft(); break;
@@ -509,8 +533,9 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
     <MultiSelectionInspector
       document={document}
       selection={selection}
-      hasPlacedObjectClipboard={hasPlacedObjectClipboard}
+      clipboardKind={clipboardKind}
       executeCommand={executeEditorCommand}
+      setSelectedWallsThickness={(thickness) => editorStore.getState().setSelectedWallsThickness(thickness)}
     />
   ) : <WallInspector planningNavigation={workflowNavigation} />;
 
@@ -563,6 +588,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
             key={props.projectId}
             initialViewport={props.initialViewport}
             onViewportChange={props.onViewportChange}
+            onPointerWorldChange={rememberCanvasPointer}
             viewCommandRequest={viewCommandRequest}
             fitReferenceRequest={fitReferenceRequest}
             referencePlan={props.referencePlan}
@@ -589,11 +615,12 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           position={contextMenuRequest.position}
           document={document}
           selection={selection}
-          hasPlacedObjectClipboard={hasPlacedObjectClipboard}
+          clipboardKind={clipboardKind}
           executeCommand={executeEditorCommand}
           onDismiss={() => setOwnedContextMenuRequest(null)}
         />
       ) : null}
+      {clipboardNotice ? <div className="recognition-banner clipboard-notice" role="status"><strong>Копирование недоступно</strong><span>{clipboardNotice}</span></div> : null}
       {viewMode === "2d" && props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
       {viewMode === "2d" && props.recognitionPanelOpen && recognitionDraft ? <div className="recognition-banner" role="status"><strong>Проверка распознавания</strong><span>Цветные линии — только черновик. Реальная квартира не изменится до применения.</span></div> : null}
     </main>

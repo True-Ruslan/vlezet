@@ -12,10 +12,14 @@ export function signedPolygonArea(points: readonly Point2[]): number {
   return sum / 2;
 }
 
-export function pointInPolygon(point: Point2, polygon: readonly Point2[]): boolean {
+function pointInPolygonWithTolerance(
+  point: Point2,
+  polygon: readonly Point2[],
+  tolerance: number,
+): boolean {
   if (polygon.length < 3) return false;
   for (let index = 0; index < polygon.length; index += 1) {
-    if (pointOnSegment(point, polygon[index]!, polygon[(index + 1) % polygon.length]!, GEOMETRY_EPSILON_MM)) return true;
+    if (pointOnSegment(point, polygon[index]!, polygon[(index + 1) % polygon.length]!, tolerance)) return true;
   }
 
   let inside = false;
@@ -27,6 +31,53 @@ export function pointInPolygon(point: Point2, polygon: readonly Point2[]): boole
     if (intersects) inside = !inside;
   }
   return inside;
+}
+
+export function pointInPolygon(point: Point2, polygon: readonly Point2[]): boolean {
+  return pointInPolygonWithTolerance(point, polygon, GEOMETRY_EPSILON_MM);
+}
+
+export function polygonContainsPolygonInclusive(
+  container: readonly Point2[],
+  subject: readonly Point2[],
+  tolerance: number = GEOMETRY_EPSILON_MM,
+): boolean {
+  if (container.length < 3 || subject.length < 3) return false;
+  if (!Number.isFinite(tolerance) || tolerance < 0) return false;
+  if (subject.some((point) => !pointInPolygonWithTolerance(point, container, tolerance))) return false;
+
+  for (let subjectIndex = 0; subjectIndex < subject.length; subjectIndex += 1) {
+    const start = subject[subjectIndex]!;
+    const end = subject[(subjectIndex + 1) % subject.length]!;
+    const parameters = [0, 1];
+
+    for (let containerIndex = 0; containerIndex < container.length; containerIndex += 1) {
+      const boundaryStart = container[containerIndex]!;
+      const boundaryEnd = container[(containerIndex + 1) % container.length]!;
+      const intersection = segmentIntersection(start, end, boundaryStart, boundaryEnd, tolerance);
+      if (!intersection) continue;
+      parameters.push(Math.max(0, Math.min(1, intersection.t)));
+    }
+
+    parameters.sort((first, second) => first - second);
+    const uniqueParameters = parameters.filter(
+      (value, index) => index === 0 || Math.abs(value - parameters[index - 1]!) > tolerance,
+    );
+
+    for (let index = 0; index < uniqueParameters.length - 1; index += 1) {
+      const from = uniqueParameters[index]!;
+      const to = uniqueParameters[index + 1]!;
+      if (to - from <= tolerance) continue;
+      const t = (from + to) / 2;
+      const midpoint = {
+        x: start.x + (end.x - start.x) * t,
+        y: start.y + (end.y - start.y) * t,
+      };
+      if (!pointInPolygonWithTolerance(midpoint, container, tolerance)) return false;
+    }
+  }
+
+  return true;
 }
 
 export function polygonSelfIntersects(polygon: readonly Point2[]): boolean {

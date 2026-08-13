@@ -18,7 +18,9 @@ export type PlacedObjectShapeProps = Readonly<{
   preview?: boolean;
   hovered?: boolean;
   transformEnabled?: boolean;
+  moveGestureOwner?: "object" | "room-composite";
   onSelect?: (event: KonvaEventObject<MouseEvent | TouchEvent>) => void;
+  onRoomCompositePointerDown?: (event: KonvaEventObject<MouseEvent | TouchEvent>) => void;
   onGestureStart?: (kind: ObjectGestureKind) => void;
   onGesturePreview?: (patch: PlacedObjectPatch) => void;
   onGestureCommit?: () => void;
@@ -79,7 +81,9 @@ export function PlacedObjectShape({
   preview = false,
   hovered = false,
   transformEnabled = true,
+  moveGestureOwner = "object",
   onSelect,
+  onRoomCompositePointerDown,
   onGestureStart,
   onGesturePreview,
   onGestureCommit,
@@ -116,13 +120,20 @@ export function PlacedObjectShape({
     });
   };
 
-  const blockPointerFromCanvas = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
-    if (!preview) event.cancelBubble = true;
+  const handlePointerDown = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (preview) return;
+    event.cancelBubble = true;
+    if (moveGestureOwner === "room-composite") {
+      event.evt.preventDefault();
+      onRoomCompositePointerDown?.(event);
+    }
   };
 
   const selectFromPointer = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (preview) return;
     event.cancelBubble = true;
+    const toggle = event.evt.shiftKey || event.evt.metaKey || event.evt.ctrlKey;
+    if (moveGestureOwner === "room-composite" && !toggle) return;
     onSelect?.(event);
   };
 
@@ -133,10 +144,10 @@ export function PlacedObjectShape({
       x={screen.x}
       y={screen.y}
       rotation={object.rotationDeg}
-      draggable={!preview}
+      draggable={!preview && moveGestureOwner !== "room-composite"}
       opacity={preview ? 0.68 : 1}
-      onMouseDown={blockPointerFromCanvas}
-      onTouchStart={blockPointerFromCanvas}
+      onMouseDown={handlePointerDown}
+      onTouchStart={handlePointerDown}
       onClick={selectFromPointer}
       onTap={selectFromPointer}
       onDragStart={(event) => {

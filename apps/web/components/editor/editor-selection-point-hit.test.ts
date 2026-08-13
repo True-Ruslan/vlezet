@@ -46,7 +46,7 @@ describe("M8.1 direct semantic point hit", () => {
     ]);
   });
 
-  it("keeps concrete entities ahead of the derived room while marquee still excludes rooms", () => {
+  it("keeps concrete entities ahead of the derived room for point hits and uses the room as a whole-marquee root", () => {
     const document = documentFixture();
     const room = deriveRooms(document).rooms[0]!;
 
@@ -61,6 +61,9 @@ describe("M8.1 direct semantic point hit", () => {
       maxX: 7000,
       maxY: 5000,
     });
-    expect(marquee.some((ref) => ref.kind === "room")).toBe(false);
+    expect(marquee).toEqual([
+      { kind: "room", id: room.id },
+      { kind: "placed-object", id: "table" },
+    ]);
   });
 });

@@ -3,7 +3,10 @@
 import type { VlezetDocument } from "@vlezet/domain";
 import { Fragment, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { EDITOR_COMMANDS, type EditorCommandId } from "./editor-commands";
-import { deriveSelectionCapabilities } from "./editor-selection-capabilities";
+import {
+  deriveSelectionCapabilities,
+  type EditorClipboardKind,
+} from "./editor-selection-capabilities";
 import {
   EMPTY_EDITOR_SELECTION,
   replaceSelection,
@@ -93,13 +96,13 @@ export function selectionForContextMenuTarget(
 export function availableContextMenuCommands(
   document: VlezetDocument,
   selection: EditorSelection,
-  hasPlacedObjectClipboard: boolean,
+  clipboardKind: EditorClipboardKind,
 ): readonly EditorContextMenuCommand[] {
   const safeSelection = sanitizeEditorSelection(document, selection);
   const capabilities = deriveSelectionCapabilities({
     document,
     selection: safeSelection,
-    hasPlacedObjectClipboard,
+    clipboardKind,
   });
   const commands: EditorContextMenuCommand[] = [];
   const append = (id: EditorCommandId, separatorBefore = false) => {
@@ -117,6 +120,7 @@ export function availableContextMenuCommands(
   if (capabilities.copy.enabled) append("selection.copy");
   if (capabilities.cut.enabled) append("selection.cut");
   if (capabilities.duplicate.enabled) append("selection.duplicate");
+  if (capabilities.selectFurnitureInRoom.enabled) append("selection.select-furniture-in-room");
   append("view.fitSelection", commands.length > 0);
   if (capabilities.delete.enabled) append("selection.delete", true);
   return commands;
@@ -140,7 +144,7 @@ export function EditorContextMenu({
   position,
   document,
   selection,
-  hasPlacedObjectClipboard,
+  clipboardKind,
   shortcutPlatform,
   executeCommand,
   onDismiss,
@@ -148,7 +152,7 @@ export function EditorContextMenu({
   position: Readonly<{ x: number; y: number }>;
   document: VlezetDocument;
   selection: EditorSelection;
-  hasPlacedObjectClipboard: boolean;
+  clipboardKind: EditorClipboardKind;
   shortcutPlatform?: ShortcutPlatform;
   executeCommand: (command: EditorCommandId) => unknown;
   onDismiss: () => void;
@@ -163,7 +167,7 @@ export function EditorContextMenu({
   const commands = availableContextMenuCommands(
     document,
     selection,
-    hasPlacedObjectClipboard,
+    clipboardKind,
   );
 
   useLayoutEffect(() => {

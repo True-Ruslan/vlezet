@@ -6,6 +6,7 @@ export type EditorCommandIconName =
   | "door"
   | "window"
   | "measure"
+  | "snap"
   | "furniture"
   | "reference"
   | "recognition"
@@ -29,6 +30,8 @@ function paths(name: EditorCommandIconName): ReactNode {
       return <><rect x="4" y="5" width="16" height="14" rx="1" /><path d="M12 5v14M4 12h16" /></>;
     case "measure":
       return <><path d="M4 17L17 4l3 3L7 20l-3-3z" /><path d="M9 15l-2-2M12 12l-2-2M15 9l-2-2" /></>;
+    case "snap":
+      return <><path d="M5 5v5a7 7 0 0 0 14 0V5" /><path d="M5 5h4M15 5h4" /><path d="M12 14v6M9 20h6" /></>;
     case "furniture":
       return <><path d="M4 12v7M20 12v7M4 15h16" /><path d="M6 12V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4" /><path d="M3 12a2 2 0 0 1 3 0M18 12a2 2 0 0 1 3 0" /></>;
     case "reference":

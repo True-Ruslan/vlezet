@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./apartment-editor.tsx", import.meta.url), "utf8");
 
-describe("M8.1 ApartmentEditor semantic command routing", () => {
+describe("M8 ApartmentEditor semantic command routing", () => {
   it("routes semantic keyboard commands through one executor", () => {
     expect(source).toContain('from "./editor-commands"');
     expect(source).toContain("commandForKeyboardEvent");
@@ -29,17 +29,43 @@ describe("M8.1 ApartmentEditor semantic command routing", () => {
     expect(source).not.toContain("store.duplicateSelectedObject()");
   });
 
-  it("routes furniture deletion through atomic semantic multi-delete while preserving single-opening delete", () => {
+  it("treats keyboard Copy as an explicit attempt, reports rejection, and clears notice after accepted clipboard work", () => {
+    const copyCase = source.slice(
+      source.indexOf('case "selection.copy"'),
+      source.indexOf('case "selection.cut"'),
+    );
+    expect(copyCase).toContain("if (editingBlocked) return false");
+    expect(copyCase).not.toContain("!capabilities.copy.enabled");
+    expect(copyCase).toContain("const result = store.copySelection()");
+    expect(copyCase).toContain("if (!result.ok) setClipboardNotice(result.reason)");
+    expect(copyCase).toContain("else setClipboardNotice(null)");
+
+    const pasteCase = source.slice(
+      source.indexOf('case "selection.paste"'),
+      source.indexOf('case "selection.duplicate"'),
+    );
+    expect(pasteCase).toContain("setClipboardNotice(null)");
+    expect(source).toContain("const [clipboardNotice, setClipboardNotice]");
+    expect(source).toContain('role="status"');
+    expect(source).toContain("clipboardNotice");
+  });
+
+  it("gates destructive selection mutations through the shared capability authority", () => {
+    expect(source).toContain('from "./editor-selection-capabilities"');
+    expect(source).toContain("const capabilities = deriveSelectionCapabilities({");
+    expect(source).toContain("document: store.history.document");
+    expect(source).toContain("selection: store.selection");
+    expect(source).toContain("clipboardKind: store.clipboard.payload?.kind ?? null");
+
     const deleteCase = source.slice(
       source.indexOf('case "selection.delete"'),
       source.indexOf('case "selection.clear"'),
     );
-
-    expect(deleteCase).toContain("if (selectedFurnitureOnly)");
+    expect(deleteCase).toContain("if (editingBlocked || !capabilities.delete.enabled) return false");
     expect(deleteCase).toContain("store.deleteSelection()");
-    expect(deleteCase).toContain("selectedOpeningIdFromSelection(store.selection)");
-    expect(deleteCase).toContain("store.deleteSelectedOpening()");
-    expect(deleteCase).not.toContain("store.deleteSelectedObject()");
+    expect(deleteCase).not.toContain("selectedFurnitureOnly");
+    expect(deleteCase).not.toContain("selectedOpeningIdFromSelection(store.selection)");
+    expect(deleteCase).not.toContain("store.deleteSelectedOpening()");
   });
 
   it("routes all 2D view commands through one runtime-only Canvas request", () => {
@@ -57,12 +83,13 @@ describe("M8.1 ApartmentEditor semantic command routing", () => {
   it("derives multi-selection context from the unified selection and renders the shared inspector", () => {
     expect(source).toContain('from "./multi-selection-inspector"');
     expect(source).toContain("const selection = useStore(editorStore, (state) => state.selection)");
-    expect(source).toContain("const hasPlacedObjectClipboard = useStore(editorStore, (state) => state.clipboard.payload !== null)");
+    expect(source).toContain("const clipboardKind = useStore(editorStore, (state) => state.clipboard.payload?.kind ?? null)");
     expect(source).toContain("selectionCount: selection.refs.length");
     expect(source).toContain('contextKind === "multi-selection"');
     expect(source).toContain("<MultiSelectionInspector");
     expect(source).toContain("selection={selection}");
-    expect(source).toContain("hasPlacedObjectClipboard={hasPlacedObjectClipboard}");
+    expect(source).toContain("clipboardKind={clipboardKind}");
+    expect(source).toContain("setSelectedWallsThickness={(thickness) => editorStore.getState().setSelectedWallsThickness(thickness)}");
     expect(source).toContain("executeCommand={executeEditorCommand}");
   });
 
@@ -78,6 +105,7 @@ describe("M8.1 ApartmentEditor semantic command routing", () => {
     expect(source).toContain("onContextMenuRequest={openContextMenu}");
     expect(source).toContain("<EditorContextMenu");
     expect(source).toContain("position={contextMenuRequest.position}");
+    expect(source).toContain("clipboardKind={clipboardKind}");
     expect(source).toContain("executeCommand={executeEditorCommand}");
     expect(source).toContain("onDismiss={() => setOwnedContextMenuRequest(null)}");
     expect(source).not.toContain("setContextMenuRequest(null)");

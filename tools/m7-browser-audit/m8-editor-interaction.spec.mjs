@@ -392,7 +392,8 @@ test.describe("M8.1 editor interaction acceptance", () => {
     await page.mouse.click(chair.x, chair.y, { button: "right" });
     const menu = page.getByRole("menu", { name: "Действия с выделением" });
     await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Копировать" })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: "Показать выделение" })).toBeVisible();
-    await expect(menu.getByRole("menuitem")).toHaveCount(1);
+    await expect(menu.getByRole("menuitem")).toHaveCount(2);
   });
 });

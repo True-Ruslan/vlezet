@@ -19,6 +19,12 @@ export type LinearDimensionAnnotation = Readonly<{
   emphasized?: boolean;
 }>;
 
+export type RoomCanvasLabelContent = Readonly<{
+  name: string;
+  area: string;
+  dimensions: string | null;
+}>;
+
 const NBSP = "\u00a0";
 
 function bounds(points: readonly Point2[]): Readonly<{ minX: number; maxX: number; minY: number; maxY: number }> {
@@ -95,11 +101,20 @@ export function formatDimensionValue(annotation: LinearDimensionAnnotation): str
   return `${formatMillimeters(Math.round(annotation.valueMm))} ${suffix}`;
 }
 
-export function formatRoomCanvasLabel(room: DerivedRoom): string {
+export function formatRoomCanvasLabelContent(room: DerivedRoom): RoomCanvasLabelContent {
   const dimensions = deriveRectangularRoomDimensions(room);
-  const base = `${room.name}\n${formatSquareMeters(room.areaMm2 / 1_000_000)}`;
-  if (!dimensions) return base;
+  const area = formatSquareMeters(room.areaMm2 / 1_000_000);
+  if (!dimensions) return { name: room.name, area, dimensions: null };
   const width = formatNumberRu(Math.round(dimensions.widthMm), { useGrouping: false, maximumFractionDigits: 0 });
   const height = formatNumberRu(Math.round(dimensions.heightMm), { useGrouping: false, maximumFractionDigits: 0 });
-  return `${base}\n${width} × ${height}${NBSP}мм внутри`;
+  return {
+    name: room.name,
+    area,
+    dimensions: `${width} × ${height}${NBSP}мм внутри`,
+  };
+}
+
+export function formatRoomCanvasLabel(room: DerivedRoom): string {
+  const content = formatRoomCanvasLabelContent(room);
+  return [content.name, content.area, content.dimensions].filter((value): value is string => value !== null).join("\n");
 }

@@ -6,6 +6,7 @@ import {
 
 const base: EditorEscapeInput = {
   viewMode: "2d",
+  hasStructuralGesture: false,
   hasObjectGesture: false,
   measurementActive: false,
   measurementPhase: "idle",
@@ -21,8 +22,19 @@ function action(patch: Partial<EditorEscapeInput>) {
   return deriveEditorEscapeAction({ ...base, ...patch });
 }
 
-describe("M7.4 one-level Escape priority", () => {
-  it("cancels only the highest pointer transient", () => {
+describe("M7.4/M8.2 one-level Escape priority", () => {
+  it("cancels a structural gesture before any other pointer transient", () => {
+    expect(action({
+      hasStructuralGesture: true,
+      hasObjectGesture: true,
+      measurementActive: true,
+      measurementPhase: "measuring",
+      hasWallDraft: true,
+      hasPlacement: true,
+    })).toBe("cancel-structural-gesture");
+  });
+
+  it("cancels only the highest ordinary pointer transient when no structural gesture exists", () => {
     expect(action({
       hasObjectGesture: true,
       measurementActive: true,

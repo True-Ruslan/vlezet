@@ -17,9 +17,11 @@ function documentFixture(): VlezetDocument {
     vertices: [
       { id: "a", position: { x: 0, y: 0 } },
       { id: "b", position: { x: 5000, y: 0 } },
+      { id: "c", position: { x: 5000, y: 4000 } },
     ],
     walls: [
       { id: "wall-1", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 },
+      { id: "wall-2", startVertexId: "b", endVertexId: "c", junctionVertexIds: [], thickness: 150 },
     ],
     openings: [],
     roomAnnotations: [],
@@ -50,7 +52,7 @@ function documentFixture(): VlezetDocument {
   };
 }
 
-describe("M8.1 registered-command context menu", () => {
+describe("M8 registered-command context menu", () => {
   it("preserves a selected group, replaces an unselected target, and clears on empty canvas", () => {
     const group = addToSelection(
       replaceSelection({ kind: "placed-object", id: "chair-1" }),
@@ -84,14 +86,14 @@ describe("M8.1 registered-command context menu", () => {
     )).toEqual({ x: 8, y: 8 });
   });
 
-  it("derives the exact selection and empty-canvas command sets from shared authority", () => {
+  it("derives furniture, structural and empty-canvas command sets from the same capability authority", () => {
     const document = documentFixture();
-    const group = addToSelection(
+    const furnitureGroup = addToSelection(
       replaceSelection({ kind: "placed-object", id: "chair-1" }),
       [{ kind: "placed-object", id: "chair-2" }],
     );
 
-    expect(availableContextMenuCommands(document, group, true).map((item) => item.id)).toEqual([
+    expect(availableContextMenuCommands(document, furnitureGroup, "placed-objects").map((item) => item.id)).toEqual([
       "selection.copy",
       "selection.cut",
       "selection.duplicate",
@@ -99,12 +101,31 @@ describe("M8.1 registered-command context menu", () => {
       "selection.delete",
     ]);
 
-    expect(availableContextMenuCommands(document, EMPTY_EDITOR_SELECTION, true).map((item) => item.id)).toEqual([
-      "selection.paste",
-      "selection.selectAll",
-      "view.fitPlan",
+    const closedStructure = addToSelection(
+      replaceSelection({ kind: "wall", id: "wall-1" }),
+      [{ kind: "wall", id: "wall-2" }],
+    );
+    expect(availableContextMenuCommands(document, closedStructure, "structural-fragment").map((item) => item.id)).toEqual([
+      "selection.copy",
+      "selection.cut",
+      "selection.duplicate",
+      "view.fitSelection",
     ]);
-    expect(availableContextMenuCommands(document, EMPTY_EDITOR_SELECTION, false).map((item) => item.id)).toEqual([
+
+    expect(availableContextMenuCommands(document, replaceSelection({ kind: "wall", id: "wall-1" }), null).map((item) => item.id)).toEqual([
+      "selection.copy",
+      "selection.duplicate",
+      "view.fitSelection",
+    ]);
+
+    for (const clipboardKind of ["placed-objects", "structural-fragment"] as const) {
+      expect(availableContextMenuCommands(document, EMPTY_EDITOR_SELECTION, clipboardKind).map((item) => item.id)).toEqual([
+        "selection.paste",
+        "selection.selectAll",
+        "view.fitPlan",
+      ]);
+    }
+    expect(availableContextMenuCommands(document, EMPTY_EDITOR_SELECTION, null).map((item) => item.id)).toEqual([
       "selection.selectAll",
       "view.fitPlan",
     ]);
@@ -113,7 +134,8 @@ describe("M8.1 registered-command context menu", () => {
       replaceSelection({ kind: "wall", id: "wall-1" }),
       [{ kind: "placed-object", id: "chair-1" }],
     );
-    expect(availableContextMenuCommands(document, mixed, true).map((item) => item.id)).toEqual([
+    expect(availableContextMenuCommands(document, mixed, "structural-fragment").map((item) => item.id)).toEqual([
+      "selection.copy",
       "view.fitSelection",
     ]);
   });
@@ -125,7 +147,7 @@ describe("M8.1 registered-command context menu", () => {
         position={{ x: 120, y: 80 }}
         document={document}
         selection={replaceSelection({ kind: "placed-object", id: "chair-1" })}
-        hasPlacedObjectClipboard
+        clipboardKind="placed-objects"
         shortcutPlatform="mac"
         executeCommand={() => true}
         onDismiss={() => {}}
@@ -144,25 +166,27 @@ describe("M8.1 registered-command context menu", () => {
     expect(html).toContain('role="menu"');
   });
 
-  it("renders empty-canvas actions with non-Mac shortcut hints and one separator", () => {
+  it("renders empty-canvas actions with non-Mac shortcut hints for either clipboard kind", () => {
     const document = documentFixture();
-    const html = renderToStaticMarkup(
-      <EditorContextMenu
-        position={{ x: 120, y: 80 }}
-        document={document}
-        selection={EMPTY_EDITOR_SELECTION}
-        hasPlacedObjectClipboard
-        shortcutPlatform="other"
-        executeCommand={() => true}
-        onDismiss={() => {}}
-      />,
-    );
+    for (const clipboardKind of ["placed-objects", "structural-fragment"] as const) {
+      const html = renderToStaticMarkup(
+        <EditorContextMenu
+          position={{ x: 120, y: 80 }}
+          document={document}
+          selection={EMPTY_EDITOR_SELECTION}
+          clipboardKind={clipboardKind}
+          shortcutPlatform="other"
+          executeCommand={() => true}
+          onDismiss={() => {}}
+        />,
+      );
 
-    for (const label of ["Вставить", "Выбрать всё", "Показать весь план"]) expect(html).toContain(label);
-    expect(html).not.toContain("Копировать");
-    expect(html).toContain("Ctrl+V");
-    expect(html).toContain("Ctrl+A");
-    expect((html.match(/editor-context-menu-separator/g) ?? []).length).toBe(1);
+      for (const label of ["Вставить", "Выбрать всё", "Показать весь план"]) expect(html).toContain(label);
+      expect(html).not.toContain("Копировать");
+      expect(html).toContain("Ctrl+V");
+      expect(html).toContain("Ctrl+A");
+      expect((html.match(/editor-context-menu-separator/g) ?? []).length).toBe(1);
+    }
   });
 
   it("executes through the central command callback and dismisses only after execution", () => {

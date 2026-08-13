@@ -1,5 +1,6 @@
 export type CanvasFeedbackMode =
   | "select"
+  | "structural-edit"
   | "wall-start"
   | "wall-finish"
   | "door"
@@ -31,6 +32,9 @@ export type CanvasFeedbackInput = Readonly<{
   placementPreviewValid: boolean | null;
   measurementActive: boolean;
   measurementPhase: "idle" | "measuring" | "complete";
+  structuralGestureActive: boolean;
+  structuralPreviewValid: boolean | null;
+  structuralPreviewReason: string | null;
   tool: "select" | "wall" | "door" | "window";
   hasWallDraft: boolean;
   openingPreviewValid: boolean | null;
@@ -129,6 +133,23 @@ export function deriveCanvasFeedback(input: CanvasFeedbackInput): CanvasFeedback
         previewState: "none",
       };
     }
+  } else if (input.structuralGestureActive) {
+    const state = previewState(input.structuralPreviewValid);
+    feedback = state === "invalid" ? {
+      mode: "structural-edit",
+      label: "Изменение недопустимо",
+      instruction: input.structuralPreviewReason ?? "Структурное изменение недопустимо.",
+      escapeInstruction: "Esc — отменить изменение.",
+      cursor: "not-allowed",
+      previewState: "invalid",
+    } : {
+      mode: "structural-edit",
+      label: "Редактирование структуры",
+      instruction: "Отпустите, чтобы применить изменение.",
+      escapeInstruction: "Esc — отменить изменение.",
+      cursor: "grabbing",
+      previewState: state,
+    };
   } else if (input.tool === "wall") {
     feedback = input.hasWallDraft ? {
       mode: "wall-finish",

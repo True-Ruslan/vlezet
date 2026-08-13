@@ -89,6 +89,15 @@ function storeWith(selectionValue: EditorSelection) {
   return store;
 }
 
+function placedClipboardObjects(store: ReturnType<typeof storeWith>) {
+  const payload = store.getState().clipboard.payload;
+  expect(payload?.kind).toBe("placed-objects");
+  if (!payload || payload.kind !== "placed-objects") {
+    throw new Error("Expected a placed-object clipboard payload");
+  }
+  return payload.objects;
+}
+
 describe("M8.1 semantic clipboard store commands", () => {
   it("copies a furniture multi-selection without mutating document/history", () => {
     const store = storeWith(selection("chair-1", "chair-2"));
@@ -99,7 +108,7 @@ describe("M8.1 semantic clipboard store commands", () => {
     const state = store.getState();
     expect(state.history.document).toEqual(before);
     expect(state.history.past).toHaveLength(0);
-    expect(state.clipboard.payload?.objects.map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
+    expect(placedClipboardObjects(store).map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
     expect(state.clipboard.lastPasteAnchor).toBeNull();
     expect(state.clipboard.repeatedPasteCount).toBe(0);
   });
@@ -115,12 +124,12 @@ describe("M8.1 semantic clipboard store commands", () => {
     expect(state.history.past).toHaveLength(1);
     expect(state.history.past[0]?.forward.label).toBe("object/batch-delete");
     expect(state.selection).toEqual({ refs: [], primary: null });
-    expect(state.clipboard.payload?.objects.map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
+    expect(placedClipboardObjects(store).map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
 
     store.getState().undo();
     state = store.getState();
     expect(state.history.document).toEqual(before);
-    expect(state.clipboard.payload?.objects.map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
+    expect(placedClipboardObjects(store).map((object) => object.id)).toEqual(["chair-1", "chair-2"]);
   });
 
   it("deletes the whole furniture selection atomically without changing clipboard and Undo restores it", () => {
@@ -215,10 +224,8 @@ describe("M8.1 semantic clipboard store commands", () => {
     ]);
   });
 
-  it("fails closed for mixed structural selection without altering clipboard or document", () => {
+  it("copies an approved wall/furniture selection but keeps destructive mixed commands fail-closed", () => {
     const store = storeWith(selection("chair-1"));
-    store.getState().copySelection();
-    const clipboardBefore = structuredClone(store.getState().clipboard);
     const documentBefore = structuredClone(store.getState().history.document);
     const mixed = addToSelection(
       replaceSelection({ kind: "wall", id: "wall-1" }),
@@ -226,7 +233,15 @@ describe("M8.1 semantic clipboard store commands", () => {
     );
     store.setState({ selection: mixed });
 
-    store.getState().copySelection();
+    expect(store.getState().copySelection()).toEqual({ ok: true });
+    const clipboardAfterCopy = structuredClone(store.getState().clipboard);
+    expect(clipboardAfterCopy.payload?.kind).toBe("composite-selection");
+    if (!clipboardAfterCopy.payload || clipboardAfterCopy.payload.kind !== "composite-selection") {
+      throw new Error("Expected a composite clipboard payload");
+    }
+    expect(clipboardAfterCopy.payload.structural?.walls.map((wall) => wall.id)).toEqual(["wall-1"]);
+    expect(clipboardAfterCopy.payload.objects.map((object) => object.id)).toEqual(["chair-2"]);
+
     store.getState().cutSelection();
     store.getState().duplicateSelection();
     store.getState().deleteSelection();
@@ -235,7 +250,7 @@ describe("M8.1 semantic clipboard store commands", () => {
     expect(state.history.document).toEqual(documentBefore);
     expect(state.history.past).toHaveLength(0);
     expect(state.selection).toEqual(mixed);
-    expect(state.clipboard).toEqual(clipboardBefore);
+    expect(state.clipboard).toEqual(clipboardAfterCopy);
   });
 
   it("treats paste with an empty clipboard as a no-op", () => {

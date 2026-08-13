@@ -13,6 +13,7 @@ import {
   openingSegment,
   orientedRectangleCorners,
   pointAtWallOffset,
+  pointInPolygon,
 } from "@vlezet/geometry";
 import type { EditorEntityRef, EditorSelection } from "./editor-selection";
 
@@ -22,6 +23,15 @@ export type WorldRect = Readonly<{
   maxX: number;
   maxY: number;
 }>;
+
+type ConcretePointHitEntityRef =
+  | Readonly<{ kind: "opening"; id: string }>
+  | Readonly<{ kind: "placed-object"; id: string }>
+  | Readonly<{ kind: "wall"; id: string }>;
+
+export type PointHitEntityRef =
+  | ConcretePointHitEntityRef
+  | Readonly<{ kind: "room"; id: string }>;
 
 const EPSILON = 1e-6;
 
@@ -157,6 +167,17 @@ function polygonIntersectsRect(polygon: readonly Point2[], rect: WorldRect): boo
   return axes.every((axis) => intervalsOverlap(project(polygon, axis), project(marqueePolygon, axis)));
 }
 
+function polygonFullyInsideRect(polygon: readonly Point2[], rect: WorldRect): boolean {
+  if (polygon.length < 3) return false;
+  const normalized = normalizedRect(rect);
+  return polygon.every((point) =>
+    point.x >= normalized.minX - EPSILON &&
+    point.x <= normalized.maxX + EPSILON &&
+    point.y >= normalized.minY - EPSILON &&
+    point.y <= normalized.maxY + EPSILON
+  );
+}
+
 function boundsForWall(document: VlezetDocument, wall: Wall): WorldRect | null {
   let bounds: WorldRect | null = null;
   for (const polygon of visibleWallPolygons(document, wall)) {
@@ -208,8 +229,8 @@ export function deriveSelectionWorldBounds(
 function concreteEntitiesIntersectingRect(
   document: VlezetDocument,
   rect: WorldRect,
-): readonly EditorEntityRef[] {
-  const result: EditorEntityRef[] = [];
+): readonly ConcretePointHitEntityRef[] {
+  const result: ConcretePointHitEntityRef[] = [];
 
   for (const opening of document.openings) {
     const polygon = openingBandPolygon(document, opening);
@@ -236,19 +257,20 @@ function concreteEntitiesIntersectingRect(
 export function entitiesAtPoint(
   document: VlezetDocument,
   point: Point2,
-): readonly EditorEntityRef[] {
+): readonly PointHitEntityRef[] {
   const pointRect: WorldRect = {
     minX: point.x,
     minY: point.y,
     maxX: point.x,
     maxY: point.y,
   };
-  const result = [...concreteEntitiesIntersectingRect(document, pointRect)];
+  const result: PointHitEntityRef[] = [...concreteEntitiesIntersectingRect(document, pointRect)];
+  const roomHits = deriveRooms(document).rooms
+    .filter((room) => pointInPolygon(point, room.polygon))
+    .sort((first, second) => first.areaMm2 - second.areaMm2);
 
-  for (const room of deriveRooms(document).rooms) {
-    if (polygonIntersectsRect(room.polygon, pointRect)) {
-      result.push({ kind: "room", id: room.id });
-    }
+  for (const room of roomHits) {
+    result.push({ kind: "room", id: room.id });
   }
 
   return result;
@@ -264,5 +286,13 @@ export function entitiesIntersectingMarquee(
     return entitiesAtPoint(document, { x: normalized.minX, y: normalized.minY });
   }
 
-  return concreteEntitiesIntersectingRect(document, normalized);
+  const concreteHits = concreteEntitiesIntersectingRect(document, normalized);
+  const enclosedRooms = deriveRooms(document).rooms
+    .filter((room) => polygonFullyInsideRect(room.polygon, normalized));
+  if (enclosedRooms.length === 0) return concreteHits;
+
+  return [
+    ...enclosedRooms.map((room) => ({ kind: "room" as const, id: room.id })),
+    ...concreteHits.filter((ref) => ref.kind === "placed-object"),
+  ];
 }

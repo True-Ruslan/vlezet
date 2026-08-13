@@ -29,7 +29,14 @@ export {
 export type { OpeningDocumentLike, OpeningLike, OpeningWorldSegment, WallInterval } from "./openings";
 export { distanceBetween } from "./point";
 export type { Point2 } from "./point";
-export { findInteriorPoint, pointInPolygon, polygonPerimeter, polygonSelfIntersects, signedPolygonArea } from "./polygon";
+export {
+  findInteriorPoint,
+  pointInPolygon,
+  polygonContainsPolygonInclusive,
+  polygonPerimeter,
+  polygonSelfIntersects,
+  signedPolygonArea,
+} from "./polygon";
 export {
   alignReferenceCalibration,
   calibrateReferencePlan,
@@ -55,6 +62,15 @@ export type {
 } from "./rooms";
 export { GEOMETRY_EPSILON_MM, isProperInteriorIntersection, pointOnSegment, projectPointToSegment, segmentIntersection } from "./segment";
 export type { SegmentIntersection, SegmentProjection } from "./segment";
+export { normalizeCanvasAngleDeg, pointFromCanvasPolar, vectorToCanvasAngleDeg } from "./structural-angle";
+export { resolveStructuralSnap } from "./structural-snapping";
+export type {
+  ResolveStructuralSnapInput,
+  StructuralSnapGuide,
+  StructuralSnapKind,
+  StructuralSnapResult,
+  StructuralSnapTarget,
+} from "./structural-snapping";
 export { snapWallPoint } from "./snapping";
 export type { SnapGuide, SnapKind, SnapResult, SnapWallPointInput } from "./snapping";
 export { deriveAtomicWallEdges, topologyVertexMap, wallRunLength } from "./topology";

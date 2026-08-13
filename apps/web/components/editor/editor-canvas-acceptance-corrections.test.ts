@@ -28,9 +28,16 @@ describe("M8.1 product-owner acceptance Canvas corrections", () => {
     expect(boundsBody).not.toContain("deriveSelectionWorldBounds(document, selection)");
   });
 
-  it("keeps wall snap metadata in TopologySnapTarget instead of corrupting SnapResult", () => {
-    expect(source).toContain('snap: { point, kind: "wall", guides: [] }');
-    expect(source).toContain('target: { kind: "wall", wallId: wallCandidate.resolved.wall.id, point }');
+  it("keeps structural wall snap metadata separate from the legacy SnapResult shape", () => {
+    const updateDraftStart = source.indexOf("const updateWallDraftFromPointer");
+    const updateDraftEnd = source.indexOf("const updateOpeningPreview", updateDraftStart);
+    const updateDraftSource = source.slice(updateDraftStart, updateDraftEnd);
+
+    expect(source).toContain("function draftSnapFromStructural(snap: StructuralSnapResult): SnapResult");
+    expect(source).toContain("return { point: snap.point, kind, guides: [] };");
+    expect(updateDraftSource).toContain("const target = targetForExactPoint(point, resolved);");
+    expect(updateDraftSource).toContain("{ ...draftSnapFromStructural(resolved), point },");
+    expect(updateDraftSource).toContain("target,");
     expect(source).not.toContain('snap: { point, kind: "wall", wallId:');
   });
 });

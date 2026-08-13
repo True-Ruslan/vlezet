@@ -1,4 +1,5 @@
 export type EditorEscapeAction =
+  | "cancel-structural-gesture"
   | "cancel-object-gesture"
   | "reset-measurement"
   | "cancel-wall-draft"
@@ -13,6 +14,7 @@ export type EditorEscapeAction =
 
 export type EditorEscapeInput = Readonly<{
   viewMode: "2d" | "3d";
+  hasStructuralGesture?: boolean;
   hasObjectGesture: boolean;
   measurementActive: boolean;
   measurementPhase: "idle" | "measuring" | "complete";
@@ -25,6 +27,7 @@ export type EditorEscapeInput = Readonly<{
 }>;
 
 export function deriveEditorEscapeAction(input: EditorEscapeInput): EditorEscapeAction {
+  if (input.hasStructuralGesture) return "cancel-structural-gesture";
   if (input.hasObjectGesture) return "cancel-object-gesture";
   if (input.viewMode === "3d") return "return-to-2d";
   if (input.measurementActive && input.measurementPhase !== "idle") return "reset-measurement";

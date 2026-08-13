@@ -186,7 +186,7 @@ describe("M8.1 semantic selection geometry", () => {
     });
   });
 
-  it("supports direct room selection bounds while excluding rooms and vertices from marquee results", () => {
+  it("uses a fully enclosed room as the marquee structural root and keeps vertices implicit", () => {
     const document = documentFixture();
     const room = deriveRooms(document).rooms[0]!;
     const roomBounds = boundsOfPoints(room.polygon);
@@ -200,6 +200,12 @@ describe("M8.1 semantic selection geometry", () => {
       maxX: 7000,
       maxY: 5000,
     });
-    expect(entirePlan.some((ref) => ref.kind === "room" || ref.kind === "vertex")).toBe(false);
+    expect(entirePlan).toEqual([
+      { kind: "room", id: room.id },
+      { kind: "placed-object", id: "rotated" },
+      { kind: "placed-object", id: "opening-object" },
+      { kind: "placed-object", id: "wall-object" },
+    ]);
+    expect(entirePlan.some((ref) => ref.kind === "vertex")).toBe(false);
   });
 });
