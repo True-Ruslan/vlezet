@@ -6,7 +6,7 @@ function trackBrowserErrors(page) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    if (message.type() === "error") errors.push(`console: ${message.text()}`));
   });
   return errors;
 }
@@ -198,6 +198,14 @@ function wallScreenBasis(wall) {
   };
 }
 
+function pointAtWallOffset(wall, offsetMm) {
+  const { pixelsPerMm, tangent } = wallScreenBasis(wall);
+  return {
+    x: wall.start.x + tangent.x * offsetMm * pixelsPerMm,
+    y: wall.start.y + tangent.y * offsetMm * pixelsPerMm,
+  };
+}
+
 function renderedOpeningHandle(wall, kind, offsetMm, widthMm) {
   const { pixelsPerMm, tangent, normal } = wallScreenBasis(wall);
   const alongMm = kind === "door" ? offsetMm : offsetMm + widthMm / 2;
@@ -259,7 +267,7 @@ test.describe("M8.2 product-owner direct manipulation regressions", () => {
     await expect(page.locator(".context-panel-title")).toHaveText("Стул");
   });
 
-  test("door supports ordinary select then drag with no runtime or console error", async ({ page }) => {
+  test("door supports ordinary select and drag from the wall opening span with no runtime or console error", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     const wall = await drawIsolatedWall(page);
@@ -270,10 +278,10 @@ test.describe("M8.2 product-owner direct manipulation regressions", () => {
     await expect(page.locator(".context-panel-title")).toHaveText("Дверь");
     const initialOffset = await openingOffset(page);
     const width = await openingWidth(page);
-    const handle = renderedOpeningHandle(wall, "door", initialOffset, width);
+    const openingSpanCenter = pointAtWallOffset(wall, initialOffset + width / 2);
     const target = pointAlong(wall.start, wall.end, 0.56);
 
-    await drag(page, handle, target, 14);
+    await drag(page, openingSpanCenter, target, 14);
     await expect(page.locator(".context-panel-title")).toHaveText("Дверь");
     await expect.poll(() => openingOffset(page)).not.toBe(initialOffset);
   });
