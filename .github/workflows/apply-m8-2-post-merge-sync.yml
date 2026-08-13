@@ -20,7 +20,9 @@ jobs:
           ref: docs/m8-2-post-merge-integration
           fetch-depth: 0
       - name: Apply post-merge truth sync
-        run: python tools/m7-browser-audit/temp-m8-2-post-merge-sync.py
+        run: |
+          python tools/m7-browser-audit/temp-m8-2-post-merge-sync.py
+          sed -i 's/^\(\*\*Protected squash merge:\*\*.*\)  $/\1/' docs/milestones/m8-2-acceptance.md
       - name: Verify diff
         run: |
           git diff --check
