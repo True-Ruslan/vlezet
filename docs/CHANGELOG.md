@@ -4,9 +4,35 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-13 — M8.2 product-owner accepted; protected integration pending
+
+**Status:** PRODUCT-OWNER ACCEPTED on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`; protected merge remains pending fresh acceptance-head delivery gates.
+
+The final focused door-UX retest returned **«Все 3 теста PASS»**. The product owner confirmed comfortable door acquisition from the wall-opening area, continued leaf/arc targeting and that the deliberately non-listening filled swing sector does not steal surrounding room/furniture interaction. Earlier room + furniture marquee/movement and representative window movement scenarios were already PASS.
+
+Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`.
+
+Pre-acceptance exact-head evidence:
+
+```text
+accepted head:                  c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7
+CI #5090 / run 31680995080:    PASS
+Browser Acceptance #1540:      PASS — Chromium + WebKit
+browser artifact:               9173706386
+artifact digest:                sha256:b020c1cf31ef4ecbfdb1dbc1907f54ceaa60abf0f11b8b89082adf7a9220f1c0
+unresolved review threads:      0
+product-owner final retest:     PASS — «Все 3 теста PASS»
+```
+
+No architecture authority, project schema, M2 fit/collision rules, hosted-opening validation, `wallId`, recognition threshold or semantic-history contract was weakened to obtain acceptance.
+
+Next delivery gate: fresh exact-head CI + Chromium/WebKit after this acceptance truth-sync, then Ready state and protected squash merge. M8.3 remains blocked until M8.2 is integrated into `main`.
+
+---
+
 ## 2026-08-13 — M8.2 door hit-target usability correction automated GREEN
 
-**Status:** product-code GREEN in Draft PR #87; final docs-head verification and one focused product-owner door-UX confirmation remain **PENDING**.
+**Status:** product-code GREEN and final product-owner door-UX confirmation **PASS**; superseded by the M8.2 milestone acceptance entry above.
 
 After the product owner reported room marquee **PASS**, window movement **PASS** and functional door movement/runtime **PASS**, one usability issue remained: the door was still difficult to acquire because pointer-down effectively required the thin leaf.
 

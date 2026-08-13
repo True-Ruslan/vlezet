@@ -1,8 +1,8 @@
 # M8.2 Door Hit-Target Correction — 2026-08-13
 
-Status: **AUTOMATED GREEN / FINAL PRODUCT-OWNER DOOR-UX CONFIRMATION PENDING**
+Status: **PRODUCT-OWNER PASS / M8.2 ACCEPTANCE RECORDED / PROTECTED MERGE PENDING**
 
-This record documents the final focused M8.2 usability correction requested during product-owner acceptance. It is not an acceptance record. PR #87 remains Draft, issue #56 remains open and M8.3 remains blocked until explicit product-owner PASS.
+This record documents the final focused M8.2 usability correction requested during product-owner acceptance. Canonical milestone acceptance is recorded separately in `docs/milestones/m8-2-acceptance.md`. PR #87 remains unmerged until fresh acceptance-head delivery gates and protected integration complete.
 
 ## Product-owner evidence
 
@@ -121,16 +121,10 @@ artifact digest:               sha256:14ff9ba47d708c881adfdccf89f11218efac4af9f5
 
 The permanent browser contract now covers the actual product-owner complaint: drag begins from the wall-opening span instead of relying on mathematically precise leaf targeting. Global `pageerror` and `console.error` guards remain active.
 
-## Remaining acceptance gate
+## Product-owner acceptance result
 
-The product owner has already reported PASS for:
+On 2026-08-13 the product owner completed the final focused retest and reported: **«Все 3 теста PASS»**. This confirms comfortable acquisition from the wall-opening area, continued leaf/arc targeting and no unexpected click capture by the non-listening swing sector.
 
-- room + furniture marquee/movement;
-- representative window movement;
-- functional hosted-door movement/runtime.
+The earlier room + furniture marquee/movement, representative window movement and functional hosted-door movement/runtime checks were already PASS. No manual M8.2 acceptance scenario remains open. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`.
 
-After this hit-target correction, only a short real-session confirmation is still needed:
-
-> clicking/dragging the door from the wall-opening area feels comfortably targetable and surrounding room interaction is not unexpectedly stolen.
-
-If that focused door-UX check is PASS, no repetition of the already automated/manual-passed marquee and window scenarios is required. The normal M8.2 acceptance record / Ready / issue closure / protected merge workflow may then proceed.
+Remaining work is delivery-only: fresh exact-head CI + Chromium/WebKit Browser Acceptance after acceptance truth-sync, Ready state, protected squash merge and integration verification on `main`.

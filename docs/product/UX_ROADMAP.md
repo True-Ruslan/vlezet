@@ -95,16 +95,19 @@ The benchmark is not feature-count chasing. Vlezet may deliberately be stricter 
 DONE
 M8.1 Editor Interaction Foundation
 
-NOW
+ACCEPTED
 M8.2 Precision Drawing / Direct Manipulation Foundation
-  - runtime/marquee/window correction confirmed; marquee + window PASS, functional door movement PASS
-  - final door hit-target usability correction PRODUCT-CODE Chromium + WebKit GREEN
-  - final docs-head CI/Browser + focused door-UX confirmation required
-  - product-owner acceptance PENDING
-  - Draft / not accepted
+  - final focused product-owner door-UX retest PASS
+  - accepted head c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7
+  - acceptance record docs/milestones/m8-2-acceptance.md
 
-THEN
-M8.3 Precision Reference Calibration
+NOW
+M8.2 protected integration
+  - fresh exact-head CI + Chromium/WebKit Browser Acceptance
+  - Ready + protected squash merge pending
+
+BLOCKED
+M8.3 Precision Reference Calibration — until M8.2 merge
 M8.4 Assisted Tracing
 M8.5 Furniture + Materials 2.0
 M8.6 Export + Presentation
@@ -123,7 +126,7 @@ Public free beta
 Programme tracker: #53.  
 M8.0 tracker: #55.  
 M8.1 tracker: #54 / PR #85.  
-M8.2: #56 / Draft PR #87. M8.3: #57. M8.4: #51. M8.5: #58. M8.6: #59. M8.7: #60. Final beta acceptance: #61.
+M8.2: #56 / PR #87 — product-owner accepted, protected merge pending. M8.3: #57. M8.4: #51. M8.5: #58. M8.6: #59. M8.7: #60. Final beta acceptance: #61.
 
 M8.3 may not start until M8.2 is product-owner accepted and protected-merged into `main`.
 
@@ -180,7 +183,7 @@ Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ## 7. M8.2 — Precision Drawing / Direct Manipulation Foundation
 
-**Status:** IN DEVELOPMENT — LATEST PRODUCT-OWNER REGRESSIONS FIXED / PRODUCT-CODE AUTOMATED GREEN / PRODUCT-OWNER ACCEPTANCE PENDING.
+**Status:** PRODUCT-OWNER ACCEPTED on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7` / PROTECTED MERGE PENDING. Canonical record: `docs/milestones/m8-2-acceptance.md`.
 
 Primary UX goal:
 
@@ -303,7 +306,7 @@ Focused provenance: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.m
 8. **Practical hit targets.** Thin visual geometry may use a larger invisible interaction target so the ordinary pointer journey is usable without pixel-perfect aim. For doors, the host-wall opening span, leaf and swing arc are targets; the filled swing sector is not. Windows retain thin visuals with a 12 px interaction stroke.
 9. **Dev-runtime resilience.** A preserved HMR singleton may repair missing editor actions, but repair cannot replace document/history state or introduce a second authority.
 10. **Readable room labels.** Room name/area/dimensions degrade deterministically so compact rooms do not become unreadable.
-11. **Product gate still open.** Chromium + representative WebKit GREEN is necessary but not sufficient; explicit product-owner PASS remains required.
+11. **Product gate closed.** Chromium + representative WebKit GREEN remained necessary but not sufficient; explicit product-owner PASS was received on 2026-08-13. Only protected delivery/integration remains.
 
 ### Interaction reference direction
 

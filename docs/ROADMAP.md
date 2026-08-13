@@ -23,14 +23,13 @@ DONE        M7.8B Source Normalisation and Wall Topology
 STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance failed
 DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
-NOW         M8.2 Precision Drawing / Direct Manipulation Foundation
-            original product-owner scenarios PASS;
-            latest door hit-target usability correction PRODUCT-CODE AUTOMATED GREEN;
-            room marquee + window + functional door movement product-owner PASS;
-            final documentation-head CI/Browser + focused door-UX confirmation required;
-            product-owner acceptance PENDING;
-            M8.2 remains Draft / not accepted
-THEN        M8.3 Precision Reference Calibration
+ACCEPTED    M8.2 Precision Drawing / Direct Manipulation Foundation
+            product-owner PASS on c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7;
+            acceptance record created;
+NOW         M8.2 protected integration
+            fresh exact-head CI + Chromium/WebKit Browser Acceptance;
+            Ready + protected squash merge pending
+BLOCKED     M8.3 Precision Reference Calibration — until M8.2 merge
 THEN        M8.4 Assisted Tracing
 THEN        M8.5 Furniture + Materials 2.0
 THEN        M8.6 Export + Presentation
@@ -41,7 +40,7 @@ POST-BETA   richer walkthrough/3D, professional docs, structured exchange, mobil
 
 M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`.
 
-M8.2 remains the active Draft delivery slice in PR #87 and is **not product-accepted**. Multiple product-owner rounds have deliberately reopened the acceptance gate when real interaction gaps were found. The runtime/marquee/window round is now manually confirmed for the marquee and window paths and functionally confirmed for hosted-door movement. That confirmation exposed one final usability gap: the door itself was still too hard to acquire because only the thin leaf was a practical target. The wall-opening/leaf/arc hit-target correction now has genuine RED evidence and product-code GREEN in Chromium and representative WebKit. A fresh exact-head gate plus one focused door-UX confirmation remain; automation alone does not accept M8.2.
+M8.2 is **PRODUCT-OWNER ACCEPTED** in PR #87 on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`. Multiple product-owner rounds deliberately reopened the gate whenever a real interaction gap was found; the final door-acquisition correction is now manually confirmed PASS. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. The active work is delivery-only: fresh exact-head CI + Chromium/WebKit Browser Acceptance after acceptance truth-sync, then Ready state and protected squash merge. M8.3 remains blocked until integration.
 
 Market research now makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -355,7 +354,7 @@ artifact digest:                   sha256:14ff9ba47d708c881adfdccf89f11218efac4a
 
 Focused record: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.md`.
 
-**Remaining M8.2 gate:** fresh exact-head verification after documentation sync, then only focused product-owner confirmation that door acquisition from the wall opening feels practical and does not steal surrounding interaction. The room-marquee and window scenarios are already product-owner PASS. M8.3 remains blocked until M8.2 is accepted and protected-merged.
+**M8.2 acceptance gate:** CLOSED — final focused product-owner door-UX retest PASS on 2026-08-13. Remaining work is delivery-only: fresh exact-head verification after acceptance truth-sync, Ready state and protected squash merge. M8.3 remains blocked until M8.2 is integrated into `main`.
 
 ### M8.3 — Precision Reference Calibration
 
