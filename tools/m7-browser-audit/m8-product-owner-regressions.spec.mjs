@@ -1,4 +1,16 @@
+import { copyFileSync, mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+
+const sourceExportHere = dirname(fileURLToPath(import.meta.url));
+const sourceExportArtifactDir = resolve(sourceExportHere, "artifacts");
+mkdirSync(sourceExportArtifactDir, { recursive: true });
+copyFileSync(
+  resolve(sourceExportHere, "../../apps/web/components/editor/editor-canvas.tsx"),
+  resolve(sourceExportArtifactDir, "editor-canvas-source.tsx"),
+);
+throw new Error("intentional temporary source-export stop");
 
 const browserErrorsByPage = new WeakMap();
 
