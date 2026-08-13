@@ -5,7 +5,8 @@
 **PR:** #87  
 **Branch:** `feat/m8-2-precision-structural-editing`  
 **Product-accepted head:** `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`  
-**Status:** PRODUCT-OWNER ACCEPTED — PROTECTED MERGE PENDING
+**Protected squash merge:** `e323e331a435ae356b91decbdea80dde95028d8a`
+**Status:** PRODUCT-OWNER ACCEPTED — MERGED / POST-MERGE VERIFIED
 
 ## Product outcome
 
@@ -110,15 +111,15 @@ The room + furniture marquee/movement and representative window movement scenari
 
 This closes the manual product acceptance gate for M8.2.
 
-## Remaining delivery gate
+## Integration result
 
-Product acceptance does not by itself constitute merge. Before integration:
+PR #87 was protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a`. Post-merge verification on that exact SHA completed successfully:
 
-1. synchronize canonical M8.2 acceptance state in `docs/CHANGELOG.md`, `docs/PROJECT_STATE.md`, `docs/ROADMAP.md` and `docs/product/UX_ROADMAP.md`;
-2. run fresh exact-head CI and Chromium/WebKit Browser Acceptance after those documentation changes;
-3. mark PR #87 Ready only after those gates are green;
-4. perform the repository's protected squash merge using the accepted delivery authorization;
-5. verify the actual squash-merge identity and required Actions on `main`;
-6. close #56 only after successful integration and update canonical state if the merge identity requires a post-merge record.
+```text
+main merge SHA:                 e323e331a435ae356b91decbdea80dde95028d8a
+CI #5097 / run 31683756642:    PASS
+GitHub CodeQL run 31683756298: PASS
+issue #56:                      CLOSED / completed
+```
 
-M8.3 must not begin before M8.2 is integrated into `main`.
+M8.2 delivery is complete. M8.3 is technically unblocked; the product owner requested a project-wide testing-policy and coverage audit before further product development.

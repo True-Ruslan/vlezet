@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-13  
-**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation is **PRODUCT-OWNER ACCEPTED** on head `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7` in PR #87. The final focused door-UX retest passed all three requested scenarios. Canonical acceptance record `docs/milestones/m8-2-acceptance.md` is created; protected merge remains pending until fresh exact-head CI + Chromium/WebKit Browser Acceptance are GREEN after this acceptance truth-sync. M8.3 remains blocked until M8.2 is integrated into `main`.
+**Status:** M0–M8.2 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation was protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a` after final product-owner PASS, exact-head CI + Chromium/WebKit acceptance, and post-merge CI + CodeQL GREEN. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. The next product milestone is M8.3 Precision Reference Calibration; before new product work, the active engineering priority is the project-wide testing-policy and coverage audit requested by the product owner.
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, the latest focused changelog and the active design/plan.
 
@@ -102,7 +102,7 @@ packages/planning        deterministic planning + reviewed intent
 | M7.8B | region-first source normalisation, wall topology, bounded Draft and verification-only AI |
 | M8.0 | public-beta product contract, roadmap reset and manual-editor-first direction |
 | M8.1 | product-owner accepted and squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
-| M8.2 | product-owner accepted on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`; protected merge pending |
+| M8.2 | product-owner accepted and protected squash-merged as `e323e331a435ae356b91decbdea80dde95028d8a` |
 
 M8.2 manual acceptance is closed. The accepted correction suite includes selected-furniture composite drag, current-host opening movement, whole-room no-modifier marquee, practical window and door hit targeting, compact room-label degradation and preserved Turbopack/Fast Refresh live-store repair. Integration still requires fresh exact-head delivery gates after this acceptance truth-sync.
 
@@ -175,9 +175,9 @@ protected squash merge:             867ec54d21b1dcb94d519ace3bec0a3635717022
 
 Canonical acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
-### M8.2 structural precision / direct manipulation — product-owner accepted / merge pending
+### M8.2 structural precision / direct manipulation — accepted and merged
 
-PR #87 implements the approved structural precision design plus later product-owner corrections while preserving M8.1 runtime and structural authority boundaries. Product-owner acceptance was granted on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`; `docs/milestones/m8-2-acceptance.md` is the canonical acceptance record. Protected integration remains pending fresh exact-head delivery gates.
+PR #87 implemented the approved structural precision design plus later product-owner corrections while preserving M8.1 runtime and structural authority boundaries. Product-owner acceptance was granted on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`; protected squash merge `e323e331a435ae356b91decbdea80dde95028d8a` is now in `main`. `docs/milestones/m8-2-acceptance.md` is the canonical acceptance record.
 
 Implemented/automated-green behavior includes:
 
@@ -412,14 +412,10 @@ When an external implementation materially influences a design, the active desig
 ## 8. Public beta programme
 
 ```text
-DONE      M8.1  Editor Interaction Foundation
-ACCEPTED  M8.2  Precision Drawing / Direct Manipulation Foundation
-          product-owner PASS on c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7;
-          acceptance record created;
-NOW       M8.2  Protected integration
-          fresh exact-head CI + Chromium/WebKit Browser Acceptance;
-          Ready + protected squash merge pending
-BLOCKED   M8.3  Precision Reference Calibration — until M8.2 merge
+DONE  M8.1  Editor Interaction Foundation
+DONE  M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
+NOW   Engineering testing-policy + coverage audit
+THEN  M8.3  Precision Reference Calibration
 THEN  M8.4  Assisted Tracing
 THEN  M8.5  Furniture + Materials 2.0
 THEN  M8.6  Export + Presentation

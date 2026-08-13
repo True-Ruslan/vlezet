@@ -95,19 +95,17 @@ The benchmark is not feature-count chasing. Vlezet may deliberately be stricter 
 DONE
 M8.1 Editor Interaction Foundation
 
-ACCEPTED
+DONE
 M8.2 Precision Drawing / Direct Manipulation Foundation
-  - final focused product-owner door-UX retest PASS
-  - accepted head c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7
-  - acceptance record docs/milestones/m8-2-acceptance.md
+  - product-owner PASS
+  - protected squash merge e323e331a435ae356b91decbdea80dde95028d8a
+  - post-merge CI + CodeQL GREEN
 
 NOW
-M8.2 protected integration
-  - fresh exact-head CI + Chromium/WebKit Browser Acceptance
-  - Ready + protected squash merge pending
+Engineering testing-policy + coverage audit
 
-BLOCKED
-M8.3 Precision Reference Calibration — until M8.2 merge
+THEN
+M8.3 Precision Reference Calibration
 M8.4 Assisted Tracing
 M8.5 Furniture + Materials 2.0
 M8.6 Export + Presentation
@@ -126,7 +124,7 @@ Public free beta
 Programme tracker: #53.  
 M8.0 tracker: #55.  
 M8.1 tracker: #54 / PR #85.  
-M8.2: #56 / PR #87 — product-owner accepted, protected merge pending. M8.3: #57. M8.4: #51. M8.5: #58. M8.6: #59. M8.7: #60. Final beta acceptance: #61.
+M8.2: #56 / PR #87 — accepted and merged as `e323e331a435ae356b91decbdea80dde95028d8a`. M8.3: #57. M8.4: #51. M8.5: #58. M8.6: #59. M8.7: #60. Final beta acceptance: #61.
 
 M8.3 may not start until M8.2 is product-owner accepted and protected-merged into `main`.
 
@@ -183,7 +181,7 @@ Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ## 7. M8.2 — Precision Drawing / Direct Manipulation Foundation
 
-**Status:** PRODUCT-OWNER ACCEPTED on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7` / PROTECTED MERGE PENDING. Canonical record: `docs/milestones/m8-2-acceptance.md`.
+**Status:** PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED as `e323e331a435ae356b91decbdea80dde95028d8a`. Post-merge CI and CodeQL GREEN. Canonical record: `docs/milestones/m8-2-acceptance.md`.
 
 Primary UX goal:
 
