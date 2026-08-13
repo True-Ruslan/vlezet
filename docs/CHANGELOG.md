@@ -4,9 +4,9 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
-## 2026-08-13 — M8.2 product-owner accepted; protected integration pending
+## 2026-08-13 — M8.2 product-owner accepted and merged
 
-**Status:** PRODUCT-OWNER ACCEPTED on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`; protected merge remains pending fresh acceptance-head delivery gates.
+**Status:** PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED as `e323e331a435ae356b91decbdea80dde95028d8a` / POST-MERGE VERIFIED.
 
 The final focused door-UX retest returned **«Все 3 теста PASS»**. The product owner confirmed comfortable door acquisition from the wall-opening area, continued leaf/arc targeting and that the deliberately non-listening filled swing sector does not steal surrounding room/furniture interaction. Earlier room + furniture marquee/movement and representative window movement scenarios were already PASS.
 
@@ -26,7 +26,7 @@ product-owner final retest:     PASS — «Все 3 теста PASS»
 
 No architecture authority, project schema, M2 fit/collision rules, hosted-opening validation, `wallId`, recognition threshold or semantic-history contract was weakened to obtain acceptance.
 
-Next delivery gate: fresh exact-head CI + Chromium/WebKit after this acceptance truth-sync, then Ready state and protected squash merge. M8.3 remains blocked until M8.2 is integrated into `main`.
+Integration completed as `e323e331a435ae356b91decbdea80dde95028d8a`. Post-merge CI #5097 and CodeQL run 31683756298 both PASS; issue #56 is closed. M8.3 is technically unblocked, but the product owner requested a project-wide testing-policy and coverage audit before further product work.
 
 ---
 

@@ -23,13 +23,9 @@ DONE        M7.8B Source Normalisation and Wall Topology
 STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance failed
 DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
-ACCEPTED    M8.2 Precision Drawing / Direct Manipulation Foundation
-            product-owner PASS on c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7;
-            acceptance record created;
-NOW         M8.2 protected integration
-            fresh exact-head CI + Chromium/WebKit Browser Acceptance;
-            Ready + protected squash merge pending
-BLOCKED     M8.3 Precision Reference Calibration — until M8.2 merge
+DONE        M8.2 Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
+NOW         Engineering testing-policy + coverage audit
+THEN        M8.3 Precision Reference Calibration
 THEN        M8.4 Assisted Tracing
 THEN        M8.5 Furniture + Materials 2.0
 THEN        M8.6 Export + Presentation
@@ -40,7 +36,7 @@ POST-BETA   richer walkthrough/3D, professional docs, structured exchange, mobil
 
 M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`.
 
-M8.2 is **PRODUCT-OWNER ACCEPTED** in PR #87 on `c1fbf6e5619f179c1e0c1afe4b3dd948a21516b7`. Multiple product-owner rounds deliberately reopened the gate whenever a real interaction gap was found; the final door-acquisition correction is now manually confirmed PASS. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. The active work is delivery-only: fresh exact-head CI + Chromium/WebKit Browser Acceptance after acceptance truth-sync, then Ready state and protected squash merge. M8.3 remains blocked until integration.
+M8.2 is **PRODUCT-OWNER ACCEPTED AND MERGED**. PR #87 was protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a` after final exact-head CI + Chromium/WebKit acceptance; post-merge CI #5097 and CodeQL also passed. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. M8.3 is technically unblocked, but the product owner requested a project-wide testing-policy and coverage audit before further product development, so that engineering-quality initiative is the current priority.
 
 Market research now makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
