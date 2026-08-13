@@ -34,6 +34,8 @@ The project explicitly rejects these weaker alternatives:
 - full mutation testing for every UI file;
 - relying on manually maintained Playwright file lists as the source of truth.
 
+The permanent human-readable policy will live in `docs/testing/TESTING_POLICY.md`. The audit/debt truth will live in `docs/testing/TEST_COVERAGE_AUDIT.md`. Machine-readable thresholds and baselines may live elsewhere as implementation requires, but they must be validated against these canonical contracts rather than becoming an undocumented second policy.
+
 ## 3. Mandatory change classification
 
 Every change must be classified by affected behavior and risk. One PR may belong to multiple classes; all applicable evidence requirements accumulate.
@@ -354,7 +356,7 @@ The baseline is then converted into ratchet data and audit debt.
 
 ## 8. Test debt registry
 
-Historical gaps are recorded in `docs/testing/TEST_COVERAGE_AUDIT.md` or an equivalent canonical testing-audit document selected during implementation.
+Historical gaps are recorded only in the canonical `docs/testing/TEST_COVERAGE_AUDIT.md` registry.
 
 Each debt item contains:
 
@@ -385,7 +387,7 @@ Future modifications to an area with known debt cannot use the existence of debt
 
 ## 9. Policy validator
 
-The implementation introduces a blocking project contract, expected to be exposed through a command such as `pnpm test:policy`.
+The implementation introduces a blocking project contract, expected to be exposed through a command such as `pnpm test:policy` and documented normatively in `docs/testing/TESTING_POLICY.md`.
 
 The exact executable structure is an implementation detail, but the contract must check at least:
 
