@@ -1118,7 +1118,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     const leave = () => {
       if (!preview && visibleHoveredEntity?.kind === "opening" && visibleHoveredEntity.id === opening.id) setHoveredCanvasEntity(null);
     };
-    const elements = [<Line key={`${opening.id}-gap`} points={[start.x, start.y, end.x, end.y]} stroke="#ffffff" strokeWidth={gapWidth} listening={false} />];
+    const doorGapInteractive = !preview && opening.kind === "door";
+    const elements = [<Line key={`${opening.id}-gap`} name={doorGapInteractive ? canvasEntityName("opening", opening.id) : undefined} points={[start.x, start.y, end.x, end.y]} stroke="#ffffff" strokeWidth={gapWidth} hitStrokeWidth={doorGapInteractive ? Math.max(12, gapWidth) : undefined} listening={doorGapInteractive} onMouseDown={doorGapInteractive ? beginHostedOpeningPointerGesture : undefined} onTouchStart={doorGapInteractive ? beginHostedOpeningPointerGesture : undefined} onMouseEnter={doorGapInteractive ? enter : undefined} onMouseLeave={doorGapInteractive ? leave : undefined} />];
     if (opening.kind === "window") {
       const normal = { x: segment.leftNormal.x * wall.thickness * 0.22, y: segment.leftNormal.y * wall.thickness * 0.22 };
       for (const sign of [-1, 1]) {
@@ -1139,7 +1140,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
       const hingeScreen = worldToScreen(hinge, viewport), openScreen = worldToScreen(openEnd, viewport);
       elements.push(<Line key={`${opening.id}-leaf`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={[hingeScreen.x, hingeScreen.y, openScreen.x, openScreen.y]} stroke={stroke} strokeWidth={visual.emphasized ? 2.5 : 2} dash={visual.dash ? [...visual.dash] : undefined} hitStrokeWidth={12} listening={!preview} onMouseDown={beginHostedOpeningPointerGesture} onTouchStart={beginHostedOpeningPointerGesture} onMouseEnter={enter} onMouseLeave={leave} />);
       const arc = arcPoints(hinge, closedDirection, openDirection, opening.width).flatMap((point) => { const s = worldToScreen(point, viewport); return [s.x, s.y]; });
-      elements.push(<Line key={`${opening.id}-arc`} points={arc} stroke={stroke} strokeWidth={1} dash={preview ? [7, 5] : [4, 3]} opacity={0.75} listening={false} />);
+      elements.push(<Line key={`${opening.id}-arc`} name={!preview ? canvasEntityName("opening", opening.id) : undefined} points={arc} stroke={stroke} strokeWidth={1} dash={preview ? [7, 5] : [4, 3]} opacity={0.75} hitStrokeWidth={12} listening={!preview} onMouseDown={beginHostedOpeningPointerGesture} onTouchStart={beginHostedOpeningPointerGesture} onMouseEnter={enter} onMouseLeave={leave} />);
     }
     return elements;
   };
