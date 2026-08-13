@@ -25,8 +25,9 @@ DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
 NOW         M8.2 Precision Drawing / Direct Manipulation Foundation
             original product-owner scenarios PASS;
-            latest runtime/marquee/window regressions FIXED + product-code AUTOMATED GREEN;
-            final documentation-head CI/Browser gate required;
+            latest door hit-target usability correction PRODUCT-CODE AUTOMATED GREEN;
+            room marquee + window + functional door movement product-owner PASS;
+            final documentation-head CI/Browser + focused door-UX confirmation required;
             product-owner acceptance PENDING;
             M8.2 remains Draft / not accepted
 THEN        M8.3 Precision Reference Calibration
@@ -40,7 +41,7 @@ POST-BETA   richer walkthrough/3D, professional docs, structured exchange, mobil
 
 M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`.
 
-M8.2 remains the active Draft delivery slice in PR #87 and is **not product-accepted**. Multiple product-owner rounds have deliberately reopened the acceptance gate when real interaction gaps were found. The latest round exposed a Turbopack/Fast Refresh live-store action mismatch during hosted-door interaction, the lack of semantic whole-room no-modifier marquee selection and an impractically narrow window drag hit target. Those exact paths now have genuine RED evidence, causal fixes and product-code GREEN in Chromium and representative WebKit. A fresh exact-head gate is still required after documentation truth-sync; automation alone does not accept M8.2.
+M8.2 remains the active Draft delivery slice in PR #87 and is **not product-accepted**. Multiple product-owner rounds have deliberately reopened the acceptance gate when real interaction gaps were found. The runtime/marquee/window round is now manually confirmed for the marquee and window paths and functionally confirmed for hosted-door movement. That confirmation exposed one final usability gap: the door itself was still too hard to acquire because only the thin leaf was a practical target. The wall-opening/leaf/arc hit-target correction now has genuine RED evidence and product-code GREEN in Chromium and representative WebKit. A fresh exact-head gate plus one focused door-UX confirmation remain; automation alone does not accept M8.2.
 
 Market research now makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -217,6 +218,7 @@ Implemented/automated-green scope:
 - unsafe shared/connected room topology rejects visibly and fail-closed, with no partial structure/furniture mutation;
 - accepted room movement is one semantic `room/translate` command; invalid/no-op/cancel/stale movement creates no history;
 - direct door/window drag projects onto the existing host wall, preserves `wallId`, stays inside the valid host span and rejects overlap/invalid candidates visibly with no partial commit;
+- door acquisition uses the full host-wall opening span, leaf and swing arc as practical listening geometry with a minimum 12 px hit stroke, while the full swing sector remains non-listening to avoid stealing room/furniture clicks;
 - hosted-opening actions missing from a preserved Turbopack/Fast Refresh live Zustand singleton are repaired narrowly and rebound directly to the live store without replacing document/history state;
 - window direct manipulation uses a 12 px listening hit width while retaining the original thin visible stroke;
 - compact room labels use deterministic degradation (`name + area + dimensions` → `name + area` → compact `name + area` → `name only` → hidden), non-overlapping slots, bounded wrap/ellipsis and keyed React fragments;
@@ -337,7 +339,23 @@ The new Playwright regression runs in **both Chromium and WebKit**, captures unc
 
 Focused record: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regressions.md`.
 
-**Remaining M8.2 gate:** fresh exact-head verification after documentation sync, then explicit product-owner PASS. M8.3 remains blocked until M8.2 is accepted and protected-merged.
+Final door-target usability correction:
+
+```text
+valid door UX RED head:            e41c695b193a9e20ec0173453cd23d093f1bfaab
+CI #5074:                          PASS
+Browser Acceptance #1524:         EXPECTED FAIL — 54 PASS / 1 FAIL (door opening span only)
+production patch:                  9f37c7c0db394e7f924c732e4d191d3bff724ecf
+clean product-code head:           8f9317db650bd076df957028035f6a643d0ec470
+CI #5082 / run 31679924606:        PASS
+Browser Acceptance #1532:         PASS — Chromium + WebKit
+browser artifact:                  9173229566
+artifact digest:                   sha256:14ff9ba47d708c881adfdccf89f11218efac4af9f54862f332ebd0f487b65ea3
+```
+
+Focused record: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.md`.
+
+**Remaining M8.2 gate:** fresh exact-head verification after documentation sync, then only focused product-owner confirmation that door acquisition from the wall opening feels practical and does not steal surrounding interaction. The room-marquee and window scenarios are already product-owner PASS. M8.3 remains blocked until M8.2 is accepted and protected-merged.
 
 ### M8.3 — Precision Reference Calibration
 

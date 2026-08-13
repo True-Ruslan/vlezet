@@ -4,6 +4,30 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-13 — M8.2 door hit-target usability correction automated GREEN
+
+**Status:** product-code GREEN in Draft PR #87; final docs-head verification and one focused product-owner door-UX confirmation remain **PENDING**.
+
+After the product owner reported room marquee **PASS**, window movement **PASS** and functional door movement/runtime **PASS**, one usability issue remained: the door was still difficult to acquire because pointer-down effectively required the thin leaf.
+
+The permanent Playwright regression now starts drag from the centre of the door's wall-opening span. Clean RED `e41c695b193a9e20ec0173453cd23d093f1bfaab` kept CI #5074 GREEN while Browser #1524 produced 54 PASS / 1 FAIL, with only the new door opening-span path failing. Production patch `9f37c7c0db394e7f924c732e4d191d3bff724ecf` makes the wall opening, leaf and swing arc practical targets without making the entire swing sector clickable.
+
+```text
+clean product-code head:       8f9317db650bd076df957028035f6a643d0ec470
+CI #5082 / run 31679924606:   PASS
+Browser Acceptance #1532:     PASS — Chromium + WebKit
+browser artifact:              9173229566
+artifact digest:               sha256:14ff9ba47d708c881adfdccf89f11218efac4af9f54862f332ebd0f487b65ea3
+```
+
+No schema, geometry authority, `wallId`, host-wall validation, M2, recognition or semantic-history contract changed. The full swing sector deliberately remains non-listening so nearby room/furniture interaction is not captured accidentally.
+
+Focused record: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.md`.
+
+Next gate: fresh exact-head CI + Chromium/WebKit after this canonical truth-sync, then only the focused real-session door-acquisition confirmation. The already reported marquee/window PASS does not need to be repeated.
+
+---
+
 ## 2026-08-13 — M8.2 runtime / marquee / window regressions automated GREEN
 
 **Status:** three additional product-owner regressions are fixed and automated GREEN on the product-code head in Draft PR #87. Final documentation-head verification and explicit product-owner acceptance remain **PENDING**.

@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-13  
-**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation is implemented in Draft PR #87 but is **not product-accepted**. The latest product-owner retest found three additional real gaps — a Turbopack/Fast Refresh live-store runtime error on hosted-door interaction, missing whole-room marquee semantics and an impractically narrow window hit target. All three are now fixed and automated GREEN on the product-code head in Chromium and representative WebKit; a fresh exact-head gate is still required after this documentation truth-sync. Product-owner acceptance remains **PENDING**.  
+**Status:** M0–M8.1 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation is implemented in Draft PR #87 but is **not product-accepted**. The latest product-owner confirmation reports room+furniture marquee **PASS**, window movement **PASS**, and hosted-door movement/runtime **functional PASS**, with one remaining UX finding: the door was still hard to acquire because pointer-down had to land on the thin leaf. The door wall-opening/leaf/arc hit-target correction is now product-code GREEN in Chromium and representative WebKit; a fresh exact-head gate is required after this documentation truth-sync. Final product-owner door-UX confirmation remains **PENDING**.
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, the latest focused changelog and the active design/plan.
 
@@ -212,6 +212,7 @@ Implemented/automated-green behavior includes:
 - shared/connected unsafe room topology rejects fail-closed with a visible reason and no partial structural/furniture mutation;
 - accepted room movement is exactly one semantic `room/translate` history command; reject/no-op/cancel/stale gesture creates none;
 - doors/windows can be dragged directly along their **current** host wall; `wallId` is preserved, movement is constrained to the valid host span and overlap/invalid positions reject visibly with no partial commit;
+- door direct manipulation now treats the full host-wall opening span, the visible leaf and the swing arc as practical pointer targets with a minimum 12 px listening stroke; the complete swing sector deliberately remains non-listening so room/furniture clicks are not stolen;
 - both window visual lines now retain their thin appearance but expose a practical 12 px listening hit stroke for ordinary pointer drag;
 - missing hosted-opening actions in a preserved Turbopack/Fast Refresh live Zustand singleton are repaired narrowly and bound to the live store before use, without replacing document/history state;
 - room labels use deterministic screen-space degradation (`name + area + dimensions` → `name + area` → compact `name + area` → `name only` → hidden) with non-overlapping slots, bounded wrap/ellipsis and keyed React fragments;
@@ -351,6 +352,36 @@ Focused provenance: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regre
 
 **Current acceptance state:** these newly reported regressions are fixed and automated GREEN on the product-code head. A fresh exact-head CI + Browser Acceptance run is required after this documentation truth-sync. M8.2 remains Draft/not accepted until explicit product-owner PASS.
 
+### Final door hit-target product-owner usability correction — 2026-08-13
+
+The next focused product-owner check reported:
+
+- hosted door movement/runtime: **functional PASS**, but acquiring the door still required pixel-precise aim at the thin leaf;
+- room + furniture no-modifier marquee/movement: **PASS**;
+- representative window movement: **PASS**.
+
+The remaining door issue was treated as a real UX finding. A permanent Playwright regression now starts drag from the **centre of the wall opening span**, not from the leaf. The clean RED proved the pointer fell into ordinary selection/marquee handling instead of opening movement:
+
+```text
+harness-only syntax failure:       9e037fce958d91f07a504756922de4b5c8389b3b / Browser #1523 — excluded from product RED
+valid RED head:                    e41c695b193a9e20ec0173453cd23d093f1bfaab
+CI #5074:                          PASS
+Browser Acceptance #1524:         EXPECTED FAIL — 54 PASS / 1 FAIL (door opening-span drag only)
+production patch:                  9f37c7c0db394e7f924c732e4d191d3bff724ecf
+clean product-code head:           8f9317db650bd076df957028035f6a643d0ec470
+CI #5082 / run 31679924606:        PASS
+Browser Acceptance #1532:         PASS — Chromium + WebKit
+browser run:                       31679924617
+browser artifact:                  9173229566
+artifact digest:                   sha256:14ff9ba47d708c881adfdccf89f11218efac4af9f54862f332ebd0f487b65ea3
+```
+
+The interaction target is intentionally limited to the wall opening, leaf and arc. The full quarter-circle swing sector is not clickable because it could intercept surrounding room/furniture interaction. Visual geometry, `wallId`, host-wall projection, validation and semantic history are unchanged.
+
+Focused provenance: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.md`.
+
+**Remaining acceptance gate:** fresh exact-head CI + Browser Acceptance after this truth-sync, then only a short product-owner confirmation that the door can be comfortably acquired from its wall-opening area without unexpected surrounding-click capture. The already reported marquee/window PASS does not need to be repeated.
+
 ### Reference/recognition
 
 Accepted source import/calibration and M7.8A/B benchmark infrastructure remain available. Recognition is assistive/experimental and not a beta dependency.
@@ -382,8 +413,9 @@ When an external implementation materially influences a design, the active desig
 ```text
 DONE  M8.1  Editor Interaction Foundation
 NOW   M8.2  Precision Drawing / Direct Manipulation Foundation
-      latest runtime/marquee/window correction AUTOMATED GREEN on product-code head;
-      final docs-head gate required;
+      latest door hit-target correction PRODUCT-CODE AUTOMATED GREEN;
+      room marquee + window + functional door movement product-owner PASS;
+      final docs-head gate + focused door-UX confirmation required;
       product-owner acceptance PENDING;
       M8.2 remains Draft / not accepted
 THEN  M8.3  Precision Reference Calibration

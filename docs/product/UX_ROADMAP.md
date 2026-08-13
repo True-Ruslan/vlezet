@@ -59,6 +59,8 @@ That evidence broadened M8.2 from “structural precision implementation awaitin
 
 A third product-evidence correction occurred on 2026-08-13. A real Turbopack development session exposed `beginStructuralOpeningGesture is not a function`, ordinary no-modifier marquee could not select one room + its furniture as a semantic movable group, and visible windows remained difficult to drag because their listening stroke was too narrow. These failures were reproduced with genuine unit and Playwright REDs. They are now fixed and automated GREEN on the product-code head in Chromium and representative WebKit. This evidence further strengthens the rule that **fresh-process browser GREEN is not sufficient when a real preserved dev-runtime state or ordinary pointer tolerance is part of the user journey**.
 
+A fourth focused usability correction followed immediately after the product owner confirmed marquee **PASS**, window movement **PASS** and functional door movement/runtime **PASS**: the door was still unpleasant to acquire because the pointer had to land on the thin leaf. Vlezet now treats the wall opening, leaf and swing arc as the practical door target while deliberately leaving the full swing sector non-listening. This preserves ordinary room/furniture selection around the door.
+
 ## 4. Market benchmark policy
 
 RoomPlan is now the minimum practical UX benchmark for the ordinary apartment-planning journey. Planner 5D, Floorplanner, RoomSketcher and Planoplan are secondary mature-product references; RemPlanner and magicplan inform later professional/capture directions.
@@ -95,9 +97,9 @@ M8.1 Editor Interaction Foundation
 
 NOW
 M8.2 Precision Drawing / Direct Manipulation Foundation
-  - latest runtime/marquee/window regressions FIXED
-  - product-code Chromium + WebKit GREEN
-  - final docs-head CI/Browser gate required
+  - runtime/marquee/window correction confirmed; marquee + window PASS, functional door movement PASS
+  - final door hit-target usability correction PRODUCT-CODE Chromium + WebKit GREEN
+  - final docs-head CI/Browser + focused door-UX confirmation required
   - product-owner acceptance PENDING
   - Draft / not accepted
 
@@ -205,6 +207,7 @@ Primary UX goal:
 - partial marquee remains concrete wall/opening/furniture selection when a full room is not enclosed;
 - unselected furniture and specialized structural/opening/Transformer handles retain their own gesture priority;
 - direct door/window movement constrained to the current host wall with stable `wallId`, valid-span clamping/validation and no silent re-host;
+- practical door acquisition from the complete host-wall opening span, visible leaf or swing arc, each with a minimum 12 px listening target where needed; the full swing sector remains non-listening;
 - overlap/invalid opening drag shows fail-closed feedback and commits nothing;
 - missing hosted-opening actions in a preserved Turbopack/Fast Refresh live store are restored narrowly and rebound directly to the live editor singleton before use;
 - window lines keep their thin visual appearance while exposing a practical 12 px pointer hit stroke;
@@ -262,6 +265,32 @@ The failed first fix remains part of the evidence: copied action closures were b
 
 Focused provenance: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regressions.md`.
 
+### Final door hit-target usability correction
+
+The product owner confirmed the latest three scenarios as follows:
+
+- door movement/runtime: **functional PASS**, with a remaining acquisition UX complaint;
+- room + furniture marquee/movement: **PASS**;
+- window movement: **PASS**.
+
+The permanent Playwright door scenario was therefore strengthened to begin drag from the **centre of the wall opening span**. The first test-only commit had a syntax typo and is excluded from product evidence. The clean RED then produced 54 PASS / 1 FAIL in Chromium, with only the new door opening-span interaction failing. After the Canvas hit-area correction, the same complete Chromium/WebKit suite passed.
+
+```text
+valid RED:                      e41c695b193a9e20ec0173453cd23d093f1bfaab
+CI #5074:                      PASS
+Browser #1524:                EXPECTED FAIL — 54 PASS / 1 FAIL
+production patch:               9f37c7c0db394e7f924c732e4d191d3bff724ecf
+clean product-code head:        8f9317db650bd076df957028035f6a643d0ec470
+CI #5082:                      PASS
+Browser #1532:                PASS — Chromium + WebKit
+artifact:                       9173229566
+artifact digest:                sha256:14ff9ba47d708c881adfdccf89f11218efac4af9f54862f332ebd0f487b65ea3
+```
+
+Interaction decision: wall opening + leaf + arc are clickable; the filled quarter-circle sector is not. This is intentionally narrower than “everything inside the door swing” so furniture and room interaction remain reachable.
+
+Focused provenance: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.md`.
+
 ### Current correction contract
 
 1. **Selection-aware gesture arbitration.** If `room + furniture` is explicitly selected, dragging the free room interior or any ordinary already selected furniture member moves the same explicit selected composite.
@@ -271,7 +300,7 @@ Focused provenance: `docs/changelog/2026-08-13-m8-2-runtime-marquee-window-regre
 5. **Atomic movement.** Structural room closure and selected furniture apply the same accepted delta and commit as one history operation.
 6. **No implicit clipboard ownership.** Furniture enters room clipboard/movement only through explicit selection, marquee hit or `Выбрать мебель в комнате`; mere containment remains insufficient for Copy.
 7. **Hosted-opening direct drag.** Doors and windows move along the current host wall. Cursor motion is projected onto that wall, `wallId` remains stable, invalid overlap/extents fail closed and no silent re-hosting occurs.
-8. **Practical hit targets.** Thin visual geometry may use a larger invisible interaction target so the ordinary pointer journey is usable without pixel-perfect aim.
+8. **Practical hit targets.** Thin visual geometry may use a larger invisible interaction target so the ordinary pointer journey is usable without pixel-perfect aim. For doors, the host-wall opening span, leaf and swing arc are targets; the filled swing sector is not. Windows retain thin visuals with a 12 px interaction stroke.
 9. **Dev-runtime resilience.** A preserved HMR singleton may repair missing editor actions, but repair cannot replace document/history state or introduce a second authority.
 10. **Readable room labels.** Room name/area/dimensions degrade deterministically so compact rooms do not become unreadable.
 11. **Product gate still open.** Chromium + representative WebKit GREEN is necessary but not sufficient; explicit product-owner PASS remains required.
