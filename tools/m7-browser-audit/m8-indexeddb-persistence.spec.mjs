@@ -108,7 +108,7 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
         transaction.objectStore("projects").put(storedProject);
         transaction.objectStore("settings").put({ key: "lastProjectId", value: storedProject.id });
         if (assetInput && targetVersion >= 2) {
-          const blob = new Blob([new Uint8Array(assetInput.bytes)], { type: assetInput.mimeType });
+          const blob = new Blob([String.fromCharCode(...assetInput.bytes)], { type: assetInput.mimeType });
           transaction.objectStore("assets").put({
             id: assetInput.id,
             projectId: assetInput.projectId,
