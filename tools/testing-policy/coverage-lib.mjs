@@ -4,6 +4,18 @@ import { isAbsolute, join, relative } from "node:path";
 import { isProductionPath } from "./config.mjs";
 
 const METRICS = ["lines", "statements", "functions", "branches"];
+const METRIC_FIELDS = ["covered", "total", "pct"];
+
+function requireExactKeys(value, expected, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const actual = Object.keys(value).sort();
+  const sortedExpected = [...expected].sort();
+  if (actual.join("\n") !== sortedExpected.join("\n")) {
+    throw new Error(`${label} must be exactly: ${expected.join(", ")}`);
+  }
+}
 
 function percentage(covered, total) {
   return total === 0 ? 100 : Math.round((covered * 10_000) / total) / 100;
@@ -175,7 +187,7 @@ export async function readWorkspaceCoverageReports(root, workspaces) {
 }
 
 function validateMetric(value, label) {
-  if (!value || typeof value !== "object") throw new Error(`${label} must be an object`);
+  requireExactKeys(value, METRIC_FIELDS, `${label} fields`);
   for (const field of ["covered", "total"]) {
     if (!Number.isSafeInteger(value[field]) || value[field] < 0) {
       throw new Error(`${label} ${field} must be a non-negative safe integer`);
@@ -208,6 +220,8 @@ export function compareMetricFloor(current, baseline, name = "coverage") {
 }
 
 export function compareCoverageFloors(current, baseline) {
+  validateCoverageSummary(current);
+  validateCoverageSummary(baseline);
   const failures = [];
   for (const name of METRICS) {
     failures.push(...compareMetricFloor(
@@ -234,7 +248,18 @@ export function compareCoverageFloors(current, baseline) {
 }
 
 export function validateCoverageSummary(summary) {
-  compareCoverageFloors(summary, summary);
+  if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+    throw new Error("Coverage summary must be an object");
+  }
+  requireExactKeys(summary.repository, METRICS, "repository metrics");
+  for (const name of METRICS) validateMetric(summary.repository[name], `repository ${name}`);
+  if (!summary.packages || typeof summary.packages !== "object" || Array.isArray(summary.packages)) {
+    throw new Error("packages must be an object");
+  }
+  for (const [workspace, metrics] of Object.entries(summary.packages)) {
+    requireExactKeys(metrics, METRICS, `${workspace} metrics`);
+    for (const name of METRICS) validateMetric(metrics[name], `${workspace} ${name}`);
+  }
 }
 
 export function validateBaseline(baseline, workspaces) {

@@ -17,6 +17,14 @@ const statement = (line) => ({
   end: { line, column: 1 },
 });
 
+function baselineFixture() {
+  return {
+    schemaVersion: 1,
+    sourceCommit: "95b99baf2d0f0aad51109b311c70c9b38aa3db38",
+    ...summarizeWorkspaceCoverage({ "apps/web": [] }),
+  };
+}
+
 test("aggregates Istanbul statements, functions, branches, and unique covered lines", () => {
   const summary = summarizeCoverage([
     {
@@ -121,19 +129,43 @@ test("retains a measured zero-file workspace in the package summary", () => {
 });
 
 test("requires the baseline schema and exact measured workspace set", () => {
-  const coverage = summarizeWorkspaceCoverage({ "apps/web": [] });
-  assert.doesNotThrow(() => validateBaseline({
-    schemaVersion: 1,
-    sourceCommit: "95b99baf2d0f0aad51109b311c70c9b38aa3db38",
-    ...coverage,
-  }, ["apps/web"]));
+  const baseline = baselineFixture();
+  assert.doesNotThrow(() => validateBaseline(baseline, ["apps/web"]));
   assert.throws(
     () => validateBaseline({
-      schemaVersion: 1,
-      sourceCommit: "95b99baf2d0f0aad51109b311c70c9b38aa3db38",
-      ...coverage,
+      ...baseline,
     }, ["apps/web", "packages/domain"]),
     /Baseline packages must exactly match configured workspaces/,
+  );
+});
+
+test("rejects extra fields in a baseline metric", () => {
+  const baseline = baselineFixture();
+  baseline.repository.lines.minimum = 95;
+
+  assert.throws(
+    () => validateBaseline(baseline, ["apps/web"]),
+    /repository lines fields must be exactly: covered, total, pct/,
+  );
+});
+
+test("rejects an extra repository metric", () => {
+  const baseline = baselineFixture();
+  baseline.repository.conditions = { covered: 0, total: 0, pct: 100 };
+
+  assert.throws(
+    () => validateBaseline(baseline, ["apps/web"]),
+    /repository metrics must be exactly: lines, statements, functions, branches/,
+  );
+});
+
+test("rejects an extra package metric", () => {
+  const baseline = baselineFixture();
+  baseline.packages["apps/web"].conditions = { covered: 0, total: 0, pct: 100 };
+
+  assert.throws(
+    () => validateBaseline(baseline, ["apps/web"]),
+    /apps\/web metrics must be exactly: lines, statements, functions, branches/,
   );
 });
 

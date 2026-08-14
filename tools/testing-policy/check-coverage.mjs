@@ -9,6 +9,7 @@ import {
   summarizeWorkspaceCoverage,
   validateBaseline,
 } from "./coverage-lib.mjs";
+import { classifyBaselineTreeResult, requireSuccessfulGit } from "./git-baseline.mjs";
 
 const ACCEPTED_BASE_SHA = "95b99baf2d0f0aad51109b311c70c9b38aa3db38";
 const BASELINE_PATH = "tools/testing-policy/coverage-baseline.json";
@@ -41,14 +42,12 @@ failIfAny(
 );
 
 const commitCheck = git(["cat-file", "-e", `${baseSha}^{commit}`]);
-if (commitCheck.status !== 0) {
-  throw new Error(`POLICY_BASE_SHA is not an available commit: ${baseSha}`);
-}
+requireSuccessfulGit(commitCheck, `Git base commit verification for ${baseSha}`);
 
-const baseFileCheck = git(["cat-file", "-e", `${baseSha}:${BASELINE_PATH}`]);
-if (baseFileCheck.status === 0) {
+const baseFileCheck = git(["ls-tree", "--full-tree", baseSha, "--", BASELINE_PATH]);
+if (classifyBaselineTreeResult(baseFileCheck, BASELINE_PATH)) {
   const shown = git(["show", `${baseSha}:${BASELINE_PATH}`]);
-  if (shown.status !== 0) throw new Error(`Could not read base baseline: ${shown.stderr.trim()}`);
+  requireSuccessfulGit(shown, "Git base baseline read");
   let baseBaseline;
   try {
     baseBaseline = JSON.parse(shown.stdout);
@@ -67,4 +66,3 @@ if (baseFileCheck.status === 0) {
 }
 
 console.log(`Coverage ratchet passed against ${baseSha}`);
-
