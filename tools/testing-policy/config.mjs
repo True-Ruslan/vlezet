@@ -28,6 +28,7 @@ export function isProductionPath(file) {
   return /^(apps\/[^/]+|packages\/[^/]+)\/src\/.+\.(?:[cm]?[jt]sx?)$/.test(p)
     && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(p)
     && !p.endsWith(".d.ts")
+    && !/\.(?:generated|coverage)\.[cm]?[jt]sx?$/.test(p)
     && !/(?:^|\/)(?:generated|coverage)(?:\/|$)/.test(p);
 }
 

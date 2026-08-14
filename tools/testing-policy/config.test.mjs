@@ -40,6 +40,8 @@ test("classifies source code as production and excludes generated test artifacts
   assert.equal(isProductionPath("packages/geometry/src/fit.test.ts"), false);
   assert.equal(isProductionPath("packages/geometry/src/fit.spec.ts"), false);
   assert.equal(isProductionPath("packages/geometry/src/types.d.ts"), false);
+  assert.equal(isProductionPath("packages/geometry/src/model.generated.ts"), false);
+  assert.equal(isProductionPath("packages/geometry/src/report.coverage.ts"), false);
   assert.equal(isProductionPath("packages/geometry/coverage/report.ts"), false);
   assert.equal(isProductionPath("packages/geometry/generated/model.ts"), false);
   assert.equal(isProductionPath("packages/geometry/src\\fit.ts"), true);
