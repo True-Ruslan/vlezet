@@ -9,6 +9,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
+    "test:policy": "node --test tools/testing-policy/*.test.mjs",
     "typecheck": "turbo typecheck",
     "lint": "eslint .",
     "validate:m7-docs": "node scripts/validate-m7-docs.mjs",
