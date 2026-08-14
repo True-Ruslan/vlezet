@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.mjs";
 import { deflateSync } from "node:zlib";
 
 function crc32(buffer) {

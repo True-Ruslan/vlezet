@@ -10,14 +10,19 @@ import {
   summarizeWorkspaceCoverage,
   validateBaseline,
 } from "./coverage-lib.mjs";
-import { classifyBaselineTreeResult, requireSuccessfulGit } from "./git-baseline.mjs";
+import {
+  classifyBaselineTreeResult,
+  requireSuccessfulGit,
+  resolvePolicyBaseSha,
+} from "./git-baseline.mjs";
 
 const ACCEPTED_BASE_SHA = "95b99baf2d0f0aad51109b311c70c9b38aa3db38";
 const BASELINE_PATH = "tools/testing-policy/coverage-baseline.json";
 
 if (process.argv.length !== 2) throw new Error("coverage:check accepts no arguments");
 
-const baseSha = process.env.POLICY_BASE_SHA ?? ACCEPTED_BASE_SHA;
+const policyBaseSha = resolvePolicyBaseSha(process.env.POLICY_BASE_SHA);
+const baseSha = policyBaseSha ?? ACCEPTED_BASE_SHA;
 if (!/^[0-9a-f]{40}$/.test(baseSha)) {
   throw new Error("POLICY_BASE_SHA must be a full lowercase Git SHA");
 }
@@ -66,7 +71,7 @@ if (classifyBaselineTreeResult(baseFileCheck, BASELINE_PATH)) {
   );
 }
 
-let changedBaseSha = process.env.POLICY_BASE_SHA;
+let changedBaseSha = policyBaseSha;
 if (changedBaseSha === undefined) {
   const mergeBase = git(["merge-base", "HEAD", "origin/main"]);
   requireSuccessfulGit(mergeBase, "Git changed-coverage merge-base lookup");

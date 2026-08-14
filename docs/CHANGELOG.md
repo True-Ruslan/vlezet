@@ -4,6 +4,19 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-14 — Testing-policy Phase A canonical docs (in development)
+
+**Status:** IN DEVELOPMENT on `codex/testing-policy-phase-a`. Not product-accepted and not merged.
+
+Canonical testing contracts now exist on this branch:
+
+- `docs/testing/TESTING_POLICY.md` — normative change-class, RED/GREEN, coverage, Playwright, debt and Definition of Done contract;
+- `docs/testing/TEST_COVERAGE_AUDIT.md` — measured baseline copied from `tools/testing-policy/coverage-baseline.json` at source commit `95b99baf2d0f0aad51109b311c70c9b38aa3db38`.
+
+Blocking commands: `pnpm test:policy` and `pnpm verify:policy`. No apartment/document authority semantics changed. The only production edit is dashboard Delete focusing its trigger before confirmation so UiDialog can restore focus after Escape. IndexedDB failure paths remain an explicit P0 audit candidate. Phase A is not accepted or merged.
+
+---
+
 ## 2026-08-13 — M8.2 product-owner accepted and merged
 
 **Status:** PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED as `e323e331a435ae356b91decbdea80dde95028d8a` / POST-MERGE VERIFIED.

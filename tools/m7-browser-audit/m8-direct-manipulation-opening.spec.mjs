@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.mjs";
 
 async function openNewProject(page) {
   await page.goto("/");
@@ -326,8 +326,7 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
   });
 
-  test("equivalent composite drag from free room interior remains one Undo Redo operation", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === "webkit", "WebKit covers the product-owner regression from selected furniture body; Chromium covers equivalent free-interior history.");
+  test("equivalent composite drag from free room interior remains one Undo Redo operation", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     await drawRoom(page);
@@ -475,8 +474,7 @@ test.describe("M8.2 direct manipulation correction acceptance", () => {
     await expect.poll(() => openingOffset(page)).toBe(initialOffset);
   });
 
-  test("window uses the same current-host-wall drag primitive", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === "webkit", "WebKit minimum covers the door host-wall primitive; Chromium additionally proves the representative window path.");
+  test("window uses the same current-host-wall drag primitive", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     const wall = await drawIsolatedWall(page);

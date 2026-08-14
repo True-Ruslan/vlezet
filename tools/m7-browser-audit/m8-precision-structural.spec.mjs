@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.mjs";
 
 async function openNewProject(page) {
   await page.goto("/");
@@ -268,7 +268,6 @@ test.describe("M8.2 precision structural acceptance", () => {
   });
 
   test("translates a wall with its opening but rejects a topology-breaking translation without partial history", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === "webkit", "Chromium covers the full safe/unsafe wall translation matrix.");
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
     const shape = await drawLShape(page);
@@ -316,7 +315,6 @@ test.describe("M8.2 precision structural acceptance", () => {
   });
 
   test("applies multi-wall thickness atomically and restores the shared value with one Undo", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name === "webkit", "Chromium covers the full multi-wall inspector path.");
     await page.setViewportSize({ width: 1440, height: 900 });
     await openNewProject(page);
 

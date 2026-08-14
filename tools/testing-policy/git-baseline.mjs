@@ -1,3 +1,16 @@
+const FULL_LOWERCASE_SHA = /^[0-9a-f]{40}$/;
+const ZERO_SHA = "0000000000000000000000000000000000000000";
+
+export function resolvePolicyBaseSha(value) {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  if (trimmed === "") return undefined;
+  if (!FULL_LOWERCASE_SHA.test(trimmed) || trimmed === ZERO_SHA) {
+    throw new Error("POLICY_BASE_SHA must be a full lowercase Git SHA");
+  }
+  return trimmed;
+}
+
 export function requireSuccessfulGit(result, operation) {
   if (!result || typeof result !== "object") {
     throw new Error(`${operation} returned no process result`);

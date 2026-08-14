@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.mjs";
 
 async function openNewProject(page) {
   await page.goto("/");
@@ -228,13 +228,13 @@ test.describe("M8.1 editor interaction acceptance", () => {
       element.addEventListener("paste", () => events.push("paste"));
     });
 
-    await input.press("Control+A");
+    await input.press("ControlOrMeta+A");
     await input.type("Beta");
     await expect(input).toHaveValue("Beta");
 
-    await input.press("Control+A");
-    await input.press("Control+C");
-    await input.press("Control+V");
+    await input.press("ControlOrMeta+A");
+    await input.press("ControlOrMeta+C");
+    await input.press("ControlOrMeta+V");
     await expect.poll(() => page.evaluate(() => globalThis.__m8NativeClipboardEvents)).toEqual(["copy", "paste"]);
     await expectSemanticHistoryEmpty(page);
   });

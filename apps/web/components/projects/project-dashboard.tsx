@@ -34,6 +34,16 @@ function projectFacts(project: VlezetProjectRecord): string {
   return `${roomCount} комнат · ${project.document.walls.length} стен · ${project.document.placedObjects.length} предметов${source}`;
 }
 
+export function focusTriggerThenRequestDelete(
+  project: VlezetProjectRecord,
+  onRequestDelete: (project: VlezetProjectRecord) => void,
+): (event: { currentTarget: { focus: () => void } }) => void {
+  return (event) => {
+    event.currentTarget.focus();
+    onRequestDelete(project);
+  };
+}
+
 export function ProjectDashboard({
   projects,
   error,
@@ -96,7 +106,7 @@ export function ProjectDashboard({
                   <p className="project-facts">{projectFacts(project)}</p>
                   <p className="project-updated" title={new Date(project.updatedAt).toLocaleString("ru")}>Изменён {relativeDate(project.updatedAt)}</p>
                 </div>
-                <div className="project-card-actions" aria-label={`Действия с проектом ${project.name}`}><button type="button" onClick={() => beginRename(project)}>Переименовать</button><button type="button" onClick={() => void onDuplicate(project)}>Копия</button><button className="project-delete-button" type="button" onClick={() => onRequestDelete(project)}>Удалить</button></div>
+                <div className="project-card-actions" aria-label={`Действия с проектом ${project.name}`}><button type="button" onClick={beginRename.bind(null, project)}>Переименовать</button><button type="button" onClick={onDuplicate.bind(null, project)}>Копия</button><button className="project-delete-button" type="button" onClick={focusTriggerThenRequestDelete(project, onRequestDelete)}>Удалить</button></div>
               </article>
             ))}
           </div>

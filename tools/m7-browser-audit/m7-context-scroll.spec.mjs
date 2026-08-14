@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.mjs";
 
 async function clickCanvasPoint(page, point) {
   const canvas = page.locator(".canvas-shell");

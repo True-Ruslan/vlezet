@@ -8,6 +8,8 @@ on:
       - "apps/web/**"
       - "packages/**"
       - "tools/m7-browser-audit/**"
+      - "tools/testing-policy/**"
+      - "docs/testing/**"
       - ".github/workflows/m7-browser-audit.yml"
       - "docs/PROJECT_STATE.md"
       - "docs/ROADMAP.md"

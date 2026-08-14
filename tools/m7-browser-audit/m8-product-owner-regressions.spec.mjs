@@ -1,23 +1,4 @@
-import { expect, test } from "@playwright/test";
-
-const browserErrorsByPage = new WeakMap();
-
-function trackBrowserErrors(page) {
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
-  });
-  return errors;
-}
-
-test.beforeEach(async ({ page }) => {
-  browserErrorsByPage.set(page, trackBrowserErrors(page));
-});
-
-test.afterEach(async ({ page }) => {
-  expect(browserErrorsByPage.get(page) ?? []).toEqual([]);
-});
+import { expect, test } from "./fixtures.mjs";
 
 async function openNewProject(page) {
   await page.goto("/");

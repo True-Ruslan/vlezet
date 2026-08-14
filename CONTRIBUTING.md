@@ -9,7 +9,8 @@ Read, in order:
 1. `docs/PROJECT_STATE.md`;
 2. `docs/ROADMAP.md`;
 3. `docs/CHANGELOG.md`;
-4. the active design/spec and implementation plan for the slice you are changing.
+4. `docs/testing/TESTING_POLICY.md` and `docs/testing/TEST_COVERAGE_AUDIT.md` when the change affects tests, coverage, browser acceptance or verification evidence;
+5. the active design/spec and implementation plan for the slice you are changing.
 
 Do not infer accepted product state from an old feature branch or a green experimental PR.
 
@@ -58,6 +59,8 @@ The following are not implementation preferences; they are product invariants:
 
 ## TDD and verification
 
+Canonical testing policy: `docs/testing/TESTING_POLICY.md`. Canonical coverage audit: `docs/testing/TEST_COVERAGE_AUDIT.md`. Follow those contracts for change classification, RED/GREEN provenance, coverage, Playwright and Definition of Done.
+
 For changed deterministic behavior, use real RED → GREEN:
 
 1. write or identify a focused behavioral contract that fails for the intended reason;
@@ -78,7 +81,16 @@ pnpm lint
 pnpm build
 ```
 
-Use additional browser/benchmark gates required by the active milestone.
+Testing-policy gates:
+
+```bash
+pnpm test:policy
+pnpm verify:policy
+pnpm coverage
+pnpm coverage:check
+```
+
+`pnpm verify:policy` runs static policy/docs checks and then the coverage ratchet/changed-code gate. Use additional browser/benchmark gates required by the active milestone.
 
 ## Pull requests
 

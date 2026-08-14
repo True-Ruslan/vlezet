@@ -20,12 +20,15 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      POLICY_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -77,6 +80,38 @@ jobs:
           path: test.log
           if-no-files-found: error
           retention-days: 3
+
+      - name: Coverage
+        id: coverage
+        shell: bash
+        run: |
+          set +e
+          pnpm coverage 2>&1 | tee coverage.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Testing policy
+        id: testing_policy
+        shell: bash
+        run: |
+          set +e
+          pnpm verify:policy 2>&1 | tee testing-policy.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload testing policy evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testing-policy-evidence
+          path: |
+            coverage.log
+            testing-policy.log
+            tools/testing-policy/coverage-baseline.json
+            **/coverage/coverage-final.json
+            **/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Core Recognition Benchmark
         id: recognition_core
