@@ -1,7 +1,7 @@
 # P0 IndexedDB Testing and Remediation Design
 
 Date: 2026-08-14
-Status: Conversational design approved; written specification awaiting product-owner review
+Status: Written specification approved; implementation plan awaiting execution choice
 Owner: Product owner / Vlezet engineering
 Base: `main` at `cc594bae218e9e16724d7574f48be8886852e7ad`
 Parent policy: `docs/testing/TESTING_POLICY.md`
