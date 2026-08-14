@@ -87,93 +87,111 @@ async function leaveStorageSetupPage(page) {
 
 async function seedLegacyDatabase(page, { version, project, asset = null }) {
   await page.evaluate(async ({ dbName, version: targetVersion, project: storedProject, asset: assetInput }) => {
-    await new Promise((resolve, reject) => {
+    const transactionDone = (transaction, label) => new Promise((resolve, reject) => {
+      transaction.onerror = () => reject(new Error(`${label}: ${transaction.error?.name ?? "UnknownError"}: ${transaction.error?.message ?? "unknown transaction error"}`));
+      transaction.onabort = () => reject(new Error(`${label} aborted: ${transaction.error?.name ?? "AbortError"}: ${transaction.error?.message ?? "unknown transaction abort"}`));
+      transaction.oncomplete = resolve;
+    });
+
+    const database = await new Promise((resolve, reject) => {
       const request = indexedDB.open(dbName, targetVersion);
       request.onerror = () => reject(request.error ?? new Error("IndexedDB legacy open failed"));
       request.onblocked = () => reject(new Error("IndexedDB legacy open blocked"));
       request.onupgradeneeded = () => {
-        const database = request.result;
-        const projects = database.createObjectStore("projects", { keyPath: "id" });
+        const upgradeDatabase = request.result;
+        const projects = upgradeDatabase.createObjectStore("projects", { keyPath: "id" });
         projects.createIndex("updatedAt", "updatedAt", { unique: false });
-        database.createObjectStore("settings", { keyPath: "key" });
+        upgradeDatabase.createObjectStore("settings", { keyPath: "key" });
         if (targetVersion >= 2) {
-          const assets = database.createObjectStore("assets", { keyPath: "id" });
+          const assets = upgradeDatabase.createObjectStore("assets", { keyPath: "id" });
           assets.createIndex("projectId", "projectId", { unique: false });
         }
       };
-      request.onsuccess = () => {
-        const database = request.result;
-        const storeNames = ["projects", "settings", ...(targetVersion >= 2 ? ["assets"] : [])];
-        const transaction = database.transaction(storeNames, "readwrite");
-        transaction.objectStore("projects").put(storedProject);
-        transaction.objectStore("settings").put({ key: "lastProjectId", value: storedProject.id });
-        if (assetInput && targetVersion >= 2) {
-          const blob = new Blob([String.fromCharCode(...assetInput.bytes)], { type: assetInput.mimeType });
-          transaction.objectStore("assets").put({
-            id: assetInput.id,
-            projectId: assetInput.projectId,
-            kind: "reference-raster",
-            mimeType: assetInput.mimeType,
-            byteLength: blob.size,
-            createdAt: assetInput.createdAt,
-            blob,
-          });
-        }
-        transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB legacy seed failed"));
-        transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB legacy seed aborted"));
-        transaction.oncomplete = () => {
-          database.close();
-          resolve();
-        };
-      };
+      request.onsuccess = () => resolve(request.result);
     });
+
+    try {
+      const metadataTransaction = database.transaction(["projects", "settings"], "readwrite");
+      metadataTransaction.objectStore("projects").put(storedProject);
+      metadataTransaction.objectStore("settings").put({ key: "lastProjectId", value: storedProject.id });
+      await transactionDone(metadataTransaction, "IndexedDB legacy metadata seed failed");
+
+      if (assetInput && targetVersion >= 2) {
+        const blob = new Blob([String.fromCharCode(...assetInput.bytes)], { type: assetInput.mimeType });
+        const assetTransaction = database.transaction("assets", "readwrite");
+        const put = assetTransaction.objectStore("assets").put({
+          id: assetInput.id,
+          projectId: assetInput.projectId,
+          kind: "reference-raster",
+          mimeType: assetInput.mimeType,
+          byteLength: blob.size,
+          createdAt: assetInput.createdAt,
+          blob,
+        });
+        put.onerror = () => {
+          throw new Error(`IndexedDB legacy asset put failed: ${put.error?.name ?? "UnknownError"}: ${put.error?.message ?? "unknown request error"}`);
+        };
+        await transactionDone(assetTransaction, "IndexedDB legacy asset seed failed");
+      }
+    } finally {
+      database.close();
+    }
   }, { dbName: DB_NAME, version, project, asset });
 }
 
 async function seedCurrentDatabase(page, { projects, assets = [], settings = [] }) {
   await page.evaluate(async ({ dbName, storedProjects, storedAssets, storedSettings }) => {
-    await new Promise((resolve, reject) => {
+    const transactionDone = (transaction, label) => new Promise((resolve, reject) => {
+      transaction.onerror = () => reject(new Error(`${label}: ${transaction.error?.name ?? "UnknownError"}: ${transaction.error?.message ?? "unknown transaction error"}`));
+      transaction.onabort = () => reject(new Error(`${label} aborted: ${transaction.error?.name ?? "AbortError"}: ${transaction.error?.message ?? "unknown transaction abort"}`));
+      transaction.oncomplete = resolve;
+    });
+
+    const database = await new Promise((resolve, reject) => {
       const request = indexedDB.open(dbName, 3);
       request.onerror = () => reject(request.error ?? new Error("IndexedDB current seed open failed"));
       request.onblocked = () => reject(new Error("IndexedDB current seed open blocked"));
       request.onupgradeneeded = () => {
-        const database = request.result;
-        const projectStore = database.createObjectStore("projects", { keyPath: "id" });
+        const upgradeDatabase = request.result;
+        const projectStore = upgradeDatabase.createObjectStore("projects", { keyPath: "id" });
         projectStore.createIndex("updatedAt", "updatedAt", { unique: false });
-        database.createObjectStore("settings", { keyPath: "key" });
-        const assetStore = database.createObjectStore("assets", { keyPath: "id" });
+        upgradeDatabase.createObjectStore("settings", { keyPath: "key" });
+        const assetStore = upgradeDatabase.createObjectStore("assets", { keyPath: "id" });
         assetStore.createIndex("projectId", "projectId", { unique: false });
-        const sessionStore = database.createObjectStore("recognitionSessions", { keyPath: "id" });
+        const sessionStore = upgradeDatabase.createObjectStore("recognitionSessions", { keyPath: "id" });
         sessionStore.createIndex("projectId", "projectId", { unique: true });
       };
-      request.onsuccess = () => {
-        const database = request.result;
-        const transaction = database.transaction(["projects", "settings", "assets"], "readwrite");
-        const projectStore = transaction.objectStore("projects");
-        const settingsStore = transaction.objectStore("settings");
-        const assetStore = transaction.objectStore("assets");
-        for (const project of storedProjects) projectStore.put(project);
-        for (const setting of storedSettings) settingsStore.put(setting);
-        for (const asset of storedAssets) {
-          const blob = new Blob([asset.content], { type: asset.mimeType });
-          assetStore.put({
-            id: asset.id,
-            projectId: asset.projectId,
-            kind: "reference-raster",
-            mimeType: asset.mimeType,
-            byteLength: blob.size,
-            createdAt: asset.createdAt,
-            blob,
-          });
-        }
-        transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB current seed failed"));
-        transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB current seed aborted"));
-        transaction.oncomplete = () => {
-          database.close();
-          resolve();
-        };
-      };
+      request.onsuccess = () => resolve(request.result);
     });
+
+    try {
+      const metadataTransaction = database.transaction(["projects", "settings"], "readwrite");
+      const projectStore = metadataTransaction.objectStore("projects");
+      const settingsStore = metadataTransaction.objectStore("settings");
+      for (const project of storedProjects) projectStore.put(project);
+      for (const setting of storedSettings) settingsStore.put(setting);
+      await transactionDone(metadataTransaction, "IndexedDB current metadata seed failed");
+
+      for (const asset of storedAssets) {
+        const blob = new Blob([asset.content], { type: asset.mimeType });
+        const assetTransaction = database.transaction("assets", "readwrite");
+        const put = assetTransaction.objectStore("assets").put({
+          id: asset.id,
+          projectId: asset.projectId,
+          kind: "reference-raster",
+          mimeType: asset.mimeType,
+          byteLength: blob.size,
+          createdAt: asset.createdAt,
+          blob,
+        });
+        put.onerror = () => {
+          throw new Error(`IndexedDB current asset put failed: ${put.error?.name ?? "UnknownError"}: ${put.error?.message ?? "unknown request error"}`);
+        };
+        await transactionDone(assetTransaction, "IndexedDB current asset seed failed");
+      }
+    } finally {
+      database.close();
+    }
   }, {
     dbName: DB_NAME,
     storedProjects: projects,
