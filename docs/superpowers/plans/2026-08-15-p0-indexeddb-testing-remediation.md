@@ -4,38 +4,36 @@
 
 **Goal:** Close `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` with deterministic adapter failure contracts plus native Chromium/WebKit schema, persistence, upgrade, corruption and data-isolation evidence, fixing production code only when a focused automated contract proves a real defect.
 
-**Architecture:** Keep `IndexedDbProjectRepository` and schema v3 unchanged unless a genuine failing contract proves otherwise. Vitest uses a deliberately narrow event-driven `IDBFactory`/request/transaction harness only for rare controllable failure branches. Playwright uses real browser IndexedDB for fresh schema, v1 -> v3, v2 -> v3, reload persistence, assets, corruption and recognition-session preservation. Browser setup gets same-origin storage access through a Playwright-fulfilled HTML route, not a product route or production test hook.
+**Architecture:** Keep `IndexedDbProjectRepository` and database schema v3 unchanged unless a genuine failing contract proves otherwise. Vitest uses a deliberately narrow event-driven `IDBFactory`/request/transaction harness only for rare controllable failure branches. Playwright uses real browser IndexedDB for fresh schema, v1 -> v3, v2 -> v3, reload persistence, assets, corruption and recognition-session preservation. Browser setup gets same-origin storage access through a Playwright-fulfilled HTML route, not a product route or production test hook.
 
 **Tech Stack:** TypeScript 6.0.3, Vitest 4.1.10, V8 coverage, Node >=22.13.0 / CI Node 22.16.0, pnpm 11.15.1, Playwright 1.54.2, native IndexedDB, Next.js 16, GitHub Actions.
 
-## Non-negotiable constraints
+## Constraints
 
-- Implementation starts from the then-current integrated `main`; approved design base is `cc594bae218e9e16724d7574f48be8886852e7ad`.
-- Do not implement on `docs/p0-indexeddb-testing-design`. Create a new implementation branch from current `main` and carry only the approved spec/plan docs forward.
-- Database remains `vlezet`, version `3`; no version bump or schema redesign merely to enable testing.
-- v1 -> v3 and v2 -> v3 are mandatory real-browser contracts in **both** Chromium and WebKit.
-- The complete `m8-indexeddb-persistence.spec.mjs` is mandatory in `WEBKIT_SPECS`; no silent smaller subset.
-- Chromium/WebKit retries remain `0`, workers remain `1`, and the shared `./fixtures.mjs` runtime guard remains active.
-- `page.evaluate` may prepare or inspect storage, but user-visible save -> reload -> restore must run through normal product UI/lifecycle.
+- Start implementation from the then-current integrated `main`; the approved design base is `cc594bae218e9e16724d7574f48be8886852e7ad`.
+- Do not implement on `docs/p0-indexeddb-testing-design`. Create a new implementation branch from current `main` and carry only approved spec/plan docs forward.
+- Database remains `vlezet`, version `3`; no version bump or schema redesign merely for testing.
+- v1 -> v3 and v2 -> v3 are mandatory real-browser contracts in both Chromium and WebKit.
+- The complete `m8-indexeddb-persistence.spec.mjs` is mandatory in `WEBKIT_SPECS`.
+- Chromium/WebKit retries stay `0`, workers stay `1`, and shared `./fixtures.mjs` runtime guards remain active.
+- `page.evaluate` may prepare/inspect storage; user-visible save -> reload -> restore must run through normal product UI/lifecycle.
 - No production debug route, reset endpoint, query flag, fault switch, test mode or private-helper export.
 - Do not add `fake-indexeddb` initially. If the deterministic harness starts reproducing persistence semantics, stop and request a design change instead of growing an emulator.
-- Existing correct historical behavior may start GREEN and is recorded as characterization. Do not fabricate RED.
-- A real defect requires preserved focused RED evidence before the smallest production fix, followed by the exact same test GREEN.
-- Changed critical persistence production code must satisfy 100% changed lines/statements/functions and >=95% changed branches. Other changed production code obeys the applicable Phase A threshold.
-- Coverage/baseline movement is measured and upward-only. Never hand-edit coverage percentages or weaken thresholds/validators/assertions.
-- `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` stays OPEN until all mandatory exact-head evidence exists.
+- Correct historical behavior may start GREEN and is recorded as characterization. Never fabricate RED.
+- A real defect requires preserved focused RED evidence before the smallest production fix, followed by the exact same contract GREEN.
+- Changed critical persistence production code must satisfy 100% changed lines/statements/functions and >=95% changed branches. Other changed production code follows its applicable Phase A threshold.
+- Coverage/baseline movement is measured and upward-only. Never hand-edit coverage percentages or weaken thresholds, validators or assertions.
+- `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remains OPEN until every mandatory exact-head evidence item exists.
 
-## Verified current interfaces
+## Verified interfaces
 
-The plan relies only on interfaces verified on integrated `main`:
-
-- `packages/projects/src/indexeddb.ts`: `createIndexedDbProjectRepository`, `IndexedDbProjectRepository`, `ProjectStorageError`; private open/request/transaction helpers stay private.
-- schema v3 stores: `projects`, `settings`, `assets`, `recognitionSessions`; indexes `projects.updatedAt`, `assets.projectId`, unique `recognitionSessions.projectId`.
-- historical DB boundaries: M3 v1 (`projects`, `settings`), M4 v2 (+`assets` / `projectId`), M4.5 v3 (+`recognitionSessions` / unique `projectId`).
-- `ProjectApp` creates the real IndexedDB repository, autosaves after 150 ms, persists `lastProjectId`, and auto-opens the last project.
-- editor project-name input: `aria-label="Название проекта"`; saved indicator: `Сохранено локально`; back button: `aria-label="Вернуться к моим проектам"`.
-- dashboard heading: `Планировки, к которым можно вернуться`; create button: `Новый проект`; project actions include `Удалить`; confirm action: `Удалить проект`.
-- Chromium auto-discovers `**/*.spec.mjs`; WebKit uses machine-checked `WEBKIT_SPECS`.
+- `packages/projects/src/indexeddb.ts`: public `createIndexedDbProjectRepository`, `IndexedDbProjectRepository`, `ProjectStorageError`; private open/request/transaction helpers remain private.
+- schema v3: `projects`, `settings`, `assets`, `recognitionSessions`; indexes `projects.updatedAt`, `assets.projectId`, unique `recognitionSessions.projectId`.
+- history: M3 v1 (`projects`, `settings`), M4 v2 (+`assets` / `projectId`), M4.5 v3 (+`recognitionSessions` / unique `projectId`).
+- `ProjectApp`: real IndexedDB repository, 150 ms autosave, `lastProjectId`, automatic last-project open.
+- editor: `aria-label="Название проекта"`, saved copy `Сохранено локально`, back `aria-label="Вернуться к моим проектам"`.
+- dashboard: heading `Планировки, к которым можно вернуться`, button `Новый проект`, delete action `Удалить`, confirmation `Удалить проект`.
+- Chromium: `**/*.spec.mjs`; WebKit: machine-checked `WEBKIT_SPECS`.
 
 ## Files
 
@@ -49,26 +47,23 @@ Modify:
 
 - `tools/testing-policy/browser-policy.test.mjs`
 - `tools/testing-policy/browser-policy.mjs`
-- `docs/testing/TEST_COVERAGE_AUDIT.md` only after evidence exists
+- `docs/testing/TEST_COVERAGE_AUDIT.md` after evidence exists
 - `tools/testing-policy/coverage-baseline.json` only via generator after final coverage
-- `docs/PROJECT_STATE.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md` for truthful final state sync
+- `docs/PROJECT_STATE.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md` for truthful state sync
 
-Modify production only after genuine RED evidence:
+Production files change only after genuine RED evidence:
 
 - `packages/projects/src/indexeddb.ts`
 - `packages/projects/src/indexeddb-schema.ts` only for a proven schema defect
-- the exact web error boundary file only if a browser corruption contract proves handled local corruption is incorrectly emitted as an unexpected runtime console error
+- the exact web error-boundary file only if a corruption contract proves a handled typed local-data error is incorrectly emitted as unexpected runtime failure
 
 ---
 
-### Task 1: Bootstrap the implementation branch and characterize open lifecycle
+### Task 1: Bootstrap branch and characterize open lifecycle
 
-**Files:**
-- Create: `packages/projects/src/indexeddb.test.ts`
-- Create: `packages/projects/src/indexeddb.test-support.ts`
-- Read only initially: `packages/projects/src/indexeddb.ts`
+**Files:** create `packages/projects/src/indexeddb.test.ts`, `packages/projects/src/indexeddb.test-support.ts`; initially read-only `packages/projects/src/indexeddb.ts`.
 
-- [ ] **Step 1: Create an isolated implementation branch from current main**
+- [ ] **Step 1: Create implementation branch from current main**
 
 ```bash
 git fetch origin
@@ -77,26 +72,27 @@ git pull --ff-only origin main
 git switch -c test/p0-indexeddb-remediation
 BASE_SHA=$(git rev-parse HEAD)
 printf '%s\n' "$BASE_SHA"
-```
-
-Before carrying docs forward:
-
-```bash
 git diff --name-only origin/main...origin/docs/p0-indexeddb-testing-design
 ```
 
-Expected docs-only paths:
+Expected docs-branch diff contains only:
 
 ```text
 docs/superpowers/specs/2026-08-14-p0-indexeddb-testing-design.md
 docs/superpowers/plans/2026-08-15-p0-indexeddb-testing-remediation.md
 ```
 
-Cherry-pick only the approved docs commits needed to obtain those two files. Re-run `git diff --name-only "$BASE_SHA"...HEAD` and verify no production/test implementation came from the docs branch.
+Carry only those approved docs commits/files forward. Verify:
 
-- [ ] **Step 2: Add the narrow deterministic event harness**
+```bash
+git diff --name-only "$BASE_SHA"...HEAD
+```
 
-Create `packages/projects/src/indexeddb.test-support.ts` with only scripted event controls:
+No product/test implementation may arrive from the docs branch.
+
+- [ ] **Step 2: Create narrow event controls in `indexeddb.test-support.ts`**
+
+Implement only these public test-support contracts:
 
 ```ts
 export type RequestController<T> = Readonly<{
@@ -105,52 +101,41 @@ export type RequestController<T> = Readonly<{
   fail(error: DOMException): void;
 }>;
 
-export function controlledRequest<T>(): RequestController<T> {
-  let result: T;
-  let error: DOMException | null = null;
-  const target: {
-    result?: T;
-    error: DOMException | null;
-    onsuccess: ((event: Event) => unknown) | null;
-    onerror: ((event: Event) => unknown) | null;
-  } = { error: null, onsuccess: null, onerror: null };
-
-  Object.defineProperties(target, {
-    result: { get: () => result },
-    error: { get: () => error },
-  });
-
-  const request = target as unknown as IDBRequest<T>;
-  return {
-    request,
-    succeed(value) {
-      result = value;
-      request.onsuccess?.({} as Event);
-    },
-    fail(cause) {
-      error = cause;
-      request.onerror?.({} as Event);
-    },
-  };
-}
-
 export type TransactionController = Readonly<{
   transaction: IDBTransaction;
   complete(): void;
   abort(error: DOMException): void;
   fail(error: DOMException): void;
 }>;
+
+export type OpenController = Readonly<{
+  factory: IDBFactory;
+  succeed(database: IDBDatabase): void;
+  fail(error: DOMException): void;
+  block(): void;
+}>;
+
+export function controlledRequest<T>(): RequestController<T>;
+export function controlledTransaction(stores: ReadonlyMap<string, IDBObjectStore>): TransactionController;
+export function controlledOpen(): OpenController;
+export function databaseWithTransaction(
+  transactionFactory: (storeNames: string | string[], mode?: IDBTransactionMode) => IDBTransaction,
+  close: () => void,
+): IDBDatabase;
 ```
 
-Implement `TransactionController` with only `objectStore(name)`, `error`, `oncomplete`, `onabort`, `onerror`. Accept a `ReadonlyMap<string, IDBObjectStore>` in its constructor/helper; unknown store names throw. Do not implement cursors, key ranges, database versions or persistence.
+Implementation rules:
 
-Add an `OpenController` whose factory `open()` returns one writable `IDBOpenDBRequest` double with `onsuccess`, `onerror`, `onblocked`; expose methods `succeed(database)`, `fail(error)`, `block()`. Do not emulate `onupgradeneeded` here; real schema upgrade belongs to Playwright.
+- request double exposes only `result`, `error`, `onsuccess`, `onerror`;
+- transaction double exposes only `objectStore`, `error`, `oncomplete`, `onabort`, `onerror`;
+- open request exposes only `onsuccess`, `onerror`, `onblocked`, `result`, `error`;
+- database exposes only `transaction`, writable `onversionchange`, `close`;
+- unknown object-store names throw;
+- no cursor, key-range, version, index persistence or data-store emulation.
 
-Add `databaseWithTransaction(factory)` returning an `IDBDatabase` double with writable `onversionchange`, `close`, and `transaction()` delegated to the supplied factory. This is enough for public repository calls and versionchange characterization.
+- [ ] **Step 3: Add exact unsupported/open-failure characterization**
 
-- [ ] **Step 3: Add exact unsupported/open failure characterization tests**
-
-Create `packages/projects/src/indexeddb.test.ts`:
+Start `indexeddb.test.ts` with:
 
 ```ts
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -167,29 +152,35 @@ import {
 } from "./indexeddb.test-support";
 
 afterEach(() => vi.unstubAllGlobals());
+```
 
-describe("IndexedDbProjectRepository", () => {
-  it("fails explicitly when IndexedDB is unavailable", () => {
-    vi.stubGlobal("indexedDB", undefined);
-    expect(() => createIndexedDbProjectRepository()).toThrow(
-      "Этот браузер не поддерживает локальное хранилище проектов.",
-    );
-  });
+Unsupported global factory:
 
-  it("wraps a synchronous factory.open exception", async () => {
-    const cause = new Error("open exploded");
-    const factory = { open: () => { throw cause; } } as unknown as IDBFactory;
-    const repository = createIndexedDbProjectRepository(factory);
-    await expect(repository.list()).rejects.toMatchObject({
-      name: "ProjectStorageError",
-      message: "Не удалось открыть локальное хранилище проектов.",
-      cause,
-    });
+```ts
+it("fails explicitly when IndexedDB is unavailable", () => {
+  vi.stubGlobal("indexedDB", undefined);
+  expect(() => createIndexedDbProjectRepository()).toThrow(
+    "Этот браузер не поддерживает локальное хранилище проектов.",
+  );
+});
+```
+
+Synchronous `open()` throw:
+
+```ts
+it("wraps a synchronous factory.open exception", async () => {
+  const cause = new Error("open exploded");
+  const factory = { open: () => { throw cause; } } as unknown as IDBFactory;
+  const repository = createIndexedDbProjectRepository(factory);
+  await expect(repository.list()).rejects.toMatchObject({
+    name: "ProjectStorageError",
+    message: "Не удалось открыть локальное хранилище проектов.",
+    cause,
   });
 });
 ```
 
-Add asynchronous open error and blocked tests using `controlledOpen()`:
+Controlled async error:
 
 ```ts
 const open = controlledOpen();
@@ -202,9 +193,12 @@ await expect(pending).rejects.toMatchObject({
 });
 ```
 
-and:
+Controlled blocked path:
 
 ```ts
+const open = controlledOpen();
+const repository = createIndexedDbProjectRepository(open.factory);
+const pending = repository.list();
 open.block();
 await expect(pending).rejects.toMatchObject({
   name: "ProjectStorageError",
@@ -212,29 +206,21 @@ await expect(pending).rejects.toMatchObject({
 });
 ```
 
-- [ ] **Step 4: Run focused tests and classify them honestly**
+- [ ] **Step 4: Run focused tests and classify truthfully**
 
 ```bash
 pnpm --dir packages/projects exec vitest run src/indexeddb.test.ts
 ```
 
-Expected for already-correct historical behavior: PASS. Label those tests characterization, not RED.
+Correct pre-existing behavior may PASS immediately and is characterization. If a contract fails because behavior is wrong, commit the failing test/support and preserve exact RED output before touching production.
 
-If any contract fails because current behavior is wrong, commit the focused failing test/support first and save the exact failure as RED. Do not modify production in the same commit.
+- [ ] **Step 5: Characterize successful open and versionchange close**
 
-- [ ] **Step 5: Characterize successful open and `versionchange` close**
+Create a controlled `getAll` request, transaction and database. Call `repository.list()`, then drive `open.succeed(database)`, `getAll.succeed([])`, `transaction.complete()`. Assert result `[]`.
 
-Create a `getAll` request, readonly transaction and database double. Construct repository, call `list()`, drive open success, request success with `[]`, then transaction complete. Assert `list()` resolves `[]`.
+Invoke installed `database.onversionchange` and assert the supplied `close` spy ran once.
 
-After open succeeds, invoke the installed `database.onversionchange` handler and assert the `close` spy was called once:
-
-```ts
-expect(close).toHaveBeenCalledTimes(1);
-```
-
-No private production helper is exported.
-
-- [ ] **Step 6: Verify focused regression + first measured coverage delta**
+- [ ] **Step 6: Verify + commit**
 
 ```bash
 pnpm --dir packages/projects exec vitest run src/indexeddb.test.ts src/repository.test.ts
@@ -244,29 +230,19 @@ pnpm --dir packages/projects exec vitest run --coverage \
   --coverage.reporter=text \
   --coverage.reporter=json \
   --coverage.reportsDirectory=coverage
-```
-
-Expected: tests PASS and `indexeddb.ts` is no longer wholly unexecuted. Do not regenerate repository baseline yet.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add packages/projects/src/indexeddb.test.ts packages/projects/src/indexeddb.test-support.ts
 git commit -m "test: characterize IndexedDB open lifecycle"
 ```
 
+Do not regenerate repository baseline yet.
+
 ---
 
-### Task 2: Characterize request failures, transaction failures and public repository orchestration
+### Task 2: Characterize request, transaction, CRUD and cascade orchestration
 
-**Files:**
-- Modify: `packages/projects/src/indexeddb.test.ts`
-- Modify: `packages/projects/src/indexeddb.test-support.ts`
-- Production change only after genuine RED: `packages/projects/src/indexeddb.ts`
+**Files:** modify `indexeddb.test.ts`, `indexeddb.test-support.ts`; production only after preserved RED.
 
-- [ ] **Step 1: Add reusable valid project/asset factories in the test file**
-
-Use production constructors, not hand-built domain records:
+- [ ] **Step 1: Add valid production-built fixtures**
 
 ```ts
 const NOW = "2026-08-15T00:00:00.000Z";
@@ -287,9 +263,9 @@ function asset(id: string, projectId: string) {
 }
 ```
 
-- [ ] **Step 2: Add generic and contextual request-error contracts**
+- [ ] **Step 2: Add request-error contracts**
 
-For a controlled already-open database, expose one exact request controller per public call. Test:
+Project read:
 
 ```ts
 const pending = repository.get("project-a");
@@ -300,85 +276,54 @@ await expect(pending).rejects.toMatchObject({
 });
 ```
 
-For asset lookup:
+Asset lookup must reject with `Не удалось прочитать подложку.`. Asset-index `getAllKeys` failure inside `deleteAssetsForProject` must reject with `Не удалось прочитать подложки проекта.`. Emit events explicitly; no timeout assertions.
+
+- [ ] **Step 3: Add independent transaction complete/abort/error contracts**
+
+For `put(project("p"))`, independently drive:
 
 ```ts
-message: "Не удалось прочитать подложку."
-```
-
-For `deleteAssetsForProject` index `getAllKeys` failure:
-
-```ts
-message: "Не удалось прочитать подложки проекта."
-```
-
-The test explicitly emits the request error; timeout expiration is never the assertion.
-
-- [ ] **Step 3: Add transaction complete / abort / error as independent branches**
-
-For `put(project("p"))`, drive transaction outcomes independently:
-
-```ts
-const pending = repository.put(project("p"));
+transaction.complete();
 transaction.abort(new DOMException("aborted", "AbortError"));
-await expect(pending).rejects.toMatchObject({
-  name: "ProjectStorageError",
-  message: "Не удалось сохранить изменения проекта.",
-});
-```
-
-and separately:
-
-```ts
 transaction.fail(new DOMException("failed", "UnknownError"));
 ```
 
-with the same public storage-error boundary. Add a completion case where transaction `complete()` resolves the write.
+Completion resolves. Abort and error each reject with `ProjectStorageError` and `Не удалось сохранить изменения проекта.`.
 
-- [ ] **Step 4: Characterize deterministic result semantics**
+- [ ] **Step 4: Add deterministic result semantics**
 
-Add tests for:
+Cover:
 
-- `get("missing")` request result `undefined` + complete transaction -> `null`;
-- `getLastProjectId()` missing setting -> `null`;
-- `setLastProjectId("p")` and `setLastProjectId(null)` issue the exact settings `put` records and resolve only after transaction completion;
-- `list()` receives projects `b@10:00`, `c@11:00`, `a@10:00` and returns `c, a, b`.
+- missing project -> `null`;
+- missing `lastProjectId` -> `null`;
+- `setLastProjectId("p")` and `setLastProjectId(null)` write exact settings records and resolve only after transaction completion;
+- list input `b@10:00`, `c@11:00`, `a@10:00` returns `c, a, b`;
+- project delete issues project delete, deletes exactly asset keys returned for that project, clears `lastProjectId` only when it matches deleted project;
+- `getAsset`, `putAsset`, `deleteAsset`, `deleteAssetsForProject` normal/null paths.
 
-For `delete("project-a")`, script store operations with spies:
+Task 2 proves orchestration. Native atomicity and cross-project preservation remain Task 5 browser authority.
 
-1. projects delete receives `project-a`;
-2. assets index `getAllKeys("project-a")` returns only `asset-a-1`, `asset-a-2`;
-3. both returned asset keys are deleted;
-4. when settings record is `{key:"lastProjectId", value:"project-a"}`, settings writes `{key:"lastProjectId", value:null}`;
-5. when it points to `project-b`, no clearing write occurs.
-
-This proves orchestration only. Native atomicity and cross-project preservation are proven in Task 5.
-
-- [ ] **Step 5: Characterize asset public methods**
-
-Cover `getAsset`, `putAsset`, `deleteAsset`, `deleteAssetsForProject` with scripted request/transaction completion and exact return/null semantics. Validate that `putAsset` receives a production-validated asset from `createProjectAsset`.
-
-- [ ] **Step 6: Run focused tests and preserve any real RED before production fixes**
+- [ ] **Step 5: Run; preserve real RED before any production fix**
 
 ```bash
 pnpm --dir packages/projects exec vitest run src/indexeddb.test.ts
 ```
 
-If a new contract fails against current production, commit the focused failing test/support first:
+If a contract exposes wrong production behavior:
 
 ```bash
 git add packages/projects/src/indexeddb.test.ts packages/projects/src/indexeddb.test-support.ts
-git commit -m "test: expose IndexedDB <specific defect>"
+git commit -m "test: expose IndexedDB defect"
 ```
 
-Then apply only the smallest corresponding production change, rerun the exact named test and full `indexeddb.test.ts`, and commit separately:
+Apply only the smallest root-cause fix, rerun the exact failing named test and full file, then:
 
 ```bash
 git add packages/projects/src/indexeddb.ts
-git commit -m "fix: <specific IndexedDB defect>"
+git commit -m "fix: correct IndexedDB defect"
 ```
 
-- [ ] **Step 7: Commit GREEN characterization/failure coverage**
+- [ ] **Step 6: Commit GREEN evidence**
 
 ```bash
 git add packages/projects/src/indexeddb.test.ts packages/projects/src/indexeddb.test-support.ts
@@ -387,16 +332,13 @@ git commit -m "test: cover IndexedDB failure contracts"
 
 ---
 
-### Task 3: Make IndexedDB browser acceptance impossible to omit from WebKit
+### Task 3: Require the new P0 browser suite in WebKit with genuine policy RED -> GREEN
 
-**Files:**
-- Modify: `tools/testing-policy/browser-policy.test.mjs`
-- Modify after RED: `tools/testing-policy/browser-policy.mjs`
-- Create after RED: `tools/m7-browser-audit/m8-indexeddb-persistence.spec.mjs`
+**Files:** modify `browser-policy.test.mjs`; after RED modify `browser-policy.mjs`; create `m8-indexeddb-persistence.spec.mjs`.
 
 - [ ] **Step 1: Add policy RED**
 
-Append the required filename to the explicit expected `WEBKIT_SPECS` list in `browser-policy.test.mjs` and add:
+Append `"m8-indexeddb-persistence.spec.mjs"` to the expected WebKit list in `browser-policy.test.mjs`, plus:
 
 ```js
 test("requires IndexedDB persistence evidence in WebKit", () => {
@@ -404,30 +346,28 @@ test("requires IndexedDB persistence evidence in WebKit", () => {
 });
 ```
 
-- [ ] **Step 2: Run and record genuine RED**
+- [ ] **Step 2: Observe and commit RED**
 
 ```bash
 pnpm test:policy
 ```
 
-Expected: FAIL because current `WEBKIT_SPECS` lacks the new P0 spec. Commit only the failing policy test:
+Expected: FAIL because current `WEBKIT_SPECS` lacks the P0 spec.
 
 ```bash
 git add tools/testing-policy/browser-policy.test.mjs
 git commit -m "test: require IndexedDB WebKit acceptance"
 ```
 
-- [ ] **Step 3: Minimal GREEN registration + executable smoke spec**
+- [ ] **Step 3: Minimal GREEN registration and spec shell**
 
-Append exactly:
+Append exactly one entry to `WEBKIT_SPECS`:
 
 ```js
 "m8-indexeddb-persistence.spec.mjs",
 ```
 
-to `WEBKIT_SPECS` in `browser-policy.mjs`.
-
-Create `m8-indexeddb-persistence.spec.mjs` using only:
+Create the new spec with shared fixtures and a same-origin setup page fulfilled only by Playwright:
 
 ```js
 import { expect, test } from "./fixtures.mjs";
@@ -451,9 +391,9 @@ async function leaveStorageSetupPage(page) {
 }
 ```
 
-This gives a real `http://127.0.0.1:3000` origin without loading `ProjectApp`; it does **not** create a production route.
+Playwright supplies a fresh BrowserContext per test, so initial tests do not need `deleteDatabase` and cannot race a live app connection.
 
-Initial smoke test uses Playwright's fresh BrowserContext (new per test), so no database deletion race exists:
+Smoke contract:
 
 ```js
 test("persists a project through native browser IndexedDB", async ({ page }) => {
@@ -464,26 +404,18 @@ test("persists a project through native browser IndexedDB", async ({ page }) => 
 });
 ```
 
-- [ ] **Step 4: Run policy GREEN**
+- [ ] **Step 4: Run GREEN policy and focused browsers**
 
 ```bash
 pnpm test:policy
-```
-
-Expected: PASS, including the explicit IndexedDB WebKit requirement and current browser-policy contract.
-
-- [ ] **Step 5: Run the new spec alone in both engines**
-
-Start the real Vlezet dev server as the browser workflow does, then from `tools/m7-browser-audit`:
-
-```bash
+cd tools/m7-browser-audit
 npx playwright test m8-indexeddb-persistence.spec.mjs
 npx playwright test --config=playwright.webkit.config.mjs m8-indexeddb-persistence.spec.mjs
 ```
 
-Expected: PASS in Chromium and WebKit, retries 0, shared runtime guard active.
+Expected: policy PASS; Chromium PASS; WebKit PASS; retries 0.
 
-- [ ] **Step 6: Commit GREEN infrastructure**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add tools/testing-policy/browser-policy.mjs tools/testing-policy/browser-policy.test.mjs tools/m7-browser-audit/m8-indexeddb-persistence.spec.mjs
@@ -492,15 +424,11 @@ git commit -m "test: register IndexedDB browser acceptance"
 
 ---
 
-### Task 4: Prove fresh v3 schema, mandatory v1/v2 upgrades and v3 recognition-session preservation in native browsers
+### Task 4: Prove native fresh schema, v1/v2 upgrades and recognition-session preservation
 
-**Files:**
-- Modify: `tools/m7-browser-audit/m8-indexeddb-persistence.spec.mjs`
-- Read-only authority: `packages/projects/src/indexeddb-schema.ts`
+**Files:** modify `m8-indexeddb-persistence.spec.mjs`; read `indexeddb-schema.ts`.
 
-- [ ] **Step 1: Add exact browser-side fixture factories**
-
-Use current-valid empty document:
+- [ ] **Step 1: Add exact historical/current browser fixtures**
 
 ```js
 const EMPTY_DOCUMENT = {
@@ -562,7 +490,11 @@ function recognitionSession(projectId) {
     referenceRevision: "revision-v3",
     engineVersion: "test-engine",
     status: "local-complete",
-    walls: [], openings: [], roomLabels: [], diagnostics: [], decisions: {},
+    walls: [],
+    openings: [],
+    roomLabels: [],
+    diagnostics: [],
+    decisions: {},
     source: { local: true, cloud: false },
     createdAt: NOW,
     updatedAt: NOW,
@@ -581,13 +513,11 @@ function recognitionSession(projectId) {
 }
 ```
 
-These shapes are based on verified historical/current repository schemas; do not invent alternate legacy fields.
+- [ ] **Step 2: Add event-driven raw IndexedDB setup/inspection helpers**
 
-- [ ] **Step 2: Add same-origin setup helpers that never mount the product app**
+On `openStorageSetupPage(page)`, use `page.evaluate` and native `indexedDB.open`. Each helper resolves on request/transaction completion and rejects on `error`/`blocked`. No arbitrary sleeps.
 
-Use `openStorageSetupPage(page)`, execute native IndexedDB setup with `page.evaluate`, then `leaveStorageSetupPage(page)` and navigate to `/`.
-
-Implement v1 setup in `onupgradeneeded`:
+v1 `onupgradeneeded` creates:
 
 ```js
 const projects = db.createObjectStore("projects", { keyPath: "id" });
@@ -597,7 +527,7 @@ projects.put(project);
 settings.put({ key: "lastProjectId", value: project.id });
 ```
 
-Implement v2 setup similarly, adding:
+v2 additionally creates:
 
 ```js
 const assets = db.createObjectStore("assets", { keyPath: "id" });
@@ -605,55 +535,37 @@ assets.createIndex("projectId", "projectId", { unique: false });
 assets.put(asset);
 ```
 
-Every IndexedDB helper resolves on request/transaction completion events and rejects on `error`/`blocked`; no arbitrary sleep.
+Close every raw/inspection connection before leaving setup.
 
-- [ ] **Step 3: Add fresh-v3 schema contract**
+- [ ] **Step 3: Fresh-v3 schema test**
 
-On a fresh Playwright context, load `/`, wait for dashboard initialization, then inspect native DB metadata and assert:
+Fresh context -> real `/` -> dashboard initialized -> inspect DB. Assert version 3, all four stores, `updatedAt` nonunique, assets `projectId` nonunique, recognition `projectId` unique.
 
-```js
-expect(schema.version).toBe(3);
-expect(schema.stores).toEqual(expect.arrayContaining([
-  "projects", "settings", "assets", "recognitionSessions",
-]));
-expect(schema.projects.updatedAt).toEqual({ keyPath: "updatedAt", unique: false });
-expect(schema.assets.projectId).toEqual({ keyPath: "projectId", unique: false });
-expect(schema.recognitionSessions.projectId).toEqual({ keyPath: "projectId", unique: true });
-```
+- [ ] **Step 4: v1 -> v3 preservation test**
 
-Close the inspection connection.
+Setup DB v1 with `legacyV1Project("legacy-v1", "Legacy v1")` and matching `lastProjectId`, then navigate to real `/`.
 
-- [ ] **Step 4: Add v1 -> v3 preservation contract**
-
-On setup page create DB version 1 with `legacyV1Project("legacy-v1", "Legacy v1")` and matching last-project setting. Then navigate to real `/`.
-
-Current app should upgrade and auto-open the last project. Assert:
+Assert production upgraded and auto-opened:
 
 ```js
 await expect(page.getByLabel("Название проекта")).toHaveValue("Legacy v1");
 ```
 
-Inspect DB and prove:
+Inspect DB: project/settings survived; assets store/index exists; recognition store/unique index exists; version 3.
 
-- version is 3;
-- project still exists and ID/name match;
-- setting still points to `legacy-v1`;
-- `assets` exists with nonunique `projectId` index;
-- `recognitionSessions` exists with unique `projectId` index.
+- [ ] **Step 5: v2 -> v3 preservation test**
 
-- [ ] **Step 5: Add v2 -> v3 preservation contract**
+Setup DB v2 with `legacyV2Project("legacy-v2", "Legacy v2")`, matching setting and `legacyV2Asset("asset-v2", "legacy-v2")`, then real `/`.
 
-Create DB version 2 with `legacyV2Project("legacy-v2", "Legacy v2")`, last-project setting and `legacyV2Asset("asset-v2", "legacy-v2")`. Navigate to real `/` and assert editor opens `Legacy v2`.
+Assert editor opens `Legacy v2`; inspect and prove project, setting and asset meaningful fields survived; recognition store/index was added.
 
-Inspect DB and assert project, setting and asset survived byte-for-byte in their meaningful fields, plus the v3 recognition store/index now exists.
+- [ ] **Step 6: Current-v3 recognition-session reopen preservation**
 
-- [ ] **Step 6: Add current-v3 recognition-session reopen preservation**
+Fresh context -> real `/` once to create current v3 -> intercepted setup page -> put `recognitionSession("recognition-project")` into `recognitionSessions` -> close DB -> real `/` again -> inspect and assert record identity/draft identity unchanged.
 
-Use a fresh context, load real `/` once so production creates v3. Move to the intercepted setup page, open v3, put `recognitionSession("recognition-project")` directly into `recognitionSessions`, close DB, then navigate to real `/` again without a version change. Inspect and assert the record still exists with the same `id`, `projectId`, `referenceAssetId`, `referenceRevision` and nested draft identity.
+Never describe this as v1/v2 recognition-record preservation; those schemas lacked the store.
 
-Do not claim recognition-record preservation from v1/v2; those schemas did not have the store.
-
-- [ ] **Step 7: Run both engines**
+- [ ] **Step 7: Run both engines and commit**
 
 ```bash
 cd tools/m7-browser-audit
@@ -661,28 +573,20 @@ npx playwright test m8-indexeddb-persistence.spec.mjs
 npx playwright test --config=playwright.webkit.config.mjs m8-indexeddb-persistence.spec.mjs
 ```
 
-Expected: all schema/upgrade/reopen tests PASS in Chromium and WebKit, retries 0.
-
-If a real schema/upgrade defect appears, preserve that exact browser test as RED before changing production. Apply only the minimal schema/open fix and rerun the exact failing case in both engines before broader GREEN.
-
-- [ ] **Step 8: Commit**
+If a real schema/upgrade defect appears, preserve the exact test as RED before production change; fix minimally and rerun that exact case in both engines.
 
 ```bash
 git add tools/m7-browser-audit/m8-indexeddb-persistence.spec.mjs
 git commit -m "test: prove IndexedDB schema upgrades"
 ```
 
-Any production fix is committed separately with its RED evidence.
-
 ---
 
-### Task 5: Prove real save/reload, project/settings persistence, assets/cascade isolation and corrupted-record fail-closed behavior
+### Task 5: Prove real save/reload, settings, cascade isolation and corruption fail-closed behavior
 
-**Files:**
-- Modify: `tools/m7-browser-audit/m8-indexeddb-persistence.spec.mjs`
-- Modify production only after preserved RED: exact defective boundary
+**Files:** modify `m8-indexeddb-persistence.spec.mjs`; production only after preserved RED.
 
-- [ ] **Step 1: Add normal UI save -> reload -> restore contract**
+- [ ] **Step 1: Real UI save -> reload -> restore**
 
 ```js
 await page.goto("/");
@@ -697,19 +601,19 @@ await page.reload();
 await expect(page.getByLabel("Название проекта")).toHaveValue("IndexedDB reload proof");
 ```
 
-`Сохранено локально` is the synchronization point; no fixed sleep. After the visible assertion, inspect DB as secondary evidence and verify the saved project plus `lastProjectId` refer to the same project.
+`Сохранено локально` is synchronization; no fixed sleep. After visible assertion inspect DB and confirm persisted project and `lastProjectId` refer to the same ID.
 
-- [ ] **Step 2: Prove dashboard/back last-project behavior through normal UI**
+- [ ] **Step 2: Normal UI back/reopen settings lifecycle**
 
-From the saved project click `Вернуться к моим проектам`, wait for dashboard heading, inspect settings and assert last-project is cleared according to current representation. Reopen the project through its accessible card action and assert reload/open restores it and last-project is set again.
+Click `Вернуться к моим проектам`, await dashboard, inspect that current representation of `lastProjectId` is cleared. Reopen the same project through its accessible card action and confirm project/editor plus last-project setting are restored.
 
-Matching/nonmatching delete branches that cannot both be reached through normal UI are already deterministic public-repository contracts from Task 2; do not add a product backdoor to force them.
+Matching/nonmatching project-delete setting branches remain Task 2 deterministic public-repository contracts; do not add UI backdoors.
 
-- [ ] **Step 3: Prove native asset isolation and project cascade deletion**
+- [ ] **Step 3: Native cross-project asset/cascade isolation**
 
-Use storage setup to create current v3 records for project A and B plus distinct valid assets, and an unrelated settings record. Keep `lastProjectId` null so the app opens dashboard. Navigate to real `/`; delete project A using dashboard `Удалить` and confirmation `Удалить проект`.
+On setup page create current v3 schema with project A, project B, valid asset A, valid asset B and an unrelated settings record; leave `lastProjectId` null. Navigate to real `/`; delete project A using dashboard `Удалить` then confirmation `Удалить проект`.
 
-Inspect native DB and assert:
+Inspect native DB:
 
 ```js
 expect(projectIds).not.toContain("project-a");
@@ -719,23 +623,23 @@ expect(assetProjectIds).toContain("project-b");
 expect(unrelatedSetting).toEqual(originalUnrelatedSetting);
 ```
 
-This is the browser authority for no cross-project data loss. Independent `deleteAsset` and `deleteAssetsForProject` operation mechanics remain covered in Task 2 rather than inventing UI.
+This is browser authority for no cross-project data loss.
 
-- [ ] **Step 4: Add corrupted-project browser contract**
+- [ ] **Step 4: Corrupted-project fail-closed browser test**
 
-On setup page create current v3 schema and put a malformed project such as a record with an empty/invalid `document` while keeping all unrelated DB structure valid. Navigate to real `/`.
+Setup valid current schema plus one malformed project record with structurally invalid `document`, then navigate to real `/`.
 
-Required public result: corrupt data is not accepted as a valid project; the app reaches its visible recovery/error boundary.
+Required: corrupt data is not accepted as a valid project and app reaches visible recovery/error boundary. Shared fixture must still report zero unexpected `console.error`.
 
-The shared fixture also requires zero unexpected `console.error`. If current code calls `console.error` for this handled local-data validation error, the browser test is a genuine RED. Preserve the RED commit/run before changing product code. Root-cause the boundary first; the likely minimal correction is to treat the existing typed project/asset validation error as handled user-facing local-data failure rather than logging it as an unexpected exception. Do not weaken `fixtures.mjs` or suppress console errors.
+If current code logs this typed handled validation failure with `console.error`, preserve the browser test/run as genuine RED. Root-cause the error boundary; fix only handled-error classification so typed local-data validation is user-facing without weakening `fixtures.mjs` or validation.
 
-- [ ] **Step 5: Add corrupted-asset browser contract**
+- [ ] **Step 5: Corrupted-asset fail-closed browser test**
 
-Create valid project metadata referencing an asset ID, then store a malformed asset record under that ID (for example wrong metadata/Blob contract). Configure `lastProjectId` to open the project through normal startup. Navigate to `/`.
+Setup valid project metadata that references an asset ID, but store malformed asset metadata/blob under that ID; set `lastProjectId` to that project. Navigate to real `/`.
 
-Required result: the malformed asset is rejected by existing validation and never becomes a valid reference asset. Shared runtime guard remains clean. If the existing error boundary logs the typed validation failure with `console.error`, preserve RED and fix only that handled-error classification before rerunning.
+Required: invalid asset is rejected and never becomes valid reference state; shared runtime guard remains clean. If typed validation is logged as unexpected console error, preserve RED before correcting only the handled-error boundary.
 
-- [ ] **Step 6: Run the complete new spec in both engines**
+- [ ] **Step 6: Full new spec in both engines + commit**
 
 ```bash
 cd tools/m7-browser-audit
@@ -743,52 +647,45 @@ npx playwright test m8-indexeddb-persistence.spec.mjs
 npx playwright test --config=playwright.webkit.config.mjs m8-indexeddb-persistence.spec.mjs
 ```
 
-Expected final result: all cases PASS in Chromium and WebKit, retries 0, no shared-runtime violations.
-
-- [ ] **Step 7: Commit browser lifecycle/data-integrity evidence**
+Expected final: all PASS Chromium + WebKit, retries 0, no runtime-guard violations.
 
 ```bash
 git add tools/m7-browser-audit/m8-indexeddb-persistence.spec.mjs
 git commit -m "test: prove IndexedDB persistence lifecycle"
 ```
 
-If Tasks 4-5 exposed production defects, their RED tests and minimal fixes remain separate commits before this final browser-test consolidation commit.
+Any production fix remains a separate RED/fix commit pair before this consolidation commit.
 
 ---
 
 ### Task 6: Measure coverage and close only meaningful remaining adapter branches
 
-**Files:**
-- Modify as evidence requires: `packages/projects/src/indexeddb.test.ts`, `indexeddb.test-support.ts`
-- Generated modify only after final GREEN: `tools/testing-policy/coverage-baseline.json`
-- Read: `packages/projects/coverage/coverage-final.json`
+**Files:** modify deterministic tests/support as evidence requires; generated `coverage-baseline.json` only after final GREEN.
 
-- [ ] **Step 1: Generate complete workspace coverage**
+- [ ] **Step 1: Generate full coverage**
 
 ```bash
 pnpm coverage
 ```
 
-Inspect `packages/projects/coverage/coverage-final.json` specifically for `indexeddb.ts` and `indexeddb-schema.ts`.
+Inspect `packages/projects/coverage/coverage-final.json` for `indexeddb.ts` and `indexeddb-schema.ts`.
 
-- [ ] **Step 2: Classify every remaining uncovered IndexedDB location**
-
-Use exactly these buckets in PR working evidence:
+- [ ] **Step 2: Classify every remaining uncovered location**
 
 ```text
 A — meaningful public behavior/failure branch: add focused deterministic test
 B — native-browser semantic already proven by Playwright: do not duplicate merely for V8 percentage
-C — unreachable/dead/redundant production branch: separate simplification decision, no meaningless test
+C — unreachable/dead/redundant production branch: separate simplification decision; no meaningless test
 D — unrelated module/debt: outside this P0 slice
 ```
 
-Do not build an IndexedDB emulator to turn B into unit coverage.
+Do not build an IndexedDB emulator to convert B into unit coverage.
 
-- [ ] **Step 3: Add only category-A tests**
+- [ ] **Step 3: Add only A tests; preserve RED for wrong production behavior**
 
-For each A branch: focused test -> run focused -> full `indexeddb.test.ts` -> `pnpm coverage`. If wrong production behavior appears, preserve RED before minimal fix.
+For each A branch run focused test, full `indexeddb.test.ts`, then `pnpm coverage`.
 
-- [ ] **Step 4: Verify current coverage and changed-code gates against implementation base**
+- [ ] **Step 4: Verify policy gates against implementation base**
 
 ```bash
 POLICY_BASE_SHA=$(git merge-base HEAD origin/main)
@@ -797,11 +694,7 @@ pnpm test:policy
 POLICY_BASE_SHA="$POLICY_BASE_SHA" pnpm verify:policy
 ```
 
-Expected: no ratchet regression; any changed critical persistence production code passes 100/100/100/95.
-
 - [ ] **Step 5: Generate improved baseline from measured reports only**
-
-After all tests are final:
 
 ```bash
 pnpm coverage
@@ -809,9 +702,9 @@ POLICY_BASE_SHA="$POLICY_BASE_SHA" pnpm coverage:baseline
 git diff -- tools/testing-policy/coverage-baseline.json
 ```
 
-The generator's `sourceCommit` remains the resolved policy base by current tooling; do not hand-rewrite it to the feature head. Verify repository/projects metrics do not decrease compared with base baseline.
+Current generator deliberately records resolved policy-base SHA as `sourceCommit`; do not hand-rewrite it to feature HEAD. Verify repository/projects metrics do not decrease from base baseline.
 
-- [ ] **Step 6: Commit coverage accounting**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add packages/projects/src/indexeddb.test.ts packages/projects/src/indexeddb.test-support.ts tools/testing-policy/coverage-baseline.json
@@ -822,13 +715,9 @@ git commit -m "test: ratchet IndexedDB coverage evidence"
 
 ### Task 7: Run full gates and synchronize canonical debt truth
 
-**Files:**
-- Modify: `docs/testing/TEST_COVERAGE_AUDIT.md`
-- Modify: `docs/PROJECT_STATE.md`
-- Modify: `docs/ROADMAP.md`
-- Modify: `docs/CHANGELOG.md`
+**Files:** `docs/testing/TEST_COVERAGE_AUDIT.md`, `docs/PROJECT_STATE.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md`.
 
-- [ ] **Step 1: Run the complete local gate before closing debt**
+- [ ] **Step 1: Full gate before debt closure**
 
 ```bash
 POLICY_BASE_SHA=$(git merge-base HEAD origin/main)
@@ -843,7 +732,7 @@ pnpm lint
 pnpm build
 ```
 
-Start the real app and run full browser suites, not only the IndexedDB file:
+Run full browser suites against real app:
 
 ```bash
 cd tools/m7-browser-audit
@@ -853,57 +742,37 @@ M7_BASE_URL=http://127.0.0.1:3000 npm run audit:webkit
 
 Expected: all PASS, retries 0.
 
-- [ ] **Step 2: Close `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` only if every mandatory contract exists**
+- [ ] **Step 2: Close debt only with complete evidence**
 
-Update audit status to:
+Set:
 
 ```text
 CLOSED — exact-head automated evidence complete; product-owner acceptance pending
 ```
 
-only when all approved behavior-matrix items pass. Record actual:
+only if every approved behavior-matrix item passes. Record actual implementation SHA, deterministic test count/result, generated repository/projects coverage, Chromium count/result, WebKit count/result, v1 -> v3 and v2 -> v3 results in both engines, UI reload result, corruption fail-closed result, and genuine RED/fix commits if any.
 
-- implementation head SHA;
-- deterministic IndexedDB test command/count;
-- measured repository/projects coverage from generated data;
-- Chromium test count/result;
-- WebKit test count/result;
-- v1 -> v3 and v2 -> v3 success in both engines;
-- UI save -> reload -> restore result;
-- corrupt project/asset fail-closed result;
-- any genuine RED -> GREEN defect commits/runs;
-- any newly discovered out-of-scope P0 debt as a separate OPEN item.
+If a new out-of-scope data-integrity issue is discovered, create a separate OPEN debt item. If any mandatory scenario is missing, leave this item OPEN.
 
-If one mandatory item is missing, debt remains OPEN.
+- [ ] **Step 3: Truthfully update state docs**
 
-- [ ] **Step 3: Update project state without premature acceptance/merge claims**
-
-`PROJECT_STATE.md`, `ROADMAP.md`, `CHANGELOG.md` must distinguish:
+Before product-owner acceptance/merge, state remains:
 
 ```text
 implemented: yes
-tested/exact-head local evidence: yes
+tested: yes
 product-owner accepted: no
 merged: no
 released: no/not applicable
 ```
 
-Do not state accepted/merged until those events occur.
-
-- [ ] **Step 4: Re-run docs/policy after truth sync**
+- [ ] **Step 4: Re-run docs/policy and commit truth sync**
 
 ```bash
 pnpm validate:m7-docs
 pnpm test:policy
 pnpm coverage
 POLICY_BASE_SHA="$POLICY_BASE_SHA" pnpm verify:policy
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit canonical truth**
-
-```bash
 git add docs/testing/TEST_COVERAGE_AUDIT.md docs/PROJECT_STATE.md docs/ROADMAP.md docs/CHANGELOG.md
 git commit -m "docs: record IndexedDB remediation evidence"
 ```
@@ -912,10 +781,7 @@ git commit -m "docs: record IndexedDB remediation evidence"
 
 ### Task 8: Draft PR, exact-head review, explicit acceptance and protected integration
 
-**Files:**
-- No new implementation unless exact-head verification reveals a defect.
-
-- [ ] **Step 1: Push branch and open Draft PR**
+- [ ] **Step 1: Push and open Draft PR**
 
 ```bash
 git push -u origin test/p0-indexeddb-remediation
@@ -927,11 +793,9 @@ Title:
 test: close P0 IndexedDB persistence debt
 ```
 
-PR body must separately list characterization tests, genuine RED -> GREEN defects (if any), deterministic failure evidence, native Chromium/WebKit evidence, measured coverage movement, debt state, and product-owner acceptance as pending.
+PR body separately records characterization GREEN, genuine RED -> GREEN defects if any, deterministic failure evidence, Chromium/WebKit native evidence, measured ratchet movement, debt state and acceptance pending.
 
-- [ ] **Step 2: Require exact-head repository evidence**
-
-On the exact PR SHA require:
+- [ ] **Step 2: Require exact-head GitHub evidence**
 
 ```text
 CI: PASS
@@ -941,26 +805,26 @@ CodeQL/security relevant to PR: PASS / no new alerts
 unresolved review threads: 0
 ```
 
-Record exact run IDs, artifact IDs and SHA-256 digests. Any later commit invalidates earlier exact-head evidence.
+Record exact run IDs, artifact IDs and SHA-256 digests. Any later commit invalidates prior exact-head evidence.
 
-- [ ] **Step 3: Independently review final diff against approved design**
+- [ ] **Step 3: Independent final diff review**
 
-Verify:
+Verify all:
 
 ```text
 no production test hook/debug route/reset endpoint
 no unapproved fake-indexeddb dependency
 no database-version bump without genuine requirement
-m8-indexeddb-persistence.spec.mjs is in WEBKIT_SPECS
-shared fixtures import is used
+m8-indexeddb-persistence.spec.mjs present in WEBKIT_SPECS
+shared fixtures import used
 no test.only / unmanaged skip / fixme
 retries remain 0
 no threshold/baseline/assertion weakening
 no unrelated refactor
-canonical debt closure matches exact-head evidence
+canonical debt closure backed by exact-head evidence
 ```
 
-If review finds a behavior defect, add a focused test first where applicable; preserve RED; fix minimally; regenerate exact-head evidence on the new SHA.
+Any behavior defect gets test-first RED, minimal fix, and completely refreshed exact-head evidence.
 
 - [ ] **Step 4: Present candidate for explicit product-owner PASS**
 
@@ -975,11 +839,11 @@ merged: no
 released: no/not applicable
 ```
 
-Green CI does not equal acceptance.
+Green CI is not acceptance.
 
-- [ ] **Step 5: After explicit PASS, mark ready and squash-merge with expected head SHA**
+- [ ] **Step 5: After explicit PASS, protected squash merge with expected head SHA**
 
-Verify PR head has not moved. Use protected squash merge; no force push or protection bypass.
+Verify PR head unchanged; no force push or protection bypass.
 
 Suggested squash title:
 
@@ -987,28 +851,29 @@ Suggested squash title:
 test: close P0 IndexedDB persistence debt
 ```
 
-- [ ] **Step 6: Verify actual post-merge `main` SHA**
+- [ ] **Step 6: Verify actual post-merge main**
 
-Fetch actual squash SHA and verify post-merge CI and CodeQL/security on that SHA. Current Browser Acceptance is PR-triggered, so preserve accepted exact-head PR browser evidence rather than claiming a nonexistent main-push browser run.
+Fetch actual squash SHA. Require post-merge CI and CodeQL/security on that SHA. Browser Acceptance is currently PR-triggered, so preserve accepted exact-head PR browser evidence rather than claiming a nonexistent main-push browser run.
 
-If canonical docs still say merge pending, create a docs-only truth-sync follow-up recording accepted head, squash SHA, post-merge CI/security, integrated debt closure and the next evidence-driven remediation slice.
+If canonical docs still say merge pending, create a docs-only truth-sync follow-up recording accepted head, squash SHA, post-merge CI/security, integrated debt closure and next evidence-driven remediation slice.
 
-## Final verification checklist
+## Final verification
 
-Before claiming completion:
+Resolve policy base dynamically and run fresh exact-head commands:
 
 ```bash
+POLICY_BASE_SHA=$(git merge-base HEAD origin/main)
 pnpm validate:m7-docs
 pnpm test
 pnpm coverage
 pnpm test:policy
-POLICY_BASE_SHA=<exact-main-base-sha> pnpm verify:policy
+POLICY_BASE_SHA="$POLICY_BASE_SHA" pnpm verify:policy
 pnpm benchmark:recognition:core
 pnpm typecheck
 pnpm lint
 pnpm build
 ```
 
-and full Chromium + WebKit browser suites from `tools/m7-browser-audit`, retries 0.
+Then run the full Chromium and WebKit browser suites from `tools/m7-browser-audit`, retries 0.
 
-No completion claim is valid without fresh exact-head output. Characterization GREEN must never be rewritten as historical RED, and any real defect must retain its pre-fix failure evidence.
+No completion claim is valid without fresh exact-head output. Characterization GREEN is never rewritten as historical RED; every real defect keeps its pre-fix failure evidence.
