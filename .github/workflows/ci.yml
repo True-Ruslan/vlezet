@@ -95,7 +95,12 @@ jobs:
         shell: bash
         run: |
           set +e
-          pnpm verify:policy 2>&1 | tee testing-policy.log
+          pnpm test:policy 2>&1 | tee testing-policy.log
+          test_status=${PIPESTATUS[0]}
+          if [ "$test_status" -ne 0 ]; then
+            exit "$test_status"
+          fi
+          pnpm verify:policy 2>&1 | tee -a testing-policy.log
           status=${PIPESTATUS[0]}
           exit "$status"
 
