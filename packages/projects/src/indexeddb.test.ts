@@ -12,7 +12,7 @@ import {
   createIndexedDbProjectRepository,
 } from "./indexeddb";
 
-type EventHandler<TTarget> = ((this: TTarget, event: Event) => unknown) | null;
+type EventHandler = ((...args: never[]) => unknown) | null;
 
 type RequestController<T> = Readonly<{
   request: IDBRequest<T>;
@@ -34,8 +34,9 @@ type OpenController = Readonly<{
   block(): void;
 }>;
 
-function dispatch<TTarget extends object>(target: TTarget, handler: EventHandler<TTarget>): void {
-  handler?.call(target, new Event("test"));
+function dispatch(target: object, handler: EventHandler): void {
+  const callable = handler as ((this: object, event: Event) => unknown) | null;
+  callable?.call(target, new Event("test"));
 }
 
 function controlledRequest<T>(): RequestController<T> {
@@ -250,7 +251,7 @@ describe("IndexedDbProjectRepository open lifecycle", () => {
 
     await expect(pending).resolves.toEqual([]);
     expect(database.onversionchange).toBeTypeOf("function");
-    database.onversionchange?.call(database, new Event("versionchange"));
+    database.onversionchange?.call(database, new Event("versionchange") as IDBVersionChangeEvent);
     expect(close).toHaveBeenCalledTimes(1);
   });
 });
