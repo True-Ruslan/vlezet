@@ -44,7 +44,7 @@ Current production schema identity is:
 - `assets.projectId` index;
 - unique `recognitionSessions.projectId` index.
 
-Historical schema evolution is relevant to upgrade evidence: version 1 contained the project/settings foundation, version 2 added assets, and version 3 added recognition sessions. The remediation must exercise a real legacy-to-current upgrade path rather than only opening a fresh version-3 database.
+Historical repository code confirms the meaningful upgrade boundaries: M3 used schema version 1 with `projects` and `settings`; M4 used version 2 and added `assets` plus its `projectId` index; M4.5 moved to version 3 and added `recognitionSessions`. The remediation must exercise genuine legacy-to-current upgrade paths rather than only opening a fresh version-3 database.
 
 ## 3. Architectural constraints
 
@@ -93,6 +93,8 @@ It imports the shared Phase A fixture from `tools/m7-browser-audit/fixtures.mjs`
 
 Chromium discovers the new spec automatically. Because IndexedDB is a browser API and cross-browser persistence is explicitly classified as representative WebKit risk by the testing policy, this spec (or an explicitly scoped representative subset if the implementation plan proves that to be more precise) must be registered in the machine-checked WebKit classification.
 
+For user-visible persistence behavior, the browser test must drive the same normal product UI/lifecycle that a user drives. Direct IndexedDB access through `page.evaluate` may prepare preconditions or inspect postconditions, but it cannot substitute for the actual user action being proven. In particular, direct `objectStore.put(...)` followed by direct `objectStore.get(...)` is not acceptable evidence for the application's save/reload lifecycle.
+
 Browser-side helpers are permitted only for test setup/inspection actions that cannot be expressed through normal product UI, specifically:
 
 - deleting/resetting the test database between isolated cases;
@@ -125,16 +127,17 @@ The test must prove schema facts that can cause data corruption or later operati
 
 ### 5.3 Historical schema upgrade
 
-At least one real-browser case prepares a genuine lower-version `vlezet` database and then opens the current application/repository.
+Real-browser cases prepare genuine historical `vlezet` schemas and then open the current application/repository.
 
 The upgrade contract must prove that:
 
 - missing current stores/indexes are created;
 - existing project/settings data survives;
+- assets present in the historical version-2 schema survive its upgrade to current;
 - unrelated existing records are not discarded merely because the schema upgrades;
 - the resulting database is usable by current repository operations.
 
-Where practical and stable, the implementation should cover both meaningful historical boundaries (v1 -> current and v2 -> current) rather than only a synthetic version number. If one historical boundary is redundant because the current upgrade function executes the same idempotent creation path, the plan must state the evidence-based reason before omitting it.
+The implementation should cover both verified meaningful historical boundaries, v1 -> current and v2 -> current. If repository investigation before implementation proves that one case is behaviorally redundant in the actual browser engine and provides no distinct preservation invariant, omission requires an explicit evidence-based justification in the implementation plan and audit record rather than a silent reduction of scope.
 
 ### 5.4 Project CRUD and list semantics
 
@@ -144,6 +147,8 @@ Real browser evidence must include at minimum:
 - missing project returns the public empty result rather than throwing;
 - list returns persisted projects in the documented deterministic ordering;
 - persisted project data survives page/application reload rather than only surviving an in-memory repository instance.
+
+At least one save -> reload -> reopen/read scenario must perform the save/open actions through the normal Vlezet UI/application lifecycle. Direct IndexedDB writes may prepare legacy/corruption fixtures, but they do not satisfy this user-visible persistence contract.
 
 Existing domain validation contracts are reused; this slice does not duplicate every `validateProject` case unless malformed storage crosses the IndexedDB adapter boundary differently.
 
@@ -197,7 +202,11 @@ The exact malformed fixtures should target structural corruption with behavioral
 
 ### 5.10 Recognition-session schema preservation
 
-This slice does not add recognition repository behavior to `IndexedDbProjectRepository`, but schema upgrade/fresh-create evidence must prove that the current `recognitionSessions` store and unique `projectId` index are present and that exercising project/asset cleanup does not accidentally remove unrelated recognition-session data unless a separate production contract explicitly requires it.
+This slice does not add recognition repository behavior to `IndexedDbProjectRepository` and does not define new project-deletion semantics for recognition sessions.
+
+Fresh-create and historical-upgrade evidence must prove that the current `recognitionSessions` store and unique `projectId` index are present and that pre-existing recognition-session records survive a schema open/upgrade when no established production contract says they should be removed.
+
+If the audit reveals an ambiguity or orphaning risk between project deletion and recognition-session lifecycle, record it as a separate data-integrity debt/product decision. Do not silently change deletion behavior inside this test-remediation slice.
 
 No recognition feature redesign is in scope.
 
@@ -294,12 +303,12 @@ This P0 debt item is complete only when all of the following are true:
 1. public repository open/availability failure contracts are deterministic and automated;
 2. request-error and transaction abort/error branches have focused deterministic evidence;
 3. fresh-schema creation is verified;
-4. at least one genuine historical schema upgrade is verified in a real browser with data preservation;
-5. project round-trip and reload persistence are verified in a real browser;
+4. genuine historical v1 -> current and v2 -> current schema upgrades are verified in a real browser with preservation invariants, unless a documented evidence-based plan exception is approved before implementation;
+5. project round-trip and reload persistence are verified through the real application lifecycle in a browser;
 6. last-project settings behavior is verified;
 7. asset round-trip, isolated deletion and project cascade deletion are verified without cross-project data loss;
 8. malformed persisted records fail closed at the adapter/domain boundary;
-9. current recognition-session schema is preserved by creation/upgrade/project-asset remediation behavior;
+9. current recognition-session schema creation/upgrade preservation is verified without inventing new project-deletion semantics;
 10. Chromium passes with shared runtime guards;
 11. representative WebKit passes;
 12. no required browser spec can escape Phase A discovery/classification policy;
@@ -325,10 +334,11 @@ This sub-project does not include:
 - test-only production exports/routes/hooks;
 - unrelated M8.3 product work;
 - recognition quality work;
+- defining new recognition-session deletion semantics without a separate product/data-integrity decision;
 - broad UI redesign;
 - arbitrary tests written only to increase percentages;
 - lowering coverage thresholds or the measured ratchet.
 
 ## 13. Success criterion
 
-The slice succeeds when IndexedDB persistence is no longer a P0 evidence blind spot: failures are deterministic and reproducible at the adapter boundary, lifecycle/upgrade/data-preservation behavior is proven in real browsers, coverage accounting reflects the new evidence, and the canonical debt item can be closed without changing the production architecture merely to make testing easier.
+The slice succeeds when IndexedDB persistence is no longer a P0 evidence blind spot: failures are deterministic and reproducible at the adapter boundary, lifecycle/upgrade/data-preservation behavior is proven in real browsers, the user-visible save/reload path is exercised through the real application lifecycle, coverage accounting reflects the new evidence, and the canonical debt item can be closed without changing the production architecture merely to make testing easier.
