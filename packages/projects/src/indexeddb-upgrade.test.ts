@@ -22,43 +22,46 @@ function names(values: readonly string[]): DOMStringList {
   } as unknown as DOMStringList;
 }
 
-function objectStore(indexes: readonly string[] = []) {
-  const createIndex = vi.fn();
-  const getAllRequest = {
-    onsuccess: null,
-    onerror: null,
-    result: [],
-    error: null,
-  } as unknown as IDBRequest<unknown[]>;
-  return {
-    value: {
-      indexNames: names(indexes),
-      createIndex,
-      getAll: () => {
-        queueMicrotask(() => getAllRequest.onsuccess?.call(getAllRequest, new Event("success")));
-        return getAllRequest;
-      },
-    } as unknown as IDBObjectStore,
-    createIndex,
-  };
-}
-
 function factoryForUpgrade(input: Readonly<{
   existingStores?: readonly string[];
   existingIndexes?: Readonly<Record<string, readonly string[]>>;
 }>) {
-  const stores = new Map<string, ReturnType<typeof objectStore>>();
+  let readTransaction: IDBTransaction;
+  const stores = new Map<string, { value: IDBObjectStore; createIndex: ReturnType<typeof vi.fn> }>();
+
+  const makeStore = (indexes: readonly string[] = []) => {
+    const createIndex = vi.fn();
+    const getAllRequest = {
+      onsuccess: null,
+      onerror: null,
+      result: [],
+      error: null,
+    } as unknown as IDBRequest<unknown[]>;
+    const value = {
+      indexNames: names(indexes),
+      createIndex,
+      getAll: () => {
+        queueMicrotask(() => {
+          getAllRequest.onsuccess?.call(getAllRequest, new Event("success"));
+          queueMicrotask(() => readTransaction.oncomplete?.call(readTransaction, new Event("complete")));
+        });
+        return getAllRequest;
+      },
+    } as unknown as IDBObjectStore;
+    return { value, createIndex };
+  };
+
   for (const storeName of input.existingStores ?? []) {
-    stores.set(storeName, objectStore(input.existingIndexes?.[storeName] ?? []));
+    stores.set(storeName, makeStore(input.existingIndexes?.[storeName] ?? []));
   }
 
   const createObjectStore = vi.fn((storeName: string) => {
-    const created = objectStore();
+    const created = makeStore();
     stores.set(storeName, created);
     return created.value;
   });
   const close = vi.fn();
-  const readTransaction = {
+  readTransaction = {
     oncomplete: null,
     onabort: null,
     onerror: null,
@@ -66,7 +69,6 @@ function factoryForUpgrade(input: Readonly<{
     objectStore(storeName: string) {
       const store = stores.get(storeName);
       if (!store) throw new Error(`Missing store ${storeName}`);
-      queueMicrotask(() => readTransaction.oncomplete?.call(readTransaction, new Event("complete")));
       return store.value;
     },
   } as unknown as IDBTransaction;
@@ -107,7 +109,6 @@ function factoryForUpgrade(input: Readonly<{
     factory: { open } as unknown as IDBFactory,
     stores,
     createObjectStore,
-    close,
   };
 }
 
