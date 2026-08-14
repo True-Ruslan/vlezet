@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -8,6 +10,25 @@ import {
   isCriticalPath,
   isProductionPath,
 } from "./config.mjs";
+
+test("requires complete V8 coverage support in every workspace manifest", async () => {
+  const manifests = await Promise.all(
+    WORKSPACES.map(async (workspace) => [
+      workspace,
+      JSON.parse(await readFile(join(workspace, "package.json"), "utf8")),
+    ]),
+  );
+
+  for (const [workspace, manifest] of manifests) {
+    assert.equal(manifest.devDependencies?.vitest, "4.1.10", `${workspace} vitest`);
+    assert.equal(
+      manifest.devDependencies?.["@vitest/coverage-v8"],
+      "4.1.10",
+      `${workspace} V8 coverage provider`,
+    );
+    assert.equal(manifest.scripts?.coverage, "vitest run --coverage", `${workspace} coverage script`);
+  }
+});
 
 test("exports the covered workspaces and changed-code thresholds", () => {
   assert.deepEqual(WORKSPACES, [

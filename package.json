@@ -9,6 +9,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
+    "coverage": "node tools/testing-policy/run-coverage.mjs",
     "test:policy": "node --test tools/testing-policy/*.test.mjs",
     "typecheck": "turbo typecheck",
     "lint": "eslint .",
