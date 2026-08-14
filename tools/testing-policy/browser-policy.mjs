@@ -81,7 +81,7 @@ export function browserSpecViolations(name, source) {
   if (/\b(?:test|test\.describe|describe)\.only\s*\(/.test(source)) {
     violations.push(`${name} contains a focused test`);
   }
-  if (/\btest\.(?:skip|fixme)\s*\(/.test(source)) {
+  if (/\btest\.(?:describe\.)?(?:skip|fixme)\s*\(/.test(source)) {
     violations.push(`${name} contains an unregistered skip or fixme`);
   }
   return violations;
