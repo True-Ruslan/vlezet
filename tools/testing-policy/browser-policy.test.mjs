@@ -116,3 +116,13 @@ test("rejects direct Playwright imports, focused tests, skips, and fixmes", () =
     "focused.spec.mjs contains a focused test",
   ]);
 });
+
+test("rejects suite-level skips and fixmes", () => {
+  assert.deepEqual(browserSpecViolations("suite-skip.spec.mjs", `
+    import { expect, test } from "./fixtures.mjs";
+    test.describe.skip("skipped suite", () => {});
+    test.describe.fixme("broken suite", () => {});
+  `), [
+    "suite-skip.spec.mjs contains an unregistered skip or fixme",
+  ]);
+});
