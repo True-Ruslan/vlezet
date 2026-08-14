@@ -10,6 +10,8 @@
     "build": "turbo build",
     "test": "turbo test",
     "coverage": "node tools/testing-policy/run-coverage.mjs",
+    "coverage:baseline": "node tools/testing-policy/update-baseline.mjs",
+    "coverage:check": "node tools/testing-policy/check-coverage.mjs",
     "test:policy": "node --test tools/testing-policy/*.test.mjs",
     "typecheck": "turbo typecheck",
     "lint": "eslint .",

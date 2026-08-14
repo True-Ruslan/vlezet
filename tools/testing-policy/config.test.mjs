@@ -7,6 +7,7 @@ import {
   CRITICAL_CHANGED_THRESHOLDS,
   ORDINARY_CHANGED_THRESHOLDS,
   WORKSPACES,
+  coverageIncludesForWorkspace,
   isCriticalPath,
   isProductionPath,
 } from "./config.mjs";
@@ -55,9 +56,29 @@ test("exports the covered workspaces and changed-code thresholds", () => {
   });
 });
 
+test("anchors coverage includes to each workspace production root", () => {
+  assert.deepEqual(coverageIncludesForWorkspace("apps/web", "/repo"), [
+    "/repo/apps/web/app/**/*.{ts,tsx,js,jsx,mjs,cjs}",
+    "/repo/apps/web/components/**/*.{ts,tsx,js,jsx,mjs,cjs}",
+  ]);
+  for (const workspace of WORKSPACES.slice(1)) {
+    assert.deepEqual(coverageIncludesForWorkspace(workspace, "/repo"), [
+      `/repo/${workspace}/src/**/*.{ts,tsx,js,jsx,mjs,cjs}`,
+    ]);
+  }
+});
+
 test("classifies source code as production and excludes generated test artifacts", () => {
   assert.equal(isProductionPath("packages/geometry/src/fit.ts"), true);
-  assert.equal(isProductionPath("apps/web/src/app/page.tsx"), true);
+  assert.equal(isProductionPath("apps/web/app/page.tsx"), true);
+  assert.equal(isProductionPath("apps/web/components/ui/ui-button.tsx"), true);
+  assert.equal(isProductionPath("apps/web/app/page.test.tsx"), false);
+  assert.equal(isProductionPath("apps/web/components/ui/ui-button.spec.tsx"), false);
+  assert.equal(isProductionPath("apps/web/app/types.d.ts"), false);
+  assert.equal(isProductionPath("apps/web/components/model.generated.ts"), false);
+  assert.equal(isProductionPath("apps/web/components/report.coverage.ts"), false);
+  assert.equal(isProductionPath("apps/web/components/coverage/report.ts"), false);
+  assert.equal(isProductionPath("apps/web/src/app/page.tsx"), false);
   assert.equal(isProductionPath("packages/geometry/src/fit.test.ts"), false);
   assert.equal(isProductionPath("packages/geometry/src/fit.spec.ts"), false);
   assert.equal(isProductionPath("packages/geometry/src/types.d.ts"), false);
@@ -77,5 +98,5 @@ test("classifies initial critical production paths", () => {
   assert.equal(isCriticalPath("packages/projects/src/repository.ts"), true);
   assert.equal(isCriticalPath("packages/projects/src/autosave.ts"), false);
   assert.equal(isCriticalPath("packages/geometry/src/fit.test.ts"), false);
-  assert.equal(isCriticalPath("apps/web/src/app/page.tsx"), false);
+  assert.equal(isCriticalPath("apps/web/app/page.tsx"), false);
 });

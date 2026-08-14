@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 export const WORKSPACES = [
   "apps/web",
   "packages/domain",
@@ -8,6 +10,16 @@ export const WORKSPACES = [
   "packages/recognition",
   "packages/spatial",
 ];
+
+const COVERAGE_EXTENSION_GLOB = "{ts,tsx,js,jsx,mjs,cjs}";
+
+export function coverageIncludesForWorkspace(workspace, repositoryRoot = process.cwd()) {
+  if (!WORKSPACES.includes(workspace)) throw new Error(`Unknown coverage workspace: ${workspace}`);
+  const sourceRoots = workspace === "apps/web" ? ["app", "components"] : ["src"];
+  return sourceRoots.map((sourceRoot) => (
+    `${resolve(repositoryRoot, workspace, sourceRoot).replaceAll("\\", "/")}/**/*.${COVERAGE_EXTENSION_GLOB}`
+  ));
+}
 
 export const ORDINARY_CHANGED_THRESHOLDS = {
   lines: 95,
@@ -25,7 +37,7 @@ export const CRITICAL_CHANGED_THRESHOLDS = {
 
 export function isProductionPath(file) {
   const p = file.replaceAll("\\", "/");
-  return /^(apps\/[^/]+|packages\/[^/]+)\/src\/.+\.(?:[cm]?[jt]sx?)$/.test(p)
+  return /^(?:apps\/web\/(?:app|components)|packages\/[^/]+\/src)\/.+\.(?:[cm]?[jt]sx?)$/.test(p)
     && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(p)
     && !p.endsWith(".d.ts")
     && !/\.(?:generated|coverage)\.[cm]?[jt]sx?$/.test(p)

@@ -41,16 +41,16 @@ assert.deepEqual(ORDINARY_CHANGED_THRESHOLDS, { lines: 95, statements: 95, funct
 assert.deepEqual(CRITICAL_CHANGED_THRESHOLDS, { lines: 100, statements: 100, functions: 100, branches: 95 });
 assert.equal(isProductionPath("packages/geometry/src/fit.test.ts"), false);
 assert.equal(isCriticalPath("packages/geometry/src/fit.ts"), true);
-assert.equal(isCriticalPath("apps/web/src/app/page.tsx"), false);
+assert.equal(isCriticalPath("apps/web/app/page.tsx"), false);
 ```
 
 - [ ] Add root script `"test:policy": "node --test tools/testing-policy/*.test.mjs"` and run `pnpm test:policy`. Expected RED: missing `config.mjs`.
-- [ ] Implement `config.mjs`. Production means code under `apps/*/src` or `packages/*/src`, excluding test/spec/declaration/generated/coverage files. Initial critical paths: all `domain`, `geometry`, `editor-core`, plus `projects` persistence/schema/file-format/migration/serialization modules.
+- [ ] Implement `config.mjs`. Production means code under root `apps/web/app`, root `apps/web/components`, or `packages/*/src`, excluding test/spec/declaration/generated/coverage files. Initial critical paths: all `domain`, `geometry`, `editor-core`, plus `projects` persistence/schema/file-format/migration/serialization modules.
 
 ```js
 export function isProductionPath(file) {
   const p = file.replaceAll("\\", "/");
-  return /^(apps\/[^/]+|packages\/[^/]+)\/src\/.+\.(?:[cm]?[jt]sx?)$/.test(p)
+  return /^(?:apps\/web\/(?:app|components)|packages\/[^/]+\/src)\/.+\.(?:[cm]?[jt]sx?)$/.test(p)
     && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(p) && !p.endsWith(".d.ts");
 }
 ```
@@ -66,19 +66,21 @@ export function isProductionPath(file) {
 
 - [ ] Extend policy test so every workspace must contain `vitest: 4.1.10`, `@vitest/coverage-v8: 4.1.10`, and `"coverage": "vitest run --coverage"`. Run `pnpm test:policy`; expected RED on missing provider/script.
 - [ ] Add provider/script to all eight manifests; run `pnpm install` to update the lockfile, never edit it manually.
-- [ ] Implement `run-coverage.mjs` to run each workspace sequentially with:
+- [ ] Implement `run-coverage.mjs` to run each workspace sequentially. Use a tested coverage-include helper that returns absolute, workspace-rooted glob arguments: `apps/web` includes root `app/**/*.{ts,tsx,js,jsx,mjs,cjs}` and `components/**/*.{ts,tsx,js,jsx,mjs,cjs}`; every package includes root `src/**/*.{ts,tsx,js,jsx,mjs,cjs}`. Absolute globs are required because Vitest 4.1.10 treats relative `src/**/*` as matching nested paths such as `benchmarks/src`.
+
+The command shape is:
 
 ```js
 [
   "--dir", workspace, "exec", "vitest", "run", "--coverage",
   "--coverage.provider=v8",
-  "--coverage.include=src/**/*.{ts,tsx,js,jsx,mjs,cjs}",
+  ...coverageIncludesForWorkspace(workspace).flatMap((include) => ["--coverage.include", include]),
   "--coverage.reporter=text", "--coverage.reporter=json", "--coverage.reporter=lcov",
   "--coverage.reportsDirectory=coverage",
 ]
 ```
 
-Use `spawnSync("pnpm", args, { stdio: "inherit", shell: false })`; non-zero is fatal. Add root `"coverage": "node tools/testing-policy/run-coverage.mjs"`.
+Use `spawnSync("pnpm", args, { stdio: "inherit", shell: false })`; non-zero is fatal. Validate every emitted JSON entry against the same production-root contract so unintended nested paths fail closed. Add root `"coverage": "node tools/testing-policy/run-coverage.mjs"`.
 - [ ] Run `pnpm coverage`; assert all eight `<workspace>/coverage/coverage-final.json` files exist. `coverage.include` is mandatory so unexecuted source is measured.
 - [ ] Run `pnpm test:policy && pnpm test`. Expected GREEN.
 - [ ] Commit: `test: collect complete workspace coverage`.
