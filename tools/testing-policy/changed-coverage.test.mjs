@@ -46,6 +46,22 @@ index 1111111..2222222 100644
   ]));
 });
 
+test("does not treat added source beginning with pluses as a destination header", () => {
+  const changed = parseChangedLines(`diff --git a/packages/planning/src/solver.ts b/packages/planning/src/solver.ts
+index 1111111..2222222 100644
+--- a/packages/planning/src/solver.ts
++++ b/packages/planning/src/solver.ts
+@@ -2,0 +3 @@
++++ b/not-a-diff-header;
+@@ -8,0 +10 @@
++const later = true;
+`);
+
+  assert.deepEqual(changed, new Map([
+    ["packages/planning/src/solver.ts", new Set([3, 10])],
+  ]));
+});
+
 test("reports N/A when a diff contains no executable production code", () => {
   const changed = parseChangedLines(`diff --git a/docs/testing.md b/docs/testing.md
 index 1111111..2222222 100644
@@ -225,4 +241,25 @@ test("allows 94 percent branch coverage for ordinary code but rejects it for cri
     critical.failures[0],
     /^packages\/geometry\/src\/solver\.ts branches: actual 94\/100 \(94\.00%\), required 95\.00%; uncovered executable locations:/,
   );
+});
+
+test("compares threshold ratios exactly when two-decimal coverage rounds up", () => {
+  const path = "packages/planning/src/solver.ts";
+  const statementMap = Object.fromEntries(
+    Array.from({ length: 1019 }, (_, index) => [index, location(2)]),
+  );
+  const hits = Object.fromEntries([
+    ...Array.from({ length: 968 }, (_, index) => [index, 1]),
+    ...Array.from({ length: 51 }, (_, index) => [index + 968, 0]),
+  ]);
+
+  const result = checkChangedCoverage(
+    [coverageFile(path, { statementMap, s: hits })],
+    new Map([[path, new Set([2])]]),
+  );
+
+  assert.equal(result.files[0].metrics.statements.pct, 95);
+  assert.deepEqual(result.failures, [
+    `${path} statements: actual 968/1019 (95.00%), required 95.00%; uncovered executable locations: ${path}:2:0-2:1`,
+  ]);
 });

@@ -31,7 +31,24 @@ export function parseChangedLines(diff) {
 
   const changed = new Map();
   let file = null;
+  let hunk = null;
   for (const line of diff.split("\n")) {
+    if (hunk !== null) {
+      if (line.startsWith("\\ No newline at end of file")) continue;
+      if (line.startsWith("+")) hunk.newRemaining -= 1;
+      else if (line.startsWith("-")) hunk.oldRemaining -= 1;
+      else if (line.startsWith(" ")) {
+        hunk.oldRemaining -= 1;
+        hunk.newRemaining -= 1;
+      } else {
+        throw new Error(`Invalid Git diff hunk content: ${line}`);
+      }
+      if (hunk.oldRemaining < 0 || hunk.newRemaining < 0) {
+        throw new Error(`Git diff hunk contains more lines than declared: ${line}`);
+      }
+      if (hunk.oldRemaining === 0 && hunk.newRemaining === 0) hunk = null;
+      continue;
+    }
     if (line.startsWith("+++ ")) {
       file = parseDiffPath(line);
       continue;
@@ -39,19 +56,26 @@ export function parseChangedLines(diff) {
     if (!line.startsWith("@@ ")) continue;
     if (file === null) throw new Error(`Git diff hunk has no destination file: ${line}`);
 
-    const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (!match) throw new Error(`Invalid zero-context Git diff hunk: ${line}`);
-    const start = Number(match[1]);
-    const count = match[2] === undefined ? 1 : Number(match[2]);
-    if (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(count) || count < 0) {
+    const oldCount = match[2] === undefined ? 1 : Number(match[2]);
+    const start = Number(match[3]);
+    const count = match[4] === undefined ? 1 : Number(match[4]);
+    if (!Number.isSafeInteger(oldCount) || oldCount < 0
+      || !Number.isSafeInteger(start) || start < 0
+      || !Number.isSafeInteger(count) || count < 0) {
       throw new Error(`Invalid zero-context Git diff range: ${line}`);
     }
-    if (count === 0) continue;
-
-    if (!changed.has(file)) changed.set(file, new Set());
-    const lines = changed.get(file);
-    for (let offset = 0; offset < count; offset += 1) lines.add(start + offset);
+    if (count > 0) {
+      if (!changed.has(file)) changed.set(file, new Set());
+      const lines = changed.get(file);
+      for (let offset = 0; offset < count; offset += 1) lines.add(start + offset);
+    }
+    if (oldCount > 0 || count > 0) {
+      hunk = { oldRemaining: oldCount, newRemaining: count };
+    }
   }
+  if (hunk !== null) throw new Error("Git diff ended before the current hunk was complete");
   return changed;
 }
 
@@ -184,6 +208,10 @@ function hasExecutableCoverage(metrics) {
   return METRICS.some((name) => metrics[name].total > 0);
 }
 
+function meetsThreshold(actual, required) {
+  return BigInt(actual.covered) * 100n >= BigInt(required) * BigInt(actual.total);
+}
+
 export function collectChangedCoverage(coverage, changedLines) {
   if (!(changedLines instanceof Map)) throw new TypeError("Changed lines must be a Map");
 
@@ -223,7 +251,7 @@ export function checkChangedCoverage(coverage, changedLines) {
     for (const name of METRICS) {
       const actual = metrics[name];
       const required = thresholds[name];
-      if (actual.total === 0 || actual.pct >= required) continue;
+      if (actual.total === 0 || meetsThreshold(actual, required)) continue;
       const locations = actual.uncovered.map((location) => `${file}:${location}`).join(", ");
       failures.push(
         `${file} ${name}: actual ${actual.covered}/${actual.total} (${actual.pct.toFixed(2)}%), required ${required.toFixed(2)}%; uncovered executable locations: ${locations}`,
