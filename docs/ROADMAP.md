@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-08-13  
+**Last updated:** 2026-08-14  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative automation. Manual editing must remain a complete product path.
 
 Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`. Product/market direction is additionally governed by `docs/product/COMPETITIVE_BENCHMARK.md`; implementation research policy is in `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`.
@@ -24,7 +24,7 @@ STOPPED     M7.8C+ automatic-recognition product path — usefulness acceptance 
 DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
 DONE        M8.2 Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
-NOW         Engineering testing-policy + coverage audit
+NOW         Engineering testing-policy + coverage audit — Phase A in development, not accepted/merged
 THEN        M8.3 Precision Reference Calibration
 THEN        M8.4 Assisted Tracing
 THEN        M8.5 Furniture + Materials 2.0
@@ -36,7 +36,7 @@ POST-BETA   richer walkthrough/3D, professional docs, structured exchange, mobil
 
 M8.1 is product-owner accepted and squash-merged into `main` as `867ec54d21b1dcb94d519ace3bec0a3635717022`.
 
-M8.2 is **PRODUCT-OWNER ACCEPTED AND MERGED**. PR #87 was protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a` after final exact-head CI + Chromium/WebKit acceptance; post-merge CI #5097 and CodeQL also passed. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. M8.3 is technically unblocked, but the product owner requested a project-wide testing-policy and coverage audit before further product development, so that engineering-quality initiative is the current priority.
+M8.2 is **PRODUCT-OWNER ACCEPTED AND MERGED**. PR #87 was protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a` after final exact-head CI + Chromium/WebKit acceptance; post-merge CI #5097 and CodeQL also passed. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. M8.3 is technically unblocked, but the product owner requested a project-wide testing-policy and coverage audit before further product development, so that engineering-quality initiative is the current priority. Phase A of that programme is in development on `codex/testing-policy-phase-a` and is not accepted or merged.
 
 Market research now makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -173,7 +173,7 @@ Acceptance record: `docs/milestones/m8-1-acceptance.md`.
 
 ### M8.2 — Precision Drawing and Direct Manipulation Foundation
 
-Status: **IN DEVELOPMENT / LATEST PRODUCT-OWNER REGRESSIONS FIXED / PRODUCT-CODE AUTOMATED GREEN / PRODUCT-OWNER ACCEPTANCE PENDING**. Tracker: #56. Draft PR: #87.
+Status: **PRODUCT-OWNER ACCEPTED AND MERGED** as `e323e331a435ae356b91decbdea80dde95028d8a`. Tracker: #56. PR: #87.
 
 Primary outcome:
 
@@ -350,11 +350,22 @@ artifact digest:                   sha256:14ff9ba47d708c881adfdccf89f11218efac4a
 
 Focused record: `docs/changelog/2026-08-13-m8-2-door-hit-target-correction.md`.
 
-**M8.2 acceptance gate:** CLOSED — final focused product-owner door-UX retest PASS on 2026-08-13. Remaining work is delivery-only: fresh exact-head verification after acceptance truth-sync, Ready state and protected squash merge. M8.3 remains blocked until M8.2 is integrated into `main`.
+**M8.2 acceptance gate:** CLOSED — product-owner accepted and protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a`. M8.3 remains planned after the testing-policy programme; Phase A of that programme is in development and is not accepted or merged.
+
+### Engineering testing-policy and coverage audit
+
+Status: **IN DEVELOPMENT on `codex/testing-policy-phase-a` / NOT ACCEPTED / NOT MERGED**.
+
+Phase A is establishing blocking testing infrastructure: measured coverage baseline, non-decreasing ratchet, changed-code gates, fail-safe Playwright discovery, shared runtime-error guard, canonical policy/audit docs, and `pnpm verify:policy`. Apartment/document authority semantics are unchanged. The only production edit on this branch is dashboard Delete focusing its trigger before confirmation so UiDialog can restore focus after Escape on WebKit/macOS. Canonical contracts on this branch:
+
+- `docs/testing/TESTING_POLICY.md`
+- `docs/testing/TEST_COVERAGE_AUDIT.md`
+
+P0/P1 remediation and property/mutation rollout remain later evidence-driven plans after Phase A is accepted. Do not treat this branch as accepted `main` state.
 
 ### M8.3 — Precision Reference Calibration
 
-Status: **PLANNED / BLOCKED BY M8.2 ACCEPTANCE + MERGE**. Tracker: #57.
+Status: **PLANNED / WAITING FOR THE TESTING-POLICY PROGRAMME**. Tracker: #57.
 
 Planned outcomes:
 

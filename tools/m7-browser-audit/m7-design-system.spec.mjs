@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures.mjs";
 import { deflateSync } from "node:zlib";
 
 function crc32(buffer) {
@@ -245,13 +245,15 @@ test.describe.serial("M7.3 design system browser acceptance", () => {
     await expectMinimumHeight(apiKey);
     await expect(page.getByRole("button", { name: "Анализировать" })).toBeDisabled();
 
-    await page.route("**/api/v1/models**", async (route) => {
+    await page.route("https://openrouter.ai/api/v1/models**", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 450));
-      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: { message: "Неверный API key" } }) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
     });
     await apiKey.fill("invalid-key");
+    const loadingModels = page.getByRole("button", { name: "Проверяем модели…" });
     await page.getByRole("button", { name: "Выбрать модель вручную" }).click();
-    await expect(page.getByRole("button", { name: "Проверяем модели…" })).toBeVisible();
+    await expect(loadingModels).toBeVisible();
+    await expect(dialog.getByText("Для этого аккаунта не найдено совместимых vision-моделей со structured output.")).toBeVisible();
     await expect(dialog.locator(".ui-notice-error")).toBeVisible();
     await expectMinimumFont(dialog.locator(".ui-notice-error"));
     await expectNoDocumentOverflow(page);

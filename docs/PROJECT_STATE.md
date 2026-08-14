@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-13  
-**Status:** M0–M8.2 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation was protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a` after final product-owner PASS, exact-head CI + Chromium/WebKit acceptance, and post-merge CI + CodeQL GREEN. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. The next product milestone is M8.3 Precision Reference Calibration; before new product work, the active engineering priority is the project-wide testing-policy and coverage audit requested by the product owner.
+**Last updated:** 2026-08-14  
+**Status:** M0–M8.2 are implemented, product-accepted and merged. M8.2 Precision Drawing / Direct Manipulation Foundation was protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a` after final product-owner PASS, exact-head CI + Chromium/WebKit acceptance, and post-merge CI + CodeQL GREEN. Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`. The next product milestone is M8.3 Precision Reference Calibration; before new product work, the active engineering priority is the project-wide testing-policy and coverage audit requested by the product owner. That programme is in development on `codex/testing-policy-phase-a` and is not accepted or merged.
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, the latest focused changelog and the active design/plan.
 
@@ -414,7 +414,7 @@ When an external implementation materially influences a design, the active desig
 ```text
 DONE  M8.1  Editor Interaction Foundation
 DONE  M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
-NOW   Engineering testing-policy + coverage audit
+NOW   Engineering testing-policy + coverage audit — Phase A in development, not accepted/merged
 THEN  M8.3  Precision Reference Calibration
 THEN  M8.4  Assisted Tracing
 THEN  M8.5  Furniture + Materials 2.0
@@ -432,3 +432,5 @@ Post-beta opportunity set, subject to later evidence:
 - mobile/LiDAR/RoomPlan-style capture as optional editable-geometry input.
 
 Programme tracker: #53. M8.2 tracker: #56. Implementation PR: #87.
+
+Canonical testing contracts while the engineering programme is in development (not accepted, not merged): `docs/testing/TESTING_POLICY.md` and `docs/testing/TEST_COVERAGE_AUDIT.md`. Blocking commands on this branch: `pnpm test:policy` and `pnpm verify:policy`.

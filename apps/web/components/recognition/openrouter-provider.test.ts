@@ -83,6 +83,17 @@ describe("OpenRouter direct recognition provider", () => {
     expect(receiverSensitiveFetch).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    [401, "invalid-key"],
+    [403, "invalid-key"],
+  ] as const)("maps HTTP %s from model listing to %s", async (status, code) => {
+    const fetcher = vi.fn(async () => new Response("failure", { status })) as unknown as typeof fetch;
+    await expect(listCompatibleOpenRouterModels("key", signal, fetcher)).rejects.toMatchObject({
+      code,
+      message: "OpenRouter отклонил API key.",
+    });
+  });
+
   it("filters discovered models to image + structured output capabilities and requests low-cost ordering", async () => {
     const fetcherSpy = vi.fn(async (_url: string | URL | Request) => new Response(JSON.stringify({ data: [
       { id: "good", name: "Good", context_length: 100000, architecture: { input_modalities: ["text", "image"] }, supported_parameters: ["structured_outputs", "response_format"] },
