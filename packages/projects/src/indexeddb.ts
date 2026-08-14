@@ -37,6 +37,14 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+function validateStoredProject(value: unknown): VlezetProjectRecord {
+  try {
+    return validateProject(value);
+  } catch (error) {
+    throw new ProjectStorageError("Локальный проект повреждён и не был открыт.", { cause: error });
+  }
+}
+
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     let request: IDBOpenDBRequest;
@@ -100,7 +108,7 @@ export class IndexedDbProjectRepository implements ProjectRepository, ProjectAss
     const values = await requestResult(transaction.objectStore(PROJECTS_STORE).getAll());
     await transactionDone(transaction);
     return values
-      .map((value) => validateProject(value))
+      .map((value) => validateStoredProject(value))
       .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt) || first.id.localeCompare(second.id));
   }
 
@@ -109,7 +117,7 @@ export class IndexedDbProjectRepository implements ProjectRepository, ProjectAss
     const transaction = database.transaction(PROJECTS_STORE, "readonly");
     const value = await requestResult(transaction.objectStore(PROJECTS_STORE).get(id));
     await transactionDone(transaction);
-    return value === undefined ? null : validateProject(value);
+    return value === undefined ? null : validateStoredProject(value);
   }
 
   async put(project: VlezetProjectRecord): Promise<void> {
