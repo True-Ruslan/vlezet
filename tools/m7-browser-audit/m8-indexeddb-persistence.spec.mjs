@@ -130,6 +130,58 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
   }, { dbName: DB_NAME, version, project, asset });
 }
 
+async function seedCurrentDatabase(page, { projects, assets = [], settings = [] }) {
+  await page.evaluate(async ({ dbName, storedProjects, storedAssets, storedSettings }) => {
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 3);
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB current seed open failed"));
+      request.onblocked = () => reject(new Error("IndexedDB current seed open blocked"));
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        const projectStore = database.createObjectStore("projects", { keyPath: "id" });
+        projectStore.createIndex("updatedAt", "updatedAt", { unique: false });
+        database.createObjectStore("settings", { keyPath: "key" });
+        const assetStore = database.createObjectStore("assets", { keyPath: "id" });
+        assetStore.createIndex("projectId", "projectId", { unique: false });
+        const sessionStore = database.createObjectStore("recognitionSessions", { keyPath: "id" });
+        sessionStore.createIndex("projectId", "projectId", { unique: true });
+      };
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction(["projects", "settings", "assets"], "readwrite");
+        const projectStore = transaction.objectStore("projects");
+        const settingsStore = transaction.objectStore("settings");
+        const assetStore = transaction.objectStore("assets");
+        for (const project of storedProjects) projectStore.put(project);
+        for (const setting of storedSettings) settingsStore.put(setting);
+        for (const asset of storedAssets) {
+          const blob = new Blob([asset.content], { type: asset.mimeType });
+          assetStore.put({
+            id: asset.id,
+            projectId: asset.projectId,
+            kind: "reference-raster",
+            mimeType: asset.mimeType,
+            byteLength: blob.size,
+            createdAt: asset.createdAt,
+            blob,
+          });
+        }
+        transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB current seed failed"));
+        transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB current seed aborted"));
+        transaction.oncomplete = () => {
+          database.close();
+          resolve();
+        };
+      };
+    });
+  }, {
+    dbName: DB_NAME,
+    storedProjects: projects,
+    storedAssets: assets,
+    storedSettings: settings,
+  });
+}
+
 async function schemaSnapshot(page) {
   return page.evaluate((dbName) => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName);
@@ -203,6 +255,42 @@ async function readStorageEvidence(page, { projectId, assetId = null, sessionId 
       };
     };
   }), { dbName: DB_NAME, projectId, assetId, sessionId });
+}
+
+async function readSetting(page, key) {
+  return page.evaluate(({ dbName, settingKey }) => new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB setting open failed"));
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction("settings", "readonly");
+      const get = transaction.objectStore("settings").get(settingKey);
+      get.onerror = () => reject(get.error ?? new Error("IndexedDB setting read failed"));
+      get.onsuccess = () => {
+        const value = get.result ?? null;
+        database.close();
+        resolve(value);
+      };
+    };
+  }), { dbName: DB_NAME, settingKey: key });
+}
+
+async function readFirstProject(page) {
+  return page.evaluate((dbName) => new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB project inspect failed"));
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction("projects", "readonly");
+      const getAll = transaction.objectStore("projects").getAll();
+      getAll.onerror = () => reject(getAll.error ?? new Error("IndexedDB project list failed"));
+      getAll.onsuccess = () => {
+        const value = getAll.result[0] ?? null;
+        database.close();
+        resolve(value);
+      };
+    };
+  }), DB_NAME);
 }
 
 async function putRecognitionSession(page, session) {
@@ -325,4 +413,66 @@ test("preserves a current recognition session across a real application reopen",
     draftProjectId: projectId,
     referenceRevision: session.referenceRevision,
   });
+});
+
+test("persists project edits and last-project navigation through the real UI", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
+  await page.getByRole("button", { name: "Новый проект" }).click();
+
+  const nameField = page.getByLabel("Название проекта");
+  await expect(nameField).toHaveValue("Моя квартира");
+  await nameField.fill("IndexedDB reload proof");
+  await nameField.press("Enter");
+
+  await expect.poll(async () => (await readFirstProject(page))?.name ?? null).toBe("IndexedDB reload proof");
+  const projectId = (await readFirstProject(page)).id;
+  expect(await readSetting(page, "lastProjectId")).toEqual({ key: "lastProjectId", value: projectId });
+
+  await page.reload();
+  await expect(page.getByLabel("Название проекта")).toHaveValue("IndexedDB reload proof");
+
+  await page.getByRole("button", { name: "Вернуться к моим проектам" }).click();
+  await expect(page.getByRole("heading", { name: "Планировки, к которым можно вернуться" })).toBeVisible();
+  expect(await readSetting(page, "lastProjectId")).toEqual({ key: "lastProjectId", value: null });
+
+  await page.getByRole("button", { name: "Открыть проект IndexedDB reload proof" }).click();
+  await expect(page.getByLabel("Название проекта")).toHaveValue("IndexedDB reload proof");
+  await expect.poll(async () => (await readSetting(page, "lastProjectId"))?.value ?? null).toBe(projectId);
+});
+
+test("deleting one project removes only its own assets and preserves unrelated state", async ({ page }) => {
+  const projectA = legacyV2Project("project-a", "Project A");
+  const projectB = legacyV2Project("project-b", "Project B");
+  const assetA = { id: "asset-a", projectId: projectA.id, mimeType: "image/png", createdAt: NOW, content: "AAAA" };
+  const assetB = { id: "asset-b", projectId: projectB.id, mimeType: "image/png", createdAt: NOW, content: "BBBB" };
+
+  await openStorageSetupPage(page);
+  await seedCurrentDatabase(page, {
+    projects: [projectA, projectB],
+    assets: [assetA, assetB],
+    settings: [
+      { key: "lastProjectId", value: null },
+      { key: "unrelated", value: "preserve-me" },
+    ],
+  });
+  await leaveStorageSetupPage(page);
+
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Открыть проект Project A" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Открыть проект Project B" })).toBeVisible();
+  await page.getByLabel("Действия с проектом Project A").getByRole("button", { name: "Удалить" }).click();
+  await expect(page.getByRole("heading", { name: "Удалить проект?" })).toBeVisible();
+  await page.getByRole("button", { name: "Удалить проект" }).click();
+
+  await expect(page.getByRole("button", { name: "Открыть проект Project A" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Открыть проект Project B" })).toBeVisible();
+
+  const removed = await readStorageEvidence(page, { projectId: projectA.id, assetId: assetA.id });
+  const preserved = await readStorageEvidence(page, { projectId: projectB.id, assetId: assetB.id });
+  expect(removed.project).toBeNull();
+  expect(removed.asset).toBeNull();
+  expect(preserved.project).toMatchObject({ id: projectB.id, name: projectB.name });
+  expect(preserved.asset).toMatchObject({ id: assetB.id, projectId: projectB.id, blobSize: 4 });
+  expect(await readSetting(page, "unrelated")).toEqual({ key: "unrelated", value: "preserve-me" });
 });
