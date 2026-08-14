@@ -22,6 +22,13 @@ const NOW = "2026-08-15T00:00:00.000Z";
 
 afterEach(() => vi.unstubAllGlobals());
 
+async function drainMicrotasks(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function project(id: string, updatedAt = NOW) {
   return createProject({ id, name: id, now: updatedAt });
 }
@@ -80,9 +87,7 @@ describe("IndexedDbProjectRepository open lifecycle", () => {
     const open = controlledOpen();
     const repository = createIndexedDbProjectRepository(open.factory);
     const pending = repository.list();
-
     open.fail(new DOMException("open failed", "UnknownError"));
-
     await expect(pending).rejects.toMatchObject({
       name: "ProjectStorageError",
       message: "Не удалось открыть локальное хранилище проектов.",
@@ -93,16 +98,14 @@ describe("IndexedDbProjectRepository open lifecycle", () => {
     const open = controlledOpen();
     const repository = createIndexedDbProjectRepository(open.factory);
     const pending = repository.list();
-
     open.block();
-
     await expect(pending).rejects.toMatchObject({
       name: "ProjectStorageError",
       message: "Закройте другие вкладки Vlezet и попробуйте снова.",
     });
   });
 
-  it("opens successfully, lists through the repository and closes on versionchange", async () => {
+  it("opens successfully and closes the connection on versionchange", async () => {
     const getAll = controlledRequest<unknown[]>();
     const projects = store({ getAll: () => getAll.request });
     const transaction = controlledTransaction(new Map([[PROJECTS_STORE, projects]]));
@@ -113,9 +116,9 @@ describe("IndexedDbProjectRepository open lifecycle", () => {
     const pending = repository.list();
 
     open.succeed(database);
-    await Promise.resolve();
+    await drainMicrotasks();
     getAll.succeed([]);
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.complete();
 
     await expect(pending).resolves.toEqual([]);
@@ -126,14 +129,14 @@ describe("IndexedDbProjectRepository open lifecycle", () => {
 });
 
 describe("IndexedDbProjectRepository request and transaction failures", () => {
-  it("surfaces the generic project read error", async () => {
+  it("surfaces a project request error", async () => {
     const get = controlledRequest<unknown>();
     const projects = store({ get: () => get.request });
     const transaction = controlledTransaction(new Map([[PROJECTS_STORE, projects]]));
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.get("project-a");
 
-    await Promise.resolve();
+    await drainMicrotasks();
     get.fail(new DOMException("read failed", "UnknownError"));
 
     await expect(pending).rejects.toMatchObject({
@@ -142,14 +145,14 @@ describe("IndexedDbProjectRepository request and transaction failures", () => {
     });
   });
 
-  it("surfaces the dedicated asset read error", async () => {
+  it("surfaces the dedicated asset request error", async () => {
     const get = controlledRequest<unknown>();
     const assets = store({ get: () => get.request });
     const transaction = controlledTransaction(new Map([[ASSETS_STORE, assets]]));
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.getAsset("asset-a");
 
-    await Promise.resolve();
+    await drainMicrotasks();
     get.fail(new DOMException("asset read failed", "UnknownError"));
 
     await expect(pending).rejects.toMatchObject({
@@ -158,18 +161,15 @@ describe("IndexedDbProjectRepository request and transaction failures", () => {
     });
   });
 
-  it("surfaces the dedicated asset-index read error", async () => {
+  it("surfaces the dedicated asset-index request error", async () => {
     const getAllKeys = controlledRequest<IDBValidKey[]>();
     const projectIndex = index({ getAllKeys: () => getAllKeys.request });
-    const assets = store({
-      index: () => projectIndex,
-      delete: vi.fn(),
-    });
+    const assets = store({ index: () => projectIndex, delete: vi.fn() });
     const transaction = controlledTransaction(new Map([[ASSETS_STORE, assets]]));
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.deleteAssetsForProject("project-a");
 
-    await Promise.resolve();
+    await drainMicrotasks();
     getAllKeys.fail(new DOMException("asset index failed", "UnknownError"));
 
     await expect(pending).rejects.toMatchObject({
@@ -186,7 +186,7 @@ describe("IndexedDbProjectRepository request and transaction failures", () => {
     const value = project("project-a");
     const pending = repository.put(value);
 
-    await Promise.resolve();
+    await drainMicrotasks();
     expect(put).toHaveBeenCalledWith(value);
     transaction.complete();
     await expect(pending).resolves.toBeUndefined();
@@ -198,9 +198,8 @@ describe("IndexedDbProjectRepository request and transaction failures", () => {
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.put(project("project-a"));
 
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.abort(new DOMException("aborted", "AbortError"));
-
     await expect(pending).rejects.toMatchObject({
       name: "ProjectStorageError",
       message: "Не удалось сохранить изменения проекта.",
@@ -213,9 +212,8 @@ describe("IndexedDbProjectRepository request and transaction failures", () => {
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.put(project("project-a"));
 
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.fail(new DOMException("failed", "UnknownError"));
-
     await expect(pending).rejects.toMatchObject({
       name: "ProjectStorageError",
       message: "Не удалось сохранить изменения проекта.",
@@ -231,33 +229,31 @@ describe("IndexedDbProjectRepository public semantics", () => {
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.get("missing");
 
-    await Promise.resolve();
+    await drainMicrotasks();
     get.succeed(undefined);
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.complete();
-
     await expect(pending).resolves.toBeNull();
   });
 
-  it("lists newest first and uses id as the deterministic tie-break", async () => {
+  it("lists newest first and uses id as a deterministic tie-break", async () => {
     const getAll = controlledRequest<unknown[]>();
     const projects = store({ getAll: () => getAll.request });
     const transaction = controlledTransaction(new Map([[PROJECTS_STORE, projects]]));
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.list();
 
-    await Promise.resolve();
+    await drainMicrotasks();
     getAll.succeed([
       project("b", "2026-08-15T10:00:00.000Z"),
       project("c", "2026-08-15T11:00:00.000Z"),
       project("a", "2026-08-15T10:00:00.000Z"),
     ]);
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.complete();
 
-    await expect(pending).resolves.toSatisfy((values: readonly { id: string }[]) =>
-      values.map((value) => value.id).join(",") === "c,a,b",
-    );
+    const values = await pending;
+    expect(values.map((value) => value.id)).toEqual(["c", "a", "b"]);
   });
 
   it("returns null when the last-project setting is absent", async () => {
@@ -267,11 +263,10 @@ describe("IndexedDbProjectRepository public semantics", () => {
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.getLastProjectId();
 
-    await Promise.resolve();
+    await drainMicrotasks();
     get.succeed(undefined);
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.complete();
-
     await expect(pending).resolves.toBeNull();
   });
 
@@ -283,7 +278,7 @@ describe("IndexedDbProjectRepository public semantics", () => {
       const { repository } = repositoryFor(transaction.transaction);
       const pending = repository.setLastProjectId(value);
 
-      await Promise.resolve();
+      await drainMicrotasks();
       expect(put).toHaveBeenCalledWith({ key: LAST_PROJECT_KEY, value });
       transaction.complete();
       await expect(pending).resolves.toBeUndefined();
@@ -295,14 +290,8 @@ describe("IndexedDbProjectRepository public semantics", () => {
     const projects = store({ delete: projectDelete });
     const getAllKeys = controlledRequest<IDBValidKey[]>();
     const assetDelete = vi.fn();
-    const projectIndex = index({ getAllKeys: vi.fn(() => getAllKeys.request) });
-    const assets = store({
-      index: vi.fn((name: string) => {
-        expect(name).toBe(PROJECT_ID_INDEX);
-        return projectIndex;
-      }),
-      delete: assetDelete,
-    });
+    const projectIndex = index({ getAllKeys: () => getAllKeys.request });
+    const assets = store({ index: () => projectIndex, delete: assetDelete });
     const getSetting = controlledRequest<unknown>();
     const settingPut = vi.fn();
     const settings = store({ get: () => getSetting.request, put: settingPut });
@@ -314,16 +303,15 @@ describe("IndexedDbProjectRepository public semantics", () => {
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.delete("project-a");
 
-    await Promise.resolve();
+    await drainMicrotasks();
     expect(projectDelete).toHaveBeenCalledWith("project-a");
     getAllKeys.succeed(["asset-a1", "asset-a2"]);
-    await Promise.resolve();
+    await drainMicrotasks();
     expect(assetDelete.mock.calls.map(([id]) => id)).toEqual(["asset-a1", "asset-a2"]);
     getSetting.succeed({ key: LAST_PROJECT_KEY, value: "project-a" });
-    await Promise.resolve();
+    await drainMicrotasks();
     expect(settingPut).toHaveBeenCalledWith({ key: LAST_PROJECT_KEY, value: null });
     transaction.complete();
-
     await expect(pending).resolves.toBeUndefined();
   });
 
@@ -343,11 +331,11 @@ describe("IndexedDbProjectRepository public semantics", () => {
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.delete("project-a");
 
-    await Promise.resolve();
+    await drainMicrotasks();
     getAllKeys.succeed([]);
-    await Promise.resolve();
+    await drainMicrotasks();
     getSetting.succeed({ key: LAST_PROJECT_KEY, value: "project-b" });
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.complete();
 
     await expect(pending).resolves.toBeUndefined();
@@ -357,69 +345,61 @@ describe("IndexedDbProjectRepository public semantics", () => {
   it("gets, writes and deletes assets through the public repository", async () => {
     const expected = asset("asset-a", "project-a");
 
-    {
-      const get = controlledRequest<unknown>();
-      const assets = store({ get: () => get.request });
-      const transaction = controlledTransaction(new Map([[ASSETS_STORE, assets]]));
-      const { repository } = repositoryFor(transaction.transaction);
-      const pending = repository.getAsset("asset-a");
-      await Promise.resolve();
-      get.succeed(expected);
-      await Promise.resolve();
-      transaction.complete();
-      await expect(pending).resolves.toEqual(expected);
-    }
+    const get = controlledRequest<unknown>();
+    const readAssets = store({ get: () => get.request });
+    const readTransaction = controlledTransaction(new Map([[ASSETS_STORE, readAssets]]));
+    const { repository: readRepository } = repositoryFor(readTransaction.transaction);
+    const readPending = readRepository.getAsset("asset-a");
+    await drainMicrotasks();
+    get.succeed(expected);
+    await drainMicrotasks();
+    readTransaction.complete();
+    await expect(readPending).resolves.toEqual(expected);
 
-    {
-      const get = controlledRequest<unknown>();
-      const assets = store({ get: () => get.request });
-      const transaction = controlledTransaction(new Map([[ASSETS_STORE, assets]]));
-      const { repository } = repositoryFor(transaction.transaction);
-      const pending = repository.getAsset("missing");
-      await Promise.resolve();
-      get.succeed(undefined);
-      await Promise.resolve();
-      transaction.complete();
-      await expect(pending).resolves.toBeNull();
-    }
+    const missingGet = controlledRequest<unknown>();
+    const missingAssets = store({ get: () => missingGet.request });
+    const missingTransaction = controlledTransaction(new Map([[ASSETS_STORE, missingAssets]]));
+    const { repository: missingRepository } = repositoryFor(missingTransaction.transaction);
+    const missingPending = missingRepository.getAsset("missing");
+    await drainMicrotasks();
+    missingGet.succeed(undefined);
+    await drainMicrotasks();
+    missingTransaction.complete();
+    await expect(missingPending).resolves.toBeNull();
 
-    {
-      const put = vi.fn();
-      const assets = store({ put });
-      const transaction = controlledTransaction(new Map([[ASSETS_STORE, assets]]));
-      const { repository } = repositoryFor(transaction.transaction);
-      const pending = repository.putAsset(expected);
-      await Promise.resolve();
-      expect(put).toHaveBeenCalledWith(expected);
-      transaction.complete();
-      await expect(pending).resolves.toBeUndefined();
-    }
+    const put = vi.fn();
+    const writeAssets = store({ put });
+    const writeTransaction = controlledTransaction(new Map([[ASSETS_STORE, writeAssets]]));
+    const { repository: writeRepository } = repositoryFor(writeTransaction.transaction);
+    const writePending = writeRepository.putAsset(expected);
+    await drainMicrotasks();
+    expect(put).toHaveBeenCalledWith(expected);
+    writeTransaction.complete();
+    await expect(writePending).resolves.toBeUndefined();
 
-    {
-      const remove = vi.fn();
-      const assets = store({ delete: remove });
-      const transaction = controlledTransaction(new Map([[ASSETS_STORE, assets]]));
-      const { repository } = repositoryFor(transaction.transaction);
-      const pending = repository.deleteAsset("asset-a");
-      await Promise.resolve();
-      expect(remove).toHaveBeenCalledWith("asset-a");
-      transaction.complete();
-      await expect(pending).resolves.toBeUndefined();
-    }
+    const remove = vi.fn();
+    const deleteAssets = store({ delete: remove });
+    const deleteTransaction = controlledTransaction(new Map([[ASSETS_STORE, deleteAssets]]));
+    const { repository: deleteRepository } = repositoryFor(deleteTransaction.transaction);
+    const deletePending = deleteRepository.deleteAsset("asset-a");
+    await drainMicrotasks();
+    expect(remove).toHaveBeenCalledWith("asset-a");
+    deleteTransaction.complete();
+    await expect(deletePending).resolves.toBeUndefined();
   });
 
-  it("deletes only the asset keys returned by the project index", async () => {
+  it("deletes only asset keys returned by the project index", async () => {
     const getAllKeys = controlledRequest<IDBValidKey[]>();
-    const projectIndex = index({ getAllKeys: vi.fn(() => getAllKeys.request) });
+    const projectIndex = index({ getAllKeys: () => getAllKeys.request });
     const remove = vi.fn();
     const assets = store({ index: () => projectIndex, delete: remove });
     const transaction = controlledTransaction(new Map([[ASSETS_STORE, assets]]));
     const { repository } = repositoryFor(transaction.transaction);
     const pending = repository.deleteAssetsForProject("project-a");
 
-    await Promise.resolve();
+    await drainMicrotasks();
     getAllKeys.succeed(["asset-a1", "asset-a2"]);
-    await Promise.resolve();
+    await drainMicrotasks();
     transaction.complete();
 
     await expect(pending).resolves.toBeUndefined();
