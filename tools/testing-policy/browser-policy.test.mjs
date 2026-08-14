@@ -31,7 +31,12 @@ test("preserves the explicit WebKit acceptance set", () => {
     "m8-room-translation.spec.mjs",
     "m8-direct-manipulation-opening.spec.mjs",
     "m8-product-owner-regressions.spec.mjs",
+    "m8-indexeddb-persistence.spec.mjs",
   ]);
+});
+
+test("requires IndexedDB persistence evidence in WebKit", () => {
+  assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-persistence.spec.mjs"));
 });
 
 test("discovers every executable browser spec without a filename registry", async (t) => {
