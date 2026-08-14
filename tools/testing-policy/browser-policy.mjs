@@ -17,6 +17,7 @@ export const WEBKIT_SPECS = [
   "m8-direct-manipulation-opening.spec.mjs",
   "m8-product-owner-regressions.spec.mjs",
   "m8-indexeddb-persistence.spec.mjs",
+  "m8-indexeddb-corruption.spec.mjs",
 ];
 
 export async function discoverBrowserSpecs(browserAuditDir) {
