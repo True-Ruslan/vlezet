@@ -58,10 +58,40 @@ test("rejects CI without fetch-depth, coverage, policy gates, or POLICY_BASE_SHA
   assert.ok(violations.includes("CI checkout must set fetch-depth: 0"));
   assert.ok(violations.includes("CI must set POLICY_BASE_SHA"));
   assert.ok(violations.includes("CI must run literal pnpm coverage"));
+  assert.ok(violations.includes("CI must run literal pnpm test:policy"));
   assert.ok(violations.includes("CI must run literal pnpm verify:policy"));
   assert.ok(violations.includes("CI is missing a distinct Coverage step"));
   assert.ok(violations.includes("CI is missing a distinct Testing policy step"));
   assert.ok(violations.includes("CI is missing the testing policy evidence upload"));
+});
+
+test("rejects a testing-policy step that skips policy self-tests", () => {
+  const violations = ciWorkflowViolations(`
+    env:
+      POLICY_BASE_SHA: \${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Unit tests
+        run: pnpm test
+      - name: Coverage
+        run: pnpm coverage 2>&1 | tee coverage.log
+      - name: Testing policy
+        run: pnpm verify:policy 2>&1 | tee testing-policy.log
+      - name: Core Recognition Benchmark
+        run: pnpm benchmark:recognition:core
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Build
+        run: pnpm build
+  `);
+
+  assert.ok(violations.includes("CI must run literal pnpm test:policy"));
 });
 
 test("rejects POLICY_BASE_SHA taken from PR head", () => {
