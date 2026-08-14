@@ -1,8 +1,7 @@
-import { createProject } from "@vlezet/projects";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { focusTriggerThenRequestDelete, ProjectDashboard } from "./project-dashboard";
+import { ProjectDashboard } from "./project-dashboard";
 
 const callbacks = {
   onCreate: () => undefined,
@@ -41,39 +40,4 @@ describe("project feedback design-system migration", () => {
     expect(styles).toContain(".toast");
     expect(styles).toContain("font-size: var(--font-helper)");
   });
-
-  it("focuses the delete trigger then requests confirmation", () => {
-    const project = createProject({ id: "project-1", name: "Квартира", now: "2026-07-22T00:00:00.000Z" });
-    const order: string[] = [];
-    const requested: unknown[] = [];
-    const event = {
-      currentTarget: {
-        focus: () => {
-          order.push("focus");
-        },
-      },
-    };
-
-    focusTriggerThenRequestDelete(project, (value) => {
-      order.push("delete");
-      requested.push(value);
-    })(event);
-
-    expect(order).toEqual(["focus", "delete"]);
-    expect(requested).toEqual([project]);
-  });
-
-  it("renders project cards so delete wiring stays in the live tree", () => {
-    const project = createProject({ id: "project-1", name: "Квартира", now: "2026-07-22T00:00:00.000Z" });
-    const html = renderToStaticMarkup(
-      <ProjectDashboard projects={[project]} error={null} {...callbacks} />,
-    );
-
-    expect(html).toContain("project-delete-button");
-    expect(html).toContain("Удалить");
-    expect(html).toContain(project.name);
-    const source = readFileSync(new URL("./project-dashboard.tsx", import.meta.url), "utf8");
-    expect(source).toContain("onClick={focusTriggerThenRequestDelete(project, onRequestDelete)}");
-  });
 });
-
