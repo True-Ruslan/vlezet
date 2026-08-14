@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { WORKSPACES } from "./config.mjs";
+import { checkChangedCoverage, parseChangedLines } from "./changed-coverage.mjs";
 import {
   compareCoverageFloors,
   readWorkspaceCoverageReports,
@@ -65,4 +66,33 @@ if (classifyBaselineTreeResult(baseFileCheck, BASELINE_PATH)) {
   );
 }
 
+let changedBaseSha = process.env.POLICY_BASE_SHA;
+if (changedBaseSha === undefined) {
+  const mergeBase = git(["merge-base", "HEAD", "origin/main"]);
+  requireSuccessfulGit(mergeBase, "Git changed-coverage merge-base lookup");
+  changedBaseSha = mergeBase.stdout.trim();
+  if (!/^[0-9a-f]{40}$/.test(changedBaseSha)) {
+    throw new Error(`Git changed-coverage merge-base returned an invalid SHA: ${changedBaseSha}`);
+  }
+}
+
+const diff = git([
+  "diff",
+  "--unified=0",
+  "--no-color",
+  "--diff-filter=ACMR",
+  `${changedBaseSha}...HEAD`,
+  "--",
+  "apps",
+  "packages",
+]);
+requireSuccessfulGit(diff, `Git changed-coverage diff against ${changedBaseSha}`);
+const changedCoverage = checkChangedCoverage(filesByWorkspace, parseChangedLines(diff.stdout));
+failIfAny(changedCoverage.failures, "Changed production coverage is below policy thresholds");
+
 console.log(`Coverage ratchet passed against ${baseSha}`);
+if (changedCoverage.applicable) {
+  console.log(`Changed production coverage passed against ${changedBaseSha}`);
+} else {
+  console.log(`Changed production coverage: N/A (no changed executable production code)`);
+}
