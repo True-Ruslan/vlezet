@@ -38,7 +38,7 @@ export function namedStep(source, name) {
   const start = source.indexOf(header);
   if (start === -1) return null;
   const rest = source.slice(start + header.length);
-  const next = rest.search(/\n      - name: /);
+  const next = rest.search(/\n\s*- name: /);
   return header + (next === -1 ? rest : rest.slice(0, next));
 }
 
@@ -89,8 +89,11 @@ export function ciWorkflowViolations(source) {
     }
   }
   if (policyStep) {
-    if (!/pnpm verify:policy 2>&1 \| tee testing-policy\.log/.test(policyStep)) {
-      violations.push("Testing policy must run literal pnpm verify:policy and tee testing-policy.log");
+    if (!/pnpm test:policy 2>&1 \| tee testing-policy\.log/.test(policyStep)) {
+      violations.push("Testing policy must run literal pnpm test:policy and tee testing-policy.log");
+    }
+    if (!/pnpm verify:policy 2>&1 \| tee -a testing-policy\.log/.test(policyStep)) {
+      violations.push("Testing policy must run literal pnpm verify:policy and append testing-policy.log");
     }
     if (/node tools\/testing-policy\//.test(policyStep)) {
       violations.push("Testing policy must not inline node tools/testing-policy paths");
@@ -99,6 +102,7 @@ export function ciWorkflowViolations(source) {
 
   const unitIndex = commandIndex(source, "pnpm test");
   const coverageIndex = commandIndex(source, "pnpm coverage");
+  const policyTestIndex = commandIndex(source, "pnpm test:policy");
   const policyIndex = commandIndex(source, "pnpm verify:policy");
   const recognitionIndex = commandIndex(source, "pnpm benchmark:recognition:core");
   const typecheckIndex = commandIndex(source, "pnpm typecheck");
@@ -107,6 +111,7 @@ export function ciWorkflowViolations(source) {
 
   if (unitIndex === -1) violations.push("CI must keep the unit test step");
   if (coverageIndex === -1) violations.push("CI must run literal pnpm coverage");
+  if (policyTestIndex === -1) violations.push("CI must run literal pnpm test:policy");
   if (policyIndex === -1) violations.push("CI must run literal pnpm verify:policy");
   if (recognitionIndex === -1) violations.push("CI must keep the recognition benchmark");
   if (typecheckIndex === -1) violations.push("CI must keep typecheck");
@@ -116,11 +121,13 @@ export function ciWorkflowViolations(source) {
   if (
     unitIndex !== -1
     && coverageIndex !== -1
+    && policyTestIndex !== -1
     && policyIndex !== -1
     && recognitionIndex !== -1
-    && !(unitIndex < coverageIndex && coverageIndex < policyIndex && policyIndex < recognitionIndex)
+    && !(unitIndex < coverageIndex && coverageIndex < policyTestIndex
+      && policyTestIndex < policyIndex && policyIndex < recognitionIndex)
   ) {
-    violations.push("Coverage then Testing policy must run after unit tests and before recognition");
+    violations.push("Coverage then Testing policy self-tests and enforcement must run after unit tests and before recognition");
   }
   if (
     recognitionIndex !== -1
