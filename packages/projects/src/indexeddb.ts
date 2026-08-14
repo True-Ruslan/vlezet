@@ -45,6 +45,14 @@ function validateStoredProject(value: unknown): VlezetProjectRecord {
   }
 }
 
+function validateStoredAsset(value: unknown): ProjectAssetRecord {
+  try {
+    return validateProjectAsset(value);
+  } catch (error) {
+    throw new ProjectStorageError("Подложка проекта повреждена и не была открыта.", { cause: error });
+  }
+}
+
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     let request: IDBOpenDBRequest;
@@ -159,7 +167,7 @@ export class IndexedDbProjectRepository implements ProjectRepository, ProjectAss
     const transaction = database.transaction(ASSETS_STORE, "readonly");
     const value = await requestResult(transaction.objectStore(ASSETS_STORE).get(id), "Не удалось прочитать подложку.");
     await transactionDone(transaction);
-    return value === undefined ? null : validateProjectAsset(value);
+    return value === undefined ? null : validateStoredAsset(value);
   }
 
   async putAsset(asset: ProjectAssetRecord): Promise<void> {
