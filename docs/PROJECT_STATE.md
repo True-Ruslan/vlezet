@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-15  
-**Status:** M0–M8.2 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged into `main` as `cc594bae218e9e16724d7574f48be8886852e7ad`. The P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation is technically complete and explicitly product-owner accepted in PR #90; fresh acceptance-head delivery verification, protected integration and post-merge verification remain pending. The next product milestone remains M8.3 Precision Reference Calibration after P0 protected integration.  
+**Status:** M0–M8.2 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. The active next product milestone is **M8.3 Precision Reference Calibration**.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, `docs/testing/TESTING_POLICY.md`, `docs/testing/TEST_COVERAGE_AUDIT.md`, the latest focused changelog and the active design/plan.
 
@@ -105,8 +105,9 @@ packages/planning        deterministic planning + reviewed intent
 | M8.1 | product-owner accepted and protected squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 | M8.2 | product-owner accepted and protected squash-merged as `e323e331a435ae356b91decbdea80dde95028d8a` |
 | Testing Policy Phase A | accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`; measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard and evidence artifacts are blocking infrastructure |
+| P0 IndexedDB persistence | product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`, post-merge CI #5175 + CodeQL #535 GREEN |
 
-Canonical M8.1/M8.2 acceptance records remain in `docs/milestones/`. Detailed historical RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint.
+Canonical M8.1/M8.2 acceptance records remain in `docs/milestones/`. Detailed RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint.
 
 ## 5. Recognition experiment outcome
 
@@ -200,11 +201,9 @@ Blocking policy includes:
 - single-worker, retry-free representative browser evidence;
 - generated evidence artifacts instead of hand-authored measurements.
 
-### P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`
+### P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` — closed
 
-Status: **TECHNICALLY REMEDIATED / PRODUCT-OWNER ACCEPTED in PR #90; protected integration and post-merge verification pending.**
-
-The remediation proved native IndexedDB lifecycle/failure behavior and found real persisted-read boundary defects. Persisted project/asset corruption is now translated into stable `ProjectStorageError` recovery semantics while direct writes retain strict domain validation.
+The remediation proved native IndexedDB lifecycle/failure behavior and found real persisted-read boundary defects. Persisted project/asset corruption is translated into stable `ProjectStorageError` recovery semantics while direct writes retain strict domain validation.
 
 WebKit evidence additionally demonstrated that native Blob/File writes are not a reliable current raw IndexedDB primitive in the tested runtime. The public asset API remains `Blob`, while current raw IndexedDB records store `blobBytes: ArrayBuffer` and hydrate back to Blob before validation. Database name/version/store/index schema remains unchanged, and legacy Blob-backed records remain readable.
 
@@ -214,59 +213,66 @@ Browser authority is explicit rather than hidden behind retries/skips:
 - Chromium + WebKit prove current ArrayBuffer-backed real reference import/save/reload/hydration, v1/v2 metadata upgrades, project lifecycle/cascade and corruption recovery;
 - workers remain `1`, retries remain `0`.
 
-Product-owner accepted implementation/policy checkpoint before acceptance-doc sync:
+Final evidence:
 
 ```text
 accepted implementation/policy head: 366ad1f880d5866264e94388412c6dfabf37f83b
-CI #5167 / run 31889155829:          PASS
-CodeQL #527 / run 31889153986:       PASS
-Browser Acceptance #1614:           PASS
-  Chromium:                           65/65 PASS
-  WebKit:                             57/57 PASS
-  workers:                            1
-  retries:                            0
-browser artifact:                    9248180775
-artifact digest:                     sha256:58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75
-product-owner acceptance:            PASS — 2026-08-15 — «Принимаю P0»
+final acceptance head:                8d2df0f442fed9193f256a41d7612750c312dda2
+CI #5174:                             PASS
+Browser Acceptance #1621:             PASS — Chromium 65/65, WebKit 57/57
+CodeQL #534:                           PASS
+protected squash merge:               7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
+post-merge CI #5175:                  PASS
+post-merge CodeQL #535:                PASS
+product-owner acceptance:              PASS — 2026-08-15 — «Принимаю P0»
 ```
 
 Focused record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.md`.
 
-Acceptance truth-sync creates a later documentation-only head, so fresh exact-head CI + Chromium/WebKit + CodeQL remain mandatory before PR #90 leaves Draft. Product acceptance is already explicit; CI is now proving the final repository candidate only.
-
 ## 8. Current programme sequencing
 
 ```text
-DONE      M8.1  Editor Interaction Foundation
-DONE      M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
-DONE      Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
-ACCEPTED  P0 IndexedDB persistence/failure-path remediation — PR #90; protected integration pending
-NEXT      M8.3  Precision Reference Calibration — begin only after P0 protected integration + post-merge verification
-THEN      M8.4  Assisted Tracing
-THEN      M8.5  Furniture + Materials 2.0
-THEN      M8.6  Export + Presentation
-THEN      M8.7  Public Beta Hardening
+DONE  M8.1  Editor Interaction Foundation
+DONE  M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
+DONE  Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
+DONE  P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
+NOW   M8.3  Precision Reference Calibration
+THEN  M8.4  Assisted Tracing
+THEN  M8.5  Furniture + Materials 2.0
+THEN  M8.6  Export + Presentation
+THEN  M8.7  Public Beta Hardening
 TARGET PUBLIC FREE BETA
 ```
 
 Programme tracker: #53. M8.3 tracker: #57.
 
-## 9. M8.3 next product milestone
+## 9. M8.3 active product milestone
 
-Status: **PLANNED / WAITING FOR P0 PROTECTED INTEGRATION**.
+Status: **ACTIVE / DESIGN + TDD IMPLEMENTATION NEXT**.
 
 Planned outcomes:
 
-- calibration pan/zoom;
+- calibration-specific pan/zoom interaction;
 - stronger magnifier/crosshair;
 - source edge/line-centre/intersection snapping;
 - keyboard nudge;
 - fractional image coordinates where justified;
+- explicit temporary snap disable;
 - second known-distance verification;
 - visible residual/error and distortion warning;
+- reference lock only after valid calibration;
 - no false claim of precision beyond raster/source quality.
 
-M8.3 must preserve the current reference-plan/project persistence model and may not bypass the testing policy established in Phase A.
+Authority rule: world-grid snapping is not a calibration solution because authoritative mm scale is unknown until calibration. Source-image feature snapping is the correct assistance authority during calibration.
+
+TDD requirements:
+
+- deterministic synthetic source-feature fixtures;
+- image/source transform round-trip contracts;
+- genuine focused RED before implementation;
+- browser evidence for pointer/magnifier/keyboard behavior;
+- current testing-policy risk classification and changed-code thresholds;
+- no persistence/schema change unless independently designed and justified.
 
 ## 10. Later public-beta programme
 
