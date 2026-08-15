@@ -2,7 +2,7 @@
 
 import type { Point2 } from "@vlezet/geometry";
 import Image from "next/image";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   createCalibrationStageHandlers,
   INITIAL_CALIBRATION_STAGE_STATE,
@@ -13,9 +13,14 @@ import {
   readCalibrationFeaturesFromImage,
   type CalibrationCanvasFactory,
 } from "./calibration-image-features";
-import { imagePointToViewportPoint, type CalibrationViewportTransform } from "./calibration-viewport";
+import {
+  fitCalibrationViewport,
+  imagePointToViewportPoint,
+  type CalibrationViewportTransform,
+} from "./calibration-viewport";
 
 const DEFAULT_VIEWPORT: CalibrationViewportTransform = Object.freeze({ scale: 1, offsetX: 0, offsetY: 0 });
+const FIT_PADDING_PX = 16;
 const FEATURE_RADIUS_PX = 20;
 const FEATURE_CONTRAST_THRESHOLD = 60;
 const FEATURE_DARKNESS_THRESHOLD = 120;
@@ -92,17 +97,26 @@ export function PrecisionCalibrationStage({
 }: PrecisionCalibrationStageProps) {
   const [stageElement, setStageElement] = useState<HTMLDivElement | null>(null);
   const [stageState, setStageState] = useState<CalibrationStageSnapshot>(
-    initialState ?? { ...INITIAL_CALIBRATION_STAGE_STATE, viewport: DEFAULT_VIEWPORT },
+    initialState ?? INITIAL_CALIBRATION_STAGE_STATE,
   );
 
-  if (error) return <p className="field-error">{error}</p>;
-  if (!image) return <p className="reference-preview-loading">Подготавливаем предпросмотр…</p>;
+  const bindStageElement = useCallback((element: HTMLDivElement | null) => {
+    setStageElement(element);
+    if (!element || !image) return;
+    setStageState((state) => {
+      if (state.viewport !== null) return state;
+      return {
+        ...state,
+        viewport: fitCalibrationViewport({
+          naturalSize: { width: image.naturalWidth, height: image.naturalHeight },
+          containerSize: { width: element.clientWidth, height: element.clientHeight },
+          paddingPx: FIT_PADDING_PX,
+        }),
+      };
+    });
+  }, [image]);
 
-  const viewport = stageState.viewport ?? DEFAULT_VIEWPORT;
-  const pointAViewport = draft.pointA === null ? null : markerPosition(draft.pointA, viewport);
-  const pointBViewport = draft.pointB === null ? null : markerPosition(draft.pointB, viewport);
-  const magnifiedPoint = activePoint(stageState.activeHandle, draft) ?? stageState.hoverPoint;
-  const handlers = createCalibrationStageHandlers({
+  const handlers = image === null ? null : createCalibrationStageHandlers({
     state: stageState,
     setState: setStageState,
     draft,
@@ -111,6 +125,21 @@ export function PrecisionCalibrationStage({
     sourceImage: image,
     readFeatures: calibrationStageFeatureReader.bind(null, image),
   });
+
+  useEffect(() => {
+    if (!stageElement || !handlers) return;
+    const onWheel = (event: WheelEvent) => handlers.onWheel(event);
+    stageElement.addEventListener("wheel", onWheel, { passive: false });
+    return () => stageElement.removeEventListener("wheel", onWheel);
+  }, [handlers, stageElement]);
+
+  if (error) return <p className="field-error">{error}</p>;
+  if (!image || !handlers) return <p className="reference-preview-loading">Подготавливаем предпросмотр…</p>;
+
+  const viewport = stageState.viewport ?? DEFAULT_VIEWPORT;
+  const pointAViewport = draft.pointA === null ? null : markerPosition(draft.pointA, viewport);
+  const pointBViewport = draft.pointB === null ? null : markerPosition(draft.pointB, viewport);
+  const magnifiedPoint = activePoint(stageState.activeHandle, draft) ?? stageState.hoverPoint;
 
   return (
     <div className="calibration-stage-wrap">
@@ -133,11 +162,10 @@ export function PrecisionCalibrationStage({
       </div>
 
       <div
-        ref={setStageElement}
+        ref={bindStageElement}
         className="calibration-stage"
         tabIndex={0}
         style={{ height: 300, touchAction: "none" }}
-        onWheel={handlers.onWheel}
         onPointerDown={handlers.onPointerDown}
         onPointerMove={handlers.onPointerMove}
         onPointerUp={handlers.onPointerUp}
