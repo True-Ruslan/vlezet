@@ -6,7 +6,7 @@ export const MAX_CALIBRATION_FEATURE_RADIUS_PX = 32;
 export type CalibrationImageDataLike = Readonly<{
   width: number;
   height: number;
-  data: ArrayLike<number>;
+  data: Uint8ClampedArray;
 }>;
 
 export type AnalyzeCalibrationFeaturesInput = Readonly<{
@@ -47,10 +47,10 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function luminance(data: ArrayLike<number>, offset: number): number {
-  const red = data[offset] ?? 0;
-  const green = data[offset + 1] ?? red;
-  const blue = data[offset + 2] ?? red;
+function luminance(data: Uint8ClampedArray, offset: number): number {
+  const red = data[offset]!;
+  const green = data[offset + 1]!;
+  const blue = data[offset + 2]!;
   return (red + green + blue) / 3;
 }
 
