@@ -27,6 +27,24 @@ describe("calibration stage interaction model", () => {
     })).toBeNull();
   });
 
+  it("ignores missing handles and breaks equal-distance ties deterministically", () => {
+    expect(chooseCalibrationHandle({
+      point: { x: 700, y: 100 },
+      pointA: null,
+      pointB: { x: 700, y: 100 },
+      viewportScale: 1,
+      tolerancePx: 14,
+    })).toBe("b");
+
+    expect(chooseCalibrationHandle({
+      point: { x: 100, y: 100 },
+      pointA: { x: 90, y: 100 },
+      pointB: { x: 110, y: 100 },
+      viewportScale: 1,
+      tolerancePx: 14,
+    })).toBe("a");
+  });
+
   it("fills A then B before replacing the nearest existing handle", () => {
     expect(resolveCalibrationPlacement({
       point: { x: 100, y: 50 },
@@ -51,6 +69,24 @@ describe("calibration stage interaction model", () => {
       viewportScale: 1,
       handleTolerancePx: 14,
     })).toMatchObject({ handle: "b", point: { x: 690, y: 50 } });
+  });
+
+  it("falls back to the nearest handle when the pointer is outside handle acquisition tolerance", () => {
+    expect(resolveCalibrationPlacement({
+      point: { x: 250, y: 50 },
+      pointA: { x: 100, y: 50 },
+      pointB: { x: 700, y: 50 },
+      viewportScale: 1,
+      handleTolerancePx: 14,
+    })).toMatchObject({ handle: "a", point: { x: 250, y: 50 } });
+
+    expect(resolveCalibrationPlacement({
+      point: { x: 400, y: 50 },
+      pointA: { x: 100, y: 50 },
+      pointB: { x: 700, y: 50 },
+      viewportScale: 1,
+      handleTolerancePx: 14,
+    })).toMatchObject({ handle: "b", point: { x: 400, y: 50 } });
   });
 
   it("pans on ordinary wheel and zooms around the local pointer on modified wheel", () => {
@@ -79,7 +115,7 @@ describe("calibration stage interaction model", () => {
     expect(zoomed).toEqual({ scale: 1, offsetX: -160, offsetY: -40 });
   });
 
-  it("nudges only the active handle in natural source pixels and supports Shift x10", () => {
+  it("nudges the active handle in every arrow direction using natural source pixels", () => {
     expect(resolveCalibrationNudge({
       key: "ArrowRight",
       shiftKey: false,
@@ -99,6 +135,26 @@ describe("calibration stage interaction model", () => {
     })).toMatchObject({ handle: "a", point: { x: 101, y: 110 } });
 
     expect(resolveCalibrationNudge({
+      key: "ArrowUp",
+      shiftKey: false,
+      activeHandle: "a",
+      pointA: { x: 101, y: 100 },
+      pointB: { x: 700, y: 100 },
+      naturalSize,
+    })).toMatchObject({ handle: "a", point: { x: 101, y: 99 } });
+
+    expect(resolveCalibrationNudge({
+      key: "ArrowLeft",
+      shiftKey: false,
+      activeHandle: "b",
+      pointA: { x: 101, y: 100 },
+      pointB: { x: 700, y: 100 },
+      naturalSize,
+    })).toMatchObject({ handle: "b", point: { x: 699, y: 100 } });
+  });
+
+  it("ignores nudge requests without a usable active source point or supported arrow key", () => {
+    expect(resolveCalibrationNudge({
       key: "Enter",
       shiftKey: false,
       activeHandle: "a",
@@ -113,6 +169,15 @@ describe("calibration stage interaction model", () => {
       activeHandle: null,
       pointA: { x: 100, y: 100 },
       pointB: { x: 700, y: 100 },
+      naturalSize,
+    })).toBeNull();
+
+    expect(resolveCalibrationNudge({
+      key: "ArrowLeft",
+      shiftKey: false,
+      activeHandle: "b",
+      pointA: { x: 100, y: 100 },
+      pointB: null,
       naturalSize,
     })).toBeNull();
   });
