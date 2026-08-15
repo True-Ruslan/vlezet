@@ -327,7 +327,7 @@ The earlier Assisted Tracing design PR #52 remains closed without merge; useful 
 - representative Chromium/WebKit journey evidence;
 - basic tablet usability desirable, full phone/tablet parity not a beta blocker.
 
-Public-beta acceptance journeys:
+## Public beta acceptance journeys
 
 ```text
 BETA-01 Blank
@@ -337,26 +337,89 @@ BETA-04 Furnish
 BETA-05 Export
 ```
 
-No public beta until all five journeys have deterministic/unit coverage where possible, representative browser evidence and no known document-integrity blocker.
+No public beta until all five journeys have deterministic/unit coverage where possible plus representative Chromium/WebKit browser evidence and no known document-integrity blocker.
 
-## Recognition R&D boundary
+M8.1 materially advances `BETA-03`; M8.2 is the structural foundation for `BETA-01`; M8.3/M8.4 complete the beta-critical `BETA-02` reference/tracing journey.
 
-M7.8C+ automatic whole-plan recognition remains stopped as a product path because real-plan usefulness failed even when automation metrics looked good. PRs #42, #44 and #45 were closed without merge.
+## Implementation research rule
 
-Issue #27 remains open as R&D only. Any future recognition work must prove product usefulness on real-plan evidence and must preserve manual editing as the correction path.
+For material new editor behavior:
 
-## Delivery rule for new editor behavior
+```text
+relevant mature-product UX review
+→ relevant open-source code/architecture review where useful
+→ explicit Vlezet contract and authority boundaries
+→ license/adoption note
+→ genuine focused RED
+→ minimal implementation
+→ focused/full/browser GREEN
+→ product-owner acceptance
+```
 
-1. inspect mature-product UX references;
-2. inspect relevant open-source implementations only when useful;
-3. write the explicit Vlezet authority/behavior contract;
-4. record license/source note before adopting external implementation ideas;
-5. create genuine RED evidence;
-6. implement the smallest authority-preserving change;
-7. focused tests -> full CI -> required Chromium/WebKit evidence;
-8. product-owner acceptance;
-9. protected integration and post-merge verification.
+Preferred current references:
 
-Preferred UX benchmark: RoomPlan first; Planner 5D, Floorplanner, RoomSketcher and Planoplan as secondary references.
+- UX/product: RoomPlan first; Planner 5D, Floorplanner, RoomSketcher, Planoplan as deeper references;
+- code/architecture: `charmlinn/blueprint3d-modern`, `fedepaj/arcada-planner`, `cvdlab/react-planner`, `floorplanner/polygon-tools` where relevant;
+- Sweet Home 3D: behavior/architecture reference with GPL caution, not a default code-copy source.
 
-Useful implementation references include MIT-licensed `blueprint3d-modern`, `arcada-planner`, `react-planner` and `floorplanner/polygon-tools`; Sweet Home 3D may inform architecture/behavior but GPL code must not be copied into Vlezet without an explicit licensing decision.
+No external implementation may become geometry/history authority merely because it is mature or open-source.
+
+## Mandatory TDD delivery rule
+
+Every deterministic M8 behaviour:
+
+```text
+contract
+→ focused failing test (RED)
+→ verify intended failure
+→ minimal correct implementation
+→ focused GREEN
+→ adjacent/full regression
+→ refactor while green
+→ reviewable commit
+```
+
+Forbidden:
+
+- weakening existing validation/tests/thresholds merely for green CI;
+- treating a pre-existing passing test as RED evidence;
+- replacing real browser interaction tests with source-string assertions where behavior can be exercised directly;
+- hiding browser incompatibility with unregistered skip/fixme/retry;
+- claiming product acceptance from CI alone.
+
+## Mandatory CHANGELOG rule
+
+Every accepted M8 slice must maintain:
+
+- focused `docs/changelog/YYYY-MM-DD-<slice>.md`;
+- concise `docs/CHANGELOG.md` entry;
+- truthful canonical `PROJECT_STATE`/roadmap sync;
+- final merge identity only after GitHub reports the protected integration.
+
+Focused history must explain why, user-visible behaviour, architecture boundaries, meaningful RED/GREEN evidence, regressions fixed, intentional deferrals, exact-head automated evidence, product-owner acceptance and merge identity.
+
+## Deliberate pre-beta non-goals
+
+- realtime collaboration;
+- mandatory accounts/cloud sync;
+- generic diagram shapes/arrows/freehand/rich text parity;
+- plugin ecosystem;
+- automatic whole-plan reconstruction as a release gate;
+- autonomous AI layout design;
+- photorealistic 3D;
+- BIM/DXF/DWG as beta gates;
+- arbitrary user layer stacks;
+- full phone/tablet editor parity;
+- matching competitor catalogue counts before interaction quality is accepted.
+
+## Evidence-supported post-beta directions
+
+After public-beta manual/editor trust is established, current market evidence supports evaluating:
+
+- richer deterministic 3D and walkthrough/presentation parity;
+- deeper multi-floor workflows;
+- wall elevations/specifications and renovation documentation;
+- structured external exchange such as DXF/FML/IFC after schema maturity;
+- mobile/LiDAR/RoomPlan-style capture as an optional source of ordinary editable geometry.
+
+These are opportunities, not commitments, and may be reprioritized only from user evidence.
