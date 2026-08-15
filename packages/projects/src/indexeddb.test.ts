@@ -501,7 +501,19 @@ describe("IndexedDbProjectRepository public semantics", () => {
     const { repository: writeRepository } = repositoryFor(writeTransaction.transaction);
     const writePending = writeRepository.putAsset(expected);
     await drainMicrotasks();
-    expect(put).toHaveBeenCalledWith(expected);
+    expect(put).toHaveBeenCalledTimes(1);
+    const persisted = put.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(persisted).toMatchObject({
+      id: expected.id,
+      projectId: expected.projectId,
+      kind: expected.kind,
+      mimeType: expected.mimeType,
+      byteLength: expected.byteLength,
+      createdAt: expected.createdAt,
+      blobBytes: expect.any(ArrayBuffer),
+    });
+    expect(persisted).not.toHaveProperty("blob");
+    expect(Array.from(new Uint8Array(persisted?.blobBytes as ArrayBuffer))).toEqual([1, 2, 3]);
     writeTransaction.complete();
     await expect(writePending).resolves.toBeUndefined();
 
