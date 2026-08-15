@@ -71,6 +71,6 @@ test("fails closed with a user-facing recovery state for a corrupted persisted p
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Не удалось открыть локальные проекты" })).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText("Локальный проект повреждён и не был открыт.");
+  await expect(page.getByRole("alert").filter({ hasText: "Локальный проект повреждён и не был открыт." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Повторить" })).toBeVisible();
 });
