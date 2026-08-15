@@ -64,31 +64,35 @@ describe("calibration stage lifecycle", () => {
   it("installs one non-passive native wheel listener and removes the identical listener", () => {
     const wheel = vi.fn();
     const handlers = { onWheel: wheel } as unknown as CalibrationStageHandlers;
-    let installed: ((event: WheelEvent) => void) | null = null;
-    let removed: ((event: WheelEvent) => void) | null = null;
+    const listenerState: {
+      installed?: (event: WheelEvent) => void;
+      removed?: (event: WheelEvent) => void;
+    } = {};
     let options: AddEventListenerOptions | boolean | undefined;
     const element = {
       addEventListener(type: string, listener: EventListenerOrEventListenerObject, value?: AddEventListenerOptions | boolean) {
         expect(type).toBe("wheel");
-        installed = listener as (event: WheelEvent) => void;
+        listenerState.installed = listener as (event: WheelEvent) => void;
         options = value;
       },
       removeEventListener(type: string, listener: EventListenerOrEventListenerObject) {
         expect(type).toBe("wheel");
-        removed = listener as (event: WheelEvent) => void;
+        listenerState.removed = listener as (event: WheelEvent) => void;
       },
     } as unknown as HTMLDivElement;
 
     const cleanup = installCalibrationStageWheelListener(element, handlers);
     expect(options).toEqual({ passive: false });
-    expect(installed).toBe(handlers.onWheel);
+    expect(listenerState.installed).toBe(handlers.onWheel);
 
+    const installed = listenerState.installed;
+    if (!installed) throw new Error("Expected the calibration wheel listener to be installed.");
     const event = { deltaY: 12 } as WheelEvent;
-    installed?.(event);
+    installed(event);
     expect(wheel).toHaveBeenCalledWith(event);
 
     cleanup?.();
-    expect(removed).toBe(installed);
+    expect(listenerState.removed).toBe(installed);
   });
 
   it("does nothing when the stage or handlers are unavailable", () => {
