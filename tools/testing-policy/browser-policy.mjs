@@ -8,6 +8,7 @@ export const WEBKIT_SPECS = [
   "m7-onboarding-status.spec.mjs",
   "m7-geometry-inspector.spec.mjs",
   "m7-furniture-fit.spec.mjs",
+  "m7-reference-calibration.spec.mjs",
   "m8-editor-interaction.spec.mjs",
   "m8-group-drag-snap-regression.spec.mjs",
   "m8-precision-structural.spec.mjs",
