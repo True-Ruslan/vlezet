@@ -80,8 +80,14 @@ async function readReferenceEvidence(page) {
             projectId: asset.projectId,
             mimeType: asset.mimeType,
             byteLength: asset.byteLength,
-            blobSize: asset.blob?.size ?? null,
-            blobType: asset.blob?.type ?? null,
+            storageKind: asset.blobBytes instanceof ArrayBuffer
+              ? "array-buffer"
+              : asset.blob instanceof Blob
+                ? "blob"
+                : null,
+            blobBytesSize: asset.blobBytes instanceof ArrayBuffer ? asset.blobBytes.byteLength : null,
+            blobSize: asset.blob instanceof Blob ? asset.blob.size : null,
+            blobType: asset.blob instanceof Blob ? asset.blob.type : null,
           } : null,
         });
       };
@@ -158,13 +164,18 @@ test("keeps magnifier coordinates on the rendered image and persists the calibra
     id: beforeReload.referenceAssetId,
     projectId: beforeReload.projectId,
     mimeType: "image/png",
-    blobType: "image/png",
+    storageKind: "array-buffer",
+    blobSize: null,
+    blobType: null,
   });
   expect(beforeReload.asset.byteLength).toBeGreaterThan(0);
-  expect(beforeReload.asset.blobSize).toBe(beforeReload.asset.byteLength);
+  expect(beforeReload.asset.blobBytesSize).toBe(beforeReload.asset.byteLength);
 
   await page.reload();
   await expect(page.getByLabel("Название проекта")).toHaveValue("Моя квартира");
+  await page.getByRole("button", { name: "Подложка" }).click();
+  await expect(page.locator(".context-panel-title")).toHaveText("Подложка настроена");
+  await expect(page.locator(".reference-local-note")).toContainText("Подложка сохранена локально");
   const afterReload = await readReferenceEvidence(page);
   expect(afterReload).toEqual(beforeReload);
 });
