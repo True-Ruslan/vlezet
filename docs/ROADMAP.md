@@ -25,8 +25,8 @@ DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
 DONE        M8.2 Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
 DONE        Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
-NOW         P0 IndexedDB persistence/failure-path remediation — technically GREEN in Draft PR #90; acceptance/integration pending
-NEXT        M8.3 Precision Reference Calibration — after P0 protected integration
+ACCEPTED    P0 IndexedDB persistence/failure-path remediation — PR #90; protected integration pending
+NEXT        M8.3 Precision Reference Calibration — after P0 protected integration + post-merge verification
 THEN        M8.4 Assisted Tracing
 THEN        M8.5 Furniture + Materials 2.0
 THEN        M8.6 Export + Presentation
@@ -41,7 +41,7 @@ M8.2 is product-owner accepted and protected squash-merged into `main` as `e323e
 
 Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. The measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard, evidence artifacts and debt registry are now blocking engineering infrastructure rather than an in-development branch experiment.
 
-The first explicit P0 debt item, `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`, is technically remediated in Draft PR #90 with exact-head CI + Chromium/WebKit + CodeQL GREEN. It is **not** product-owner accepted or merged yet. M8.3 starts only after that protected integration.
+The first explicit P0 debt item, `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`, is technically remediated and explicitly product-owner accepted in PR #90. Accepted implementation/policy head `366ad1f880d5866264e94388412c6dfabf37f83b` passed CI #5167, Browser Acceptance #1614 (Chromium 65/65, WebKit 57/57, retries 0) and CodeQL #527 before acceptance truth-sync. Protected integration and post-merge verification remain pending. M8.3 starts only after those repository gates complete.
 
 Market research makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -214,7 +214,7 @@ Canonical contracts:
 
 ### P0 IndexedDB persistence / failure-path remediation
 
-Status: **TECHNICALLY COMPLETE / DRAFT PR #90 / PRODUCT-OWNER ACCEPTANCE AND PROTECTED MERGE PENDING**.
+Status: **TECHNICALLY COMPLETE / PRODUCT-OWNER ACCEPTED / PR #90 / PROTECTED INTEGRATION PENDING**.
 
 Debt: `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`.
 
@@ -232,22 +232,25 @@ Delivered behavior/evidence:
 - no database version/store/index change;
 - no fake IndexedDB, memory substitute, production test hook, skip, fixme, retry or threshold weakening.
 
-Pre-canonical-sync technical evidence:
+Product-owner accepted implementation/policy evidence:
 
 ```text
-head:                         25bf1dea0b823dbec92538cf06f9c178581b5424
-CI #5159:                     PASS
-CodeQL #512:                  PASS
-Browser Acceptance #1606:     PASS
-  Chromium:                   65/65 PASS
-  WebKit:                     57/57 PASS
-browser artifact:             9245027204
-artifact digest:              sha256:6a841f0f21bef3df7e7afbe3eac9094b4e1385218b423904efc2f0213bce026b
+head:                         366ad1f880d5866264e94388412c6dfabf37f83b
+CI #5167 / run 31889155829:  PASS
+CodeQL #527 / run 31889153986: PASS
+Browser Acceptance #1614 / run 31889155832: PASS
+  Chromium:                  65/65 PASS
+  WebKit:                    57/57 PASS
+  workers:                   1
+  retries:                   0
+browser artifact:            9248180775
+artifact digest:             sha256:58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75
+product-owner acceptance:    PASS — 2026-08-15 — «Принимаю P0»
 ```
 
 Focused record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.md`.
 
-The only remaining P0 gates are canonical truth sync, fresh exact-head delivery verification, explicit product-owner acceptance and protected integration. CI alone must not move PR #90 out of Draft.
+Acceptance truth-sync creates a later docs-only head. Fresh exact-head delivery verification is mandatory before PR #90 leaves Draft; after that the only remaining steps are protected squash integration and post-merge CI + CodeQL verification. CI alone did not create product acceptance; the product owner did.
 
 ### M8.3 — Precision Reference Calibration
 
