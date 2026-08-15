@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
-  "sourceCommit": "95b99baf2d0f0aad51109b311c70c9b38aa3db38",
+  "sourceCommit": "cc594bae218e9e16724d7574f48be8886852e7ad",
   "repository": {
     "lines": {
-      "covered": 5745,
-      "total": 9294,
-      "pct": 61.81
+      "covered": 5850,
+      "total": 9306,
+      "pct": 62.86
     },
     "statements": {
-      "covered": 6553,
-      "total": 11234,
-      "pct": 58.33
+      "covered": 6674,
+      "total": 11248,
+      "pct": 59.33
     },
     "functions": {
-      "covered": 1505,
-      "total": 2485,
-      "pct": 60.56
+      "covered": 1541,
+      "total": 2489,
+      "pct": 61.91
     },
     "branches": {
-      "covered": 4023,
-      "total": 7722,
-      "pct": 52.1
+      "covered": 4068,
+      "total": 7733,
+      "pct": 52.61
     }
   },
   "packages": {
@@ -31,9 +31,9 @@
         "pct": 44.53
       },
       "statements": {
-        "covered": 2879,
+        "covered": 2881,
         "total": 6868,
-        "pct": 41.92
+        "pct": 41.95
       },
       "functions": {
         "covered": 722,
@@ -41,9 +41,9 @@
         "pct": 44.96
       },
       "branches": {
-        "covered": 2051,
+        "covered": 2053,
         "total": 4996,
-        "pct": 41.05
+        "pct": 41.09
       }
     },
     "packages/domain": {
@@ -136,24 +136,24 @@
     },
     "packages/projects": {
       "lines": {
-        "covered": 279,
-        "total": 434,
-        "pct": 64.29
+        "covered": 384,
+        "total": 446,
+        "pct": 86.1
       },
       "statements": {
-        "covered": 297,
-        "total": 493,
-        "pct": 60.24
+        "covered": 416,
+        "total": 507,
+        "pct": 82.05
       },
       "functions": {
-        "covered": 75,
-        "total": 110,
-        "pct": 68.18
+        "covered": 111,
+        "total": 114,
+        "pct": 97.37
       },
       "branches": {
-        "covered": 169,
-        "total": 312,
-        "pct": 54.17
+        "covered": 212,
+        "total": 323,
+        "pct": 65.63
       }
     },
     "packages/recognition": {
