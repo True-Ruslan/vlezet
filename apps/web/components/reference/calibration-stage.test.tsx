@@ -134,9 +134,9 @@ describe("precision calibration stage", () => {
     });
   });
 
-  it("reads the live calibration stage ref without creating a second authority", () => {
+  it("reads the live calibration stage element without creating a second authority", () => {
     const element = { id: "stage" } as unknown as HTMLDivElement;
-    expect(currentCalibrationStage({ current: element })).toBe(element);
-    expect(currentCalibrationStage({ current: null })).toBeNull();
+    expect(currentCalibrationStage(element)).toBe(element);
+    expect(currentCalibrationStage(null)).toBeNull();
   });
 });
