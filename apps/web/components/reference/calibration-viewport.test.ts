@@ -63,6 +63,21 @@ describe("calibration pan and zoom transform", () => {
     });
   });
 
+  it("uses zero padding when no explicit viewport padding is supplied", () => {
+    expect(fitCalibrationViewport({
+      naturalSize: { width: 100, height: 50 },
+      containerSize: { width: 200, height: 100 },
+    })).toEqual({ scale: 2, offsetX: 0, offsetY: 0 });
+  });
+
+  it("rejects negative viewport padding instead of silently expanding the fit area", () => {
+    expect(() => fitCalibrationViewport({
+      naturalSize: { width: 100, height: 50 },
+      containerSize: { width: 200, height: 100 },
+      paddingPx: -1,
+    })).toThrow("paddingPx must not be negative.");
+  });
+
   it("round-trips fractional image coordinates through an explicit pan and zoom transform", () => {
     const transform = { scale: 0.5, offsetX: 40, offsetY: 50 };
     const imagePoint = { x: 100.25, y: 200.5 };
@@ -101,6 +116,15 @@ describe("calibration pan and zoom transform", () => {
     expect(viewportPointToImagePoint({ viewportPoint, transform: zoomed })).toEqual(
       viewportPointToImagePoint({ viewportPoint, transform }),
     );
+  });
+
+  it("rejects inverted zoom limits", () => {
+    expect(() => zoomCalibrationViewportAt({
+      transform: { scale: 1, offsetX: 0, offsetY: 0 },
+      viewportPoint: { x: 50, y: 50 },
+      factor: 2,
+      limits: { minScale: 4, maxScale: 2 },
+    })).toThrow("limits.minScale must not exceed limits.maxScale.");
   });
 
   it("pans only the viewport offset", () => {
