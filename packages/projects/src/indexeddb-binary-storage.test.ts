@@ -80,6 +80,14 @@ function asset() {
   });
 }
 
+async function expectCorruptedAsset(readValue: unknown) {
+  const repository = repositoryWithAssetStore({ readValue });
+  await expect(repository.getAsset("asset-1")).rejects.toMatchObject({
+    name: "ProjectStorageError",
+    message: "Подложка проекта повреждена и не была открыта.",
+  } satisfies Partial<ProjectStorageError>);
+}
+
 describe("IndexedDbProjectRepository binary asset persistence", () => {
   it("serializes Blob payloads to ArrayBuffer before writing IndexedDB", async () => {
     let persisted: Record<string, unknown> | null = null;
@@ -134,22 +142,32 @@ describe("IndexedDbProjectRepository binary asset persistence", () => {
     await expect(repository.getAsset(legacy.id)).resolves.toEqual(legacy);
   });
 
-  it("fails closed when persisted ArrayBuffer metadata does not match the payload", async () => {
-    const repository = repositoryWithAssetStore({
-      readValue: {
-        id: "asset-1",
-        projectId: "project-1",
-        kind: "reference-raster",
-        mimeType: "image/png",
-        byteLength: 99,
-        createdAt: CREATED_AT,
-        blobBytes: new Uint8Array([1, 2, 3, 4]).buffer,
-      },
-    });
+  it("fails closed for malformed scalar and array records", async () => {
+    await expectCorruptedAsset("not-an-asset");
+    await expectCorruptedAsset([]);
+  });
 
-    await expect(repository.getAsset("asset-1")).rejects.toMatchObject({
-      name: "ProjectStorageError",
-      message: "Подложка проекта повреждена и не была открыта.",
-    } satisfies Partial<ProjectStorageError>);
+  it("fails closed when ArrayBuffer-backed records have a non-string MIME type", async () => {
+    await expectCorruptedAsset({
+      id: "asset-1",
+      projectId: "project-1",
+      kind: "reference-raster",
+      mimeType: null,
+      byteLength: 4,
+      createdAt: CREATED_AT,
+      blobBytes: new Uint8Array([1, 2, 3, 4]).buffer,
+    });
+  });
+
+  it("fails closed when persisted ArrayBuffer metadata does not match the payload", async () => {
+    await expectCorruptedAsset({
+      id: "asset-1",
+      projectId: "project-1",
+      kind: "reference-raster",
+      mimeType: "image/png",
+      byteLength: 99,
+      createdAt: CREATED_AT,
+      blobBytes: new Uint8Array([1, 2, 3, 4]).buffer,
+    });
   });
 });
