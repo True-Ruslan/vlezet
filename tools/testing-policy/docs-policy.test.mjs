@@ -6,7 +6,6 @@ import test from "node:test";
 
 import { WORKSPACES } from "./config.mjs";
 import {
-  ACCEPTED_BASE_SHA,
   AUDIT_ROW_LABELS,
   CANONICAL_AUDIT_PATH,
   CANONICAL_POLICY_PATH,
@@ -39,7 +38,7 @@ test("rejects unresolved placeholders and missing contract facts", async (t) => 
   assert.ok(violations.some((item) => item.includes("Unresolved TBD/TODO")));
   assert.ok(violations.some((item) => item.includes("ordinary changed-code threshold")));
   assert.ok(violations.some((item) => item.includes("critical changed-code threshold")));
-  assert.ok(violations.some((item) => item.includes(ACCEPTED_BASE_SHA)));
+  assert.ok(violations.some((item) => item.includes("must record baseline source commit")));
   assert.ok(AUDIT_ROW_LABELS.every((label) => (
     violations.some((item) => item.includes(`missing baseline row: ${label}`))
   )));

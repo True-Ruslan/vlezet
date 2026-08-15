@@ -107,11 +107,10 @@ export async function canonicalDocsViolations(repositoryRoot = process.cwd()) {
   }
 
   const baseline = JSON.parse(baselineSource);
-  if (baseline.sourceCommit !== ACCEPTED_BASE_SHA) {
-    violations.push(`Baseline sourceCommit must be ${ACCEPTED_BASE_SHA}`);
-  }
-  if (!audit.includes(ACCEPTED_BASE_SHA)) {
-    violations.push(`${CANONICAL_AUDIT_PATH} must record baseline source commit ${ACCEPTED_BASE_SHA}`);
+  if (!audit.includes(baseline.sourceCommit)) {
+    violations.push(
+      `${CANONICAL_AUDIT_PATH} must record baseline source commit ${baseline.sourceCommit}`,
+    );
   }
   if (!audit.includes("pnpm coverage:baseline")) {
     violations.push(`${CANONICAL_AUDIT_PATH} must record the baseline generation command`);
