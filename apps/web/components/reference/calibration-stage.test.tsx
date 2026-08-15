@@ -60,6 +60,42 @@ describe("precision calibration stage", () => {
     expect(html).toContain("translate(20px, 30px) scale(0.5)");
   });
 
+  it("renders an empty loaded calibration from the default ephemeral stage state", () => {
+    const html = renderToStaticMarkup(
+      <PrecisionCalibrationStage
+        image={image}
+        error={null}
+        draft={{ pointA: null, pointB: null }}
+        onChange={() => {}}
+      />,
+    );
+
+    expect(html).toContain("translate(0px, 0px) scale(1)");
+    expect(html).not.toContain("data-calibration-point");
+    expect(html).not.toContain("calibration-line");
+    expect(html).not.toContain("calibration-magnifier-crosshair");
+  });
+
+  it("falls back to the identity viewport and magnifies the active B source point", () => {
+    const html = renderToStaticMarkup(
+      <PrecisionCalibrationStage
+        image={image}
+        error={null}
+        draft={draft}
+        onChange={() => {}}
+        initialState={{
+          ...INITIAL_CALIBRATION_STAGE_STATE,
+          viewport: null,
+          activeHandle: "b",
+        }}
+      />,
+    );
+
+    expect(html).toContain("translate(0px, 0px) scale(1)");
+    expect(html).toContain("calibration-magnifier-crosshair");
+    expect(html).toContain("700.00, 100.00");
+  });
+
   it("renders truthful loading and image-error states", () => {
     expect(renderToStaticMarkup(
       <PrecisionCalibrationStage image={null} error={null} draft={{ pointA: null, pointB: null }} onChange={() => {}} />,
