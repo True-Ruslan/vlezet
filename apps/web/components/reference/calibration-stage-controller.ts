@@ -37,6 +37,7 @@ export type CalibrationStageSnapshot = Readonly<{
   activeHandle: CalibrationHandle | null;
   draggingHandle: CalibrationHandle | null;
   activeCandidateId: string | null;
+  hoverPoint: Point2 | null;
   snapEnabled: boolean;
   panning: CalibrationStagePanState | null;
   spacePressed: boolean;
@@ -47,6 +48,7 @@ export const INITIAL_CALIBRATION_STAGE_STATE: CalibrationStageSnapshot = Object.
   activeHandle: null,
   draggingHandle: null,
   activeCandidateId: null,
+  hoverPoint: null,
   snapEnabled: true,
   panning: null,
   spacePressed: false,
@@ -115,6 +117,7 @@ export type CalibrationStageHandlers = Readonly<{
   onPointerMove: (event: CalibrationStagePointerEventLike) => void;
   onPointerUp: (event: CalibrationStagePointerEventLike) => void;
   onPointerCancel: (event: CalibrationStagePointerEventLike) => void;
+  onPointerLeave: () => void;
   onKeyDown: (event: CalibrationStageKeyDownEventLike) => void;
   onKeyUp: (event: CalibrationStageKeyUpEventLike) => void;
   onSnapChange: (event: CalibrationStageSnapChangeEventLike) => void;
@@ -148,6 +151,17 @@ function clampImagePoint(
     delta: { x: 0, y: 0 },
     naturalSize: { width: sourceImage.naturalWidth, height: sourceImage.naturalHeight },
   });
+}
+
+function imagePointForPointer(
+  event: Pick<CalibrationStagePointerEventLike, "clientX" | "clientY" | "currentTarget">,
+  viewport: CalibrationViewportTransform,
+  sourceImage: Readonly<{ naturalWidth: number; naturalHeight: number }>,
+): Point2 {
+  return clampImagePoint(viewportPointToImagePoint({
+    viewportPoint: localPoint(event.currentTarget, { x: event.clientX, y: event.clientY }),
+    transform: viewport,
+  }), sourceImage);
 }
 
 export function createCalibrationStageHandlers(input: Readonly<{
@@ -196,6 +210,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
       ...state,
       activeHandle: handle,
       activeCandidateId: resolved.candidateId,
+      hoverPoint: resolved.point,
     }));
     return resolved;
   };
@@ -205,7 +220,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
     input.setState((state) => ({
       ...state,
       panning: state.panning?.pointerId === event.pointerId ? null : state.panning,
-      draggingHandle: state.draggingHandle === null ? null : null,
+      draggingHandle: null,
     }));
     if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
   };
@@ -253,10 +268,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
       if (event.button !== 0) return;
 
       event.preventDefault();
-      const rawPoint = clampImagePoint(viewportPointToImagePoint({
-        viewportPoint: localPoint(element, { x: event.clientX, y: event.clientY }),
-        transform: viewport,
-      }), input.sourceImage);
+      const rawPoint = imagePointForPointer(event, viewport, input.sourceImage);
       const placement = resolveCalibrationPlacement({
         point: rawPoint,
         pointA: input.draft.pointA,
@@ -271,6 +283,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
         activeHandle: placement.handle,
         draggingHandle: placement.handle,
         activeCandidateId: resolved.candidateId,
+        hoverPoint: resolved.point,
       }));
     },
     onPointerMove(event) {
@@ -291,17 +304,22 @@ export function createCalibrationStageHandlers(input: Readonly<{
         }));
         return;
       }
-      if (input.state.draggingHandle === null) return;
+
+      const rawPoint = imagePointForPointer(event, viewport, input.sourceImage);
+      if (input.state.draggingHandle === null) {
+        input.setState((state) => ({ ...state, hoverPoint: rawPoint }));
+        return;
+      }
 
       event.preventDefault();
-      const rawPoint = clampImagePoint(viewportPointToImagePoint({
-        viewportPoint: localPoint(event.currentTarget, { x: event.clientX, y: event.clientY }),
-        transform: viewport,
-      }), input.sourceImage);
       updateHandle(input.state.draggingHandle, rawPoint, event.altKey);
     },
     onPointerUp: finishPointerGesture,
     onPointerCancel: finishPointerGesture,
+    onPointerLeave() {
+      if (input.state.draggingHandle !== null || input.state.panning !== null) return;
+      input.setState((state) => ({ ...state, hoverPoint: null }));
+    },
     onKeyDown(event) {
       if (event.key === " ") {
         event.preventDefault();
@@ -319,7 +337,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
       if (!placement) return;
       event.preventDefault();
       input.onChange(placement.handle === "a" ? { pointA: placement.point } : { pointB: placement.point });
-      input.setState((state) => ({ ...state, activeCandidateId: null }));
+      input.setState((state) => ({ ...state, activeCandidateId: null, hoverPoint: placement.point }));
     },
     onKeyUp(event) {
       if (event.key !== " ") return;
