@@ -71,12 +71,12 @@ describe("precision calibration stage", () => {
   });
 
   it("reads bounded local raster evidence through the stage feature adapter", () => {
-    const width = 11;
-    const height = 11;
+    const width = 41;
+    const height = 41;
     const rgba = new Uint8ClampedArray(width * height * 4);
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        const value = x < 6 ? 255 : 0;
+        const value = x < 21 ? 255 : 0;
         const offset = (y * width + x) * 4;
         rgba[offset] = value;
         rgba[offset + 1] = value;
