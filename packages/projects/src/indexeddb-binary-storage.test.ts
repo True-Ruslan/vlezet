@@ -90,19 +90,21 @@ async function expectCorruptedAsset(readValue: unknown) {
 
 describe("IndexedDbProjectRepository binary asset persistence", () => {
   it("serializes Blob payloads to ArrayBuffer before writing IndexedDB", async () => {
-    let persisted: Record<string, unknown> | null = null;
+    const capture: { persisted?: Record<string, unknown> } = {};
     const repository = repositoryWithAssetStore({
       onPut: (value) => {
-        persisted = value as Record<string, unknown>;
+        capture.persisted = value as Record<string, unknown>;
       },
     });
 
     await repository.putAsset(asset());
 
-    expect(persisted).not.toBeNull();
+    const persisted = capture.persisted;
+    expect(persisted).toBeDefined();
+    if (!persisted) throw new Error("IndexedDB asset write was not captured.");
     expect(persisted).not.toHaveProperty("blob");
-    expect(persisted?.blobBytes).toBeInstanceOf(ArrayBuffer);
-    expect(Array.from(new Uint8Array(persisted?.blobBytes as ArrayBuffer))).toEqual([1, 2, 3, 4]);
+    expect(persisted.blobBytes).toBeInstanceOf(ArrayBuffer);
+    expect(Array.from(new Uint8Array(persisted.blobBytes as ArrayBuffer))).toEqual([1, 2, 3, 4]);
     expect(persisted).toMatchObject({
       id: "asset-1",
       projectId: "project-1",
