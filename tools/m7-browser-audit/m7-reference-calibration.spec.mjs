@@ -108,22 +108,36 @@ test("keeps magnifier coordinates on the rendered image and persists the calibra
   if (!stageBox || !imageBox) throw new Error("Calibration viewport has no visible bounding boxes.");
   expect(stageBox.height).toBeGreaterThan(imageBox.height + 20);
 
+  await stage.evaluate((node) => {
+    globalThis.__vlezetCalibrationPointer = null;
+    node.addEventListener("pointermove", (event) => {
+      globalThis.__vlezetCalibrationPointer = { x: event.clientX, y: event.clientY };
+    }, { once: true });
+  });
   const hoverX = imageBox.x + imageBox.width * 0.5;
   const hoverY = imageBox.y + imageBox.height * 0.25;
   await page.mouse.move(hoverX, hoverY);
   const magnifier = page.locator(".calibration-magnifier");
   await expect(magnifier).toBeVisible();
-  const naturalSize = await renderedImage.evaluate((node) => ({ width: node.naturalWidth, height: node.naturalHeight }));
-  const expectedBackground = {
-    x: -(naturalSize.width * 0.5) * 2 + 52,
-    y: -(naturalSize.height * 0.25) * 2 + 52,
-  };
+  const deliveredPointer = await page.evaluate(() => globalThis.__vlezetCalibrationPointer);
+  if (!deliveredPointer) throw new Error("Calibration stage did not receive the pointer move.");
+  const expectedBackground = await renderedImage.evaluate((node, pointer) => {
+    const rect = node.getBoundingClientRect();
+    const localX = Math.min(rect.width, Math.max(0, pointer.x - rect.left));
+    const localY = Math.min(rect.height, Math.max(0, pointer.y - rect.top));
+    const imageX = localX / rect.width * node.naturalWidth;
+    const imageY = localY / rect.height * node.naturalHeight;
+    return {
+      x: -imageX * 2 + 52,
+      y: -imageY * 2 + 52,
+    };
+  }, deliveredPointer);
   const actualBackground = await magnifier.evaluate((node) => {
     const [x, y] = node.style.backgroundPosition.split(" ").map(Number.parseFloat);
     return { x, y };
   });
-  expect(actualBackground.x).toBeCloseTo(expectedBackground.x, 0);
-  expect(actualBackground.y).toBeCloseTo(expectedBackground.y, 0);
+  expect(actualBackground.x).toBeCloseTo(expectedBackground.x, 5);
+  expect(actualBackground.y).toBeCloseTo(expectedBackground.y, 5);
 
   await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * 0.8);
   await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * 0.2);
