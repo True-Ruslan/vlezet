@@ -1,7 +1,7 @@
 # P0 IndexedDB persistence and failure-path remediation
 
 **Date:** 2026-08-15  
-**Status:** PRODUCT-OWNER ACCEPTED in PR #90. Technical evidence, coverage ratchet and exact-head delivery gates are GREEN. Protected squash integration and post-merge verification remain pending.
+**Status:** PRODUCT-OWNER ACCEPTED in PR #90. Technical evidence and coverage ratchet are complete. Canonical acceptance truth is synchronized; fresh exact-head CI, Chromium/WebKit and CodeQL on the final documentation head are the remaining pre-merge gates, followed by protected squash integration and post-merge verification.
 
 ## Goal
 
@@ -191,11 +191,11 @@ Product-owner acceptance:
 2026-08-15 — PASS — «Принимаю P0»
 ```
 
-This acceptance authorizes the normal protected integration sequence. It does not by itself prove the documentation-only acceptance head or the eventual squash-merged `main` commit; those identities are verified separately.
+Canonical acceptance truth is synchronized across `docs/PROJECT_STATE.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md` and `docs/testing/TEST_COVERAGE_AUDIT.md`. This documentation-only sync necessarily advances the PR head beyond the accepted implementation/policy SHA; it does not alter runtime behavior.
 
 ## Remaining integration gate
 
-1. obtain fresh exact-head CI + Chromium/WebKit + CodeQL after this acceptance truth sync;
+1. obtain fresh exact-head CI + Chromium/WebKit + CodeQL on the final acceptance-documentation head;
 2. mark PR #90 Ready only when those checks are GREEN;
 3. protected squash merge with expected-head protection;
 4. verify post-merge CI + CodeQL on `main`;
