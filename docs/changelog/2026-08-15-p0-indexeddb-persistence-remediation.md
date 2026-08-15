@@ -1,7 +1,7 @@
 # P0 IndexedDB persistence and failure-path remediation
 
 **Date:** 2026-08-15  
-**Status:** TECHNICALLY COMPLETE in Draft PR #90. Exact-head CI, Chromium, WebKit and CodeQL are green. Product-owner acceptance and protected integration remain pending.
+**Status:** PRODUCT-OWNER ACCEPTED in PR #90. Technical evidence, coverage ratchet and exact-head delivery gates are GREEN. Protected squash integration and post-merge verification remain pending.
 
 ## Goal
 
@@ -120,7 +120,8 @@ Several red checkpoints were deliberately not classified as product defects:
 3. test-only TypeScript narrowing and selector/reload-state expectations were corrected without runtime changes;
 4. a magnifier assertion initially assumed engine-identical CSS-pixel rounding; the test was aligned to the pointer coordinates actually delivered by the browser rather than weakening product geometry;
 5. WebKit cannot construct the historical raw Blob fixture used to model pre-remediation storage, so browser authority was split explicitly instead of adding a skip, retry or fake store;
-6. GitHub browser jobs occasionally spent long periods in browser installation before tests started; those runs are runner/network evidence, not product verdicts.
+6. GitHub browser jobs occasionally spent long periods in browser installation before tests started; those runs are runner/network evidence, not product verdicts;
+7. the final coverage ratchet exposed a Phase A policy-maintenance defect: the docs-policy contract incorrectly treated the original Phase A baseline SHA as immutable although the approved generator supports later measured ratchets. RED `760b0f21179a23bdd8199491a98bc7a2efa08734` proved the defect; GREEN `366ad1f880d5866264e94388412c6dfabf37f83b` follows generated `baseline.sourceCommit` without weakening thresholds, measured cells or workspace checks.
 
 ## Safety boundaries preserved
 
@@ -137,43 +138,65 @@ Several red checkpoints were deliberately not classified as product defects:
 - project/document authority and M8.2 geometry semantics are unchanged;
 - validation remains strict; only validation failures originating from persisted reads are translated to stable storage/recovery errors.
 
-## Final technical evidence before canonical truth sync
+## Product-owner accepted technical evidence
 
-Exact technical head:
-
-```text
-25bf1dea0b823dbec92538cf06f9c178581b5424
-```
-
-Gates:
+Accepted implementation/policy head:
 
 ```text
-CI #5159:                    PASS
-  documentation contract:   PASS
-  unit:                     PASS
-  coverage:                 PASS
-  testing policy:           PASS
-  Recognition Benchmark:    PASS
-  typecheck:                PASS
-  lint:                     PASS
-  build:                    PASS
-CodeQL #512:                PASS
-  javascript-typescript:    PASS
-  actions:                  PASS
-Browser Acceptance #1606:   PASS
-  Chromium:                 65/65 PASS, workers=1, retries=0
-  WebKit:                   57/57 PASS, workers=1, retries=0
-browser artifact:           9245027204
-artifact SHA-256:           6a841f0f21bef3df7e7afbe3eac9094b4e1385218b423904efc2f0213bce026b
+366ad1f880d5866264e94388412c6dfabf37f83b
 ```
 
-This proves the implementation is technically green. It does **not** constitute product-owner acceptance or protected integration.
+Exact-head gates before acceptance truth sync:
 
-## Remaining gate
+```text
+CI #5167 / run 31889155829:  PASS
+  documentation contract:    PASS
+  unit tests:                PASS
+  coverage:                  PASS
+  testing policy:            PASS
+  recognition benchmark:     PASS
+  typecheck:                 PASS
+  lint:                      PASS
+  build:                     PASS
+CodeQL #527 / run 31889153986: PASS
+Browser Acceptance #1614 / run 31889155832: PASS
+  Chromium:                  65/65 PASS
+  WebKit:                    57/57 PASS
+  workers:                   1
+  retries:                   0
+browser artifact:            9248180775
+artifact SHA-256:            58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75
+unresolved review threads:   0
+reviews/requested changes:   0
+```
 
-Before PR #90 may leave Draft or merge:
+Measured ratchet:
 
-1. synchronize canonical `PROJECT_STATE`, `ROADMAP`, `CHANGELOG` and `TEST_COVERAGE_AUDIT` truth;
-2. obtain fresh exact-head CI + Chromium/WebKit + CodeQL after that documentation sync;
-3. obtain explicit product-owner acceptance;
-4. only then mark the PR ready and perform protected integration under the repository's normal merge discipline.
+```text
+repository:        lines 5850/9306 (62.86%)
+                   statements 6674/11248 (59.33%)
+                   functions 1541/2489 (61.91%)
+                   branches 4068/7733 (52.61%)
+packages/projects: lines 384/446 (86.10%)
+                   statements 416/507 (82.05%)
+                   functions 111/114 (97.37%)
+                   branches 212/323 (65.63%)
+indexeddb.ts:      100% lines/statements/functions/branches
+indexeddb-schema:  100% lines/statements/functions/branches
+```
+
+Product-owner acceptance:
+
+```text
+2026-08-15 — PASS — «Принимаю P0»
+```
+
+This acceptance authorizes the normal protected integration sequence. It does not by itself prove the documentation-only acceptance head or the eventual squash-merged `main` commit; those identities are verified separately.
+
+## Remaining integration gate
+
+1. obtain fresh exact-head CI + Chromium/WebKit + CodeQL after this acceptance truth sync;
+2. mark PR #90 Ready only when those checks are GREEN;
+3. protected squash merge with expected-head protection;
+4. verify post-merge CI + CodeQL on `main`;
+5. only after protected integration is verified may M8.3 Precision Reference Calibration begin.
