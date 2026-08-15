@@ -25,8 +25,8 @@ DONE        M8.0 Public Beta Product Contract / roadmap reset
 DONE        M8.1 Editor Interaction Foundation
 DONE        M8.2 Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
 DONE        Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
-ACCEPTED    P0 IndexedDB persistence/failure-path remediation — PR #90; protected integration pending
-NEXT        M8.3 Precision Reference Calibration — after P0 protected integration + post-merge verification
+DONE        P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
+NOW         M8.3 Precision Reference Calibration
 THEN        M8.4 Assisted Tracing
 THEN        M8.5 Furniture + Materials 2.0
 THEN        M8.6 Export + Presentation
@@ -39,9 +39,9 @@ M8.1 is product-owner accepted and protected squash-merged into `main` as `867ec
 
 M8.2 is product-owner accepted and protected squash-merged into `main` as `e323e331a435ae356b91decbdea80dde95028d8a`; canonical acceptance record: `docs/milestones/m8-2-acceptance.md`.
 
-Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. The measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard, evidence artifacts and debt registry are now blocking engineering infrastructure rather than an in-development branch experiment.
+Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. The measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard, evidence artifacts and debt registry are blocking engineering infrastructure.
 
-The first explicit P0 debt item, `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`, is technically remediated and explicitly product-owner accepted in PR #90. Accepted implementation/policy head `366ad1f880d5866264e94388412c6dfabf37f83b` passed CI #5167, Browser Acceptance #1614 (Chromium 65/65, WebKit 57/57, retries 0) and CodeQL #527 before acceptance truth-sync. Protected integration and post-merge verification remain pending. M8.3 starts only after those repository gates complete.
+P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is closed. PR #90 was product-owner accepted and protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`; post-merge CI #5175 and CodeQL #535 are GREEN. Its accepted coverage ratchet and persistence-recovery semantics are now active on `main`. M8.3 is therefore unblocked and becomes the active beta-critical product milestone.
 
 Market research makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -214,9 +214,9 @@ Canonical contracts:
 
 ### P0 IndexedDB persistence / failure-path remediation
 
-Status: **TECHNICALLY COMPLETE / PRODUCT-OWNER ACCEPTED / PR #90 / PROTECTED INTEGRATION PENDING**.
+Status: **DONE / PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED / POST-MERGE VERIFIED**. PR: #90. Merge: `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`.
 
-Debt: `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`.
+Debt: `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` — **CLOSED**.
 
 Delivered behavior/evidence:
 
@@ -232,86 +232,102 @@ Delivered behavior/evidence:
 - no database version/store/index change;
 - no fake IndexedDB, memory substitute, production test hook, skip, fixme, retry or threshold weakening.
 
-Product-owner accepted implementation/policy evidence:
+Final evidence:
 
 ```text
-head:                         366ad1f880d5866264e94388412c6dfabf37f83b
-CI #5167 / run 31889155829:  PASS
-CodeQL #527 / run 31889153986: PASS
-Browser Acceptance #1614 / run 31889155832: PASS
-  Chromium:                  65/65 PASS
-  WebKit:                    57/57 PASS
-  workers:                   1
-  retries:                   0
-browser artifact:            9248180775
-artifact digest:             sha256:58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75
-product-owner acceptance:    PASS — 2026-08-15 — «Принимаю P0»
+accepted implementation/policy head: 366ad1f880d5866264e94388412c6dfabf37f83b
+final acceptance head:                8d2df0f442fed9193f256a41d7612750c312dda2
+CI #5174:                             PASS
+Browser Acceptance #1621:             PASS — Chromium 65/65, WebKit 57/57
+CodeQL #534:                           PASS
+protected squash merge:               7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
+post-merge CI #5175:                  PASS
+post-merge CodeQL #535:                PASS
+product-owner acceptance:              PASS — 2026-08-15 — «Принимаю P0»
 ```
 
 Focused record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.md`.
 
-Acceptance truth-sync creates a later docs-only head. Fresh exact-head delivery verification is mandatory before PR #90 leaves Draft; after that the only remaining steps are protected squash integration and post-merge CI + CodeQL verification. CI alone did not create product acceptance; the product owner did.
-
 ### M8.3 — Precision Reference Calibration
 
-Status: **PLANNED / NEXT AFTER P0 PROTECTED INTEGRATION**. Tracker: #57.
+Status: **NOW / ACTIVE**. Tracker: #57.
+
+Why this precedes Assisted Tracing: image-assisted geometry is only trustworthy when image-to-world scale itself is auditable. World-grid snapping cannot solve calibration because millimetre authority is not yet known during the calibration gesture.
 
 Planned outcomes:
 
-- calibration pan/zoom;
-- stronger magnifier/crosshair;
-- source edge/line-centre/intersection snapping;
+- calibration-specific pan/zoom interaction;
+- stronger magnifier and crosshair;
+- source-image edge, line-centre and intersection snapping;
 - keyboard nudge;
-- fractional image coordinates where justified;
+- fractional image coordinates where source quality justifies them;
+- explicit temporary snap disable;
 - second known-distance verification;
-- visible residual/error and distortion warning;
-- no false claim of precision beyond raster/source quality.
+- visible residual/error evidence;
+- distortion/perspective warning when dimensions disagree materially;
+- reference lock only after a valid calibration;
+- no false precision claim beyond raster/source quality.
 
-Market evidence reinforces M8.3 rather than changing its architecture: background/blueprint tracing is a standard mature-planner journey and requires trustworthy calibration before any assistance is allowed to feel precise.
+TDD requirements:
+
+- deterministic source-feature fixtures;
+- transform/image-coordinate round-trip contracts;
+- genuine RED before behavior implementation;
+- browser evidence for real pointer/magnifier/keyboard behavior;
+- current testing-policy risk classification and coverage gates;
+- canonical focused changelog before acceptance.
 
 ### M8.4 — Assisted Tracing
 
 Tracker: #51.
 
-Optional high-confidence source-image snapping inside normal wall/door/window tools after M8.3. Explicit user intent and existing topology remain stronger than source-image assistance. Ambiguity abstains. No AI/network dependency required.
+After M8.3, normal wall/door/window tools may optionally use high-confidence source-image assistance.
 
-Any traced/recognized result must become ordinary editable Vlezet geometry. AI/image assistance accelerates the normal editor; it may never create a parallel opaque plan state.
+Rules:
+
+- explicit user intent wins;
+- existing topology/host semantics win;
+- ambiguous image evidence abstains;
+- no AI/network dependency is required;
+- traced output is ordinary editable Vlezet geometry;
+- assistance may never create a second authoritative plan state.
+
+The earlier Assisted Tracing design PR #52 remains closed without merge; useful concepts are retained, but implementation must be revalidated against the accepted editor/calibration substrate.
 
 ### M8.5 — Furniture + Materials 2.0
 
-Planned outcomes:
-
-- scalable parameterised household furniture/appliance/sanitary catalogue;
-- catalogue/preset definitions separated from placed document instances;
-- direct physical resize/rotation on Canvas;
+- scalable parameterised furniture/appliance catalogue;
+- definition/preset data separated from placed instances;
+- direct physical resize and rotation;
 - live dimensions;
-- richer wall/alignment snapping;
-- multi-selection alignment/distribution;
+- richer snapping/alignment/distribution;
+- specialist wall-relative actions where they prove useful;
 - material/texture groundwork;
-- inspector retained for exact numeric editing;
+- inspector remains authority for exact numeric editing;
 - user-imported assets only after explicit persistence/versioning design.
-
-This milestone targets useful breadth and scalable architecture, not immediate catalogue-count parity with mature commercial planners.
 
 ### M8.6 — Export + Presentation
 
-Planned outcomes:
-
-- renderer-neutral export model;
-- PNG + SVG;
-- PDF after vector/export semantics are stable if low risk;
-- whole plan + selection export;
-- reference/background/presentation options;
-- dimensions/furniture/zones visibility controls;
+- renderer-neutral `ExportScene` or equivalent authority-neutral export model;
+- deterministic PNG + SVG;
+- PDF later if low-risk after vector semantics are stable;
+- whole-plan and selection export;
+- presentation/background/reference visibility controls;
+- transparent PNG;
 - high-resolution deterministic output;
-- application theme separated from canonical plan appearance;
-- architecture prepared for later 3D/share output without making it a beta blocker.
+- plan appearance separate from application theme.
 
 ### M8.7 — Public Beta Hardening
 
-Complete accessibility/responsive/performance/recovery/documentation hardening across the beta-critical path. Tablet basic usability is desirable; full phone/tablet editing parity is not a public-beta blocker.
+- accessibility;
+- responsive behavior;
+- performance;
+- persistence/recovery hardening;
+- user-facing documentation;
+- representative Chromium/WebKit journey evidence;
+- basic tablet usability desirable, full phone/tablet parity not a beta blocker.
 
-## Public beta acceptance journeys
+Public-beta acceptance journeys:
 
 ```text
 BETA-01 Blank
@@ -321,89 +337,26 @@ BETA-04 Furnish
 BETA-05 Export
 ```
 
-No public beta until all five journeys have deterministic/unit coverage where possible plus representative Chromium/WebKit browser evidence and no known document-integrity blocker.
+No public beta until all five journeys have deterministic/unit coverage where possible, representative browser evidence and no known document-integrity blocker.
 
-M8.1 materially advances `BETA-03`; M8.2 is the structural foundation for `BETA-01`; M8.3/M8.4 complete the beta-critical `BETA-02` reference/tracing journey.
+## Recognition R&D boundary
 
-## Implementation research rule
+M7.8C+ automatic whole-plan recognition remains stopped as a product path because real-plan usefulness failed even when automation metrics looked good. PRs #42, #44 and #45 were closed without merge.
 
-For material new editor behavior:
+Issue #27 remains open as R&D only. Any future recognition work must prove product usefulness on real-plan evidence and must preserve manual editing as the correction path.
 
-```text
-relevant mature-product UX review
-→ relevant open-source code/architecture review where useful
-→ explicit Vlezet contract and authority boundaries
-→ license/adoption note
-→ genuine focused RED
-→ minimal implementation
-→ focused/full/browser GREEN
-→ product-owner acceptance
-```
+## Delivery rule for new editor behavior
 
-Preferred current references:
+1. inspect mature-product UX references;
+2. inspect relevant open-source implementations only when useful;
+3. write the explicit Vlezet authority/behavior contract;
+4. record license/source note before adopting external implementation ideas;
+5. create genuine RED evidence;
+6. implement the smallest authority-preserving change;
+7. focused tests -> full CI -> required Chromium/WebKit evidence;
+8. product-owner acceptance;
+9. protected integration and post-merge verification.
 
-- UX/product: RoomPlan first; Planner 5D, Floorplanner, RoomSketcher, Planoplan as deeper references;
-- code/architecture: `charmlinn/blueprint3d-modern`, `fedepaj/arcada-planner`, `cvdlab/react-planner`, `floorplanner/polygon-tools` where relevant;
-- Sweet Home 3D: behavior/architecture reference with GPL caution, not a default code-copy source.
+Preferred UX benchmark: RoomPlan first; Planner 5D, Floorplanner, RoomSketcher and Planoplan as secondary references.
 
-No external implementation may become geometry/history authority merely because it is mature or open-source.
-
-## Mandatory TDD delivery rule
-
-Every deterministic M8 behaviour:
-
-```text
-contract
-→ focused failing test (RED)
-→ verify intended failure
-→ minimal correct implementation
-→ focused GREEN
-→ adjacent/full regression
-→ refactor while green
-→ reviewable commit
-```
-
-Forbidden:
-
-- weakening existing validation/tests/thresholds merely for green CI;
-- treating a pre-existing passing test as RED evidence;
-- replacing real browser interaction tests with source-string assertions where behavior can be exercised directly;
-- hiding browser incompatibility with unregistered skip/fixme/retry;
-- claiming product acceptance from CI alone.
-
-## Mandatory CHANGELOG rule
-
-Every accepted M8 slice must maintain:
-
-- focused `docs/changelog/YYYY-MM-DD-<slice>.md`;
-- concise `docs/CHANGELOG.md` entry;
-- truthful canonical `PROJECT_STATE`/roadmap sync;
-- final merge identity only after GitHub reports the protected integration.
-
-Focused history must explain why, user-visible behaviour, architecture boundaries, meaningful RED/GREEN evidence, regressions fixed, intentional deferrals, exact-head automated evidence, product-owner acceptance and merge identity.
-
-## Deliberate pre-beta non-goals
-
-- realtime collaboration;
-- mandatory accounts/cloud sync;
-- generic diagram shapes/arrows/freehand/rich text parity;
-- plugin ecosystem;
-- automatic whole-plan reconstruction as a release gate;
-- autonomous AI layout design;
-- photorealistic 3D;
-- BIM/DXF/DWG as beta gates;
-- arbitrary user layer stacks;
-- full phone/tablet editor parity;
-- matching competitor catalogue counts before interaction quality is accepted.
-
-## Evidence-supported post-beta directions
-
-After public-beta manual/editor trust is established, current market evidence supports evaluating:
-
-- richer deterministic 3D and walkthrough/presentation parity;
-- deeper multi-floor workflows;
-- wall elevations/specifications and renovation documentation;
-- structured external exchange such as DXF/FML/IFC after schema maturity;
-- mobile/LiDAR/RoomPlan-style capture as an optional source of ordinary editable geometry.
-
-These are opportunities, not commitments, and may be reprioritized only from user evidence.
+Useful implementation references include MIT-licensed `blueprint3d-modern`, `arcada-planner`, `react-planner` and `floorplanner/polygon-tools`; Sweet Home 3D may inform architecture/behavior but GPL code must not be copied into Vlezet without an explicit licensing decision.
