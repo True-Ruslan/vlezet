@@ -3,8 +3,9 @@ import { expect, test } from "./fixtures.mjs";
 const DB_NAME = "vlezet";
 const SETUP_PATH = "/__playwright-idb-setup";
 const NOW = "2026-08-15T00:00:00.000Z";
-const PNG_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
-const PNG_BYTE_LENGTH = 68;
+const PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+const PNG_BYTES = Buffer.from(PNG_BASE64, "base64");
+const PNG_BYTE_LENGTH = PNG_BYTES.length;
 const EMPTY_DOCUMENT = {
   schemaVersion: 3,
   vertices: [],
@@ -77,10 +78,18 @@ async function openStorageSetupPage(page) {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
-      body: "<!doctype html><html><body>IndexedDB test setup</body></html>",
+      body: "<!doctype html><html><body>IndexedDB test setup<input id=\"idb-asset-file\" type=\"file\" /></body></html>",
     });
   });
   await page.goto(SETUP_PATH);
+}
+
+async function installAssetFile(page) {
+  await page.setInputFiles("#idb-asset-file", {
+    name: "reference.png",
+    mimeType: "image/png",
+    buffer: PNG_BYTES,
+  });
 }
 
 async function leaveStorageSetupPage(page) {
@@ -119,19 +128,19 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
       await transactionDone(metadataTransaction, "IndexedDB legacy metadata seed failed");
 
       if (assetInput && targetVersion >= 2) {
-        const response = await fetch(assetInput.dataUrl);
-        if (!response.ok) throw new Error(`IndexedDB legacy asset source failed: HTTP ${response.status}`);
-        const blob = await response.blob();
-        if (blob.type !== assetInput.mimeType) throw new Error(`IndexedDB legacy asset MIME mismatch: ${blob.type}`);
+        const input = document.querySelector("#idb-asset-file");
+        const file = input?.files?.[0];
+        if (!(file instanceof File)) throw new Error("IndexedDB legacy asset file was not installed");
+        if (file.type !== assetInput.mimeType) throw new Error(`IndexedDB legacy asset MIME mismatch: ${file.type}`);
         const assetTransaction = database.transaction("assets", "readwrite");
         const put = assetTransaction.objectStore("assets").put({
           id: assetInput.id,
           projectId: assetInput.projectId,
           kind: "reference-raster",
           mimeType: assetInput.mimeType,
-          byteLength: blob.size,
+          byteLength: file.size,
           createdAt: assetInput.createdAt,
-          blob,
+          blob: file,
         });
         put.onerror = () => {
           throw new Error(`IndexedDB legacy asset put failed: ${put.error?.name ?? "UnknownError"}: ${put.error?.message ?? "unknown request error"}`);
@@ -177,20 +186,21 @@ async function seedCurrentDatabase(page, { projects, assets = [], settings = [] 
       for (const setting of storedSettings) settingsStore.put(setting);
       await transactionDone(metadataTransaction, "IndexedDB current metadata seed failed");
 
+      const input = document.querySelector("#idb-asset-file");
+      const file = input?.files?.[0];
+      if (storedAssets.length > 0 && !(file instanceof File)) throw new Error("IndexedDB current asset file was not installed");
+
       for (const asset of storedAssets) {
-        const response = await fetch(asset.dataUrl);
-        if (!response.ok) throw new Error(`IndexedDB current asset source failed: HTTP ${response.status}`);
-        const blob = await response.blob();
-        if (blob.type !== asset.mimeType) throw new Error(`IndexedDB current asset MIME mismatch: ${blob.type}`);
+        if (file.type !== asset.mimeType) throw new Error(`IndexedDB current asset MIME mismatch: ${file.type}`);
         const assetTransaction = database.transaction("assets", "readwrite");
         const put = assetTransaction.objectStore("assets").put({
           id: asset.id,
           projectId: asset.projectId,
           kind: "reference-raster",
           mimeType: asset.mimeType,
-          byteLength: blob.size,
+          byteLength: file.size,
           createdAt: asset.createdAt,
-          blob,
+          blob: file,
         });
         put.onerror = () => {
           throw new Error(`IndexedDB current asset put failed: ${put.error?.name ?? "UnknownError"}: ${put.error?.message ?? "unknown request error"}`);
@@ -376,9 +386,9 @@ test("upgrades a native v2 database to v3 without losing project, setting, or as
     projectId: project.id,
     mimeType: "image/png",
     createdAt: NOW,
-    dataUrl: PNG_DATA_URL,
   };
   await openStorageSetupPage(page);
+  await installAssetFile(page);
   await seedLegacyDatabase(page, { version: 2, project, asset });
   await leaveStorageSetupPage(page);
 
@@ -470,10 +480,11 @@ test("persists project edits and last-project navigation through the real UI", a
 test("deleting one project removes only its own assets and preserves unrelated state", async ({ page }) => {
   const projectA = legacyV2Project("project-a", "Project A");
   const projectB = legacyV2Project("project-b", "Project B");
-  const assetA = { id: "asset-a", projectId: projectA.id, mimeType: "image/png", createdAt: NOW, dataUrl: PNG_DATA_URL };
-  const assetB = { id: "asset-b", projectId: projectB.id, mimeType: "image/png", createdAt: NOW, dataUrl: PNG_DATA_URL };
+  const assetA = { id: "asset-a", projectId: projectA.id, mimeType: "image/png", createdAt: NOW };
+  const assetB = { id: "asset-b", projectId: projectB.id, mimeType: "image/png", createdAt: NOW };
 
   await openStorageSetupPage(page);
+  await installAssetFile(page);
   await seedCurrentDatabase(page, {
     projects: [projectA, projectB],
     assets: [assetA, assetB],
