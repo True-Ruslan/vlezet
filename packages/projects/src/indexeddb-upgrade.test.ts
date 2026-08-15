@@ -26,7 +26,6 @@ function factoryForUpgrade(input: Readonly<{
   existingStores?: readonly string[];
   existingIndexes?: Readonly<Record<string, readonly string[]>>;
 }>) {
-  let readTransaction: IDBTransaction;
   const stores = new Map<string, { value: IDBObjectStore; createIndex: ReturnType<typeof vi.fn> }>();
 
   const makeStore = (indexes: readonly string[] = []) => {
@@ -51,17 +50,7 @@ function factoryForUpgrade(input: Readonly<{
     return { value, createIndex };
   };
 
-  for (const storeName of input.existingStores ?? []) {
-    stores.set(storeName, makeStore(input.existingIndexes?.[storeName] ?? []));
-  }
-
-  const createObjectStore = vi.fn((storeName: string) => {
-    const created = makeStore();
-    stores.set(storeName, created);
-    return created.value;
-  });
-  const close = vi.fn();
-  readTransaction = {
+  const readTransaction = {
     oncomplete: null,
     onabort: null,
     onerror: null,
@@ -72,6 +61,17 @@ function factoryForUpgrade(input: Readonly<{
       return store.value;
     },
   } as unknown as IDBTransaction;
+
+  for (const storeName of input.existingStores ?? []) {
+    stores.set(storeName, makeStore(input.existingIndexes?.[storeName] ?? []));
+  }
+
+  const createObjectStore = vi.fn((storeName: string) => {
+    const created = makeStore();
+    stores.set(storeName, created);
+    return created.value;
+  });
+  const close = vi.fn();
   const upgradeTransaction = {
     objectStore(storeName: string) {
       const store = stores.get(storeName);
