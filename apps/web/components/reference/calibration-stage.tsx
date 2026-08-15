@@ -75,7 +75,7 @@ function activePoint(
 
 function magnifierStyle(image: HTMLImageElement, point: Point2) {
   const zoom = 2;
-  const radius = 55;
+  const radius = 52;
   return {
     backgroundImage: `url("${image.src}")`,
     backgroundSize: `${image.naturalWidth * zoom}px ${image.naturalHeight * zoom}px`,
@@ -101,7 +101,7 @@ export function PrecisionCalibrationStage({
   const viewport = stageState.viewport ?? DEFAULT_VIEWPORT;
   const pointAViewport = draft.pointA === null ? null : markerPosition(draft.pointA, viewport);
   const pointBViewport = draft.pointB === null ? null : markerPosition(draft.pointB, viewport);
-  const magnifiedPoint = activePoint(stageState.activeHandle, draft);
+  const magnifiedPoint = activePoint(stageState.activeHandle, draft) ?? stageState.hoverPoint;
   const handlers = createCalibrationStageHandlers({
     state: stageState,
     setState: setStageState,
@@ -142,6 +142,7 @@ export function PrecisionCalibrationStage({
         onPointerMove={handlers.onPointerMove}
         onPointerUp={handlers.onPointerUp}
         onPointerCancel={handlers.onPointerCancel}
+        onPointerLeave={handlers.onPointerLeave}
         onKeyDown={handlers.onKeyDown}
         onKeyUp={handlers.onKeyUp}
       >
@@ -212,6 +213,7 @@ export function PrecisionCalibrationStage({
                 background: "linear-gradient(90deg, transparent 48%, #1769ff 49%, #1769ff 51%, transparent 52%), linear-gradient(0deg, transparent 48%, #1769ff 49%, #1769ff 51%, transparent 52%)",
               }}
             />
+            <span className="calibration-magnifier-coordinate">{pointText(magnifiedPoint)}</span>
           </div>
         ) : null}
       </div>
