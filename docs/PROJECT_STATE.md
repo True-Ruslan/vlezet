@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-15  
-**Status:** M0–M8.2 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged into `main` as `cc594bae218e9e16724d7574f48be8886852e7ad`. The P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation is technically complete and exact-head GREEN in Draft PR #90, but product-owner acceptance and protected integration are still pending. The next product milestone remains M8.3 Precision Reference Calibration after P0 protected integration.  
+**Status:** M0–M8.2 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged into `main` as `cc594bae218e9e16724d7574f48be8886852e7ad`. The P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation is technically complete and explicitly product-owner accepted in PR #90; fresh acceptance-head delivery verification, protected integration and post-merge verification remain pending. The next product milestone remains M8.3 Precision Reference Calibration after P0 protected integration.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, `docs/testing/TESTING_POLICY.md`, `docs/testing/TEST_COVERAGE_AUDIT.md`, the latest focused changelog and the active design/plan.
 
@@ -202,7 +202,7 @@ Blocking policy includes:
 
 ### P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`
 
-Status: **TECHNICALLY REMEDIATED in Draft PR #90; product-owner acceptance and protected integration pending.**
+Status: **TECHNICALLY REMEDIATED / PRODUCT-OWNER ACCEPTED in PR #90; protected integration and post-merge verification pending.**
 
 The remediation proved native IndexedDB lifecycle/failure behavior and found real persisted-read boundary defects. Persisted project/asset corruption is now translated into stable `ProjectStorageError` recovery semantics while direct writes retain strict domain validation.
 
@@ -214,35 +214,38 @@ Browser authority is explicit rather than hidden behind retries/skips:
 - Chromium + WebKit prove current ArrayBuffer-backed real reference import/save/reload/hydration, v1/v2 metadata upgrades, project lifecycle/cascade and corruption recovery;
 - workers remain `1`, retries remain `0`.
 
-Pre-canonical-sync technical checkpoint:
+Product-owner accepted implementation/policy checkpoint before acceptance-doc sync:
 
 ```text
-technical head:              25bf1dea0b823dbec92538cf06f9c178581b5424
-CI #5159:                    PASS
-CodeQL #512:                 PASS
-Browser Acceptance #1606:    PASS
-  Chromium:                  65/65 PASS
-  WebKit:                    57/57 PASS
-browser artifact:            9245027204
-artifact digest:             sha256:6a841f0f21bef3df7e7afbe3eac9094b4e1385218b423904efc2f0213bce026b
+accepted implementation/policy head: 366ad1f880d5866264e94388412c6dfabf37f83b
+CI #5167 / run 31889155829:          PASS
+CodeQL #527 / run 31889153986:       PASS
+Browser Acceptance #1614:           PASS
+  Chromium:                           65/65 PASS
+  WebKit:                             57/57 PASS
+  workers:                            1
+  retries:                            0
+browser artifact:                    9248180775
+artifact digest:                     sha256:58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75
+product-owner acceptance:            PASS — 2026-08-15 — «Принимаю P0»
 ```
 
 Focused record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.md`.
 
-These results establish technical completion only. PR #90 remains Draft until explicit product-owner acceptance, and no protected merge may be inferred from CI.
+Acceptance truth-sync creates a later documentation-only head, so fresh exact-head CI + Chromium/WebKit + CodeQL remain mandatory before PR #90 leaves Draft. Product acceptance is already explicit; CI is now proving the final repository candidate only.
 
 ## 8. Current programme sequencing
 
 ```text
-DONE  M8.1  Editor Interaction Foundation
-DONE  M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
-DONE  Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
-NOW   P0 IndexedDB persistence/failure-path remediation — technically GREEN in Draft PR #90; acceptance/integration pending
-NEXT  M8.3  Precision Reference Calibration — begin only after P0 protected integration
-THEN  M8.4  Assisted Tracing
-THEN  M8.5  Furniture + Materials 2.0
-THEN  M8.6  Export + Presentation
-THEN  M8.7  Public Beta Hardening
+DONE      M8.1  Editor Interaction Foundation
+DONE      M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
+DONE      Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
+ACCEPTED  P0 IndexedDB persistence/failure-path remediation — PR #90; protected integration pending
+NEXT      M8.3  Precision Reference Calibration — begin only after P0 protected integration + post-merge verification
+THEN      M8.4  Assisted Tracing
+THEN      M8.5  Furniture + Materials 2.0
+THEN      M8.6  Export + Presentation
+THEN      M8.7  Public Beta Hardening
 TARGET PUBLIC FREE BETA
 ```
 
