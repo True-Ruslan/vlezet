@@ -2,7 +2,7 @@
 
 import type { Point2 } from "@vlezet/geometry";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   createCalibrationStageHandlers,
   INITIAL_CALIBRATION_STAGE_STATE,
@@ -35,9 +35,9 @@ export type PrecisionCalibrationStageProps = Readonly<{
 }>;
 
 export function currentCalibrationStage(
-  ref: Readonly<{ current: HTMLDivElement | null }>,
+  element: HTMLDivElement | null,
 ): CalibrationStageElementLike | null {
-  return ref.current;
+  return element;
 }
 
 export function calibrationStageFeatureReader(
@@ -90,7 +90,7 @@ export function PrecisionCalibrationStage({
   onChange,
   initialState,
 }: PrecisionCalibrationStageProps) {
-  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageElement, setStageElement] = useState<HTMLDivElement | null>(null);
   const [stageState, setStageState] = useState<CalibrationStageSnapshot>(
     initialState ?? { ...INITIAL_CALIBRATION_STAGE_STATE, viewport: DEFAULT_VIEWPORT },
   );
@@ -107,7 +107,7 @@ export function PrecisionCalibrationStage({
     setState: setStageState,
     draft,
     onChange,
-    stage: currentCalibrationStage.bind(null, stageRef),
+    stage: currentCalibrationStage.bind(null, stageElement),
     sourceImage: image,
     readFeatures: calibrationStageFeatureReader.bind(null, image),
   });
@@ -133,7 +133,7 @@ export function PrecisionCalibrationStage({
       </div>
 
       <div
-        ref={stageRef}
+        ref={setStageElement}
         className="calibration-stage"
         tabIndex={0}
         style={{ height: 300, touchAction: "none" }}
