@@ -43,6 +43,12 @@ test("requires IndexedDB persistence, corruption, and real reference import evid
   assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-corruption.spec.mjs"));
 });
 
+test("keeps native legacy Blob synthesis Chromium-only while WebKit proves current persistence", () => {
+  assert.ok(WEBKIT_SPECS.includes("m7-reference-calibration.spec.mjs"));
+  assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-persistence.spec.mjs"));
+  assert.equal(WEBKIT_SPECS.includes("m8-indexeddb-legacy-blob.spec.mjs"), false);
+});
+
 test("discovers every executable browser spec without a filename registry", async (t) => {
   const fixtureDir = await mkdtemp(join(tmpdir(), "vlezet-browser-policy-"));
   t.after(() => rm(fixtureDir, { recursive: true, force: true }));
