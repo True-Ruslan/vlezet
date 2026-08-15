@@ -2,8 +2,7 @@
 
 import type { Point2 } from "@vlezet/geometry";
 import type { ReferenceAlignment, ReferencePlan } from "@vlezet/projects";
-import Image from "next/image";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   describeReferenceContext,
 } from "../editor/context-panel-contract";
@@ -14,11 +13,7 @@ import {
   type ContextPanelNavigation,
 } from "../editor/context-panel-frame";
 import { parseCalibrationLength } from "./calibration-input";
-import {
-  clientPointToImagePoint,
-  imagePointToContainerPoint,
-  type CalibrationRectangle,
-} from "./calibration-viewport";
+import { PrecisionCalibrationStage } from "./calibration-stage";
 import { inspectReferenceFile, ReferenceImportError } from "./reference-file";
 import {
   reduceReferenceImport,
@@ -52,15 +47,6 @@ export type ReferencePanelProps = Readonly<{
   onFitReference: () => void;
 }>;
 
-type CalibrationViewportLayout = Readonly<{
-  containerRect: CalibrationRectangle;
-  imageRect: CalibrationRectangle;
-}>;
-
-function rectangle(rect: DOMRect): CalibrationRectangle {
-  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-}
-
 function stateError(error: unknown): ReferenceImportState {
   if (error instanceof ReferenceImportError) return { kind: "failed", code: error.code, message: error.message };
   console.error(error);
@@ -76,136 +62,8 @@ function CalibrationStage({
   draft: CalibrationDraft;
   onChange: (patch: Partial<CalibrationDraft>) => void;
 }>) {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const renderedImageRef = useRef<HTMLImageElement>(null);
   const { image, error } = useReferenceImage(raster.blob);
-  const [dragging, setDragging] = useState<"a" | "b" | null>(null);
-  const [hover, setHover] = useState<Point2 | null>(null);
-  const [viewport, setViewport] = useState<CalibrationViewportLayout | null>(null);
-
-  useEffect(() => {
-    if (!image) return;
-    const stage = stageRef.current;
-    const renderedImage = renderedImageRef.current;
-    if (!stage || !renderedImage) return;
-
-    const updateViewport = () => {
-      const next = {
-        containerRect: rectangle(stage.getBoundingClientRect()),
-        imageRect: rectangle(renderedImage.getBoundingClientRect()),
-      };
-      setViewport(next);
-    };
-    updateViewport();
-
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateViewport);
-    observer?.observe(stage);
-    observer?.observe(renderedImage);
-    window.addEventListener("resize", updateViewport);
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", updateViewport);
-    };
-  }, [image]);
-
-  if (error) return <div className="reference-error" role="alert">{error}</div>;
-  if (!image) return <div className="reference-progress">Подготавливаем предпросмотр…</div>;
-
-  const naturalSize = { width: image.naturalWidth, height: image.naturalHeight };
-  const setPoint = (kind: "a" | "b", point: Point2) => onChange(kind === "a" ? { pointA: point } : { pointB: point });
-  const nearestHandle = (point: Point2): "a" | "b" | null => {
-    const candidates = (["a", "b"] as const).flatMap((kind) => {
-      const existing = kind === "a" ? draft.pointA : draft.pointB;
-      return existing ? [{ kind, distance: Math.hypot(point.x - existing.x, point.y - existing.y) }] : [];
-    });
-    const nearest = candidates.sort((first, second) => first.distance - second.distance)[0];
-    const tolerance = Math.max(image.naturalWidth, image.naturalHeight) * 0.035;
-    return nearest && nearest.distance <= tolerance ? nearest.kind : null;
-  };
-  const assignNewPoint = (point: Point2) => {
-    if (!draft.pointA) setPoint("a", point);
-    else if (!draft.pointB) setPoint("b", point);
-    else setPoint(nearestHandle(point) ?? "b", point);
-  };
-  const pointForEvent = (event: ReactPointerEvent<HTMLElement>) => {
-    const renderedImage = renderedImageRef.current;
-    if (!renderedImage) return null;
-    return clientPointToImagePoint({
-      clientPoint: { x: event.clientX, y: event.clientY },
-      imageRect: rectangle(renderedImage.getBoundingClientRect()),
-      naturalSize,
-    });
-  };
-
-  const marker = (kind: "a" | "b", point: Point2 | null) => {
-    if (!point || !viewport) return null;
-    const position = imagePointToContainerPoint({
-      imagePoint: point,
-      imageRect: viewport.imageRect,
-      containerRect: viewport.containerRect,
-      naturalSize,
-    });
-    return (
-      <span
-        className={`calibration-handle is-${kind}`}
-        aria-hidden="true"
-        style={{ left: `${position.x}px`, top: `${position.y}px` }}
-      >{kind.toUpperCase()}</span>
-    );
-  };
-
-  const magnifierPoint = dragging === "a" ? draft.pointA : dragging === "b" ? draft.pointB : hover;
-  const overlayStyle = viewport ? {
-    left: `${viewport.imageRect.left - viewport.containerRect.left}px`,
-    top: `${viewport.imageRect.top - viewport.containerRect.top}px`,
-    width: `${viewport.imageRect.width}px`,
-    height: `${viewport.imageRect.height}px`,
-  } : undefined;
-
-  return (
-    <div className="calibration-stage-wrap">
-      <div
-        ref={stageRef}
-        className="calibration-stage"
-        onPointerDown={(event) => {
-          const point = pointForEvent(event);
-          if (!point) return;
-          const handle = nearestHandle(point);
-          if (handle) { setDragging(handle); setPoint(handle, point); }
-          else assignNewPoint(point);
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          const point = pointForEvent(event);
-          if (!point) {
-            if (!dragging) setHover(null);
-            return;
-          }
-          setHover(point);
-          if (dragging) setPoint(dragging, point);
-        }}
-        onPointerUp={(event) => { setDragging(null); event.currentTarget.releasePointerCapture(event.pointerId); }}
-        onPointerCancel={() => setDragging(null)}
-        onPointerLeave={() => { if (!dragging) setHover(null); }}
-      >
-        <Image ref={renderedImageRef} src={image.src} alt="Загруженный план для калибровки" width={image.naturalWidth} height={image.naturalHeight} unoptimized draggable={false} />
-        {draft.pointA && draft.pointB && overlayStyle ? <svg className="calibration-line" style={overlayStyle} viewBox={`0 0 ${image.naturalWidth} ${image.naturalHeight}`} preserveAspectRatio="none" aria-hidden="true"><line x1={draft.pointA.x} y1={draft.pointA.y} x2={draft.pointB.x} y2={draft.pointB.y} /></svg> : null}
-        {marker("a", draft.pointA)}
-        {marker("b", draft.pointB)}
-      </div>
-      {magnifierPoint ? (
-        <div
-          className="calibration-magnifier"
-          aria-hidden="true"
-          style={{
-            backgroundImage: `url(${image.src})`,
-            backgroundSize: `${image.naturalWidth * 2}px ${image.naturalHeight * 2}px`,
-            backgroundPosition: `${-magnifierPoint.x * 2 + 52}px ${-magnifierPoint.y * 2 + 52}px`,
-          }}
-        />
-      ) : null}
-    </div>
-  );
+  return <PrecisionCalibrationStage image={image} error={error} draft={draft} onChange={onChange} />;
 }
 
 export function referenceWorkflowPhase(
