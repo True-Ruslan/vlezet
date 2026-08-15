@@ -1,6 +1,6 @@
 # Vlezet Test Coverage Audit
 
-**Status:** measured Phase A baseline. This file is the canonical audit and test-debt truth. Coverage numbers are copied from `tools/testing-policy/coverage-baseline.json` and must not be hand-authored.
+**Status:** measured Phase A baseline with active debt registry. Testing-policy Phase A is accepted and merged; `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is technically remediated in Draft PR #90 pending product-owner acceptance and protected integration. Coverage numbers below are copied from `tools/testing-policy/coverage-baseline.json` and must not be hand-authored.
 
 A missing same-name test file is never proof of no coverage. This registry records only confirmed gaps or explicit audit candidates.
 
@@ -46,7 +46,7 @@ Classification of production areas. This is a risk map, not a list of confirmed 
 - **P2 — supporting behavior:** panels, onboarding, secondary visual/application state and utilities.
 - **P3 — experimental:** recognition/AI R&D and benchmark/evidence tooling.
 
-Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect justifies promotion. P0/P1 closure is a later evidence-driven plan after Phase A infrastructure is accepted.
+Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect justifies promotion. Phase A infrastructure is accepted/merged; the first explicit P0 debt item below is now technically remediated, while any future P0/P1 items still require dedicated evidence before being added or closed.
 
 ## Confirmed gaps and audit candidates
 
@@ -55,10 +55,23 @@ Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect jus
 - **ID:** TEST-DEBT-INDEXEDDB-FAILURE-PATHS
 - **Risk:** P0
 - **Area:** projects/indexeddb
-- **Behavior:** IndexedDB open, upgrade, request-error, blocked, and transaction-abort recovery
-- **Current evidence:** none confirmed as dedicated failure-path coverage. Workspace coverage reports show `packages/projects/src/indexeddb.ts` as unexecuted; that is measured non-execution of the adapter, not an inference from a missing same-name test file. Memory-repository, project, file-format, assets and autosave contracts are not dedicated IndexedDB failure-path evidence.
-- **Required evidence:** IndexedDB integration and failure-path contract covering open/upgrade/transaction abort and request errors
-- **Status:** OPEN — P0 **audit candidate** until dedicated evidence proves coverage or debt
+- **Behavior:** IndexedDB open, schema upgrade, request errors, blocked upgrade, transaction abort/error, CRUD/settings/cascade semantics, persisted-read corruption boundaries and binary asset persistence
+- **Original evidence:** the Phase A baseline measured `packages/projects/src/indexeddb.ts` as unexecuted. Memory-repository, project, file-format, assets and autosave contracts were not dedicated native IndexedDB failure-path evidence.
+- **Remediation evidence:**
+  - deterministic public-adapter unit contracts for open/request/transaction/result/cascade behavior;
+  - failure-path validation translated at the persistence boundary to stable `ProjectStorageError` recovery semantics while direct writes keep strict domain validation;
+  - current asset writes serialize public `Blob` payloads to raw IndexedDB `ArrayBuffer`, then hydrate back to the unchanged public Blob contract on read;
+  - legacy Blob-backed records remain readable through the public repository;
+  - malformed scalar/array records, invalid MIME metadata and binary-size mismatch fail closed;
+  - native browser v1/v2 -> v3 metadata upgrades and current schema/index contracts;
+  - current reference import -> save -> reload -> hydrate tested in Chromium and WebKit;
+  - project deletion/cascade preserves unrelated project, asset and setting state;
+  - Chromium additionally proves a native historical v2 Blob-backed asset survives the v3 upgrade;
+  - WebKit proves the current ArrayBuffer-backed storage path and registered corruption/recovery contracts without skips/retries;
+  - changed production code passes the accepted coverage ratchet and changed-code thresholds.
+- **Technical evidence head:** `25bf1dea0b823dbec92538cf06f9c178581b5424`
+- **Delivery gates at that head:** CI #5159 PASS; CodeQL #512 PASS; Browser Acceptance #1606 PASS — Chromium 65/65, WebKit 57/57, workers=1, retries=0
+- **Status:** **TECHNICALLY REMEDIATED in Draft PR #90** — dedicated evidence now exists. Product-owner acceptance and protected integration are still pending, so this status must not be read as merged/released truth.
 
 No other historical gap is recorded here until dedicated evidence confirms it. Package totals below later target floors are baseline facts, not individual debt items.
 
