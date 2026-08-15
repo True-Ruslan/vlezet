@@ -1,21 +1,21 @@
 # Vlezet Test Coverage Audit
 
-**Status:** measured Phase A baseline with active debt registry. Testing-policy Phase A is accepted and merged; `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is technically remediated in Draft PR #90 pending product-owner acceptance and protected integration. Coverage numbers below are copied from `tools/testing-policy/coverage-baseline.json` and must not be hand-authored.
+**Status:** measured coverage ratchet with active debt registry. Testing-policy Phase A is accepted and merged; `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation behavior/evidence is complete in Draft PR #90, while refreshed exact-head delivery gates after the final ratchet/docs sync and explicit product-owner acceptance remain pending. Coverage numbers below are copied from generated `tools/testing-policy/coverage-baseline.json` output and must not be hand-authored.
 
 A missing same-name test file is never proof of no coverage. This registry records only confirmed gaps or explicit audit candidates.
 
 ## Baseline identity
 
 - **schemaVersion:** 1
-- **sourceCommit:** `95b99baf2d0f0aad51109b311c70c9b38aa3db38`
+- **sourceCommit:** `cc594bae218e9e16724d7574f48be8886852e7ad`
 - **Generation command:**
 
 ```bash
 pnpm coverage
-POLICY_BASE_SHA=95b99baf2d0f0aad51109b311c70c9b38aa3db38 pnpm coverage:baseline
+POLICY_BASE_SHA=cc594bae218e9e16724d7574f48be8886852e7ad pnpm coverage:baseline
 ```
 
-The accepted base SHA is the `main` commit from which Phase A measured the first baseline. `pnpm coverage` emits workspace Istanbul JSON; `pnpm coverage:baseline` writes only those measured values.
+`sourceCommit` is the resolved policy base (`main`) used for this remediation, as required by `tools/testing-policy/update-baseline.mjs`; the metric counts themselves are generated from the remediation-head Istanbul reports. Two independent GREEN runs (`25bf1dea0b823dbec92538cf06f9c178581b5424` and `4bb012127282ee7e4fec1205251bd20de9ebcad2`) produced identical generated counts before the baseline was committed.
 
 ## Measured coverage
 
@@ -23,19 +23,21 @@ Table cells are `covered/total (pct%)` copied from the generated baseline.
 
 | Area | Lines | Statements | Functions | Branches |
 |---|---|---|---|---|
-| repository | 5745/9294 (61.81%) | 6553/11234 (58.33%) | 1505/2485 (60.56%) | 4023/7722 (52.1%) |
-| web | 2521/5661 (44.53%) | 2879/6868 (41.92%) | 722/1606 (44.96%) | 2051/4996 (41.05%) |
+| repository | 5850/9306 (62.86%) | 6674/11248 (59.33%) | 1541/2489 (61.91%) | 4068/7733 (52.61%) |
+| web | 2521/5661 (44.53%) | 2881/6868 (41.95%) | 722/1606 (44.96%) | 2053/4996 (41.09%) |
 | domain | 46/63 (73.02%) | 52/74 (70.27%) | 10/15 (66.67%) | 25/50 (50%) |
 | editor-core | 565/631 (89.54%) | 688/837 (82.2%) | 179/200 (89.5%) | 386/548 (70.44%) |
 | geometry | 894/960 (93.13%) | 1026/1168 (87.84%) | 179/197 (90.86%) | 471/629 (74.88%) |
 | planning | 355/384 (92.45%) | 403/445 (90.56%) | 88/90 (97.78%) | 270/315 (85.71%) |
-| projects | 279/434 (64.29%) | 297/493 (60.24%) | 75/110 (68.18%) | 169/312 (54.17%) |
+| projects | 384/446 (86.1%) | 416/507 (82.05%) | 111/114 (97.37%) | 212/323 (65.63%) |
 | recognition | 1032/1105 (93.39%) | 1153/1291 (89.31%) | 241/256 (94.14%) | 621/839 (74.02%) |
 | spatial | 53/56 (94.64%) | 55/58 (94.83%) | 11/11 (100%) | 30/33 (90.91%) |
 
 Workspace mapping: `web` is `apps/web`; `domain`, `editor-core`, `geometry`, `planning`, `projects`, `recognition` and `spatial` are the corresponding `packages/*` workspaces.
 
-These percentages are the ratchet floor, not a claim that the corresponding behaviors are fully evidenced. Later global targets remain repository 90/90/90/85 and critical areas 95/95/95/90; Phase A does not treat those historical targets as already enforced.
+The Phase A accepted floor was repository 5745/9294 lines (61.81%), 6553/11234 statements (58.33%), 1505/2485 functions (60.56%) and 4023/7722 branches (52.1%). The IndexedDB remediation therefore ratchets actual measured repository coverage upward rather than merely proving non-regression. `packages/projects` moved from 279/434 lines (64.29%), 297/493 statements (60.24%), 75/110 functions (68.18%) and 169/312 branches (54.17%) to the generated values above.
+
+These percentages are the ratchet floor, not a claim that the corresponding behaviors are fully evidenced. Later global targets remain repository 90/90/90/85 and critical areas 95/95/95/90; those historical targets are not retroactively claimed as satisfied.
 
 ## Risk inventory
 
@@ -46,7 +48,7 @@ Classification of production areas. This is a risk map, not a list of confirmed 
 - **P2 — supporting behavior:** panels, onboarding, secondary visual/application state and utilities.
 - **P3 — experimental:** recognition/AI R&D and benchmark/evidence tooling.
 
-Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect justifies promotion. Phase A infrastructure is accepted/merged; the first explicit P0 debt item below is now technically remediated, while any future P0/P1 items still require dedicated evidence before being added or closed.
+Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect justifies promotion. Phase A infrastructure is accepted/merged; the first explicit P0 debt item below has complete dedicated behavior evidence, while protected integration still requires the refreshed exact-head gate and acceptance sequence.
 
 ## Confirmed gaps and audit candidates
 
@@ -68,10 +70,12 @@ Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect jus
   - project deletion/cascade preserves unrelated project, asset and setting state;
   - Chromium additionally proves a native historical v2 Blob-backed asset survives the v3 upgrade;
   - WebKit proves the current ArrayBuffer-backed storage path and registered corruption/recovery contracts without skips/retries;
-  - changed production code passes the accepted coverage ratchet and changed-code thresholds.
-- **Technical evidence head:** `25bf1dea0b823dbec92538cf06f9c178581b5424`
-- **Delivery gates at that head:** CI #5159 PASS; CodeQL #512 PASS; Browser Acceptance #1606 PASS — Chromium 65/65, WebKit 57/57, workers=1, retries=0
-- **Status:** **TECHNICALLY REMEDIATED in Draft PR #90** — dedicated evidence now exists. Product-owner acceptance and protected integration are still pending, so this status must not be read as merged/released truth.
+  - `packages/projects/src/indexeddb.ts` and `indexeddb-schema.ts` are measured at 100% lines/statements/functions/branches in the final stable coverage reports;
+  - the generated repository/package baseline has been ratcheted upward from the accepted Phase A floor.
+- **Latest fully verified behavior/docs head before ratchet commit:** `4bb012127282ee7e4fec1205251bd20de9ebcad2`
+- **Delivery evidence at that head:** CI #5163 PASS; CodeQL #523 PASS; Browser Acceptance #1610 PASS — Chromium 65/65, WebKit 57/57, workers=1, retries=0; browser artifact `9245204340`, sha256 `f87cbb1ee254ed4ad19a5713ad1a8895d562e1064f24d5171c9f518793fe46fb`
+- **Final ratchet:** generated counts committed after two identical coverage runs; because that changes PR head, a fresh exact-head CI + Browser + CodeQL cycle is mandatory before presenting the candidate for acceptance.
+- **Status:** **REMEDIATION IMPLEMENTED / DEDICATED DEBT EVIDENCE CLOSED / FINAL EXACT-HEAD REFRESH PENDING in Draft PR #90**. Product-owner acceptance and protected integration remain pending.
 
 No other historical gap is recorded here until dedicated evidence confirms it. Package totals below later target floors are baseline facts, not individual debt items.
 
