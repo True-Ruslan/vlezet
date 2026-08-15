@@ -39,10 +39,13 @@ export {
 } from "./polygon";
 export {
   alignReferenceCalibration,
+  CALIBRATION_WARNING_ABSOLUTE_MM,
+  CALIBRATION_WARNING_RELATIVE_ERROR,
   calibrateReferencePlan,
   imagePointToWorld,
   referencePlanBounds,
   referencePlanWorldCorners,
+  verifyReferenceCalibration,
   worldPointToImage,
 } from "./reference-plan";
 export type {
@@ -51,6 +54,8 @@ export type {
   CalibrationInput,
   ReferenceAlignment,
   ReferenceCalibration,
+  ReferenceCalibrationVerification,
+  ReferenceCalibrationVerificationInput,
   ReferenceTransform,
 } from "./reference-plan";
 export { deriveRectangularRoomDimensions } from "./room-dimensions";
