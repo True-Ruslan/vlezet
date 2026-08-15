@@ -28,6 +28,10 @@ const options = {
   maximumLineWidthPx: 6,
 } as const;
 
+function hasVerticalLineCenter(features: ReturnType<typeof analyzeCalibrationFeatures>): boolean {
+  return features.some((feature) => feature.kind === "line-center" && feature.id.startsWith("line-center:v:"));
+}
+
 describe("calibration local raster features", () => {
   it("finds an isolated high-contrast edge without inventing a line centre", () => {
     const raster = image(11, 11, (x) => x < 6 ? 255 : 0);
@@ -90,6 +94,65 @@ describe("calibration local raster features", () => {
       expect(feature.point.y).toBeGreaterThanOrEqual(0);
       expect(feature.point.y).toBeLessThanOrEqual(7);
     }
+  });
+
+  it("rejects malformed image geometry and invalid analysis parameters", () => {
+    const valid = image(2, 2, () => 255);
+
+    expect(() => analyzeCalibrationFeatures({
+      image: { ...valid, width: Number.NaN },
+      ...options,
+    })).toThrow("image.width must be finite.");
+    expect(() => analyzeCalibrationFeatures({
+      image: valid,
+      ...options,
+      radiusPx: 0,
+    })).toThrow("radiusPx must be positive.");
+    expect(() => analyzeCalibrationFeatures({
+      image: { width: 2.5, height: 2, data: new Uint8ClampedArray(20) },
+      ...options,
+    })).toThrow("image dimensions must be integers.");
+    expect(() => analyzeCalibrationFeatures({
+      image: { width: 2, height: 2.5, data: new Uint8ClampedArray(20) },
+      ...options,
+    })).toThrow("image dimensions must be integers.");
+    expect(() => analyzeCalibrationFeatures({
+      image: { width: 2, height: 2, data: new Uint8ClampedArray(15) },
+      ...options,
+    })).toThrow("image.data is shorter than the declared dimensions.");
+  });
+
+  it("does not call a clipped or over-wide dark run a stable line centre", () => {
+    const startsAtWindowEdge = analyzeCalibrationFeatures({
+      image: image(11, 11, (x) => x <= 2 ? 0 : 255),
+      ...options,
+    });
+    const endsAtWindowEdge = analyzeCalibrationFeatures({
+      image: image(11, 11, (x) => x >= 8 ? 0 : 255),
+      ...options,
+    });
+    const tooWide = analyzeCalibrationFeatures({
+      image: image(11, 11, (x) => x >= 2 && x <= 8 ? 0 : 255),
+      ...options,
+    });
+
+    expect(hasVerticalLineCenter(startsAtWindowEdge)).toBe(false);
+    expect(hasVerticalLineCenter(endsAtWindowEdge)).toBe(false);
+    expect(hasVerticalLineCenter(tooWide)).toBe(false);
+  });
+
+  it("requires strong contrast on both sides before accepting a line centre", () => {
+    const weakLeft = analyzeCalibrationFeatures({
+      image: image(11, 11, (x) => x === 3 ? 136 : x >= 4 && x <= 6 ? 135 : 255),
+      ...options,
+    });
+    const weakRight = analyzeCalibrationFeatures({
+      image: image(11, 11, (x) => x === 7 ? 136 : x >= 4 && x <= 6 ? 135 : 255),
+      ...options,
+    });
+
+    expect(hasVerticalLineCenter(weakLeft)).toBe(false);
+    expect(hasVerticalLineCenter(weakRight)).toBe(false);
   });
 
   it("returns byte-for-byte deterministic feature order for identical input", () => {
