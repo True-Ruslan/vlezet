@@ -14,13 +14,12 @@ import {
   type CalibrationCanvasFactory,
 } from "./calibration-image-features";
 import {
-  fitCalibrationViewport,
-  imagePointToViewportPoint,
-  type CalibrationViewportTransform,
-} from "./calibration-viewport";
+  bindCalibrationStageElement,
+  installCalibrationStageWheelListener,
+} from "./calibration-stage-lifecycle";
+import { imagePointToViewportPoint, type CalibrationViewportTransform } from "./calibration-viewport";
 
 const DEFAULT_VIEWPORT: CalibrationViewportTransform = Object.freeze({ scale: 1, offsetX: 0, offsetY: 0 });
-const FIT_PADDING_PX = 16;
 const FEATURE_RADIUS_PX = 20;
 const FEATURE_CONTRAST_THRESHOLD = 60;
 const FEATURE_DARKNESS_THRESHOLD = 120;
@@ -100,21 +99,10 @@ export function PrecisionCalibrationStage({
     initialState ?? INITIAL_CALIBRATION_STAGE_STATE,
   );
 
-  const bindStageElement = useCallback((element: HTMLDivElement | null) => {
-    setStageElement(element);
-    if (!element || !image) return;
-    setStageState((state) => {
-      if (state.viewport !== null) return state;
-      return {
-        ...state,
-        viewport: fitCalibrationViewport({
-          naturalSize: { width: image.naturalWidth, height: image.naturalHeight },
-          containerSize: { width: element.clientWidth, height: element.clientHeight },
-          paddingPx: FIT_PADDING_PX,
-        }),
-      };
-    });
-  }, [image]);
+  const bindStageElement = useCallback(
+    bindCalibrationStageElement.bind(null, image, setStageElement, setStageState),
+    [image],
+  );
 
   const handlers = image === null ? null : createCalibrationStageHandlers({
     state: stageState,
@@ -126,12 +114,10 @@ export function PrecisionCalibrationStage({
     readFeatures: calibrationStageFeatureReader.bind(null, image),
   });
 
-  useEffect(() => {
-    if (!stageElement || !handlers) return;
-    const onWheel = (event: WheelEvent) => handlers.onWheel(event);
-    stageElement.addEventListener("wheel", onWheel, { passive: false });
-    return () => stageElement.removeEventListener("wheel", onWheel);
-  }, [handlers, stageElement]);
+  useEffect(
+    installCalibrationStageWheelListener.bind(null, stageElement, handlers),
+    [handlers, stageElement],
+  );
 
   if (error) return <p className="field-error">{error}</p>;
   if (!image || !handlers) return <p className="reference-preview-loading">Подготавливаем предпросмотр…</p>;
