@@ -53,7 +53,7 @@ function stateError(error: unknown): ReferenceImportState {
   return { kind: "failed", code: "decode-failed", message: "Не удалось обработать выбранный план." };
 }
 
-function CalibrationStage({
+export function CalibrationStage({
   raster,
   draft,
   onChange,
