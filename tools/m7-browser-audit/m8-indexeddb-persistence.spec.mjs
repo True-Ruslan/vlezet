@@ -3,6 +3,8 @@ import { expect, test } from "./fixtures.mjs";
 const DB_NAME = "vlezet";
 const SETUP_PATH = "/__playwright-idb-setup";
 const NOW = "2026-08-15T00:00:00.000Z";
+const PNG_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+const PNG_BYTE_LENGTH = 68;
 const EMPTY_DOCUMENT = {
   schemaVersion: 3,
   vertices: [],
@@ -117,7 +119,10 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
       await transactionDone(metadataTransaction, "IndexedDB legacy metadata seed failed");
 
       if (assetInput && targetVersion >= 2) {
-        const blob = new Blob([String.fromCharCode(...assetInput.bytes)], { type: assetInput.mimeType });
+        const response = await fetch(assetInput.dataUrl);
+        if (!response.ok) throw new Error(`IndexedDB legacy asset source failed: HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (blob.type !== assetInput.mimeType) throw new Error(`IndexedDB legacy asset MIME mismatch: ${blob.type}`);
         const assetTransaction = database.transaction("assets", "readwrite");
         const put = assetTransaction.objectStore("assets").put({
           id: assetInput.id,
@@ -173,7 +178,10 @@ async function seedCurrentDatabase(page, { projects, assets = [], settings = [] 
       await transactionDone(metadataTransaction, "IndexedDB current metadata seed failed");
 
       for (const asset of storedAssets) {
-        const blob = new Blob([asset.content], { type: asset.mimeType });
+        const response = await fetch(asset.dataUrl);
+        if (!response.ok) throw new Error(`IndexedDB current asset source failed: HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (blob.type !== asset.mimeType) throw new Error(`IndexedDB current asset MIME mismatch: ${blob.type}`);
         const assetTransaction = database.transaction("assets", "readwrite");
         const put = assetTransaction.objectStore("assets").put({
           id: asset.id,
@@ -368,7 +376,7 @@ test("upgrades a native v2 database to v3 without losing project, setting, or as
     projectId: project.id,
     mimeType: "image/png",
     createdAt: NOW,
-    bytes: [1, 2, 3, 4],
+    dataUrl: PNG_DATA_URL,
   };
   await openStorageSetupPage(page);
   await seedLegacyDatabase(page, { version: 2, project, asset });
@@ -386,9 +394,9 @@ test("upgrades a native v2 database to v3 without losing project, setting, or as
     projectId: project.id,
     kind: "reference-raster",
     mimeType: "image/png",
-    byteLength: 4,
+    byteLength: PNG_BYTE_LENGTH,
     createdAt: NOW,
-    blobSize: 4,
+    blobSize: PNG_BYTE_LENGTH,
     blobType: "image/png",
   });
 });
@@ -462,8 +470,8 @@ test("persists project edits and last-project navigation through the real UI", a
 test("deleting one project removes only its own assets and preserves unrelated state", async ({ page }) => {
   const projectA = legacyV2Project("project-a", "Project A");
   const projectB = legacyV2Project("project-b", "Project B");
-  const assetA = { id: "asset-a", projectId: projectA.id, mimeType: "image/png", createdAt: NOW, content: "AAAA" };
-  const assetB = { id: "asset-b", projectId: projectB.id, mimeType: "image/png", createdAt: NOW, content: "BBBB" };
+  const assetA = { id: "asset-a", projectId: projectA.id, mimeType: "image/png", createdAt: NOW, dataUrl: PNG_DATA_URL };
+  const assetB = { id: "asset-b", projectId: projectB.id, mimeType: "image/png", createdAt: NOW, dataUrl: PNG_DATA_URL };
 
   await openStorageSetupPage(page);
   await seedCurrentDatabase(page, {
@@ -491,6 +499,6 @@ test("deleting one project removes only its own assets and preserves unrelated s
   expect(removed.project).toBeNull();
   expect(removed.asset).toBeNull();
   expect(preserved.project).toMatchObject({ id: projectB.id, name: projectB.name });
-  expect(preserved.asset).toMatchObject({ id: assetB.id, projectId: projectB.id, blobSize: 4 });
+  expect(preserved.asset).toMatchObject({ id: assetB.id, projectId: projectB.id, blobSize: PNG_BYTE_LENGTH });
   expect(await readSetting(page, "unrelated")).toEqual({ key: "unrelated", value: "preserve-me" });
 });
