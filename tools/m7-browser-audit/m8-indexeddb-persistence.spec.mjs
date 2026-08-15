@@ -78,18 +78,10 @@ async function openStorageSetupPage(page) {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
-      body: "<!doctype html><html><body>IndexedDB test setup<input id=\"idb-asset-file\" type=\"file\" /></body></html>",
+      body: "<!doctype html><html><body>IndexedDB test setup</body></html>",
     });
   });
   await page.goto(SETUP_PATH);
-}
-
-async function installAssetFile(page) {
-  await page.setInputFiles("#idb-asset-file", {
-    name: "reference.png",
-    mimeType: "image/png",
-    buffer: PNG_BYTES,
-  });
 }
 
 async function leaveStorageSetupPage(page) {
@@ -97,7 +89,7 @@ async function leaveStorageSetupPage(page) {
 }
 
 async function seedLegacyDatabase(page, { version, project, asset = null }) {
-  await page.evaluate(async ({ dbName, version: targetVersion, project: storedProject, asset: assetInput }) => {
+  return page.evaluate(async ({ dbName, version: targetVersion, project: storedProject, asset: assetInput }) => {
     const transactionDone = (transaction, label) => new Promise((resolve, reject) => {
       transaction.onerror = () => reject(new Error(`${label}: ${transaction.error?.name ?? "UnknownError"}: ${transaction.error?.message ?? "unknown transaction error"}`));
       transaction.onabort = () => reject(new Error(`${label} aborted: ${transaction.error?.name ?? "AbortError"}: ${transaction.error?.message ?? "unknown transaction abort"}`));
@@ -121,6 +113,7 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
       request.onsuccess = () => resolve(request.result);
     });
 
+    let seededAssetByteLength = null;
     try {
       const metadataTransaction = database.transaction(["projects", "settings"], "readwrite");
       metadataTransaction.objectStore("projects").put(storedProject);
@@ -128,19 +121,31 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
       await transactionDone(metadataTransaction, "IndexedDB legacy metadata seed failed");
 
       if (assetInput && targetVersion >= 2) {
-        const input = document.querySelector("#idb-asset-file");
-        const file = input?.files?.[0];
-        if (!(file instanceof File)) throw new Error("IndexedDB legacy asset file was not installed");
-        if (file.type !== assetInput.mimeType) throw new Error(`IndexedDB legacy asset MIME mismatch: ${file.type}`);
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        const context = canvas.getContext("2d", { alpha: false });
+        if (!context) throw new Error("IndexedDB legacy asset canvas was unavailable");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, 1, 1);
+        const blob = await new Promise((resolve, reject) => {
+          canvas.toBlob((value) => {
+            if (value) resolve(value);
+            else reject(new Error("IndexedDB legacy asset canvas Blob was unavailable"));
+          }, assetInput.mimeType);
+        });
+        if (!(blob instanceof Blob)) throw new Error("IndexedDB legacy asset did not produce a Blob");
+        if (blob.type !== assetInput.mimeType) throw new Error(`IndexedDB legacy asset MIME mismatch: ${blob.type}`);
+        seededAssetByteLength = blob.size;
         const assetTransaction = database.transaction("assets", "readwrite");
         const put = assetTransaction.objectStore("assets").put({
           id: assetInput.id,
           projectId: assetInput.projectId,
           kind: "reference-raster",
           mimeType: assetInput.mimeType,
-          byteLength: file.size,
+          byteLength: blob.size,
           createdAt: assetInput.createdAt,
-          blob: file,
+          blob,
         });
         put.onerror = () => {
           throw new Error(`IndexedDB legacy asset put failed: ${put.error?.name ?? "UnknownError"}: ${put.error?.message ?? "unknown request error"}`);
@@ -150,11 +155,12 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
     } finally {
       database.close();
     }
+    return seededAssetByteLength;
   }, { dbName: DB_NAME, version, project, asset });
 }
 
 async function seedCurrentDatabase(page, { projects, assets = [], settings = [] }) {
-  await page.evaluate(async ({ dbName, storedProjects, storedAssets, storedSettings }) => {
+  await page.evaluate(async ({ dbName, storedProjects, storedAssets, storedSettings, assetBytes }) => {
     const transactionDone = (transaction, label) => new Promise((resolve, reject) => {
       transaction.onerror = () => reject(new Error(`${label}: ${transaction.error?.name ?? "UnknownError"}: ${transaction.error?.message ?? "unknown transaction error"}`));
       transaction.onabort = () => reject(new Error(`${label} aborted: ${transaction.error?.name ?? "AbortError"}: ${transaction.error?.message ?? "unknown transaction abort"}`));
@@ -186,21 +192,17 @@ async function seedCurrentDatabase(page, { projects, assets = [], settings = [] 
       for (const setting of storedSettings) settingsStore.put(setting);
       await transactionDone(metadataTransaction, "IndexedDB current metadata seed failed");
 
-      const input = document.querySelector("#idb-asset-file");
-      const file = input?.files?.[0];
-      if (storedAssets.length > 0 && !(file instanceof File)) throw new Error("IndexedDB current asset file was not installed");
-
       for (const asset of storedAssets) {
-        if (file.type !== asset.mimeType) throw new Error(`IndexedDB current asset MIME mismatch: ${file.type}`);
+        const blobBytes = new Uint8Array(assetBytes).buffer;
         const assetTransaction = database.transaction("assets", "readwrite");
         const put = assetTransaction.objectStore("assets").put({
           id: asset.id,
           projectId: asset.projectId,
           kind: "reference-raster",
           mimeType: asset.mimeType,
-          byteLength: file.size,
+          byteLength: blobBytes.byteLength,
           createdAt: asset.createdAt,
-          blob: file,
+          blobBytes,
         });
         put.onerror = () => {
           throw new Error(`IndexedDB current asset put failed: ${put.error?.name ?? "UnknownError"}: ${put.error?.message ?? "unknown request error"}`);
@@ -215,6 +217,7 @@ async function seedCurrentDatabase(page, { projects, assets = [], settings = [] 
     storedProjects: projects,
     storedAssets: assets,
     storedSettings: settings,
+    assetBytes: Array.from(PNG_BYTES),
   });
 }
 
@@ -275,8 +278,14 @@ async function readStorageEvidence(page, { projectId, assetId = null, sessionId 
             mimeType: rawAsset.mimeType,
             byteLength: rawAsset.byteLength,
             createdAt: rawAsset.createdAt,
-            blobSize: rawAsset.blob?.size ?? null,
-            blobType: rawAsset.blob?.type ?? null,
+            storageKind: rawAsset.blobBytes instanceof ArrayBuffer
+              ? "array-buffer"
+              : rawAsset.blob instanceof Blob
+                ? "blob"
+                : null,
+            blobBytesSize: rawAsset.blobBytes instanceof ArrayBuffer ? rawAsset.blobBytes.byteLength : null,
+            blobSize: rawAsset.blob instanceof Blob ? rawAsset.blob.size : null,
+            blobType: rawAsset.blob instanceof Blob ? rawAsset.blob.type : null,
           } : null,
           session: rawSession ? {
             id: rawSession.id,
@@ -379,7 +388,7 @@ test("upgrades a native v1 database to v3 without losing project or lastProjectI
   expect(evidence.setting).toEqual({ key: "lastProjectId", value: project.id });
 });
 
-test("upgrades a native v2 database to v3 without losing project, setting, or asset", async ({ page }) => {
+test("upgrades a native v2 database to v3 without losing project, setting, or legacy Blob asset", async ({ page }) => {
   const project = legacyV2Project("legacy-v2", "Legacy v2");
   const asset = {
     id: "asset-v2",
@@ -388,9 +397,9 @@ test("upgrades a native v2 database to v3 without losing project, setting, or as
     createdAt: NOW,
   };
   await openStorageSetupPage(page);
-  await installAssetFile(page);
-  await seedLegacyDatabase(page, { version: 2, project, asset });
+  const legacyAssetByteLength = await seedLegacyDatabase(page, { version: 2, project, asset });
   await leaveStorageSetupPage(page);
+  expect(legacyAssetByteLength).toBeGreaterThan(0);
 
   await page.goto("/");
   await expect(page.getByLabel("Название проекта")).toHaveValue("Legacy v2");
@@ -404,9 +413,11 @@ test("upgrades a native v2 database to v3 without losing project, setting, or as
     projectId: project.id,
     kind: "reference-raster",
     mimeType: "image/png",
-    byteLength: PNG_BYTE_LENGTH,
+    byteLength: legacyAssetByteLength,
     createdAt: NOW,
-    blobSize: PNG_BYTE_LENGTH,
+    storageKind: "blob",
+    blobBytesSize: null,
+    blobSize: legacyAssetByteLength,
     blobType: "image/png",
   });
 });
@@ -477,14 +488,13 @@ test("persists project edits and last-project navigation through the real UI", a
   await expect.poll(async () => (await readSetting(page, "lastProjectId"))?.value ?? null).toBe(projectId);
 });
 
-test("deleting one project removes only its own assets and preserves unrelated state", async ({ page }) => {
+test("deleting one project removes only its own ArrayBuffer-backed assets and preserves unrelated state", async ({ page }) => {
   const projectA = legacyV2Project("project-a", "Project A");
   const projectB = legacyV2Project("project-b", "Project B");
   const assetA = { id: "asset-a", projectId: projectA.id, mimeType: "image/png", createdAt: NOW };
   const assetB = { id: "asset-b", projectId: projectB.id, mimeType: "image/png", createdAt: NOW };
 
   await openStorageSetupPage(page);
-  await installAssetFile(page);
   await seedCurrentDatabase(page, {
     projects: [projectA, projectB],
     assets: [assetA, assetB],
@@ -510,6 +520,12 @@ test("deleting one project removes only its own assets and preserves unrelated s
   expect(removed.project).toBeNull();
   expect(removed.asset).toBeNull();
   expect(preserved.project).toMatchObject({ id: projectB.id, name: projectB.name });
-  expect(preserved.asset).toMatchObject({ id: assetB.id, projectId: projectB.id, blobSize: PNG_BYTE_LENGTH });
+  expect(preserved.asset).toMatchObject({
+    id: assetB.id,
+    projectId: projectB.id,
+    storageKind: "array-buffer",
+    blobBytesSize: PNG_BYTE_LENGTH,
+    blobSize: null,
+  });
   expect(await readSetting(page, "unrelated")).toEqual({ key: "unrelated", value: "preserve-me" });
 });
