@@ -4,16 +4,79 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
-## 2026-08-14 — Testing-policy Phase A canonical docs (in development)
+## 2026-08-15 — P0 IndexedDB persistence/failure-path remediation product-owner accepted
 
-**Status:** IN DEVELOPMENT on `codex/testing-policy-phase-a`. Not product-accepted and not merged.
+**Status:** PRODUCT-OWNER ACCEPTED in PR #90. Protected squash integration and post-merge verification remain pending.
 
-Canonical testing contracts now exist on this branch:
+The first explicit Testing Policy Phase A P0 debt item, `TEST-DEBT-INDEXEDDB-FAILURE-PATHS`, now has dedicated deterministic and real-browser evidence instead of relying on memory-repository substitutes or inferred coverage.
+
+Delivered and accepted behavior:
+
+- deterministic IndexedDB open/request/blocked/transaction failure contracts;
+- native v1/v2 -> v3 preservation and current schema/index evidence;
+- real project/reference save -> reload -> hydration in Chromium and WebKit;
+- project -> asset cascade semantics with unrelated-state preservation;
+- corrupted persisted project/asset reads fail closed through stable `ProjectStorageError` recovery semantics while direct writes retain strict validation;
+- current raw binary asset persistence uses `ArrayBuffer` while the public/domain API remains Blob-based;
+- legacy Blob-backed records remain readable;
+- Chromium separately proves a native historical Blob-backed v2 asset survives v3 upgrade;
+- no database-version/store/index change, fake IndexedDB dependency, memory persistence substitute, production test hook, skip/fixme/retry or threshold weakening.
+
+The final coverage ratchet raised the measured baseline to repository 62.86% lines / 59.33% statements / 61.91% functions / 52.61% branches and `packages/projects` 86.10% / 82.05% / 97.37% / 65.63%; `indexeddb.ts` and `indexeddb-schema.ts` are measured at 100% for lines/statements/functions/branches.
+
+The ratchet also exposed one genuine Phase A policy-maintenance defect: the docs contract incorrectly treated the original Phase A baseline SHA as immutable although the approved baseline generator supports later measured ratchets. Genuine policy RED `760b0f21179a23bdd8199491a98bc7a2efa08734` proved the defect; GREEN `366ad1f880d5866264e94388412c6dfabf37f83b` makes the audit follow generated `baseline.sourceCommit` without weakening thresholds, measured cells or workspace checks.
+
+Product-owner accepted implementation/policy evidence:
+
+```text
+accepted implementation/policy head: 366ad1f880d5866264e94388412c6dfabf37f83b
+CI #5167 / run 31889155829:          PASS
+Browser Acceptance #1614:           PASS
+  Chromium:                           65/65 PASS
+  WebKit:                             57/57 PASS
+  workers:                            1
+  retries:                            0
+browser artifact:                    9248180775
+artifact digest:                     sha256:58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75
+CodeQL #527 / run 31889153986:       PASS
+unresolved review threads:           0
+reviews/requested changes:           0
+product-owner acceptance:            PASS — 2026-08-15 — «Принимаю P0»
+```
+
+Focused canonical record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.md`.
+
+This acceptance truth-sync creates a later documentation-only PR head. Fresh exact-head CI + Chromium/WebKit + CodeQL remain mandatory before PR #90 leaves Draft. The final protected merge identity is recorded only after GitHub reports it.
+
+---
+
+## 2026-08-14 — Testing-policy Phase A accepted and merged
+
+**Status:** ACCEPTED / SQUASH-MERGED into `main` as `cc594bae218e9e16724d7574f48be8886852e7ad` / POST-MERGE CI + CodeQL GREEN.
+
+Canonical testing contracts:
 
 - `docs/testing/TESTING_POLICY.md` — normative change-class, RED/GREEN, coverage, Playwright, debt and Definition of Done contract;
-- `docs/testing/TEST_COVERAGE_AUDIT.md` — measured baseline copied from `tools/testing-policy/coverage-baseline.json` at source commit `95b99baf2d0f0aad51109b311c70c9b38aa3db38`.
+- `docs/testing/TEST_COVERAGE_AUDIT.md` — generated measured coverage baseline plus explicit debt registry.
 
-Blocking commands: `pnpm test:policy` and `pnpm verify:policy`. No apartment/document authority semantics changed. The only production edit is dashboard Delete focusing its trigger before confirmation so UiDialog can restore focus after Escape. IndexedDB failure paths remain an explicit P0 audit candidate. Phase A is not accepted or merged.
+Phase A delivered blocking coverage ratchet, changed-code thresholds, testing-policy self-tests, fail-safe browser discovery/classification, representative WebKit registry, retry-free browser evidence, runtime-error guards and evidence artifacts. Independent review closed the suite-level skip/fixme loophole, ensured `pnpm test:policy` actually executes in CI and removed an unrelated dashboard runtime edit before integration.
+
+Accepted candidate evidence:
+
+```text
+accepted head:                  c7c7f0d9c8acb476cf752ae18bb44d0289ecad1e
+CI #5107 / run 31806037529:    PASS
+Browser Acceptance #1555:      PASS — Chromium 57/57, WebKit 49/49, retries 0
+Recognition Benchmark #1163:   PASS
+CodeQL:                         PASS
+coverage evidence artifact:     9221244183
+browser evidence artifact:      9221459799
+protected squash merge:         cc594bae218e9e16724d7574f48be8886852e7ad
+post-merge CI #5108:            PASS
+post-merge CodeQL:              PASS
+```
+
+No apartment/document authority semantics changed. The accepted measured baseline exposed `packages/projects/src/indexeddb.ts` as the first explicit P0 audit candidate, which led directly to the accepted remediation recorded above.
 
 ---
 
