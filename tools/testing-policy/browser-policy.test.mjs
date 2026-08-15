@@ -23,6 +23,7 @@ test("preserves the explicit WebKit acceptance set", () => {
     "m7-onboarding-status.spec.mjs",
     "m7-geometry-inspector.spec.mjs",
     "m7-furniture-fit.spec.mjs",
+    "m7-reference-calibration.spec.mjs",
     "m8-editor-interaction.spec.mjs",
     "m8-group-drag-snap-regression.spec.mjs",
     "m8-precision-structural.spec.mjs",
@@ -31,7 +32,21 @@ test("preserves the explicit WebKit acceptance set", () => {
     "m8-room-translation.spec.mjs",
     "m8-direct-manipulation-opening.spec.mjs",
     "m8-product-owner-regressions.spec.mjs",
+    "m8-indexeddb-persistence.spec.mjs",
+    "m8-indexeddb-corruption.spec.mjs",
   ]);
+});
+
+test("requires IndexedDB persistence, corruption, and real reference import evidence in WebKit", () => {
+  assert.ok(WEBKIT_SPECS.includes("m7-reference-calibration.spec.mjs"));
+  assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-persistence.spec.mjs"));
+  assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-corruption.spec.mjs"));
+});
+
+test("keeps native legacy Blob synthesis Chromium-only while WebKit proves current persistence", () => {
+  assert.ok(WEBKIT_SPECS.includes("m7-reference-calibration.spec.mjs"));
+  assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-persistence.spec.mjs"));
+  assert.equal(WEBKIT_SPECS.includes("m8-indexeddb-legacy-blob.spec.mjs"), false);
 });
 
 test("discovers every executable browser spec without a filename registry", async (t) => {
@@ -102,7 +117,7 @@ test("rejects direct Playwright imports, focused tests, skips, and fixmes", () =
     import { expect, test } from "@playwright/test";
     test.only("focused", () => {});
     test.skip("skipped", () => {});
-    test.fixme("broken", () => {});
+    test.fixme("broken suite", () => {});
   `), [
     "unsafe.spec.mjs imports directly from @playwright/test",
     "unsafe.spec.mjs must import the shared fixtures",

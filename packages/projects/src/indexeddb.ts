@@ -14,6 +14,15 @@ import { validateProject, type VlezetProjectRecord } from "./project";
 import type { ProjectRepository } from "./repository";
 
 type SettingRecord = Readonly<{ key: string; value: string | null }>;
+type StoredProjectAssetRecord = Readonly<{
+  id: string;
+  projectId: string;
+  kind: ProjectAssetRecord["kind"];
+  mimeType: ProjectAssetRecord["mimeType"];
+  byteLength: number;
+  createdAt: string;
+  blobBytes: ArrayBuffer;
+}>;
 
 export class ProjectStorageError extends Error {
   constructor(message = "Не удалось открыть локальное хранилище проектов.", options?: ErrorOptions) {
@@ -35,6 +44,46 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
     transaction.onabort = () => reject(new ProjectStorageError("Не удалось сохранить изменения проекта.", { cause: transaction.error }));
     transaction.onerror = () => reject(new ProjectStorageError("Не удалось сохранить изменения проекта.", { cause: transaction.error }));
   });
+}
+
+function validateStoredProject(value: unknown): VlezetProjectRecord {
+  try {
+    return validateProject(value);
+  } catch (error) {
+    throw new ProjectStorageError("Локальный проект повреждён и не был открыт.", { cause: error });
+  }
+}
+
+function hydrateStoredAsset(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const input = value as Record<string, unknown>;
+  if ("blob" in input || !(input.blobBytes instanceof ArrayBuffer)) return value;
+  return {
+    ...input,
+    blob: new Blob([input.blobBytes], {
+      type: typeof input.mimeType === "string" ? input.mimeType : "",
+    }),
+  };
+}
+
+function validateStoredAsset(value: unknown): ProjectAssetRecord {
+  try {
+    return validateProjectAsset(hydrateStoredAsset(value));
+  } catch (error) {
+    throw new ProjectStorageError("Подложка проекта повреждена и не была открыта.", { cause: error });
+  }
+}
+
+async function serializeStoredAsset(asset: ProjectAssetRecord): Promise<StoredProjectAssetRecord> {
+  return {
+    id: asset.id,
+    projectId: asset.projectId,
+    kind: asset.kind,
+    mimeType: asset.mimeType,
+    byteLength: asset.byteLength,
+    createdAt: asset.createdAt,
+    blobBytes: await asset.blob.arrayBuffer(),
+  };
 }
 
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
@@ -100,7 +149,7 @@ export class IndexedDbProjectRepository implements ProjectRepository, ProjectAss
     const values = await requestResult(transaction.objectStore(PROJECTS_STORE).getAll());
     await transactionDone(transaction);
     return values
-      .map((value) => validateProject(value))
+      .map((value) => validateStoredProject(value))
       .sort((first, second) => second.updatedAt.localeCompare(first.updatedAt) || first.id.localeCompare(second.id));
   }
 
@@ -109,7 +158,7 @@ export class IndexedDbProjectRepository implements ProjectRepository, ProjectAss
     const transaction = database.transaction(PROJECTS_STORE, "readonly");
     const value = await requestResult(transaction.objectStore(PROJECTS_STORE).get(id));
     await transactionDone(transaction);
-    return value === undefined ? null : validateProject(value);
+    return value === undefined ? null : validateStoredProject(value);
   }
 
   async put(project: VlezetProjectRecord): Promise<void> {
@@ -151,14 +200,15 @@ export class IndexedDbProjectRepository implements ProjectRepository, ProjectAss
     const transaction = database.transaction(ASSETS_STORE, "readonly");
     const value = await requestResult(transaction.objectStore(ASSETS_STORE).get(id), "Не удалось прочитать подложку.");
     await transactionDone(transaction);
-    return value === undefined ? null : validateProjectAsset(value);
+    return value === undefined ? null : validateStoredAsset(value);
   }
 
   async putAsset(asset: ProjectAssetRecord): Promise<void> {
     const valid = validateProjectAsset(asset);
+    const stored = await serializeStoredAsset(valid);
     const database = await this.#database;
     const transaction = database.transaction(ASSETS_STORE, "readwrite");
-    transaction.objectStore(ASSETS_STORE).put(valid);
+    transaction.objectStore(ASSETS_STORE).put(stored);
     await transactionDone(transaction);
   }
 
