@@ -118,6 +118,7 @@ export type CalibrationStageHandlers = Readonly<{
   onPointerUp: (event: CalibrationStagePointerEventLike) => void;
   onPointerCancel: (event: CalibrationStagePointerEventLike) => void;
   onPointerLeave: () => void;
+  onHandleFocus: (handle: CalibrationHandle) => void;
   onKeyDown: (event: CalibrationStageKeyDownEventLike) => void;
   onKeyUp: (event: CalibrationStageKeyUpEventLike) => void;
   onSnapChange: (event: CalibrationStageSnapChangeEventLike) => void;
@@ -319,6 +320,18 @@ export function createCalibrationStageHandlers(input: Readonly<{
     onPointerLeave() {
       if (input.state.draggingHandle !== null || input.state.panning !== null) return;
       input.setState((state) => ({ ...state, hoverPoint: null }));
+    },
+    onHandleFocus(handle) {
+      const pointByHandle: Readonly<Record<CalibrationHandle, Point2 | null>> = {
+        a: input.draft.pointA,
+        b: input.draft.pointB,
+      };
+      input.setState((state) => ({
+        ...state,
+        activeHandle: handle,
+        activeCandidateId: null,
+        hoverPoint: pointByHandle[handle],
+      }));
     },
     onKeyDown(event) {
       if (event.key === " ") {
