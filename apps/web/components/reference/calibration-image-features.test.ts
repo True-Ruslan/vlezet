@@ -12,13 +12,14 @@ afterEach(() => {
 });
 
 function fixtureCanvas(data: Uint8ClampedArray): CalibrationCanvasLike {
+  const context = {
+    drawImage: vi.fn(),
+    getImageData: vi.fn(() => ({ data })),
+  };
   return {
     width: 0,
     height: 0,
-    getContext: vi.fn(() => ({
-      drawImage: vi.fn(),
-      getImageData: vi.fn(() => ({ data })),
-    })),
+    getContext: vi.fn(() => context),
   };
 }
 
