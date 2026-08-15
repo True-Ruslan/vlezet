@@ -114,10 +114,9 @@ export function PrecisionCalibrationStage({
     readFeatures: calibrationStageFeatureReader.bind(null, image),
   });
 
-  useEffect(
-    installCalibrationStageWheelListener.bind(null, stageElement, handlers),
-    [handlers, stageElement],
-  );
+  useEffect(() => (
+    installCalibrationStageWheelListener(stageElement, handlers)
+  ), [handlers, stageElement]);
 
   if (error) return <p className="field-error">{error}</p>;
   if (!image || !handlers) return <p className="reference-preview-loading">Подготавливаем предпросмотр…</p>;
