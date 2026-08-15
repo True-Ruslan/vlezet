@@ -1,6 +1,6 @@
 # Vlezet Test Coverage Audit
 
-**Status:** measured coverage ratchet with active debt registry. Testing-policy Phase A is accepted and merged. `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation is technically complete and product-owner accepted in PR #90; protected integration and post-merge verification remain pending. Coverage numbers below are copied from generated `tools/testing-policy/coverage-baseline.json` output and must not be hand-authored.
+**Status:** measured coverage ratchet with active debt registry. Testing-policy Phase A is accepted and merged. `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation is technically complete and product-owner accepted in PR #90; canonical acceptance truth is synchronized. Fresh exact-head delivery gates on the final documentation head, protected integration and post-merge verification remain pending. Coverage numbers below are copied from generated `tools/testing-policy/coverage-baseline.json` output and must not be hand-authored.
 
 A missing same-name test file is never proof of no coverage. This registry records only confirmed gaps or explicit audit candidates.
 
@@ -76,7 +76,8 @@ Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect jus
 - **Acceptance evidence:** CI #5167 PASS; CodeQL #527 PASS; Browser Acceptance #1614 PASS — Chromium 65/65, WebKit 57/57, workers=1, retries=0; browser artifact `9248180775`, sha256 `58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75`.
 - **Policy RED -> GREEN:** `760b0f21179a23bdd8199491a98bc7a2efa08734` exposed the obsolete immutable Phase A baseline-SHA contract; `366ad1f880d5866264e94388412c6dfabf37f83b` makes the canonical audit follow generated `baseline.sourceCommit` without weakening thresholds or measured cells.
 - **Product-owner acceptance:** PASS — 2026-08-15, explicit message `Принимаю P0`.
-- **Status:** **REMEDIATION IMPLEMENTED / DEDICATED DEBT EVIDENCE CLOSED / PRODUCT-OWNER ACCEPTED in PR #90**. Protected squash integration and post-merge verification remain pending.
+- **Canonical truth sync:** `docs/PROJECT_STATE.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md`, this audit and the focused P0 changelog record acceptance before integration. The resulting docs-only head must pass fresh exact-head delivery gates before merge.
+- **Status:** **REMEDIATION IMPLEMENTED / DEDICATED DEBT EVIDENCE CLOSED / PRODUCT-OWNER ACCEPTED in PR #90**. Fresh final-head verification, protected squash integration and post-merge verification remain pending.
 
 No other historical gap is recorded here until dedicated evidence confirms it. Package totals below later target floors are baseline facts, not individual debt items.
 
