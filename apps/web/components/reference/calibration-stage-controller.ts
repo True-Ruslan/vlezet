@@ -174,10 +174,23 @@ export function createCalibrationStageHandlers(input: Readonly<{
   sourceImage: Readonly<{ naturalWidth: number; naturalHeight: number }>;
   readFeatures: (point: Point2) => readonly CalibrationSourceFeature[];
 }>): CalibrationStageHandlers {
+  let currentState = input.state;
+  let currentDraft = input.draft;
+
+  const setCurrentState: CalibrationStageStateSetter = (update) => {
+    currentState = typeof update === "function" ? update(currentState) : update;
+    input.setState(currentState);
+  };
+
+  const changeDraft = (patch: Partial<CalibrationStageDraft>) => {
+    currentDraft = { ...currentDraft, ...patch };
+    input.onChange(patch);
+  };
+
   const setViewportFit = () => {
     const element = input.stage();
     if (!element) return;
-    input.setState((state) => ({ ...state, viewport: fitViewport(element, input.sourceImage) }));
+    setCurrentState((state) => ({ ...state, viewport: fitViewport(element, input.sourceImage) }));
   };
 
   const resolvePoint = (
@@ -185,17 +198,17 @@ export function createCalibrationStageHandlers(input: Readonly<{
     handle: CalibrationHandle,
     suppressed: boolean,
   ) => {
-    const features = input.state.snapEnabled && !suppressed ? input.readFeatures(rawPoint) : [];
+    const features = currentState.snapEnabled && !suppressed ? input.readFeatures(rawPoint) : [];
     return resolveCalibrationSnap({
       rawPoint,
       features,
-      viewportScale: input.state.viewport?.scale ?? 1,
+      viewportScale: currentState.viewport?.scale ?? 1,
       acquisitionRadiusPx: SNAP_ACQUISITION_RADIUS_PX,
       releaseRadiusPx: SNAP_RELEASE_RADIUS_PX,
       distanceEquivalencePx: SNAP_DISTANCE_EQUIVALENCE_PX,
       minimumStrength: SNAP_MINIMUM_STRENGTH,
-      activeCandidateId: input.state.activeHandle === handle ? input.state.activeCandidateId : null,
-      snappingEnabled: input.state.snapEnabled,
+      activeCandidateId: currentState.activeHandle === handle ? currentState.activeCandidateId : null,
+      snappingEnabled: currentState.snapEnabled,
       suppressed,
     });
   };
@@ -206,8 +219,8 @@ export function createCalibrationStageHandlers(input: Readonly<{
     suppressed: boolean,
   ) => {
     const resolved = resolvePoint(rawPoint, handle, suppressed);
-    input.onChange(handle === "a" ? { pointA: resolved.point } : { pointB: resolved.point });
-    input.setState((state) => ({
+    changeDraft(handle === "a" ? { pointA: resolved.point } : { pointB: resolved.point });
+    setCurrentState((state) => ({
       ...state,
       activeHandle: handle,
       activeCandidateId: resolved.candidateId,
@@ -218,7 +231,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
 
   const finishPointerGesture = (event: CalibrationStagePointerEventLike) => {
     const element = event.currentTarget;
-    input.setState((state) => ({
+    setCurrentState((state) => ({
       ...state,
       panning: state.panning?.pointerId === event.pointerId ? null : state.panning,
       draggingHandle: null,
@@ -231,7 +244,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
     onFit: setViewportFit,
     onWheel(event) {
       const element = input.stage();
-      const viewport = input.state.viewport;
+      const viewport = currentState.viewport;
       if (!element || !viewport) return;
       event.preventDefault();
       const point = localPoint(element, { x: event.clientX, y: event.clientY });
@@ -246,18 +259,18 @@ export function createCalibrationStageHandlers(input: Readonly<{
         zoomFactor,
         limits: { minScale: MIN_ZOOM, maxScale: MAX_ZOOM },
       });
-      input.setState((state) => ({ ...state, viewport: next }));
+      setCurrentState((state) => ({ ...state, viewport: next }));
     },
     onPointerDown(event) {
       const element = event.currentTarget;
-      const viewport = input.state.viewport;
+      const viewport = currentState.viewport;
       element.focus();
       if (!viewport) return;
 
-      if (event.button === 1 || input.state.spacePressed) {
+      if (event.button === 1 || currentState.spacePressed) {
         event.preventDefault();
         element.setPointerCapture(event.pointerId);
-        input.setState((state) => ({
+        setCurrentState((state) => ({
           ...state,
           panning: {
             pointerId: event.pointerId,
@@ -272,14 +285,14 @@ export function createCalibrationStageHandlers(input: Readonly<{
       const rawPoint = imagePointForPointer(event, viewport, input.sourceImage);
       const placement = resolveCalibrationPlacement({
         point: rawPoint,
-        pointA: input.draft.pointA,
-        pointB: input.draft.pointB,
+        pointA: currentDraft.pointA,
+        pointB: currentDraft.pointB,
         viewportScale: viewport.scale,
         handleTolerancePx: HANDLE_TOLERANCE_PX,
       });
       const resolved = updateHandle(placement.handle, rawPoint, event.altKey);
       element.setPointerCapture(event.pointerId);
-      input.setState((state) => ({
+      setCurrentState((state) => ({
         ...state,
         activeHandle: placement.handle,
         draggingHandle: placement.handle,
@@ -288,9 +301,9 @@ export function createCalibrationStageHandlers(input: Readonly<{
       }));
     },
     onPointerMove(event) {
-      const viewport = input.state.viewport;
+      const viewport = currentState.viewport;
       if (!viewport) return;
-      const panning = input.state.panning;
+      const panning = currentState.panning;
       if (panning?.pointerId === event.pointerId) {
         event.preventDefault();
         const delta = {
@@ -298,7 +311,7 @@ export function createCalibrationStageHandlers(input: Readonly<{
           y: event.clientY - panning.lastClient.y,
         };
         const next = panCalibrationViewport(viewport, delta);
-        input.setState((state) => ({
+        setCurrentState((state) => ({
           ...state,
           viewport: next,
           panning: { pointerId: event.pointerId, lastClient: { x: event.clientX, y: event.clientY } },
@@ -307,26 +320,26 @@ export function createCalibrationStageHandlers(input: Readonly<{
       }
 
       const rawPoint = imagePointForPointer(event, viewport, input.sourceImage);
-      if (input.state.draggingHandle === null) {
-        input.setState((state) => ({ ...state, hoverPoint: rawPoint }));
+      if (currentState.draggingHandle === null) {
+        setCurrentState((state) => ({ ...state, hoverPoint: rawPoint }));
         return;
       }
 
       event.preventDefault();
-      updateHandle(input.state.draggingHandle, rawPoint, event.altKey);
+      updateHandle(currentState.draggingHandle, rawPoint, event.altKey);
     },
     onPointerUp: finishPointerGesture,
     onPointerCancel: finishPointerGesture,
     onPointerLeave() {
-      if (input.state.draggingHandle !== null || input.state.panning !== null) return;
-      input.setState((state) => ({ ...state, hoverPoint: null }));
+      if (currentState.draggingHandle !== null || currentState.panning !== null) return;
+      setCurrentState((state) => ({ ...state, hoverPoint: null }));
     },
     onHandleFocus(handle) {
       const pointByHandle: Readonly<Record<CalibrationHandle, Point2 | null>> = {
-        a: input.draft.pointA,
-        b: input.draft.pointB,
+        a: currentDraft.pointA,
+        b: currentDraft.pointB,
       };
-      input.setState((state) => ({
+      setCurrentState((state) => ({
         ...state,
         activeHandle: handle,
         activeCandidateId: null,
@@ -336,29 +349,29 @@ export function createCalibrationStageHandlers(input: Readonly<{
     onKeyDown(event) {
       if (event.key === " ") {
         event.preventDefault();
-        if (!event.repeat) input.setState((state) => ({ ...state, spacePressed: true }));
+        if (!event.repeat) setCurrentState((state) => ({ ...state, spacePressed: true }));
         return;
       }
       const placement = resolveCalibrationNudge({
         key: event.key,
         shiftKey: event.shiftKey,
-        activeHandle: input.state.activeHandle,
-        pointA: input.draft.pointA,
-        pointB: input.draft.pointB,
+        activeHandle: currentState.activeHandle,
+        pointA: currentDraft.pointA,
+        pointB: currentDraft.pointB,
         naturalSize: { width: input.sourceImage.naturalWidth, height: input.sourceImage.naturalHeight },
       });
       if (!placement) return;
       event.preventDefault();
-      input.onChange(placement.handle === "a" ? { pointA: placement.point } : { pointB: placement.point });
-      input.setState((state) => ({ ...state, activeCandidateId: null, hoverPoint: placement.point }));
+      changeDraft(placement.handle === "a" ? { pointA: placement.point } : { pointB: placement.point });
+      setCurrentState((state) => ({ ...state, activeCandidateId: null, hoverPoint: placement.point }));
     },
     onKeyUp(event) {
       if (event.key !== " ") return;
       event.preventDefault();
-      input.setState((state) => ({ ...state, spacePressed: false }));
+      setCurrentState((state) => ({ ...state, spacePressed: false }));
     },
     onSnapChange(event) {
-      input.setState((state) => ({
+      setCurrentState((state) => ({
         ...state,
         snapEnabled: event.currentTarget.checked,
         activeCandidateId: null,
