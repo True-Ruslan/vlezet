@@ -173,7 +173,6 @@ test("keeps magnifier coordinates on the rendered image and persists the calibra
 
   await page.reload();
   await expect(page.getByLabel("Название проекта")).toHaveValue("Моя квартира");
-  await page.getByRole("button", { name: "Подложка" }).click();
   await expect(page.locator(".context-panel-title")).toHaveText("Подложка настроена");
   await expect(page.locator(".reference-local-note")).toContainText("Подложка сохранена локально");
   const afterReload = await readReferenceEvidence(page);
