@@ -1,6 +1,6 @@
 # Vlezet Test Coverage Audit
 
-**Status:** measured coverage ratchet with active debt registry. Testing-policy Phase A is accepted and merged; `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation behavior/evidence is complete in Draft PR #90, while refreshed exact-head delivery gates after the final ratchet/docs sync and explicit product-owner acceptance remain pending. Coverage numbers below are copied from generated `tools/testing-policy/coverage-baseline.json` output and must not be hand-authored.
+**Status:** measured coverage ratchet with active debt registry. Testing-policy Phase A is accepted and merged. `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` remediation is technically complete and product-owner accepted in PR #90; protected integration and post-merge verification remain pending. Coverage numbers below are copied from generated `tools/testing-policy/coverage-baseline.json` output and must not be hand-authored.
 
 A missing same-name test file is never proof of no coverage. This registry records only confirmed gaps or explicit audit candidates.
 
@@ -48,7 +48,7 @@ Classification of production areas. This is a risk map, not a list of confirmed 
 - **P2 — supporting behavior:** panels, onboarding, secondary visual/application state and utilities.
 - **P3 — experimental:** recognition/AI R&D and benchmark/evidence tooling.
 
-Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect justifies promotion. Phase A infrastructure is accepted/merged; the first explicit P0 debt item below has complete dedicated behavior evidence, while protected integration still requires the refreshed exact-head gate and acceptance sequence.
+Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect justifies promotion. Phase A infrastructure is accepted/merged; the first explicit P0 debt item below has complete dedicated behavior evidence and explicit product-owner acceptance. Protected integration remains the final repository gate.
 
 ## Confirmed gaps and audit candidates
 
@@ -72,10 +72,11 @@ Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect jus
   - WebKit proves the current ArrayBuffer-backed storage path and registered corruption/recovery contracts without skips/retries;
   - `packages/projects/src/indexeddb.ts` and `indexeddb-schema.ts` are measured at 100% lines/statements/functions/branches in the final stable coverage reports;
   - the generated repository/package baseline has been ratcheted upward from the accepted Phase A floor.
-- **Latest fully verified behavior/docs head before ratchet commit:** `4bb012127282ee7e4fec1205251bd20de9ebcad2`
-- **Delivery evidence at that head:** CI #5163 PASS; CodeQL #523 PASS; Browser Acceptance #1610 PASS — Chromium 65/65, WebKit 57/57, workers=1, retries=0; browser artifact `9245204340`, sha256 `f87cbb1ee254ed4ad19a5713ad1a8895d562e1064f24d5171c9f518793fe46fb`
-- **Final ratchet:** generated counts committed after two identical coverage runs; because that changes PR head, a fresh exact-head CI + Browser + CodeQL cycle is mandatory before presenting the candidate for acceptance.
-- **Status:** **REMEDIATION IMPLEMENTED / DEDICATED DEBT EVIDENCE CLOSED / FINAL EXACT-HEAD REFRESH PENDING in Draft PR #90**. Product-owner acceptance and protected integration remain pending.
+- **Product-owner accepted implementation head:** `366ad1f880d5866264e94388412c6dfabf37f83b`
+- **Acceptance evidence:** CI #5167 PASS; CodeQL #527 PASS; Browser Acceptance #1614 PASS — Chromium 65/65, WebKit 57/57, workers=1, retries=0; browser artifact `9248180775`, sha256 `58d22159c0ab995ef2659c46977def0d4e32cee8ea354af7cf8770c73a95eb75`.
+- **Policy RED -> GREEN:** `760b0f21179a23bdd8199491a98bc7a2efa08734` exposed the obsolete immutable Phase A baseline-SHA contract; `366ad1f880d5866264e94388412c6dfabf37f83b` makes the canonical audit follow generated `baseline.sourceCommit` without weakening thresholds or measured cells.
+- **Product-owner acceptance:** PASS — 2026-08-15, explicit message `Принимаю P0`.
+- **Status:** **REMEDIATION IMPLEMENTED / DEDICATED DEBT EVIDENCE CLOSED / PRODUCT-OWNER ACCEPTED in PR #90**. Protected squash integration and post-merge verification remain pending.
 
 No other historical gap is recorded here until dedicated evidence confirms it. Package totals below later target floors are baseline facts, not individual debt items.
 
