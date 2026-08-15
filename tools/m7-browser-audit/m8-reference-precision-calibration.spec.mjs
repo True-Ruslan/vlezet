@@ -115,10 +115,11 @@ test("supports precision viewport navigation, source snapping, suppression and s
   await page.keyboard.up("Alt");
   await expect(pointB).not.toContainText("700.00");
 
-  await page.mouse.click(nearFirstLine.x, nearFirstLine.y);
-  await stage.press("ArrowRight");
+  await pointA.focus();
+  await expect(pointA).toBeFocused();
+  await pointA.press("ArrowRight");
   await expect(pointA).toContainText("101.00");
-  await stage.press("Shift+ArrowDown");
+  await pointA.press("Shift+ArrowDown");
   await expect(pointA).toContainText("101.00, 110.00");
 
   await snapToggle.uncheck();
