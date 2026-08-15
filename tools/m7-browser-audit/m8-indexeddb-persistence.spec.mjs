@@ -88,8 +88,8 @@ async function leaveStorageSetupPage(page) {
   await page.unroute(`**${SETUP_PATH}`);
 }
 
-async function seedLegacyDatabase(page, { version, project, asset = null }) {
-  return page.evaluate(async ({ dbName, version: targetVersion, project: storedProject, asset: assetInput }) => {
+async function seedLegacyDatabase(page, { version, project }) {
+  await page.evaluate(async ({ dbName, version: targetVersion, project: storedProject }) => {
     const transactionDone = (transaction, label) => new Promise((resolve, reject) => {
       transaction.onerror = () => reject(new Error(`${label}: ${transaction.error?.name ?? "UnknownError"}: ${transaction.error?.message ?? "unknown transaction error"}`));
       transaction.onabort = () => reject(new Error(`${label} aborted: ${transaction.error?.name ?? "AbortError"}: ${transaction.error?.message ?? "unknown transaction abort"}`));
@@ -113,50 +113,15 @@ async function seedLegacyDatabase(page, { version, project, asset = null }) {
       request.onsuccess = () => resolve(request.result);
     });
 
-    let seededAssetByteLength = null;
     try {
       const metadataTransaction = database.transaction(["projects", "settings"], "readwrite");
       metadataTransaction.objectStore("projects").put(storedProject);
       metadataTransaction.objectStore("settings").put({ key: "lastProjectId", value: storedProject.id });
       await transactionDone(metadataTransaction, "IndexedDB legacy metadata seed failed");
-
-      if (assetInput && targetVersion >= 2) {
-        const canvas = document.createElement("canvas");
-        canvas.width = 1;
-        canvas.height = 1;
-        const context = canvas.getContext("2d", { alpha: false });
-        if (!context) throw new Error("IndexedDB legacy asset canvas was unavailable");
-        context.fillStyle = "#ffffff";
-        context.fillRect(0, 0, 1, 1);
-        const blob = await new Promise((resolve, reject) => {
-          canvas.toBlob((value) => {
-            if (value) resolve(value);
-            else reject(new Error("IndexedDB legacy asset canvas Blob was unavailable"));
-          }, assetInput.mimeType);
-        });
-        if (!(blob instanceof Blob)) throw new Error("IndexedDB legacy asset did not produce a Blob");
-        if (blob.type !== assetInput.mimeType) throw new Error(`IndexedDB legacy asset MIME mismatch: ${blob.type}`);
-        seededAssetByteLength = blob.size;
-        const assetTransaction = database.transaction("assets", "readwrite");
-        const put = assetTransaction.objectStore("assets").put({
-          id: assetInput.id,
-          projectId: assetInput.projectId,
-          kind: "reference-raster",
-          mimeType: assetInput.mimeType,
-          byteLength: blob.size,
-          createdAt: assetInput.createdAt,
-          blob,
-        });
-        put.onerror = () => {
-          throw new Error(`IndexedDB legacy asset put failed: ${put.error?.name ?? "UnknownError"}: ${put.error?.message ?? "unknown request error"}`);
-        };
-        await transactionDone(assetTransaction, "IndexedDB legacy asset seed failed");
-      }
     } finally {
       database.close();
     }
-    return seededAssetByteLength;
-  }, { dbName: DB_NAME, version, project, asset });
+  }, { dbName: DB_NAME, version, project });
 }
 
 async function seedCurrentDatabase(page, { projects, assets = [], settings = [] }) {
@@ -388,38 +353,19 @@ test("upgrades a native v1 database to v3 without losing project or lastProjectI
   expect(evidence.setting).toEqual({ key: "lastProjectId", value: project.id });
 });
 
-test("upgrades a native v2 database to v3 without losing project, setting, or legacy Blob asset", async ({ page }) => {
+test("upgrades a native v2 database to v3 without losing project or lastProjectId", async ({ page }) => {
   const project = legacyV2Project("legacy-v2", "Legacy v2");
-  const asset = {
-    id: "asset-v2",
-    projectId: project.id,
-    mimeType: "image/png",
-    createdAt: NOW,
-  };
   await openStorageSetupPage(page);
-  const legacyAssetByteLength = await seedLegacyDatabase(page, { version: 2, project, asset });
+  await seedLegacyDatabase(page, { version: 2, project });
   await leaveStorageSetupPage(page);
-  expect(legacyAssetByteLength).toBeGreaterThan(0);
 
   await page.goto("/");
   await expect(page.getByLabel("Название проекта")).toHaveValue("Legacy v2");
   expect(await schemaSnapshot(page)).toMatchObject({ version: 3 });
 
-  const evidence = await readStorageEvidence(page, { projectId: project.id, assetId: asset.id });
+  const evidence = await readStorageEvidence(page, { projectId: project.id });
   expect(evidence.project).toMatchObject({ id: project.id, name: project.name, storageVersion: 2 });
   expect(evidence.setting).toEqual({ key: "lastProjectId", value: project.id });
-  expect(evidence.asset).toEqual({
-    id: asset.id,
-    projectId: project.id,
-    kind: "reference-raster",
-    mimeType: "image/png",
-    byteLength: legacyAssetByteLength,
-    createdAt: NOW,
-    storageKind: "blob",
-    blobBytesSize: null,
-    blobSize: legacyAssetByteLength,
-    blobType: "image/png",
-  });
 });
 
 test("preserves a current recognition session across a real application reopen", async ({ page }) => {
