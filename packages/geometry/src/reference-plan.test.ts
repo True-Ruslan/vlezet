@@ -4,6 +4,7 @@ import {
   calibrateReferencePlan,
   imagePointToWorld,
   referencePlanBounds,
+  verifyReferenceCalibration,
   worldPointToImage,
 } from "./index";
 
@@ -14,6 +15,13 @@ const draft = {
   pointB: { x: 600, y: 200 },
   knownLengthMm: 2500,
   originWorld: { x: 3000, y: 4000 },
+};
+
+const primaryCalibration = {
+  pointA: draft.pointA,
+  pointB: draft.pointB,
+  knownLengthMm: draft.knownLengthMm,
+  alignment: "none" as const,
 };
 
 describe("reference-plan calibration", () => {
@@ -109,5 +117,79 @@ describe("reference-plan calibration", () => {
   it("rejects unstable calibration inputs", () => {
     expect(() => calibrateReferencePlan({ ...draft, pointB: { x: 110, y: 200 }, alignment: "none" })).toThrow();
     expect(() => calibrateReferencePlan({ ...draft, knownLengthMm: 50, alignment: "none" })).toThrow();
+  });
+});
+
+describe("reference-plan independent verification", () => {
+  it("reports exact agreement without changing primary scale authority", () => {
+    const result = verifyReferenceCalibration({
+      primary: primaryCalibration,
+      pointA: { x: 100, y: 400 },
+      pointB: { x: 500, y: 400 },
+      knownLengthMm: 2000,
+    });
+
+    expect(result.primaryMillimetersPerPixel).toBeCloseTo(5, 10);
+    expect(result.predictedLengthMm).toBeCloseTo(2000, 10);
+    expect(result.residualMm).toBeCloseTo(0, 10);
+    expect(result.absoluteResidualMm).toBeCloseTo(0, 10);
+    expect(result.relativeError).toBeCloseTo(0, 10);
+    expect(result.status).toBe("verified");
+  });
+
+  it("keeps signed residual evidence and warns on material disagreement", () => {
+    const result = verifyReferenceCalibration({
+      primary: primaryCalibration,
+      pointA: { x: 100, y: 400 },
+      pointB: { x: 510, y: 400 },
+      knownLengthMm: 2000,
+    });
+
+    expect(result.predictedLengthMm).toBeCloseTo(2050, 10);
+    expect(result.residualMm).toBeCloseTo(50, 10);
+    expect(result.absoluteResidualMm).toBeCloseTo(50, 10);
+    expect(result.relativeError).toBeCloseTo(0.025, 10);
+    expect(result.status).toBe("warning");
+  });
+
+  it("does not warn at the exact combined 1 percent and 20 millimetre boundary", () => {
+    const result = verifyReferenceCalibration({
+      primary: primaryCalibration,
+      pointA: { x: 100, y: 400 },
+      pointB: { x: 504, y: 400 },
+      knownLengthMm: 2000,
+    });
+
+    expect(result.absoluteResidualMm).toBeCloseTo(20, 10);
+    expect(result.relativeError).toBeCloseTo(0.01, 10);
+    expect(result.status).toBe("verified");
+  });
+
+  it("does not over-warn a short verification segment when absolute residual is small", () => {
+    const result = verifyReferenceCalibration({
+      primary: primaryCalibration,
+      pointA: { x: 100, y: 400 },
+      pointB: { x: 202, y: 400 },
+      knownLengthMm: 500,
+    });
+
+    expect(result.absoluteResidualMm).toBeCloseTo(10, 10);
+    expect(result.relativeError).toBeCloseTo(0.02, 10);
+    expect(result.status).toBe("verified");
+  });
+
+  it("rejects degenerate or physically implausible verification inputs", () => {
+    expect(() => verifyReferenceCalibration({
+      primary: primaryCalibration,
+      pointA: { x: 100, y: 400 },
+      pointB: { x: 110, y: 400 },
+      knownLengthMm: 500,
+    })).toThrow();
+    expect(() => verifyReferenceCalibration({
+      primary: primaryCalibration,
+      pointA: { x: 100, y: 400 },
+      pointB: { x: 200, y: 400 },
+      knownLengthMm: 50,
+    })).toThrow();
   });
 });
