@@ -174,27 +174,31 @@ export function PrecisionCalibrationStage({
         ) : null}
 
         {draft.pointA && pointAViewport ? (
-          <span
+          <button
             className="calibration-handle"
             data-calibration-point="a"
+            type="button"
             style={pointAViewport}
             aria-label={`Точка A: ${pointText(draft.pointA)}`}
+            onFocus={handlers.onHandleFocus.bind(null, "a")}
           >
             A
             <span className="calibration-coordinate-readout">{pointText(draft.pointA)}</span>
-          </span>
+          </button>
         ) : null}
 
         {draft.pointB && pointBViewport ? (
-          <span
+          <button
             className="calibration-handle is-b"
             data-calibration-point="b"
+            type="button"
             style={pointBViewport}
             aria-label={`Точка B: ${pointText(draft.pointB)}`}
+            onFocus={handlers.onHandleFocus.bind(null, "b")}
           >
             B
             <span className="calibration-coordinate-readout">{pointText(draft.pointB)}</span>
-          </span>
+          </button>
         ) : null}
 
         {magnifiedPoint ? (
