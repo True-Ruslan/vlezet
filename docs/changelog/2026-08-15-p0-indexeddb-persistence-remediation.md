@@ -1,7 +1,7 @@
 # P0 IndexedDB persistence and failure-path remediation
 
 **Date:** 2026-08-15  
-**Status:** PRODUCT-OWNER ACCEPTED in PR #90. Technical evidence and coverage ratchet are complete. Canonical acceptance truth is synchronized; fresh exact-head CI, Chromium/WebKit and CodeQL on the final documentation head are the remaining pre-merge gates, followed by protected squash integration and post-merge verification.
+**Status:** PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED / POST-MERGE VERIFIED. PR #90 merged into `main` as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`; post-merge CI #5175 and CodeQL #535 are GREEN. P0 is closed and M8.3 Precision Reference Calibration is unblocked.
 
 ## Goal
 
@@ -191,12 +191,29 @@ Product-owner acceptance:
 2026-08-15 — PASS — «Принимаю P0»
 ```
 
-Canonical acceptance truth is synchronized across `docs/PROJECT_STATE.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md` and `docs/testing/TEST_COVERAGE_AUDIT.md`. This documentation-only sync necessarily advances the PR head beyond the accepted implementation/policy SHA; it does not alter runtime behavior.
+Final acceptance-documentation head before integration:
 
-## Remaining integration gate
+```text
+8d2df0f442fed9193f256a41d7612750c312dda2
+CI #5174 / run 31890829731:   PASS
+Browser Acceptance #1621:     PASS — Chromium 65/65, WebKit 57/57, retries 0
+CodeQL #534:                   PASS
+browser artifact:              9248598720
+artifact SHA-256:              3635159a20a073326df7cb0f7f34cfad4fcb078e8df66048c108ebd8a3c424ab
+```
 
-1. obtain fresh exact-head CI + Chromium/WebKit + CodeQL on the final acceptance-documentation head;
-2. mark PR #90 Ready only when those checks are GREEN;
-3. protected squash merge with expected-head protection;
-4. verify post-merge CI + CodeQL on `main`;
-5. only after protected integration is verified may M8.3 Precision Reference Calibration begin.
+## Protected integration
+
+```text
+PR #90:                         MERGED
+protected squash merge:         7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
+main parent before merge:       cc594bae218e9e16724d7574f48be8886852e7ad
+post-merge CI #5175:            PASS
+post-merge CodeQL #535:         PASS
+```
+
+GitHub confirmed the squash commit as the current `main`, and the merge was performed with expected-head protection against `8d2df0f442fed9193f256a41d7612750c312dda2`.
+
+## Final outcome
+
+`TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is closed. The accepted coverage ratchet is active on `main`, persistence recovery semantics are verified after integration, and M8.3 Precision Reference Calibration is now unblocked as the next product milestone.
