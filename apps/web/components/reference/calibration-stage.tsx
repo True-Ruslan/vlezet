@@ -188,6 +188,7 @@ export function PrecisionCalibrationStage({
             top: 0,
             width: image.naturalWidth,
             height: image.naturalHeight,
+            maxWidth: "none",
             maxHeight: "none",
             objectFit: "fill",
             transformOrigin: "0 0",
