@@ -44,8 +44,6 @@ export function resolveCalibrationPlacement(input: Readonly<{
   viewportScale: number;
   handleTolerancePx: number;
 }>): CalibrationPlacement {
-  if (input.pointA === null) return { handle: "a", point: input.point };
-  if (input.pointB === null) return { handle: "b", point: input.point };
   const acquired = chooseCalibrationHandle({
     point: input.point,
     pointA: input.pointA,
@@ -54,6 +52,8 @@ export function resolveCalibrationPlacement(input: Readonly<{
     tolerancePx: input.handleTolerancePx,
   });
   if (acquired) return { handle: acquired, point: input.point };
+  if (input.pointA === null) return { handle: "a", point: input.point };
+  if (input.pointB === null) return { handle: "b", point: input.point };
   const distanceA = Math.hypot(input.point.x - input.pointA.x, input.point.y - input.pointA.y);
   const distanceB = Math.hypot(input.point.x - input.pointB.x, input.point.y - input.pointB.y);
   return { handle: distanceA < distanceB ? "a" : "b", point: input.point };
