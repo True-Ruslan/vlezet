@@ -77,7 +77,7 @@ async function calibrationPointX(point) {
   return Number.parseFloat(label.replace(/^Точка [AB]: /, "").split(",")[0] ?? "NaN");
 }
 
-test("guides incomplete calibration and never creates B by reacquiring A", async ({ page }) => {
+test("guides incomplete calibration, validates save and never creates B by reacquiring A", async ({ page }) => {
   await openCalibration(page);
 
   const stage = page.locator(".calibration-stage");
@@ -87,8 +87,7 @@ test("guides incomplete calibration and never creates B by reacquiring A", async
   const save = page.getByRole("button", { name: "Сохранить и открыть план" });
 
   await expect(page.getByText("Поставьте точку A на одном конце известного размера.", { exact: true })).toBeVisible();
-  await expect(save).toBeDisabled();
-  await expect.poll(async () => Number(await save.evaluate((element) => getComputedStyle(element).opacity))).toBeLessThanOrEqual(0.6);
+  await expect(save).toBeEnabled();
 
   const first = await imageClientPoint(image, { x: 100, y: 100 });
   await page.mouse.click(first.x, first.y);
@@ -103,10 +102,13 @@ test("guides incomplete calibration and never creates B by reacquiring A", async
   await page.mouse.click(second.x, second.y);
   await expect(pointB).toBeVisible();
   await expect(page.getByText("Укажите реальную длину между точками A и B.", { exact: true })).toBeVisible();
-  await expect(save).toBeDisabled();
+
+  await save.click();
+  await expect(page.getByRole("alert")).toHaveText("Укажите реальную длину между точками A и B.");
+  await expect(page.locator(".context-panel-title")).toHaveText("Калибровка масштаба");
 
   await page.getByLabel("Реальная длина").fill("3000");
-  await expect(save).toBeEnabled();
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
 test("supports precision viewport navigation, source snapping, suppression and source-pixel keyboard nudge", async ({ page }) => {
