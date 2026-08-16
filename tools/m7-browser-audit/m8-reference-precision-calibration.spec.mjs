@@ -71,6 +71,12 @@ async function imageClientPoint(image, sourcePoint, sourceSize = { width: 800, h
   };
 }
 
+async function calibrationPointX(point) {
+  const label = await point.getAttribute("aria-label");
+  if (!label) return Number.NaN;
+  return Number.parseFloat(label.replace(/^Точка [AB]: /, "").split(",")[0] ?? "NaN");
+}
+
 test("supports precision viewport navigation, source snapping, suppression and source-pixel keyboard nudge", async ({ page }) => {
   await openCalibration(page);
 
@@ -124,5 +130,5 @@ test("supports precision viewport navigation, source snapping, suppression and s
 
   await snapToggle.uncheck();
   await page.mouse.click(nearFirstLine.x + 4, nearFirstLine.y);
-  await expect(pointA).not.toContainText("100.00");
+  await expect.poll(() => calibrationPointX(pointA)).toBeGreaterThan(100.5);
 });
