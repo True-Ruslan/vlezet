@@ -77,6 +77,38 @@ async function calibrationPointX(point) {
   return Number.parseFloat(label.replace(/^Точка [AB]: /, "").split(",")[0] ?? "NaN");
 }
 
+test("guides incomplete calibration and never creates B by reacquiring A", async ({ page }) => {
+  await openCalibration(page);
+
+  const stage = page.locator(".calibration-stage");
+  const image = stage.locator("img");
+  const pointA = page.locator('[data-calibration-point="a"]');
+  const pointB = page.locator('[data-calibration-point="b"]');
+  const save = page.getByRole("button", { name: "Сохранить и открыть план" });
+
+  await expect(page.getByText("Поставьте точку A на одном конце известного размера.", { exact: true })).toBeVisible();
+  await expect(save).toBeDisabled();
+  await expect.poll(async () => Number(await save.evaluate((element) => getComputedStyle(element).opacity))).toBeLessThanOrEqual(0.6);
+
+  const first = await imageClientPoint(image, { x: 100, y: 100 });
+  await page.mouse.click(first.x, first.y);
+  await expect(pointA).toBeVisible();
+  await expect(pointB).toHaveCount(0);
+  await expect(page.getByText("Теперь поставьте точку B на другом конце известного размера.", { exact: true })).toBeVisible();
+
+  await pointA.click();
+  await expect(pointB).toHaveCount(0);
+
+  const second = await imageClientPoint(image, { x: 700, y: 100 });
+  await page.mouse.click(second.x, second.y);
+  await expect(pointB).toBeVisible();
+  await expect(page.getByText("Укажите реальную длину между точками A и B.", { exact: true })).toBeVisible();
+  await expect(save).toBeDisabled();
+
+  await page.getByLabel("Реальная длина").fill("3000");
+  await expect(save).toBeEnabled();
+});
+
 test("supports precision viewport navigation, source snapping, suppression and source-pixel keyboard nudge", async ({ page }) => {
   await openCalibration(page);
 
