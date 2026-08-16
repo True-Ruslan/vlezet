@@ -47,10 +47,45 @@ export type ReferencePanelProps = Readonly<{
   onFitReference: () => void;
 }>;
 
+export type CalibrationSubmissionValidation =
+  | Readonly<{ ok: false; message: string }>
+  | Readonly<{
+      ok: true;
+      pointA: Point2;
+      pointB: Point2;
+      knownLengthMm: number;
+      alignment: ReferenceAlignment;
+    }>;
+
 function stateError(error: unknown): ReferenceImportState {
   if (error instanceof ReferenceImportError) return { kind: "failed", code: error.code, message: error.message };
   console.error(error);
   return { kind: "failed", code: "decode-failed", message: "Не удалось обработать выбранный план." };
+}
+
+export function calibrationGuidance(draft: CalibrationDraft): string {
+  if (!draft.pointA) return "Поставьте точку A на одном конце известного размера.";
+  if (!draft.pointB) return "Теперь поставьте точку B на другом конце известного размера.";
+  if (!draft.lengthInput.trim()) return "Укажите реальную длину между точками A и B.";
+  return "Калибровка заполнена. Проверьте точки и сохраните план.";
+}
+
+export function validateCalibrationSubmission(draft: CalibrationDraft): CalibrationSubmissionValidation {
+  if (!draft.pointA) return { ok: false, message: "Поставьте точку A на одном конце известного размера." };
+  if (!draft.pointB) return { ok: false, message: "Теперь поставьте точку B на другом конце известного размера." };
+  if (!draft.lengthInput.trim()) return { ok: false, message: "Укажите реальную длину между точками A и B." };
+  try {
+    return {
+      ok: true,
+      pointA: draft.pointA,
+      pointB: draft.pointB,
+      knownLengthMm: parseCalibrationLength(draft.lengthInput),
+      alignment: draft.alignment,
+    };
+  } catch (cause) {
+    if (cause instanceof ReferenceImportError) return { ok: false, message: cause.message };
+    throw cause;
+  }
 }
 
 export function CalibrationStage({
@@ -99,6 +134,7 @@ export function ReferencePanel({
   const pdfRef = useRef<LoadedPdfReference | null>(null);
   const [state, setState] = useState<ReferenceImportState>({ kind: "idle" });
   const [removePending, setRemovePending] = useState(false);
+  const [calibrationError, setCalibrationError] = useState<string | null>(null);
 
   useEffect(() => () => { const pdf = pdfRef.current; if (pdf) void pdf.destroy(); }, []);
 
@@ -106,6 +142,7 @@ export function ReferencePanel({
 
   const beginFile = async (file: File) => {
     const fileName = file.name;
+    setCalibrationError(null);
     dispatch({ type: "choose-file", fileName });
     try {
       const inspected = await inspectReferenceFile(file);
@@ -137,20 +174,36 @@ export function ReferencePanel({
     } catch (cause) { setState(stateError(cause)); }
   };
 
+  const updateCalibration = (patch: Partial<CalibrationDraft>) => {
+    setCalibrationError(null);
+    dispatch({ type: "update-calibration", patch });
+  };
+
   const saveCalibration = async () => {
-    if (state.kind !== "calibrating" || !state.draft.pointA || !state.draft.pointB) return;
+    if (state.kind !== "calibrating") return;
+    let validation: CalibrationSubmissionValidation;
     try {
-      const knownLengthMm = parseCalibrationLength(state.draft.lengthInput);
+      validation = validateCalibrationSubmission(state.draft);
+    } catch (cause) {
+      setState(stateError(cause));
+      return;
+    }
+    if (!validation.ok) {
+      setCalibrationError(validation.message);
+      return;
+    }
+    setCalibrationError(null);
+    try {
       dispatch({ type: "saving" });
       await onInstall({
         raster: state.raster,
         source: state.source === "pdf"
           ? { kind: "pdf", pageNumber: state.pageNumber ?? 1, pageCount: state.pageCount ?? 1 }
           : { kind: "image", originalMimeType: state.source === "png" ? "image/png" : "image/jpeg" },
-        pointA: state.draft.pointA,
-        pointB: state.draft.pointB,
-        knownLengthMm,
-        alignment: state.draft.alignment,
+        pointA: validation.pointA,
+        pointB: validation.pointB,
+        knownLengthMm: validation.knownLengthMm,
+        alignment: validation.alignment,
       });
       dispatch({ type: "saved" });
       await pdfRef.current?.destroy();
@@ -202,7 +255,7 @@ export function ReferencePanel({
 
       {state.kind === "reading-file" || state.kind === "normalizing" || state.kind === "saving" ? <div className="reference-progress" role="status">{state.kind === "reading-file" ? "Читаем файл…" : state.kind === "saving" ? "Сохраняем подложку…" : state.progressLabel}</div> : null}
       {state.kind === "selecting-pdf-page" ? <ContextSection title="Выберите страницу PDF" description={`В документе ${state.pageCount} страниц.`}><input type="number" min="1" max={state.pageCount} value={state.selectedPage} onChange={(event) => dispatch({ type: "select-pdf-page", pageNumber: Number(event.target.value) })} /><button className="primary-action" type="button" onClick={() => void renderSelectedPdfPage()}>Открыть страницу</button><button className="secondary-action" type="button" onClick={() => dispatch({ type: "cancel" })}>Отмена</button></ContextSection> : null}
-      {state.kind === "calibrating" ? <ContextSection title="Калибровка масштаба" description="Укажите две точки известного размера — например, концы размерной линии или ширину двери."><CalibrationStage raster={state.raster} draft={state.draft} onChange={(patch) => dispatch({ type: "update-calibration", patch })} /><label className="field-label">Реальная длина<input value={state.draft.lengthInput} placeholder="Например, 3200 или 3,2 м" onChange={(event) => dispatch({ type: "update-calibration", patch: { lengthInput: event.target.value } })} /></label><label className="field-label">Выравнивание<select value={state.draft.alignment} onChange={(event) => dispatch({ type: "update-calibration", patch: { alignment: event.target.value as ReferenceAlignment } })}><option value="none">Не выравнивать</option><option value="horizontal">Эта линия горизонтальная</option><option value="vertical">Эта линия вертикальная</option></select></label><div className="calibration-point-fields"><span>A: {state.draft.pointA ? `${Math.round(state.draft.pointA.x)}, ${Math.round(state.draft.pointA.y)} px` : "не выбрана"}</span><span>B: {state.draft.pointB ? `${Math.round(state.draft.pointB.x)}, ${Math.round(state.draft.pointB.y)} px` : "не выбрана"}</span></div><button className="primary-action" type="button" disabled={!state.draft.pointA || !state.draft.pointB || !state.draft.lengthInput.trim()} onClick={() => void saveCalibration()}>Сохранить и открыть план</button><button className="secondary-action" type="button" onClick={() => { dispatch({ type: "cancel" }); void pdfRef.current?.destroy(); pdfRef.current = null; }}>Отмена</button></ContextSection> : null}
+      {state.kind === "calibrating" ? <ContextSection title="Калибровка масштаба" description="Укажите две точки известного размера — например, концы размерной линии или ширину двери."><p id="reference-calibration-guidance" className="reference-calibration-guidance" role="status">{calibrationGuidance(state.draft)}</p><CalibrationStage raster={state.raster} draft={state.draft} onChange={updateCalibration} /><label className="field-label">Реальная длина<input value={state.draft.lengthInput} placeholder="Например, 3200 или 3,2 м" onChange={(event) => updateCalibration({ lengthInput: event.target.value })} /></label>{calibrationError ? <p className="field-error" role="alert">{calibrationError}</p> : null}<label className="field-label">Выравнивание<select value={state.draft.alignment} onChange={(event) => updateCalibration({ alignment: event.target.value as ReferenceAlignment })}><option value="none">Не выравнивать</option><option value="horizontal">Эта линия горизонтальная</option><option value="vertical">Эта линия вертикальная</option></select></label><div className="calibration-point-fields"><span>A: {state.draft.pointA ? `${Math.round(state.draft.pointA.x)}, ${Math.round(state.draft.pointA.y)} px` : "не выбрана"}</span><span>B: {state.draft.pointB ? `${Math.round(state.draft.pointB.x)}, ${Math.round(state.draft.pointB.y)} px` : "не выбрана"}</span></div><button className="primary-action" type="button" aria-describedby="reference-calibration-guidance" onClick={() => void saveCalibration()}>Сохранить и открыть план</button><button className="secondary-action" type="button" onClick={() => { setCalibrationError(null); dispatch({ type: "cancel" }); void pdfRef.current?.destroy(); pdfRef.current = null; }}>Отмена</button></ContextSection> : null}
       {assetBlob && referencePlan ? <p className="reference-local-note">Подложка сохранена локально: {(assetBlob.size / 1024 / 1024).toFixed(1)} МБ.</p> : null}
     </ContextPanelFrame>
   );
