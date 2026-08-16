@@ -71,6 +71,24 @@ describe("calibration stage interaction model", () => {
     })).toMatchObject({ handle: "b", point: { x: 690, y: 50 } });
   });
 
+  it("acquires an existing A handle before creating a missing B at the same location", () => {
+    expect(resolveCalibrationPlacement({
+      point: { x: 105, y: 50 },
+      pointA: { x: 100, y: 50 },
+      pointB: null,
+      viewportScale: 1,
+      handleTolerancePx: 14,
+    })).toMatchObject({ handle: "a", point: { x: 105, y: 50 } });
+
+    expect(resolveCalibrationPlacement({
+      point: { x: 700, y: 50 },
+      pointA: { x: 100, y: 50 },
+      pointB: null,
+      viewportScale: 1,
+      handleTolerancePx: 14,
+    })).toMatchObject({ handle: "b", point: { x: 700, y: 50 } });
+  });
+
   it("falls back to the nearest handle when the pointer is outside handle acquisition tolerance", () => {
     expect(resolveCalibrationPlacement({
       point: { x: 250, y: 50 },
