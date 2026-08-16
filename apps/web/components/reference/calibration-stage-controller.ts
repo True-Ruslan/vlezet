@@ -57,6 +57,8 @@ export const INITIAL_CALIBRATION_STAGE_STATE: CalibrationStageSnapshot = Object.
 export type CalibrationStageElementLike = Readonly<{
   clientWidth: number;
   clientHeight: number;
+  clientLeft?: number;
+  clientTop?: number;
   getBoundingClientRect: () => Readonly<{ left: number; top: number; width: number; height: number }>;
   focus: () => void;
   setPointerCapture: (pointerId: number) => void;
@@ -129,7 +131,10 @@ function localPoint(
   clientPoint: Point2,
 ): Point2 {
   const rect = element.getBoundingClientRect();
-  return { x: clientPoint.x - rect.left, y: clientPoint.y - rect.top };
+  return {
+    x: clientPoint.x - rect.left - (element.clientLeft ?? 0),
+    y: clientPoint.y - rect.top - (element.clientTop ?? 0),
+  };
 }
 
 function fitViewport(
