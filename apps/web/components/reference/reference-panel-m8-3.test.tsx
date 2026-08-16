@@ -49,9 +49,30 @@ describe("M8.3 reference panel calibration integration", () => {
       lengthInput: "",
       alignment: "horizontal",
     })).toBe("Укажите реальную длину между точками A и B.");
+
+    expect(calibrationGuidance({
+      pointA: { x: 100, y: 50 },
+      pointB: { x: 700, y: 50 },
+      lengthInput: "3200",
+      alignment: "horizontal",
+    })).toBe("Калибровка заполнена. Проверьте точки и сохраните план.");
   });
 
   it("validates calibration submission without discarding the active workflow", () => {
+    expect(validateCalibrationSubmission({
+      pointA: null,
+      pointB: null,
+      lengthInput: "",
+      alignment: "horizontal",
+    })).toEqual({ ok: false, message: "Поставьте точку A на одном конце известного размера." });
+
+    expect(validateCalibrationSubmission({
+      pointA: { x: 100, y: 50 },
+      pointB: null,
+      lengthInput: "",
+      alignment: "horizontal",
+    })).toEqual({ ok: false, message: "Теперь поставьте точку B на другом конце известного размера." });
+
     expect(validateCalibrationSubmission({
       pointA: { x: 100, y: 50 },
       pointB: { x: 700, y: 50 },
