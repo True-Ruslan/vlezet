@@ -100,7 +100,12 @@ export function PrecisionCalibrationStage({
   );
 
   const bindStageElement = useCallback(
-    bindCalibrationStageElement.bind(null, image, setStageElement, setStageState),
+    (element: HTMLDivElement | null) => bindCalibrationStageElement(
+      image,
+      setStageElement,
+      setStageState,
+      element,
+    ),
     [image],
   );
 
