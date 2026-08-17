@@ -143,6 +143,14 @@ type WallInputState = Readonly<{
   lengthEdited: boolean;
   angleEdited: boolean;
 }>;
+type ActiveSourceCandidateState = Readonly<{
+  contextToken: object;
+  candidate: WallSourceAssistActiveCandidate;
+}>;
+type ActiveSourceAssistState = Readonly<{
+  contextToken: object;
+  result: WallSourceAssistControllerResult["sourceAssist"];
+}>;
 const EMPTY_WALL_INPUT: WallInputState = {
   lengthValue: "",
   angleValue: "",
@@ -251,7 +259,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
   const structuralPointerGestureRef = useRef<StructuralPointerGesture | null>(null);
   const wallPointerWorldRef = useRef<Point2 | null>(null);
-  const activeSourceCandidateRef = useRef<WallSourceAssistActiveCandidate | null>(null);
+  const activeSourceCandidateRef = useRef<ActiveSourceCandidateState | null>(null);
   const handledViewCommandSerialRef = useRef(viewCommandRequest?.serial ?? 0);
   const handledFitReferenceRequestRef = useRef(fitReferenceRequest);
   const viewportRef = useRef<ViewportTransform>({ ...initialViewport });
@@ -265,7 +273,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const [objectGuides, setObjectGuides] = useState<readonly ObjectSnapGuide[]>([]);
   const [marqueeGesture, setMarqueeGesture] = useState<MarqueeGesture | null>(null);
   const [activeStructuralSnap, setActiveStructuralSnap] = useState<StructuralSnapResult | null>(null);
-  const [activeSourceAssist, setActiveSourceAssist] = useState<WallSourceAssistControllerResult["sourceAssist"]>(null);
+  const [activeSourceAssistState, setActiveSourceAssistState] = useState<ActiveSourceAssistState | null>(null);
   const [wallInput, setWallInput] = useState<WallInputState>(EMPTY_WALL_INPUT);
   const [viewport, setViewport] = useState<ViewportTransform>(() => ({ ...initialViewport }));
   const setHoveredCanvasEntity = useCallback((next: HoveredCanvasEntity) => {
@@ -322,11 +330,18 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const visiblePlacementPreview = placementPresetId && placementPreview?.presetId === placementPresetId ? placementPreview : null;
   const visibleObjectGuides = placementPresetId || objectGesture ? objectGuides : [];
   const { image: referenceImage } = useReferenceImage(referenceAssetBlob);
+  const sourceAssistContextToken = useMemo(() => ({}), [
+    draftWall?.start.x,
+    draftWall?.start.y,
+    referenceAssetBlob,
+    referenceImage,
+    referencePlan,
+    sourceAssistEnabled,
+  ]);
+  const activeSourceAssist = activeSourceAssistState?.contextToken === sourceAssistContextToken
+    ? activeSourceAssistState.result
+    : null;
   const visibleReferenceBounds = useMemo(() => referencePlan?.display.visible ? referencePlanBounds(referencePlan) : null, [referencePlan]);
-  useEffect(() => {
-    setActiveSourceAssist(null);
-    activeSourceCandidateRef.current = null;
-  }, [draftWall?.start.x, draftWall?.start.y, referenceImage, referencePlan?.referenceRevision, sourceAssistEnabled]);
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
@@ -661,10 +676,14 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
       pixelsPerMillimeter: viewport.pixelsPerMillimeter,
       enabled: sourceAssistEnabled,
       suppressed: event.evt.altKey,
-      activeCandidate: activeSourceCandidateRef.current,
+      activeCandidate: activeSourceCandidateRef.current?.contextToken === sourceAssistContextToken
+        ? activeSourceCandidateRef.current.candidate
+        : null,
     });
-    setActiveSourceAssist(assisted.decision.sourceAssist);
-    activeSourceCandidateRef.current = assisted.activeCandidate;
+    setActiveSourceAssistState({ contextToken: sourceAssistContextToken, result: assisted.decision.sourceAssist });
+    activeSourceCandidateRef.current = assisted.activeCandidate
+      ? { contextToken: sourceAssistContextToken, candidate: assisted.activeCandidate }
+      : null;
     wallPointerWorldRef.current = assisted.decision.point;
     let point = assisted.decision.point;
     if (parsedWallLength !== null || parsedWallAngle !== null) {
@@ -1010,7 +1029,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     setWallInput(EMPTY_WALL_INPUT);
     wallPointerWorldRef.current = null;
     setActiveStructuralSnap(null);
-    setActiveSourceAssist(null);
+    setActiveSourceAssistState(null);
     activeSourceCandidateRef.current = null;
   };
   const onMouseDown = (event: KonvaEventObject<MouseEvent>) => {
@@ -1039,7 +1058,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
         editorStore.getState().beginWall(resolved.point, resolved.target);
         wallPointerWorldRef.current = resolved.point;
         setWallInput(EMPTY_WALL_INPUT);
-        setActiveSourceAssist(null);
+        setActiveSourceAssistState(null);
         activeSourceCandidateRef.current = null;
       } else {
         updateWallDraftFromPointer(pointer, event);
@@ -1120,7 +1139,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     setOpeningPreview(null);
     setPlacementPreview(null);
     setObjectGuides([]);
-    setActiveSourceAssist(null);
+    setActiveSourceAssistState(null);
     activeSourceCandidateRef.current = null;
     canvasTransientFeedbackStore.getState().setPreviewState("none");
   };
