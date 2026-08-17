@@ -2,6 +2,8 @@ import { deflateSync } from "node:zlib";
 import { expect, test } from "./fixtures.mjs";
 
 const DB_NAME = "vlezet";
+const REGRESSION_FIXTURE_PATH = "../../packages/recognition/benchmarks/fixtures/m7-3-regression-anonymized/source.png";
+const REGRESSION_FIXTURE_SIZE = { width: 840, height: 640 };
 
 function crc32(buffer) {
   let crc = 0xffffffff;
@@ -119,6 +121,13 @@ function sourcePointToPage(project, box, sourcePoint) {
   };
 }
 
+function imagePointToPage(imageBox, sourceSize, sourcePoint) {
+  return {
+    x: imageBox.x + imageBox.width * sourcePoint.x / sourceSize.width,
+    y: imageBox.y + imageBox.height * sourcePoint.y / sourceSize.height,
+  };
+}
+
 async function setSnapping(page, enabled) {
   const button = page.getByRole("button", { name: "Привязки", exact: true });
   const current = await button.getAttribute("aria-pressed");
@@ -142,6 +151,29 @@ async function sourceFeedbackContent(page) {
   return page.locator(".canvas-shell").evaluate((element) => getComputedStyle(element, "::after").content);
 }
 
+async function finishReferenceCalibration(page, input) {
+  await page.getByLabel("Реальная длина").fill(String(input.knownLengthMm));
+  await page.getByLabel("Выравнивание").selectOption(input.alignment);
+  await page.getByRole("button", { name: "Сохранить и открыть план" }).click();
+  await expect(page.locator(".context-panel-title")).toHaveText("Подложка настроена");
+
+  const beforeFit = await readProject(page);
+  if (!beforeFit?.referencePlan) throw new Error("Reference was not persisted.");
+  const calibration = beforeFit.referencePlan.calibration;
+  const calibrationPixels = Math.hypot(
+    calibration.pointB.x - calibration.pointA.x,
+    calibration.pointB.y - calibration.pointA.y,
+  );
+  expect(calibration.knownLengthMm).toBe(input.knownLengthMm);
+  expect(calibrationPixels).toBeGreaterThan(0);
+  expect(beforeFit.referencePlan.transform.millimetersPerPixel)
+    .toBeCloseTo(calibration.knownLengthMm / calibrationPixels, 8);
+
+  await page.getByRole("button", { name: "Показать подложку", exact: true }).click();
+  await expect.poll(async () => JSON.stringify((await readProject(page))?.viewport)).not.toBe(JSON.stringify(beforeFit.viewport));
+  return readProject(page);
+}
+
 async function installReference(page) {
   await page.getByRole("button", { name: "Подложка", exact: true }).click();
   await page.locator('input[type="file"][aria-label="Загрузить план квартиры"]').setInputFiles({
@@ -151,34 +183,47 @@ async function installReference(page) {
   });
   await expect(page.locator(".context-panel-title")).toHaveText("Калибровка масштаба");
 
-  const stage = page.locator(".calibration-stage");
-  const image = stage.locator("img");
+  const image = page.locator(".calibration-stage img");
   await expect(image).toBeVisible();
   const imageBox = await image.boundingBox();
   if (!imageBox) throw new Error("Calibration image is not visible.");
   await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * (165 / 200));
   await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * (35 / 200));
-  await page.getByLabel("Реальная длина").fill("3000");
-  await page.getByLabel("Выравнивание").selectOption("vertical");
-  await page.getByRole("button", { name: "Сохранить и открыть план" }).click();
-  await expect(page.locator(".context-panel-title")).toHaveText("Подложка настроена");
 
-  const beforeFit = await readProject(page);
-  if (!beforeFit?.referencePlan) throw new Error("Reference was not persisted.");
-  expect(Math.abs(beforeFit.referencePlan.transform.rotationDeg)).toBeLessThan(0.01);
-  const calibration = beforeFit.referencePlan.calibration;
-  const calibrationPixels = Math.hypot(
-    calibration.pointB.x - calibration.pointA.x,
-    calibration.pointB.y - calibration.pointA.y,
-  );
-  expect(calibration.knownLengthMm).toBe(3000);
-  expect(calibrationPixels).toBeGreaterThan(0);
-  expect(beforeFit.referencePlan.transform.millimetersPerPixel)
-    .toBeCloseTo(calibration.knownLengthMm / calibrationPixels, 8);
+  const project = await finishReferenceCalibration(page, { knownLengthMm: 3000, alignment: "vertical" });
+  expect(Math.abs(project.referencePlan.transform.rotationDeg)).toBeLessThan(0.01);
+  return project;
+}
 
-  await page.getByRole("button", { name: "Показать подложку", exact: true }).click();
-  await expect.poll(async () => JSON.stringify((await readProject(page))?.viewport)).not.toBe(JSON.stringify(beforeFit.viewport));
-  return readProject(page);
+async function installDenseRegressionReference(page) {
+  await page.getByRole("button", { name: "Подложка", exact: true }).click();
+  await page.locator('input[type="file"][aria-label="Загрузить план квартиры"]').setInputFiles(REGRESSION_FIXTURE_PATH);
+  await expect(page.locator(".context-panel-title")).toHaveText("Калибровка масштаба");
+
+  const image = page.locator(".calibration-stage img");
+  await expect(image).toBeVisible();
+  const imageBox = await image.boundingBox();
+  if (!imageBox) throw new Error("Dense regression calibration image is not visible.");
+  const pointA = imagePointToPage(imageBox, REGRESSION_FIXTURE_SIZE, { x: 30, y: 320 });
+  const pointB = imagePointToPage(imageBox, REGRESSION_FIXTURE_SIZE, { x: 330, y: 320 });
+  await page.mouse.click(pointA.x, pointA.y);
+  await page.mouse.click(pointB.x, pointB.y);
+
+  const project = await finishReferenceCalibration(page, { knownLengthMm: 3000, alignment: "horizontal" });
+  expect(Math.abs(project.referencePlan.transform.rotationDeg)).toBeLessThan(0.01);
+  expect(project.referencePlan.transform.millimetersPerPixel).toBeGreaterThan(9);
+  expect(project.referencePlan.transform.millimetersPerPixel).toBeLessThan(11);
+  return project;
+}
+
+function committedWallGeometry(project) {
+  const wall = project.document.walls[0];
+  if (!wall) throw new Error("Committed wall is missing.");
+  const vertices = new Map(project.document.vertices.map((vertex) => [vertex.id, vertex.position]));
+  const startpoint = vertices.get(wall.startVertexId);
+  const endpoint = vertices.get(wall.endVertexId);
+  if (!startpoint || !endpoint) throw new Error("Committed wall vertices are missing.");
+  return { startpoint, endpoint };
 }
 
 test("M8.4 wall source assist stays optional, explicit, topology-safe, local-only and undoable", async ({ page }, testInfo) => {
@@ -220,10 +265,7 @@ test("M8.4 wall source assist stays optional, explicit, topology-safe, local-onl
 
   await expect.poll(async () => (await readProject(page))?.document?.walls?.length ?? 0).toBe(1);
   const committed = await readProject(page);
-  const wall = committed.document.walls[0];
-  const vertices = new Map(committed.document.vertices.map((vertex) => [vertex.id, vertex.position]));
-  const startpoint = vertices.get(wall.startVertexId);
-  const endpoint = vertices.get(wall.endVertexId);
+  const { startpoint, endpoint } = committedWallGeometry(committed);
   const expectedStartpoint = sourcePointToWorld(committed.referencePlan, { x: 400, y: 30 });
   const expectedEndpoint = sourcePointToWorld(committed.referencePlan, { x: 700, y: 100 });
   const sourceToleranceMm = committed.referencePlan.transform.millimetersPerPixel * 2;
@@ -258,4 +300,43 @@ test("M8.4 wall source assist stays optional, explicit, topology-safe, local-onl
   await expectWallCount(page, 1);
 
   expect(assistRequests).toEqual([]);
+});
+
+test("M8.4 wall source assist acquires the repository dense regression floor plan", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openNewProject(page);
+  const project = await installDenseRegressionReference(page);
+  if (!project?.referencePlan) throw new Error("Dense regression reference is unavailable.");
+
+  const assistButton = page.getByRole("button", { name: "По подложке", exact: true });
+  await assistButton.click();
+  await expect(assistButton).toHaveAttribute("aria-pressed", "true");
+  await setSnapping(page, false);
+  await page.getByRole("button", { name: "Стена", exact: true }).click();
+
+  const box = await canvasBox(page);
+  const startProbe = sourcePointToPage(project, box, { x: 370, y: 34 });
+  const endProbe = sourcePointToPage(project, box, { x: 500, y: 26 });
+  await page.mouse.click(startProbe.x, startProbe.y);
+  await expectSourceAssistState(page, "acquired");
+  await page.mouse.move(endProbe.x, endProbe.y);
+  await expectSourceAssistState(page, "acquired");
+  await page.mouse.click(endProbe.x, endProbe.y);
+  await expectWallCount(page, 1);
+
+  await expect.poll(async () => (await readProject(page))?.document?.walls?.length ?? 0).toBe(1);
+  const committed = await readProject(page);
+  const { startpoint, endpoint } = committedWallGeometry(committed);
+  const expectedStartpoint = sourcePointToWorld(committed.referencePlan, { x: 370, y: 30 });
+  const expectedEndpoint = sourcePointToWorld(committed.referencePlan, { x: 500, y: 30 });
+  const sourceToleranceMm = committed.referencePlan.transform.millimetersPerPixel * 2;
+  expect(Math.abs(startpoint.x - expectedStartpoint.x)).toBeLessThanOrEqual(sourceToleranceMm);
+  expect(Math.abs(startpoint.y - expectedStartpoint.y)).toBeLessThanOrEqual(sourceToleranceMm);
+  expect(Math.abs(endpoint.x - expectedEndpoint.x)).toBeLessThanOrEqual(sourceToleranceMm);
+  expect(Math.abs(endpoint.y - expectedEndpoint.y)).toBeLessThanOrEqual(sourceToleranceMm);
+
+  await testInfo.attach("m8.4-dense-regression-source-assist", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
 });
