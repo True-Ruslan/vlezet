@@ -8,6 +8,7 @@ import { spatialViewModeStore, type SpatialViewMode } from "../spatial/view-mode
 import { EditorCommandIcon, type EditorCommandIconName } from "./editor-command-icon";
 import { dimensionVisibilityStore } from "./dimension-visibility-store";
 import { measurementToolStore } from "./measurement-tool-store";
+import { sourceAssistSettingsStore } from "./source-assist-settings-store";
 import { structuralSnappingSettingsStore } from "./structural-snapping-settings-store";
 import { editorStore, type EditorTool } from "./use-editor-store";
 
@@ -63,6 +64,7 @@ export type EditorToolBarViewProps = Readonly<{
   measurementActive: boolean;
   dimensionsVisible: boolean;
   snappingEnabled?: boolean;
+  sourceAssistEnabled?: boolean;
   viewMode: SpatialViewMode;
   placementPresetId: string | null;
   furnitureCatalogOpen: boolean;
@@ -74,6 +76,7 @@ export type EditorToolBarViewProps = Readonly<{
   onActivateMeasurement: () => void;
   onToggleDimensions: () => void;
   onToggleSnapping?: () => void;
+  onToggleSourceAssist?: () => void;
   onToggleFurniture: () => void;
   onToggleReference: () => void;
   onToggleRecognition: () => void;
@@ -238,7 +241,9 @@ function CommandButton({ icon, label, shortcut, active = false, disabled = false
 
 export function EditorToolBarView(props: EditorToolBarViewProps) {
   const snappingEnabled = props.snappingEnabled ?? true;
+  const sourceAssistEnabled = props.sourceAssistEnabled ?? false;
   const toggleSnapping = props.onToggleSnapping ?? (() => {});
+  const toggleSourceAssist = props.onToggleSourceAssist ?? (() => {});
   return (
     <nav className="editor-tool-bar" aria-label="Команды редактора">
       <div className="editor-command-group" aria-label="Инструменты редактирования">
@@ -248,6 +253,7 @@ export function EditorToolBarView(props: EditorToolBarViewProps) {
         <CommandButton icon="window" label="Окно" shortcut="O" disabled={props.editingDisabled} active={props.tool === "window" && !props.measurementActive} onClick={() => props.onChooseTool("window")} />
         <CommandButton icon="measure" label="Измерить" shortcut="M" disabled={props.editingDisabled} active={props.measurementActive} title="Измерить произвольное расстояние между двумя точками (M)" onClick={props.onActivateMeasurement} />
         <CommandButton icon="snap" label="Привязки" disabled={props.editingDisabled} active={snappingEnabled} title="Включить или выключить точные привязки" onClick={toggleSnapping} />
+        <CommandButton icon="reference" label="По подложке" disabled={props.editingDisabled || !props.hasReferencePlan} active={sourceAssistEnabled} title="Включить или выключить привязку стены к уверенным линиям подложки" onClick={toggleSourceAssist} />
       </div>
 
       <div className="editor-command-group" aria-label="Рабочие процессы">
@@ -272,6 +278,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const measurementActive = useStore(measurementToolStore, (state) => state.active);
   const dimensionsVisible = useStore(dimensionVisibilityStore, (state) => state.visible);
   const snappingEnabled = useStore(structuralSnappingSettingsStore, (state) => state.enabled);
+  const sourceAssistEnabled = useStore(sourceAssistSettingsStore, (state) => state.enabled);
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
   const placementPresetId = useStore(editorStore, (state) => state.placementPresetId);
   const canUndo = useStore(editorStore, (state) => state.history.past.length > 0);
@@ -346,6 +353,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       measurementActive={measurementActive}
       dimensionsVisible={dimensionsVisible}
       snappingEnabled={snappingEnabled}
+      sourceAssistEnabled={sourceAssistEnabled}
       viewMode={viewMode}
       placementPresetId={placementPresetId}
       furnitureCatalogOpen={props.furnitureCatalogOpen}
@@ -357,6 +365,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       onActivateMeasurement={activateMeasurement}
       onToggleDimensions={() => dimensionVisibilityStore.getState().toggle()}
       onToggleSnapping={() => structuralSnappingSettingsStore.getState().toggle()}
+      onToggleSourceAssist={() => sourceAssistSettingsStore.getState().toggle()}
       onToggleFurniture={toggleFurniture}
       onToggleReference={props.onToggleReferencePanel}
       onToggleRecognition={props.onToggleRecognitionPanel}
