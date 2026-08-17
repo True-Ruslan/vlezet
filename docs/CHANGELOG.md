@@ -4,9 +4,9 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
-## 2026-08-17 — M8.3 Precision Reference Calibration product-owner accepted
+## 2026-08-17 — M8.3 Precision Reference Calibration accepted, merged and verified
 
-**Status:** PRODUCT-OWNER ACCEPTED in PR #92. Protected integration and post-merge verification remain pending.
+**Status:** PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED as `01f520988a84291fb6e4f918e21f3403f17c4529` / POST-MERGE VERIFIED.
 
 M8.3 establishes an auditable source-image calibration substrate before Assisted Tracing without turning image pixels, world-grid snapping or AI output into apartment-geometry authority.
 
@@ -33,31 +33,36 @@ The product-owner feedback cycle found and corrected two final real-session defe
 
 The same hardening also corrected test infrastructure issues without changing production behavior: TypeScript 6 `ReactElement.props` inference is narrowly typed in the handler harness, and the Playwright validation assertion targets the product `.field-error[role="alert"]` instead of colliding with the Next.js route announcer.
 
-Accepted exact-head evidence before canonical truth-sync:
+Final acceptance/integration evidence:
 
 ```text
-head:                         53ee9399f2496ff3847761b9290cef03d8aa4b7e
-CI #5246:                     PASS
-  docs contract:              PASS
-  unit tests:                 PASS
-  coverage:                   PASS
-  Testing Policy:             PASS
-  Core Recognition Benchmark: PASS
-  typecheck:                  PASS
-  lint:                       PASS
-  build:                      PASS
-Browser Acceptance #1691:    PASS
-  Chromium:                   67/67 PASS
-  WebKit representative:      57/57 PASS
-  workers:                    1
-  retries:                    0
+accepted product/test head:     53ee9399f2496ff3847761b9290cef03d8aa4b7e
+final acceptance/docs head:     bcb38150e0e6b823e2679b751ae1d96ea84b7ea8
+CI #5247:                       PASS
+  docs contract:                PASS
+  unit tests:                   PASS
+  coverage:                     PASS
+  Testing Policy:               PASS
+  Core Recognition Benchmark:   PASS
+  typecheck:                    PASS
+  lint:                         PASS
+  build:                        PASS
+Browser Acceptance #1692:      PASS
+  Chromium:                     67/67 PASS
+  WebKit representative:       57/57 PASS
+  workers:                      1
+  retries:                      0
+CodeQL #607:                    PASS
+protected squash merge:         01f520988a84291fb6e4f918e21f3403f17c4529
+post-merge CI #5248:            PASS through build
+post-merge CodeQL #608:         PASS
 ```
 
 Product-owner focused real-plan retest on 2026-08-17: **PASS — «Сценарий PASS.»**
 
 No coverage threshold, retry, skip/fixme, validator, persistence rule, project schema or architectural authority was weakened. `ReferencePlan` remains persistent reference authority and calibration runtime state remains ephemeral until explicit Save.
 
-Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`. M8.4 Assisted Tracing remains blocked until PR #92 is protected-integrated and `main` is verified.
+Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`. M8.4 Assisted Tracing is now unblocked and must consume the accepted M8.3 source-coordinate/calibration substrate rather than create a parallel transform/authority.
 
 ---
 

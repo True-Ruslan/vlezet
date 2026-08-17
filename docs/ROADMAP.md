@@ -26,8 +26,8 @@ DONE        M8.1 Editor Interaction Foundation
 DONE        M8.2 Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
 DONE        Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
 DONE        P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
-ACCEPTED    M8.3 Precision Reference Calibration — PR #92, protected integration pending
-NEXT        M8.4 Assisted Tracing — starts after M8.3 protected integration
+DONE        M8.3 Precision Reference Calibration — merged 01f520988a84291fb6e4f918e21f3403f17c4529, post-merge CI #5248 + CodeQL #608 GREEN
+NOW         M8.4 Assisted Tracing
 THEN        M8.5 Furniture + Materials 2.0
 THEN        M8.6 Export + Presentation
 THEN        M8.7 Public Beta Hardening
@@ -43,7 +43,7 @@ Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8
 
 P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is closed. PR #90 was product-owner accepted and protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`; post-merge CI #5175 and CodeQL #535 are GREEN. Its accepted coverage ratchet and persistence-recovery semantics are active on `main`.
 
-M8.3 Precision Reference Calibration is **product-owner accepted in PR #92 on 2026-08-17** after a focused real-plan retest returned «Сценарий PASS.». Accepted product/test head `53ee9399f2496ff3847761b9290cef03d8aa4b7e` passed CI #5246, Chromium 67/67 and representative WebKit 57/57 in Browser Acceptance #1691. Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`. Protected integration and post-merge verification remain pending, so M8.4 must not begin yet.
+M8.3 Precision Reference Calibration is **DONE**. Product Owner accepted the focused real-plan journey on 2026-08-17 with «Сценарий PASS.». Final acceptance/docs head `bcb38150e0e6b823e2679b751ae1d96ea84b7ea8` passed CI #5247, Browser Acceptance #1692 (Chromium 67/67, WebKit 57/57) and CodeQL #607. GitHub then protected squash-merged PR #92 as `01f520988a84291fb6e4f918e21f3403f17c4529`; post-merge `main` passed CI #5248 and CodeQL #608. Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`. M8.4 is now unblocked.
 
 Market research makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -252,7 +252,7 @@ Focused record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.
 
 ### M8.3 — Precision Reference Calibration
 
-Status: **PRODUCT-OWNER ACCEPTED / PROTECTED INTEGRATION PENDING**. Tracker: #57. PR: #92.
+Status: **DONE / PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED / POST-MERGE VERIFIED**. Tracker: #57. PR: #92. Merge: `01f520988a84291fb6e4f918e21f3403f17c4529`.
 
 Why this precedes Assisted Tracing: image-assisted geometry is only trustworthy when image-to-world scale itself is auditable. World-grid snapping cannot solve calibration because millimetre authority is not yet known during the calibration gesture.
 
@@ -281,29 +281,32 @@ Authority boundaries:
 - no schema migration;
 - no AI/network dependency.
 
-Automated acceptance evidence before canonical truth-sync:
+Final evidence:
 
 ```text
-head:                         53ee9399f2496ff3847761b9290cef03d8aa4b7e
-CI #5246:                     PASS through build
-Browser Acceptance #1691:    PASS
-Chromium:                     67/67 PASS
-WebKit representative:       57/57 PASS
-workers:                      1
-retries:                      0
+accepted product/test head:     53ee9399f2496ff3847761b9290cef03d8aa4b7e
+acceptance/docs head:           bcb38150e0e6b823e2679b751ae1d96ea84b7ea8
+CI #5247:                       PASS through build
+Browser Acceptance #1692:      PASS
+Chromium:                       67/67 PASS
+WebKit representative:         57/57 PASS
+CodeQL #607:                    PASS
+protected squash merge:         01f520988a84291fb6e4f918e21f3403f17c4529
+post-merge CI #5248:            PASS through build
+post-merge CodeQL #608:         PASS
+workers:                        1
+retries:                        0
 ```
 
 Product-owner real-plan acceptance on 2026-08-17: **PASS — «Сценарий PASS.»**
 
 Acceptance record: `docs/milestones/m8-3-acceptance.md`.
 
-Remaining gate: exact-head verification after this truth-sync, protected integration, actual merge identity recording and post-merge verification.
-
 ### M8.4 — Assisted Tracing
 
-Status: **NEXT / BLOCKED UNTIL M8.3 PROTECTED INTEGRATION**. Tracker: #51.
+Status: **NOW / ACTIVE BETA-CRITICAL SLICE**. Tracker: #51.
 
-After M8.3 integration, normal wall/door/window tools may optionally use high-confidence source-image assistance.
+Normal wall/door/window tools may optionally use high-confidence source-image assistance, but M8.4 must consume the accepted M8.3 source-coordinate/calibration substrate instead of inventing a second image/world transform.
 
 Rules:
 
@@ -313,7 +316,7 @@ Rules:
 - no AI/network dependency is required;
 - traced output is ordinary editable Vlezet geometry;
 - assistance may never create a second authoritative plan state;
-- M8.4 consumes the accepted M8.3 source-coordinate/calibration substrate rather than inventing another image/world transform.
+- no whole-plan recognition requirement is reintroduced into the beta critical path.
 
 The earlier Assisted Tracing design PR #52 remains closed without merge; useful concepts are retained, but implementation must be revalidated against the accepted editor/calibration substrate.
 
