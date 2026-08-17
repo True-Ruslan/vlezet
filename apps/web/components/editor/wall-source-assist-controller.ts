@@ -25,6 +25,7 @@ export type WallSourceAssistActiveCandidate = Readonly<{
 export type WallSourceFeatureReader = (input: Readonly<{
   image: Readonly<{ naturalWidth: number; naturalHeight: number }>;
   point: Point2;
+  viewportScale: number;
 }>) => readonly CalibrationSourceFeature[];
 
 export type WallSourceAssistControllerResult = Readonly<{
@@ -82,7 +83,8 @@ export function resolveWallSourceAssistController(
 
   try {
     const readFeatures = input.readFeatures ?? readWallSourceFeatures;
-    const features = readFeatures({ image, point: sourcePoint });
+    const viewportScale = input.pixelsPerMillimeter * reference.transform.millimetersPerPixel;
+    const features = readFeatures({ image, point: sourcePoint, viewportScale });
     const activeCandidateId = input.activeCandidate?.referenceRevision === reference.referenceRevision
       ? input.activeCandidate.id
       : null;
