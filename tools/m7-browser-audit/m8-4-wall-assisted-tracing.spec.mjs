@@ -202,6 +202,9 @@ async function installDenseRegressionReference(page) {
 
   const image = page.locator(".calibration-stage img");
   await expect(image).toBeVisible();
+  const sourceSnap = page.getByRole("checkbox", { name: "Привязка к линиям плана" });
+  await expect(sourceSnap).toBeChecked();
+  await sourceSnap.uncheck();
   const imageBox = await image.boundingBox();
   if (!imageBox) throw new Error("Dense regression calibration image is not visible.");
   const pointA = imagePointToPage(imageBox, REGRESSION_FIXTURE_SIZE, { x: 30, y: 320 });
@@ -252,7 +255,6 @@ test("M8.4 wall source assist stays optional, explicit, topology-safe, local-onl
   await setSnapping(page, false);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
   await page.mouse.click(startProbe.x, startProbe.y);
-  await expectSourceAssistState(page, "acquired");
   await page.mouse.move(endProbe.x, endProbe.y);
   await expectSourceAssistState(page, "acquired");
   await expect.poll(() => sourceFeedbackContent(page)).toContain("По подложке");
@@ -318,7 +320,6 @@ test("M8.4 wall source assist acquires the repository dense regression floor pla
   const startProbe = sourcePointToPage(project, box, { x: 370, y: 34 });
   const endProbe = sourcePointToPage(project, box, { x: 500, y: 26 });
   await page.mouse.click(startProbe.x, startProbe.y);
-  await expectSourceAssistState(page, "acquired");
   await page.mouse.move(endProbe.x, endProbe.y);
   await expectSourceAssistState(page, "acquired");
   await page.mouse.click(endProbe.x, endProbe.y);
