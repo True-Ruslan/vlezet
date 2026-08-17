@@ -27,6 +27,7 @@ test("preserves the explicit WebKit acceptance set", () => {
     "m8-editor-interaction.spec.mjs",
     "m8-group-drag-snap-regression.spec.mjs",
     "m8-precision-structural.spec.mjs",
+    "m8-4-wall-assisted-tracing.spec.mjs",
     "m8-room-copy.spec.mjs",
     "m8-selection-clipboard-semantics.spec.mjs",
     "m8-room-translation.spec.mjs",
@@ -37,8 +38,9 @@ test("preserves the explicit WebKit acceptance set", () => {
   ]);
 });
 
-test("requires IndexedDB persistence, corruption, and real reference import evidence in WebKit", () => {
+test("requires IndexedDB, real reference import, and M8.4 assisted tracing evidence in WebKit", () => {
   assert.ok(WEBKIT_SPECS.includes("m7-reference-calibration.spec.mjs"));
+  assert.ok(WEBKIT_SPECS.includes("m8-4-wall-assisted-tracing.spec.mjs"));
   assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-persistence.spec.mjs"));
   assert.ok(WEBKIT_SPECS.includes("m8-indexeddb-corruption.spec.mjs"));
 });
