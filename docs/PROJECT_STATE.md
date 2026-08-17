@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-17  
-**Status:** M0–M8.2 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. **M8.3 Precision Reference Calibration is implemented, automated-tested and product-owner accepted in PR #92 on 2026-08-17; protected integration is pending.** M8.4 Assisted Tracing is the next beta-critical product milestone after M8.3 integration.  
+**Status:** M0–M8.3 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. **M8.3 Precision Reference Calibration is product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529` and post-merge verified by CI #5248 + CodeQL #608.** M8.4 Assisted Tracing is the active beta-critical product milestone.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, `docs/testing/TESTING_POLICY.md`, `docs/testing/TEST_COVERAGE_AUDIT.md`, the latest focused changelog and the active design/plan.
 
@@ -105,7 +105,7 @@ packages/planning        deterministic planning + reviewed intent
 | M8.0 | public-beta product contract, roadmap reset and manual-editor-first direction |
 | M8.1 | product-owner accepted and protected squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 | M8.2 | product-owner accepted and protected squash-merged as `e323e331a435ae356b91decbdea80dde95028d8a` |
-| M8.3 | **product-owner accepted in PR #92 on 2026-08-17; protected integration pending**; canonical acceptance record: `docs/milestones/m8-3-acceptance.md` |
+| M8.3 | **product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529`, post-merge CI #5248 + CodeQL #608 GREEN**; canonical acceptance record: `docs/milestones/m8-3-acceptance.md` |
 | Testing Policy Phase A | accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`; measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard and evidence artifacts are blocking infrastructure |
 | P0 IndexedDB persistence | product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`, post-merge CI #5175 + CodeQL #535 GREEN |
 
@@ -176,7 +176,7 @@ Accepted scope includes:
 
 Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`.
 
-### M8.3 precision reference calibration — product-owner accepted, integration pending
+### M8.3 precision reference calibration — accepted, merged and post-merge verified
 
 Accepted scope includes:
 
@@ -196,16 +196,21 @@ Accepted scope includes:
 
 Product-owner real-plan acceptance on 2026-08-17: **PASS** — «Сценарий PASS.»
 
-Accepted pre-truth-sync exact-head evidence:
+Final accepted/integration evidence:
 
 ```text
-head:                         53ee9399f2496ff3847761b9290cef03d8aa4b7e
-CI #5246:                     PASS through build
-Browser Acceptance #1691:    PASS
-Chromium:                     67/67 PASS
-WebKit representative:       57/57 PASS
-workers:                      1
-retries:                      0
+accepted product/test head:     53ee9399f2496ff3847761b9290cef03d8aa4b7e
+acceptance/docs head:           bcb38150e0e6b823e2679b751ae1d96ea84b7ea8
+CI #5247:                       PASS through build
+Browser Acceptance #1692:      PASS
+Chromium:                       67/67 PASS
+WebKit representative:         57/57 PASS
+CodeQL #607:                    PASS
+protected squash merge:         01f520988a84291fb6e4f918e21f3403f17c4529
+post-merge CI #5248:            PASS through build
+post-merge CodeQL #608:         PASS
+workers:                        1
+retries:                        0
 ```
 
 Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`.
@@ -272,8 +277,8 @@ DONE      M8.1  Editor Interaction Foundation
 DONE      M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
 DONE      Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
 DONE      P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
-ACCEPTED  M8.3  Precision Reference Calibration — PR #92, protected integration pending
-NEXT      M8.4  Assisted Tracing — starts only after M8.3 integration
+DONE      M8.3  Precision Reference Calibration — merged 01f520988a84291fb6e4f918e21f3403f17c4529, post-merge verified
+NOW       M8.4  Assisted Tracing
 THEN      M8.5  Furniture + Materials 2.0
 THEN      M8.6  Export + Presentation
 THEN      M8.7  Public Beta Hardening
@@ -284,7 +289,7 @@ Programme tracker: #53. M8.3 tracker: #57. M8.4 tracker: #51.
 
 ## 9. M8.3 accepted product milestone
 
-Status: **PRODUCT-OWNER ACCEPTED / PROTECTED INTEGRATION PENDING**.
+Status: **PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED / POST-MERGE VERIFIED**.
 
 Product outcome:
 
@@ -310,13 +315,13 @@ Hardening found and corrected real issues in live state, wheel lifecycle, render
 
 Acceptance record: `docs/milestones/m8-3-acceptance.md`.
 
-Integration is not claimed until GitHub reports the protected merge identity and post-merge `main` verification is GREEN.
+GitHub reported the protected squash merge identity as `01f520988a84291fb6e4f918e21f3403f17c4529`; `main` post-merge verification is GREEN in CI #5248 and CodeQL #608.
 
 ## 10. Later public-beta programme
 
 ### M8.4 — Assisted Tracing
 
-**Next only after M8.3 protected integration.**
+**NOW — unblocked by accepted, integrated and post-merge verified M8.3.**
 
 Optional high-confidence source-image snapping inside normal wall/door/window tools. Explicit user intent and existing topology remain stronger than source-image assistance. Ambiguity abstains. No AI/network dependency is required.
 
