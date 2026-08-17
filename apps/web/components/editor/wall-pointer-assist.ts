@@ -9,6 +9,10 @@ const TOPOLOGY_KINDS: ReadonlySet<StructuralSnapKind> = new Set([
   "wall-axis",
 ]);
 
+export function isTopologyStructuralSnapKind(kind: StructuralSnapKind): boolean {
+  return TOPOLOGY_KINDS.has(kind);
+}
+
 export type WallPointerAssistDecision = Readonly<{
   authority: "structural" | "source";
   point: Point2;
@@ -22,7 +26,7 @@ export type ResolveWallPointerAssistInput = Readonly<{
 }>;
 
 export function resolveWallPointerAssist(input: ResolveWallPointerAssistInput): WallPointerAssistDecision {
-  if (TOPOLOGY_KINDS.has(input.structuralSnap.kind) || !input.sourceAssist?.acquired) {
+  if (isTopologyStructuralSnapKind(input.structuralSnap.kind) || !input.sourceAssist?.acquired) {
     return {
       authority: "structural",
       point: input.structuralSnap.point,
