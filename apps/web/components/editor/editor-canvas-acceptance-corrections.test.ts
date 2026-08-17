@@ -28,15 +28,19 @@ describe("M8.1 product-owner acceptance Canvas corrections", () => {
     expect(boundsBody).not.toContain("deriveSelectionWorldBounds(document, selection)");
   });
 
-  it("keeps structural wall snap metadata separate from the legacy SnapResult shape", () => {
+  it("keeps structural wall snap metadata separate from legacy and source-assist SnapResult shapes", () => {
     const updateDraftStart = source.indexOf("const updateWallDraftFromPointer");
     const updateDraftEnd = source.indexOf("const updateOpeningPreview", updateDraftStart);
     const updateDraftSource = source.slice(updateDraftStart, updateDraftEnd);
 
     expect(source).toContain("function draftSnapFromStructural(snap: StructuralSnapResult): SnapResult");
     expect(source).toContain("return { point: snap.point, kind, guides: [] };");
-    expect(updateDraftSource).toContain("const target = targetForExactPoint(point, resolved);");
-    expect(updateDraftSource).toContain("{ ...draftSnapFromStructural(resolved), point },");
+    expect(updateDraftSource).toContain('assisted.decision.authority === "structural"');
+    expect(updateDraftSource).toContain("targetForExactPoint(point, resolved)");
+    expect(updateDraftSource).toContain('assisted.decision.authority === "source"');
+    expect(updateDraftSource).toContain('{ point, kind: "none", guides: [] }');
+    expect(updateDraftSource).toContain("draftSnapFromStructural(resolved)");
+    expect(updateDraftSource).toContain("{ ...draftSnap, point },");
     expect(updateDraftSource).toContain("target,");
     expect(source).not.toContain('snap: { point, kind: "wall", wallId:');
   });
