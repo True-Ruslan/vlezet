@@ -2,15 +2,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const reactHarness = vi.hoisted(() => ({
   stateCall: 0,
+  refCall: 0,
+  memoCall: 0,
   stateOverrides: new Map<number, unknown>(),
   setters: [] as Array<ReturnType<typeof vi.fn>>,
+  refs: [] as Array<{ current: unknown }>,
+  memos: [] as Array<{ deps: readonly unknown[] | undefined; value: unknown }>,
   cleanups: [] as Array<(() => void) | undefined>,
 }));
 
 const controllerHarness = vi.hoisted(() => ({
   mode: "source" as "source" | "structural",
-  resolve: vi.fn((input: { structuralSnap: { point: { x: number; y: number } } }) => {
-    if (controllerHarness.mode === "structural") {
+  resolve: vi.fn((input: {
+    structuralSnap: { point: { x: number; y: number } };
+    enabled: boolean;
+  }) => {
+    if (!input.enabled || controllerHarness.mode === "structural") {
       return {
         decision: {
           authority: "structural" as const,
@@ -40,12 +47,22 @@ const controllerHarness = vi.hoisted(() => ({
   }),
 }));
 
+function sameDeps(left: readonly unknown[] | undefined, right: readonly unknown[] | undefined): boolean {
+  if (!left || !right || left.length !== right.length) return false;
+  return left.every((value, index) => Object.is(value, right[index]));
+}
+
 vi.mock("react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react")>();
   return {
     ...actual,
     useRef<T>(initial: T) {
-      return { current: initial };
+      const index = reactHarness.refCall++;
+      const existing = reactHarness.refs[index] as { current: T } | undefined;
+      if (existing) return existing;
+      const ref = { current: initial };
+      reactHarness.refs[index] = ref as { current: unknown };
+      return ref;
     },
     useState<T>(initial: T | (() => T)) {
       const index = reactHarness.stateCall++;
@@ -54,8 +71,13 @@ vi.mock("react", async (importOriginal) => {
       const initialValue = typeof initial === "function" ? (initial as () => T)() : initial;
       return [reactHarness.stateOverrides.has(index) ? reactHarness.stateOverrides.get(index) : initialValue, setter];
     },
-    useMemo<T>(factory: () => T) {
-      return factory();
+    useMemo<T>(factory: () => T, deps?: readonly unknown[]) {
+      const index = reactHarness.memoCall++;
+      const previous = reactHarness.memos[index] as { deps: readonly unknown[] | undefined; value: T } | undefined;
+      if (previous && sameDeps(previous.deps, deps)) return previous.value;
+      const value = factory();
+      reactHarness.memos[index] = { deps: deps ? [...deps] : undefined, value };
+      return value;
     },
     useCallback<T>(callback: T) {
       return callback;
@@ -100,15 +122,25 @@ const INITIAL_VIEWPORT = {
 function resetHarness(): void {
   for (const cleanup of reactHarness.cleanups.splice(0)) cleanup?.();
   reactHarness.stateCall = 0;
+  reactHarness.refCall = 0;
+  reactHarness.memoCall = 0;
   reactHarness.stateOverrides.clear();
+  reactHarness.setters.length = 0;
+  reactHarness.refs.length = 0;
+  reactHarness.memos.length = 0;
+}
+
+function beginRender(): void {
+  reactHarness.stateCall = 0;
+  reactHarness.refCall = 0;
+  reactHarness.memoCall = 0;
   reactHarness.setters.length = 0;
 }
 
-function renderCanvas(activeSourceAssist?: unknown) {
-  reactHarness.stateCall = 0;
-  reactHarness.setters.length = 0;
-  if (activeSourceAssist === undefined) reactHarness.stateOverrides.delete(9);
-  else reactHarness.stateOverrides.set(9, activeSourceAssist);
+function renderCanvas(activeSourceAssistState?: unknown) {
+  beginRender();
+  if (activeSourceAssistState === undefined) reactHarness.stateOverrides.delete(9);
+  else reactHarness.stateOverrides.set(9, activeSourceAssistState);
 
   return EditorCanvas({
     initialViewport: INITIAL_VIEWPORT,
@@ -206,9 +238,13 @@ describe("EditorCanvas source-assist runtime wiring", () => {
     }));
     expect(editorStore.getState().draftWall?.end).toEqual({ x: 1000, y: 0 });
     expect(editorStore.getState().draftWall?.endTarget).toBeNull();
-    expect(reactHarness.setters[9]).toHaveBeenCalledWith(expect.objectContaining({ acquired: true }));
+    expect(reactHarness.setters[9]).toHaveBeenCalledWith(expect.objectContaining({
+      contextToken: expect.any(Object),
+      result: expect.objectContaining({ acquired: true }),
+    }));
 
-    const commitStage = stageFrom(renderCanvas());
+    const taggedEvidence = reactHarness.setters[9]!.mock.calls.at(-1)?.[0];
+    const commitStage = stageFrom(renderCanvas(taggedEvidence));
     commitStage.props.onMouseDown(pointerEvent());
 
     expect(editorStore.getState().history.document.walls).toHaveLength(1);
@@ -267,13 +303,30 @@ describe("EditorCanvas source-assist runtime wiring", () => {
     expect(controllerHarness.resolve).not.toHaveBeenCalled();
   });
 
-  it("exposes acquired and idle source evidence without persisting it", () => {
-    const acquired = { acquired: true, candidateId: "source-edge-1", worldPoint: { x: 1000, y: 0 } };
-    const acquiredTree = renderCanvas(acquired);
+  it("keeps acquired evidence only inside the same runtime context and drops stale hysteresis on toggle change", () => {
+    editorStore.getState().beginWall({ x: 0, y: 0 });
+    const initialTree = renderCanvas();
+    stageFrom(initialTree).props.onMouseMove(pointerEvent());
+
+    const taggedEvidence = reactHarness.setters[9]!.mock.calls.at(-1)?.[0];
+    expect(taggedEvidence).toEqual(expect.objectContaining({
+      contextToken: expect.any(Object),
+      result: expect.objectContaining({ acquired: true }),
+    }));
+
+    const acquiredTree = renderCanvas(taggedEvidence);
     expect(acquiredTree.props["data-source-assist"]).toBe("acquired");
 
-    const idleTree = renderCanvas(null);
-    expect(idleTree.props["data-source-assist"]).toBe("idle");
+    sourceAssistSettingsStore.setState({ enabled: false });
+    const staleTree = renderCanvas(taggedEvidence);
+    expect(staleTree.props["data-source-assist"]).toBe("idle");
+
+    controllerHarness.resolve.mockClear();
+    stageFrom(staleTree).props.onMouseMove(pointerEvent({ x: 120, y: 0 }));
+    expect(controllerHarness.resolve).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: false,
+      activeCandidate: null,
+    }));
     expect(editorStore.getState().history.document).toEqual(editorStore.getInitialState().history.document);
   });
 });
