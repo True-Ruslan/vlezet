@@ -15,6 +15,11 @@ export const WALL_SOURCE_FEATURE_POLICY = Object.freeze({
 });
 
 const WALL_SOURCE_ANALYSIS_DIAMETER_PX = WALL_SOURCE_FEATURE_POLICY.radiusPx * 2 + 1;
+const WALL_OUTLINE_MIN_SEPARATION_PX = 4;
+const WALL_OUTLINE_MAX_SEPARATION_PX = 18;
+const WALL_OUTLINE_EDGE_MARGIN_PX = 2;
+
+type WallFeatureAxis = "h" | "v";
 
 function positive(value: number, label: string): number {
   if (!Number.isFinite(value) || value <= 0) throw new Error(`${label} must be positive and finite.`);
@@ -24,6 +29,68 @@ function positive(value: number, label: string): number {
 function finite(value: number, label: string): number {
   if (!Number.isFinite(value)) throw new Error(`${label} must be finite.`);
   return value;
+}
+
+function featureAxis(feature: CalibrationSourceFeature): WallFeatureAxis | null {
+  if (feature.kind === "intersection") return null;
+  return feature.id.split(":")[1] === "h" ? "h" : "v";
+}
+
+function featureCoordinate(feature: CalibrationSourceFeature, axis: WallFeatureAxis): number {
+  return axis === "v" ? feature.point.x : feature.point.y;
+}
+
+function collapseOutlinePair(
+  features: readonly CalibrationSourceFeature[],
+  point: Point2,
+  axis: WallFeatureAxis,
+): readonly CalibrationSourceFeature[] {
+  const centres = features
+    .filter((feature) => feature.kind === "line-center" && featureAxis(feature) === axis)
+    .sort((left, right) => featureCoordinate(left, axis) - featureCoordinate(right, axis));
+  if (centres.length !== 2) return features;
+
+  const first = centres[0]!;
+  const second = centres[1]!;
+  const firstCoordinate = featureCoordinate(first, axis);
+  const secondCoordinate = featureCoordinate(second, axis);
+  const separation = secondCoordinate - firstCoordinate;
+  const pointerCoordinate = axis === "v" ? point.x : point.y;
+  if (
+    separation < WALL_OUTLINE_MIN_SEPARATION_PX ||
+    separation > WALL_OUTLINE_MAX_SEPARATION_PX ||
+    pointerCoordinate < firstCoordinate ||
+    pointerCoordinate > secondCoordinate
+  ) {
+    return features;
+  }
+
+  const midpoint = (firstCoordinate + secondCoordinate) / 2;
+  const centrePoint = axis === "v"
+    ? { x: midpoint, y: point.y }
+    : { x: point.x, y: midpoint };
+  const envelopeMin = firstCoordinate - WALL_OUTLINE_EDGE_MARGIN_PX;
+  const envelopeMax = secondCoordinate + WALL_OUTLINE_EDGE_MARGIN_PX;
+  const retained = features.filter((feature) => {
+    if (feature.kind === "intersection" || featureAxis(feature) !== axis) return true;
+    const coordinate = featureCoordinate(feature, axis);
+    return coordinate < envelopeMin || coordinate > envelopeMax;
+  });
+  const strength = Math.min(first.strength, second.strength);
+  const coordinate = axis === "v" ? centrePoint.x : centrePoint.y;
+  return [...retained, {
+    id: `line-center:${axis}:${coordinate.toFixed(3)}`,
+    kind: "line-center",
+    point: centrePoint,
+    strength,
+  }];
+}
+
+function collapseWallOutlinePairs(
+  features: readonly CalibrationSourceFeature[],
+  point: Point2,
+): readonly CalibrationSourceFeature[] {
+  return collapseOutlinePair(collapseOutlinePair(features, point, "h"), point, "v");
 }
 
 function analysisCoordinate(
@@ -132,9 +199,10 @@ export function readWallSourceFeatures(input: Readonly<{
     analysisWidth,
     analysisHeight,
   };
-  return analyzeCalibrationFeatures({
+  const localFeatures = collapseWallOutlinePairs(analyzeCalibrationFeatures({
     image: { width: analysisWidth, height: analysisHeight, data: localImage.data },
     point: localPoint,
     ...WALL_SOURCE_FEATURE_POLICY,
-  }).map((feature) => toSourceFeature(feature, sample));
+  }), localPoint);
+  return localFeatures.map((feature) => toSourceFeature(feature, sample));
 }
