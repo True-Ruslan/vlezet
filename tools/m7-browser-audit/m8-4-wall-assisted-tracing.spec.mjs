@@ -128,6 +128,12 @@ function imagePointToPage(imageBox, sourceSize, sourcePoint) {
   };
 }
 
+async function imageClientPoint(image, sourceSize, sourcePoint) {
+  const imageBox = await image.boundingBox();
+  if (!imageBox) throw new Error("Calibration image is not visible.");
+  return imagePointToPage(imageBox, sourceSize, sourcePoint);
+}
+
 async function setSnapping(page, enabled) {
   const button = page.getByRole("button", { name: "Привязки", exact: true });
   const current = await button.getAttribute("aria-pressed");
@@ -185,10 +191,11 @@ async function installReference(page) {
 
   const image = page.locator(".calibration-stage img");
   await expect(image).toBeVisible();
-  const imageBox = await image.boundingBox();
-  if (!imageBox) throw new Error("Calibration image is not visible.");
-  await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * (165 / 200));
-  await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * (35 / 200));
+  await page.getByRole("button", { name: "Вписать план" }).click();
+  const pointA = await imageClientPoint(image, { width: 800, height: 200 }, { x: 400, y: 165 });
+  await page.mouse.click(pointA.x, pointA.y);
+  const pointB = await imageClientPoint(image, { width: 800, height: 200 }, { x: 400, y: 35 });
+  await page.mouse.click(pointB.x, pointB.y);
 
   const project = await finishReferenceCalibration(page, { knownLengthMm: 3000, alignment: "vertical" });
   expect(Math.abs(project.referencePlan.transform.rotationDeg)).toBeLessThan(0.01);
@@ -202,14 +209,13 @@ async function installDenseRegressionReference(page) {
 
   const image = page.locator(".calibration-stage img");
   await expect(image).toBeVisible();
+  await page.getByRole("button", { name: "Вписать план" }).click();
   const sourceSnap = page.getByRole("checkbox", { name: "Привязка к линиям плана" });
   await expect(sourceSnap).toBeChecked();
   await sourceSnap.uncheck();
-  const imageBox = await image.boundingBox();
-  if (!imageBox) throw new Error("Dense regression calibration image is not visible.");
-  const pointA = imagePointToPage(imageBox, REGRESSION_FIXTURE_SIZE, { x: 30, y: 320 });
-  const pointB = imagePointToPage(imageBox, REGRESSION_FIXTURE_SIZE, { x: 330, y: 320 });
+  const pointA = await imageClientPoint(image, REGRESSION_FIXTURE_SIZE, { x: 30, y: 320 });
   await page.mouse.click(pointA.x, pointA.y);
+  const pointB = await imageClientPoint(image, REGRESSION_FIXTURE_SIZE, { x: 330, y: 320 });
   await page.mouse.click(pointB.x, pointB.y);
 
   const project = await finishReferenceCalibration(page, { knownLengthMm: 3000, alignment: "horizontal" });
