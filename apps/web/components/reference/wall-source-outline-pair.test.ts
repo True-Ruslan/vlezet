@@ -117,6 +117,28 @@ describe("M8.4 architectural double-outline wall acquisition", () => {
     }));
   });
 
+  it("infers the centreline of a benchmark-scale filled wall band wider than the generic calibration line limit", () => {
+    const rawPoint = { x: 500, y: 400 };
+    const features = readOutlineFixture({ darkRows: [[13, 27]] });
+    const horizontalCentres = features.filter((feature) =>
+      feature.kind === "line-center" && feature.id.includes(":h:"));
+
+    expect(horizontalCentres).toEqual([
+      expect.objectContaining({
+        id: "line-center:h:400.000",
+        kind: "line-center",
+        point: rawPoint,
+      }),
+    ]);
+    expect(features.filter((feature) => feature.kind === "edge" && feature.id.includes(":h:"))).toEqual([]);
+    expect(resolveAtRawPoint(features)).toEqual(expect.objectContaining({
+      snapped: true,
+      kind: "line-center",
+      point: rawPoint,
+      reason: "snapped",
+    }));
+  });
+
   it("preserves perpendicular and intersection evidence while collapsing a wall outline", () => {
     const features = readOutlineFixture({
       darkColumns: [[14, 15], [25, 26]],
