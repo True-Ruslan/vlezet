@@ -1,6 +1,6 @@
 import type { ReferenceSourceAssistResult } from "../reference/reference-source-assist";
 import { describe, expect, it } from "vitest";
-import { deriveSourceAssistOverlayModel } from "./source-assist-overlay";
+import { deriveSourceAssistOverlayModel, SourceAssistOverlay } from "./source-assist-overlay";
 
 const viewport = { pixelsPerMillimeter: 0.1, offsetX: 20, offsetY: 30 } as const;
 
@@ -43,5 +43,18 @@ describe("M8.4 source assist overlay", () => {
       ...acquired("edge"),
       candidateId: null,
     }, viewport)).toBeNull();
+  });
+
+  it("renders a non-interactive named overlay with visible product feedback", () => {
+    const tree = SourceAssistOverlay({ assist: acquired(), viewport }) as unknown as {
+      props: { name: string; listening: boolean; children: unknown };
+    };
+    expect(tree.props.name).toBe("source-assist-overlay");
+    expect(tree.props.listening).toBe(false);
+    expect(JSON.stringify(tree.props.children)).toContain("По подложке");
+  });
+
+  it("renders nothing without acquired source evidence", () => {
+    expect(SourceAssistOverlay({ assist: null, viewport })).toBeNull();
   });
 });
