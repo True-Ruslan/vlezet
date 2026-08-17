@@ -208,7 +208,8 @@ describe("EditorCanvas source-assist runtime wiring", () => {
     expect(editorStore.getState().draftWall?.endTarget).toBeNull();
     expect(reactHarness.setters[9]).toHaveBeenCalledWith(expect.objectContaining({ acquired: true }));
 
-    stage.props.onMouseDown(pointerEvent());
+    const commitStage = stageFrom(renderCanvas());
+    commitStage.props.onMouseDown(pointerEvent());
 
     expect(editorStore.getState().draftWall).toBeNull();
     expect(editorStore.getState().history.document.walls).toHaveLength(1);
