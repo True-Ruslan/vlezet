@@ -21,6 +21,10 @@ function pngChunk(type, data) {
   return Buffer.concat([length, typeBuffer, data, checksum]);
 }
 
+function within(value, start, end) {
+  return value >= start && value <= end;
+}
+
 function assistedTracingReferencePng(width = 800, height = 200) {
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
   const ihdr = Buffer.alloc(13);
@@ -30,15 +34,23 @@ function assistedTracingReferencePng(width = 800, height = 200) {
   ihdr[9] = 2;
   const rows = [];
   for (let y = 0; y < height; y += 1) {
-    const row = Buffer.alloc(1 + width * 3, 245);
+    const row = Buffer.alloc(1 + width * 3, 242);
     row[0] = 0;
     for (let x = 0; x < width; x += 1) {
-      if (x === 100 || x === 700 || y === 30 || y === 170) {
-        const offset = 1 + x * 3;
-        row[offset] = 20;
-        row[offset + 1] = 20;
-        row[offset + 2] = 20;
-      }
+      const architecturalWallFace =
+        within(x, 94, 96) || within(x, 104, 106) ||
+        within(x, 694, 696) || within(x, 704, 706) ||
+        within(y, 24, 26) || within(y, 34, 36) ||
+        within(y, 164, 166) || within(y, 174, 176);
+      const faintPlanDetail = !architecturalWallFace && (
+        (within(x, 240, 300) && y === 100) ||
+        (x === 560 && within(y, 75, 125))
+      );
+      const value = architecturalWallFace ? 25 : faintPlanDetail ? 205 : 242;
+      const offset = 1 + x * 3;
+      row[offset] = value;
+      row[offset + 1] = value;
+      row[offset + 2] = value;
     }
     rows.push(row);
   }
@@ -144,8 +156,8 @@ async function installReference(page) {
   await expect(image).toBeVisible();
   const imageBox = await image.boundingBox();
   if (!imageBox) throw new Error("Calibration image is not visible.");
-  await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * 0.8);
-  await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * 0.2);
+  await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * (165 / 200));
+  await page.mouse.click(imageBox.x + imageBox.width * 0.5, imageBox.y + imageBox.height * (35 / 200));
   await page.getByLabel("Реальная длина").fill("3000");
   await page.getByLabel("Выравнивание").selectOption("vertical");
   await page.getByRole("button", { name: "Сохранить и открыть план" }).click();
@@ -187,14 +199,15 @@ test("M8.4 wall source assist stays optional, explicit, topology-safe, local-onl
   });
 
   const box = await canvasBox(page);
-  const start = sourcePointToPage(project, box, { x: 400, y: 30 });
-  const endProbe = sourcePointToPage(project, box, { x: 706, y: 100 });
+  const startProbe = sourcePointToPage(project, box, { x: 400, y: 33 });
+  const endProbe = sourcePointToPage(project, box, { x: 703, y: 100 });
   const topologyProbe = sourcePointToPage(project, box, { x: 400, y: 34 });
-  const suppressionProbe = sourcePointToPage(project, box, { x: 106, y: 100 });
+  const suppressionProbe = sourcePointToPage(project, box, { x: 103, y: 100 });
 
   await setSnapping(page, false);
   await page.getByRole("button", { name: "Стена", exact: true }).click();
-  await page.mouse.click(start.x, start.y);
+  await page.mouse.click(startProbe.x, startProbe.y);
+  await expectSourceAssistState(page, "acquired");
   await page.mouse.move(endProbe.x, endProbe.y);
   await expectSourceAssistState(page, "acquired");
   await expect.poll(() => sourceFeedbackContent(page)).toContain("По подложке");
@@ -209,9 +222,13 @@ test("M8.4 wall source assist stays optional, explicit, topology-safe, local-onl
   const committed = await readProject(page);
   const wall = committed.document.walls[0];
   const vertices = new Map(committed.document.vertices.map((vertex) => [vertex.id, vertex.position]));
+  const startpoint = vertices.get(wall.startVertexId);
   const endpoint = vertices.get(wall.endVertexId);
+  const expectedStartpoint = sourcePointToWorld(committed.referencePlan, { x: 400, y: 30 });
   const expectedEndpoint = sourcePointToWorld(committed.referencePlan, { x: 700, y: 100 });
   const sourceToleranceMm = committed.referencePlan.transform.millimetersPerPixel * 2;
+  expect(Math.abs(startpoint.x - expectedStartpoint.x)).toBeLessThanOrEqual(sourceToleranceMm);
+  expect(Math.abs(startpoint.y - expectedStartpoint.y)).toBeLessThanOrEqual(sourceToleranceMm);
   expect(Math.abs(endpoint.x - expectedEndpoint.x)).toBeLessThanOrEqual(sourceToleranceMm);
   expect(Math.abs(endpoint.y - expectedEndpoint.y)).toBeLessThanOrEqual(sourceToleranceMm);
 
