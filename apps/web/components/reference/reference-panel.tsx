@@ -2,8 +2,7 @@
 
 import type { Point2 } from "@vlezet/geometry";
 import type { ReferenceAlignment, ReferencePlan } from "@vlezet/projects";
-import Image from "next/image";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   describeReferenceContext,
 } from "../editor/context-panel-contract";
@@ -14,11 +13,7 @@ import {
   type ContextPanelNavigation,
 } from "../editor/context-panel-frame";
 import { parseCalibrationLength } from "./calibration-input";
-import {
-  clientPointToImagePoint,
-  imagePointToContainerPoint,
-  type CalibrationRectangle,
-} from "./calibration-viewport";
+import { PrecisionCalibrationStage } from "./calibration-stage";
 import { inspectReferenceFile, ReferenceImportError } from "./reference-file";
 import {
   reduceReferenceImport,
@@ -52,14 +47,15 @@ export type ReferencePanelProps = Readonly<{
   onFitReference: () => void;
 }>;
 
-type CalibrationViewportLayout = Readonly<{
-  containerRect: CalibrationRectangle;
-  imageRect: CalibrationRectangle;
-}>;
-
-function rectangle(rect: DOMRect): CalibrationRectangle {
-  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-}
+export type CalibrationSubmissionValidation =
+  | Readonly<{ ok: false; message: string }>
+  | Readonly<{
+      ok: true;
+      pointA: Point2;
+      pointB: Point2;
+      knownLengthMm: number;
+      alignment: ReferenceAlignment;
+    }>;
 
 function stateError(error: unknown): ReferenceImportState {
   if (error instanceof ReferenceImportError) return { kind: "failed", code: error.code, message: error.message };
@@ -67,7 +63,32 @@ function stateError(error: unknown): ReferenceImportState {
   return { kind: "failed", code: "decode-failed", message: "Не удалось обработать выбранный план." };
 }
 
-function CalibrationStage({
+export function calibrationGuidance(draft: CalibrationDraft): string {
+  if (!draft.pointA) return "Поставьте точку A на одном конце известного размера.";
+  if (!draft.pointB) return "Теперь поставьте точку B на другом конце известного размера.";
+  if (!draft.lengthInput.trim()) return "Укажите реальную длину между точками A и B.";
+  return "Калибровка заполнена. Проверьте точки и сохраните план.";
+}
+
+export function validateCalibrationSubmission(draft: CalibrationDraft): CalibrationSubmissionValidation {
+  if (!draft.pointA) return { ok: false, message: "Поставьте точку A на одном конце известного размера." };
+  if (!draft.pointB) return { ok: false, message: "Теперь поставьте точку B на другом конце известного размера." };
+  if (!draft.lengthInput.trim()) return { ok: false, message: "Укажите реальную длину между точками A и B." };
+  try {
+    return {
+      ok: true,
+      pointA: draft.pointA,
+      pointB: draft.pointB,
+      knownLengthMm: parseCalibrationLength(draft.lengthInput),
+      alignment: draft.alignment,
+    };
+  } catch (cause) {
+    if (cause instanceof ReferenceImportError) return { ok: false, message: cause.message };
+    throw cause;
+  }
+}
+
+export function CalibrationStage({
   raster,
   draft,
   onChange,
@@ -76,136 +97,8 @@ function CalibrationStage({
   draft: CalibrationDraft;
   onChange: (patch: Partial<CalibrationDraft>) => void;
 }>) {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const renderedImageRef = useRef<HTMLImageElement>(null);
   const { image, error } = useReferenceImage(raster.blob);
-  const [dragging, setDragging] = useState<"a" | "b" | null>(null);
-  const [hover, setHover] = useState<Point2 | null>(null);
-  const [viewport, setViewport] = useState<CalibrationViewportLayout | null>(null);
-
-  useEffect(() => {
-    if (!image) return;
-    const stage = stageRef.current;
-    const renderedImage = renderedImageRef.current;
-    if (!stage || !renderedImage) return;
-
-    const updateViewport = () => {
-      const next = {
-        containerRect: rectangle(stage.getBoundingClientRect()),
-        imageRect: rectangle(renderedImage.getBoundingClientRect()),
-      };
-      setViewport(next);
-    };
-    updateViewport();
-
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateViewport);
-    observer?.observe(stage);
-    observer?.observe(renderedImage);
-    window.addEventListener("resize", updateViewport);
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", updateViewport);
-    };
-  }, [image]);
-
-  if (error) return <div className="reference-error" role="alert">{error}</div>;
-  if (!image) return <div className="reference-progress">Подготавливаем предпросмотр…</div>;
-
-  const naturalSize = { width: image.naturalWidth, height: image.naturalHeight };
-  const setPoint = (kind: "a" | "b", point: Point2) => onChange(kind === "a" ? { pointA: point } : { pointB: point });
-  const nearestHandle = (point: Point2): "a" | "b" | null => {
-    const candidates = (["a", "b"] as const).flatMap((kind) => {
-      const existing = kind === "a" ? draft.pointA : draft.pointB;
-      return existing ? [{ kind, distance: Math.hypot(point.x - existing.x, point.y - existing.y) }] : [];
-    });
-    const nearest = candidates.sort((first, second) => first.distance - second.distance)[0];
-    const tolerance = Math.max(image.naturalWidth, image.naturalHeight) * 0.035;
-    return nearest && nearest.distance <= tolerance ? nearest.kind : null;
-  };
-  const assignNewPoint = (point: Point2) => {
-    if (!draft.pointA) setPoint("a", point);
-    else if (!draft.pointB) setPoint("b", point);
-    else setPoint(nearestHandle(point) ?? "b", point);
-  };
-  const pointForEvent = (event: ReactPointerEvent<HTMLElement>) => {
-    const renderedImage = renderedImageRef.current;
-    if (!renderedImage) return null;
-    return clientPointToImagePoint({
-      clientPoint: { x: event.clientX, y: event.clientY },
-      imageRect: rectangle(renderedImage.getBoundingClientRect()),
-      naturalSize,
-    });
-  };
-
-  const marker = (kind: "a" | "b", point: Point2 | null) => {
-    if (!point || !viewport) return null;
-    const position = imagePointToContainerPoint({
-      imagePoint: point,
-      imageRect: viewport.imageRect,
-      containerRect: viewport.containerRect,
-      naturalSize,
-    });
-    return (
-      <span
-        className={`calibration-handle is-${kind}`}
-        aria-hidden="true"
-        style={{ left: `${position.x}px`, top: `${position.y}px` }}
-      >{kind.toUpperCase()}</span>
-    );
-  };
-
-  const magnifierPoint = dragging === "a" ? draft.pointA : dragging === "b" ? draft.pointB : hover;
-  const overlayStyle = viewport ? {
-    left: `${viewport.imageRect.left - viewport.containerRect.left}px`,
-    top: `${viewport.imageRect.top - viewport.containerRect.top}px`,
-    width: `${viewport.imageRect.width}px`,
-    height: `${viewport.imageRect.height}px`,
-  } : undefined;
-
-  return (
-    <div className="calibration-stage-wrap">
-      <div
-        ref={stageRef}
-        className="calibration-stage"
-        onPointerDown={(event) => {
-          const point = pointForEvent(event);
-          if (!point) return;
-          const handle = nearestHandle(point);
-          if (handle) { setDragging(handle); setPoint(handle, point); }
-          else assignNewPoint(point);
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          const point = pointForEvent(event);
-          if (!point) {
-            if (!dragging) setHover(null);
-            return;
-          }
-          setHover(point);
-          if (dragging) setPoint(dragging, point);
-        }}
-        onPointerUp={(event) => { setDragging(null); event.currentTarget.releasePointerCapture(event.pointerId); }}
-        onPointerCancel={() => setDragging(null)}
-        onPointerLeave={() => { if (!dragging) setHover(null); }}
-      >
-        <Image ref={renderedImageRef} src={image.src} alt="Загруженный план для калибровки" width={image.naturalWidth} height={image.naturalHeight} unoptimized draggable={false} />
-        {draft.pointA && draft.pointB && overlayStyle ? <svg className="calibration-line" style={overlayStyle} viewBox={`0 0 ${image.naturalWidth} ${image.naturalHeight}`} preserveAspectRatio="none" aria-hidden="true"><line x1={draft.pointA.x} y1={draft.pointA.y} x2={draft.pointB.x} y2={draft.pointB.y} /></svg> : null}
-        {marker("a", draft.pointA)}
-        {marker("b", draft.pointB)}
-      </div>
-      {magnifierPoint ? (
-        <div
-          className="calibration-magnifier"
-          aria-hidden="true"
-          style={{
-            backgroundImage: `url(${image.src})`,
-            backgroundSize: `${image.naturalWidth * 2}px ${image.naturalHeight * 2}px`,
-            backgroundPosition: `${-magnifierPoint.x * 2 + 52}px ${-magnifierPoint.y * 2 + 52}px`,
-          }}
-        />
-      ) : null}
-    </div>
-  );
+  return <PrecisionCalibrationStage image={image} error={error} draft={draft} onChange={onChange} />;
 }
 
 export function referenceWorkflowPhase(
@@ -241,6 +134,7 @@ export function ReferencePanel({
   const pdfRef = useRef<LoadedPdfReference | null>(null);
   const [state, setState] = useState<ReferenceImportState>({ kind: "idle" });
   const [removePending, setRemovePending] = useState(false);
+  const [calibrationError, setCalibrationError] = useState<string | null>(null);
 
   useEffect(() => () => { const pdf = pdfRef.current; if (pdf) void pdf.destroy(); }, []);
 
@@ -248,6 +142,7 @@ export function ReferencePanel({
 
   const beginFile = async (file: File) => {
     const fileName = file.name;
+    setCalibrationError(null);
     dispatch({ type: "choose-file", fileName });
     try {
       const inspected = await inspectReferenceFile(file);
@@ -279,20 +174,36 @@ export function ReferencePanel({
     } catch (cause) { setState(stateError(cause)); }
   };
 
+  const updateCalibration = (patch: Partial<CalibrationDraft>) => {
+    setCalibrationError(null);
+    dispatch({ type: "update-calibration", patch });
+  };
+
   const saveCalibration = async () => {
-    if (state.kind !== "calibrating" || !state.draft.pointA || !state.draft.pointB) return;
+    if (state.kind !== "calibrating") return;
+    let validation: CalibrationSubmissionValidation;
     try {
-      const knownLengthMm = parseCalibrationLength(state.draft.lengthInput);
+      validation = validateCalibrationSubmission(state.draft);
+    } catch (cause) {
+      setState(stateError(cause));
+      return;
+    }
+    if (!validation.ok) {
+      setCalibrationError(validation.message);
+      return;
+    }
+    setCalibrationError(null);
+    try {
       dispatch({ type: "saving" });
       await onInstall({
         raster: state.raster,
         source: state.source === "pdf"
           ? { kind: "pdf", pageNumber: state.pageNumber ?? 1, pageCount: state.pageCount ?? 1 }
           : { kind: "image", originalMimeType: state.source === "png" ? "image/png" : "image/jpeg" },
-        pointA: state.draft.pointA,
-        pointB: state.draft.pointB,
-        knownLengthMm,
-        alignment: state.draft.alignment,
+        pointA: validation.pointA,
+        pointB: validation.pointB,
+        knownLengthMm: validation.knownLengthMm,
+        alignment: validation.alignment,
       });
       dispatch({ type: "saved" });
       await pdfRef.current?.destroy();
@@ -344,7 +255,7 @@ export function ReferencePanel({
 
       {state.kind === "reading-file" || state.kind === "normalizing" || state.kind === "saving" ? <div className="reference-progress" role="status">{state.kind === "reading-file" ? "Читаем файл…" : state.kind === "saving" ? "Сохраняем подложку…" : state.progressLabel}</div> : null}
       {state.kind === "selecting-pdf-page" ? <ContextSection title="Выберите страницу PDF" description={`В документе ${state.pageCount} страниц.`}><input type="number" min="1" max={state.pageCount} value={state.selectedPage} onChange={(event) => dispatch({ type: "select-pdf-page", pageNumber: Number(event.target.value) })} /><button className="primary-action" type="button" onClick={() => void renderSelectedPdfPage()}>Открыть страницу</button><button className="secondary-action" type="button" onClick={() => dispatch({ type: "cancel" })}>Отмена</button></ContextSection> : null}
-      {state.kind === "calibrating" ? <ContextSection title="Калибровка масштаба" description="Укажите две точки известного размера — например, концы размерной линии или ширину двери."><CalibrationStage raster={state.raster} draft={state.draft} onChange={(patch) => dispatch({ type: "update-calibration", patch })} /><label className="field-label">Реальная длина<input value={state.draft.lengthInput} placeholder="Например, 3200 или 3,2 м" onChange={(event) => dispatch({ type: "update-calibration", patch: { lengthInput: event.target.value } })} /></label><label className="field-label">Выравнивание<select value={state.draft.alignment} onChange={(event) => dispatch({ type: "update-calibration", patch: { alignment: event.target.value as ReferenceAlignment } })}><option value="none">Не выравнивать</option><option value="horizontal">Эта линия горизонтальная</option><option value="vertical">Эта линия вертикальная</option></select></label><div className="calibration-point-fields"><span>A: {state.draft.pointA ? `${Math.round(state.draft.pointA.x)}, ${Math.round(state.draft.pointA.y)} px` : "не выбрана"}</span><span>B: {state.draft.pointB ? `${Math.round(state.draft.pointB.x)}, ${Math.round(state.draft.pointB.y)} px` : "не выбрана"}</span></div><button className="primary-action" type="button" disabled={!state.draft.pointA || !state.draft.pointB || !state.draft.lengthInput.trim()} onClick={() => void saveCalibration()}>Сохранить и открыть план</button><button className="secondary-action" type="button" onClick={() => { dispatch({ type: "cancel" }); void pdfRef.current?.destroy(); pdfRef.current = null; }}>Отмена</button></ContextSection> : null}
+      {state.kind === "calibrating" ? <ContextSection title="Калибровка масштаба" description="Укажите две точки известного размера — например, концы размерной линии или ширину двери."><p id="reference-calibration-guidance" className="reference-calibration-guidance" role="status">{calibrationGuidance(state.draft)}</p><CalibrationStage raster={state.raster} draft={state.draft} onChange={updateCalibration} /><label className="field-label">Реальная длина<input value={state.draft.lengthInput} placeholder="Например, 3200 или 3,2 м" onChange={(event) => updateCalibration({ lengthInput: event.target.value })} /></label>{calibrationError ? <p className="field-error" role="alert">{calibrationError}</p> : null}<label className="field-label">Выравнивание<select value={state.draft.alignment} onChange={(event) => updateCalibration({ alignment: event.target.value as ReferenceAlignment })}><option value="none">Не выравнивать</option><option value="horizontal">Эта линия горизонтальная</option><option value="vertical">Эта линия вертикальная</option></select></label><div className="calibration-point-fields"><span>A: {state.draft.pointA ? `${Math.round(state.draft.pointA.x)}, ${Math.round(state.draft.pointA.y)} px` : "не выбрана"}</span><span>B: {state.draft.pointB ? `${Math.round(state.draft.pointB.x)}, ${Math.round(state.draft.pointB.y)} px` : "не выбрана"}</span></div><button className="primary-action" type="button" aria-describedby="reference-calibration-guidance" onClick={() => void saveCalibration()}>Сохранить и открыть план</button><button className="secondary-action" type="button" onClick={() => { setCalibrationError(null); dispatch({ type: "cancel" }); void pdfRef.current?.destroy(); pdfRef.current = null; }}>Отмена</button></ContextSection> : null}
       {assetBlob && referencePlan ? <p className="reference-local-note">Подложка сохранена локально: {(assetBlob.size / 1024 / 1024).toFixed(1)} МБ.</p> : null}
     </ContextPanelFrame>
   );

@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-15  
-**Status:** M0–M8.2 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. The active next product milestone is **M8.3 Precision Reference Calibration**.  
+**Last updated:** 2026-08-17  
+**Status:** M0–M8.2 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. **M8.3 Precision Reference Calibration is implemented, automated-tested and product-owner accepted in PR #92 on 2026-08-17; protected integration is pending.** M8.4 Assisted Tracing is the next beta-critical product milestone after M8.3 integration.  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, `docs/testing/TESTING_POLICY.md`, `docs/testing/TEST_COVERAGE_AUDIT.md`, the latest focused changelog and the active design/plan.
 
@@ -70,6 +70,7 @@ Priorities:
 24. Dev-runtime/HMR state must not silently lose semantic editor actions; compatibility repair may restore missing actions only and must bind them to the live authoritative store rather than replace document/history state.
 25. A marquee that fully encloses a derived room selects that room as one structural semantic root; backing walls/openings are not duplicated into the same selection merely because they lie inside the rectangle.
 26. Public/domain project-asset API remains Blob-based; raw IndexedDB representation may use a browser-compatible binary representation as long as reads validate and hydrate into the same public contract and legacy data remains readable.
+27. Reference calibration before a known world scale is a **source-image coordinate problem**: source-image features may assist calibration, but world-grid or AI output may not become calibration authority.
 
 ## 3. Repository and stack
 
@@ -104,10 +105,11 @@ packages/planning        deterministic planning + reviewed intent
 | M8.0 | public-beta product contract, roadmap reset and manual-editor-first direction |
 | M8.1 | product-owner accepted and protected squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 | M8.2 | product-owner accepted and protected squash-merged as `e323e331a435ae356b91decbdea80dde95028d8a` |
+| M8.3 | **product-owner accepted in PR #92 on 2026-08-17; protected integration pending**; canonical acceptance record: `docs/milestones/m8-3-acceptance.md` |
 | Testing Policy Phase A | accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`; measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard and evidence artifacts are blocking infrastructure |
 | P0 IndexedDB persistence | product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`, post-merge CI #5175 + CodeQL #535 GREEN |
 
-Canonical M8.1/M8.2 acceptance records remain in `docs/milestones/`. Detailed RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint.
+Canonical M8.1/M8.2/M8.3 acceptance records remain in `docs/milestones/`. Detailed RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint.
 
 ## 5. Recognition experiment outcome
 
@@ -174,9 +176,43 @@ Accepted scope includes:
 
 Canonical acceptance record: `docs/milestones/m8-2-acceptance.md`.
 
+### M8.3 precision reference calibration — product-owner accepted, integration pending
+
+Accepted scope includes:
+
+- dedicated calibration viewport with fit, pan and pointer-centred zoom;
+- source-image edge, line-centre and intersection feature detection;
+- deterministic source snapping with acquisition/release hysteresis;
+- explicit snap toggle and temporary Alt suppression;
+- magnifier, crosshair and source-coordinate readout;
+- semantic A/B endpoint handles;
+- source-pixel keyboard nudge with Shift coarse nudge;
+- fractional source coordinates;
+- optional second known-distance verification;
+- residual/error verification and distortion warning behavior;
+- explicit Save through the existing reference persistence boundary;
+- next-step guidance and explicit inline validation for incomplete calibration;
+- existing endpoint acquisition wins over missing-endpoint creation, preventing B from being synthesized on top of A.
+
+Product-owner real-plan acceptance on 2026-08-17: **PASS** — «Сценарий PASS.»
+
+Accepted pre-truth-sync exact-head evidence:
+
+```text
+head:                         53ee9399f2496ff3847761b9290cef03d8aa4b7e
+CI #5246:                     PASS through build
+Browser Acceptance #1691:    PASS
+Chromium:                     67/67 PASS
+WebKit representative:       57/57 PASS
+workers:                      1
+retries:                      0
+```
+
+Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`.
+
 ### Reference/recognition
 
-Accepted source import/calibration and M7.8A/B benchmark infrastructure remain available. Recognition is assistive/experimental and is not a beta dependency.
+Accepted source import, M8.3 calibration and M7.8A/B benchmark infrastructure remain available. Recognition is assistive/experimental and is not a beta dependency.
 
 ### 3D/planning
 
@@ -232,55 +268,61 @@ Focused record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.
 ## 8. Current programme sequencing
 
 ```text
-DONE  M8.1  Editor Interaction Foundation
-DONE  M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
-DONE  Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
-DONE  P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
-NOW   M8.3  Precision Reference Calibration
-THEN  M8.4  Assisted Tracing
-THEN  M8.5  Furniture + Materials 2.0
-THEN  M8.6  Export + Presentation
-THEN  M8.7  Public Beta Hardening
-TARGET PUBLIC FREE BETA
+DONE      M8.1  Editor Interaction Foundation
+DONE      M8.2  Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
+DONE      Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
+DONE      P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
+ACCEPTED  M8.3  Precision Reference Calibration — PR #92, protected integration pending
+NEXT      M8.4  Assisted Tracing — starts only after M8.3 integration
+THEN      M8.5  Furniture + Materials 2.0
+THEN      M8.6  Export + Presentation
+THEN      M8.7  Public Beta Hardening
+TARGET    PUBLIC FREE BETA
 ```
 
-Programme tracker: #53. M8.3 tracker: #57.
+Programme tracker: #53. M8.3 tracker: #57. M8.4 tracker: #51.
 
-## 9. M8.3 active product milestone
+## 9. M8.3 accepted product milestone
 
-Status: **ACTIVE / DESIGN + TDD IMPLEMENTATION NEXT**.
+Status: **PRODUCT-OWNER ACCEPTED / PROTECTED INTEGRATION PENDING**.
 
-Planned outcomes:
+Product outcome:
+
+> A real reference image can be calibrated in auditable source-image coordinates with predictable precision tools before ordinary editable tracing begins.
+
+Accepted behavior:
 
 - calibration-specific pan/zoom interaction;
 - stronger magnifier/crosshair;
 - source edge/line-centre/intersection snapping;
 - keyboard nudge;
-- fractional image coordinates where justified;
-- explicit temporary snap disable;
+- fractional image coordinates;
+- explicit snap toggle and temporary suppression;
 - second known-distance verification;
 - visible residual/error and distortion warning;
-- reference lock only after valid calibration;
+- explicit save only through the existing reference persistence boundary;
+- truthful guidance for incomplete calibration;
 - no false claim of precision beyond raster/source quality.
 
-Authority rule: world-grid snapping is not a calibration solution because authoritative mm scale is unknown until calibration. Source-image feature snapping is the correct assistance authority during calibration.
+Authority rule remains: world-grid snapping is not a calibration solution because authoritative mm scale is unknown until calibration. Source-image feature snapping is the correct assistance authority during calibration.
 
-TDD requirements:
+Hardening found and corrected real issues in live state, wheel lifecycle, rendered transforms, border/content pointer origin, incomplete Save behavior and endpoint reacquisition. No threshold, retry, skip/fixme, validator, persistence or authority rule was weakened.
 
-- deterministic synthetic source-feature fixtures;
-- image/source transform round-trip contracts;
-- genuine focused RED before implementation;
-- browser evidence for pointer/magnifier/keyboard behavior;
-- current testing-policy risk classification and changed-code thresholds;
-- no persistence/schema change unless independently designed and justified.
+Acceptance record: `docs/milestones/m8-3-acceptance.md`.
+
+Integration is not claimed until GitHub reports the protected merge identity and post-merge `main` verification is GREEN.
 
 ## 10. Later public-beta programme
 
 ### M8.4 — Assisted Tracing
 
+**Next only after M8.3 protected integration.**
+
 Optional high-confidence source-image snapping inside normal wall/door/window tools. Explicit user intent and existing topology remain stronger than source-image assistance. Ambiguity abstains. No AI/network dependency is required.
 
 Any traced/recognized result must become ordinary editable Vlezet geometry; assistance may never create a parallel opaque authoritative state.
+
+The accepted M8.3 source-coordinate/calibration substrate is the only image/world transform foundation M8.4 may consume. M8.4 must not invent a second calibration or reference authority.
 
 ### M8.5 — Furniture + Materials 2.0
 

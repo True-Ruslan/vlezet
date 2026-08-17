@@ -5,6 +5,8 @@ export const MIN_CALIBRATION_LENGTH_MM = 100;
 export const MAX_CALIBRATION_LENGTH_MM = 100_000;
 export const MIN_MILLIMETERS_PER_PIXEL = 0.05;
 export const MAX_MILLIMETERS_PER_PIXEL = 100;
+export const CALIBRATION_WARNING_RELATIVE_ERROR = 0.01;
+export const CALIBRATION_WARNING_ABSOLUTE_MM = 20;
 
 export type ReferenceAlignment = "none" | "horizontal" | "vertical";
 
@@ -36,6 +38,22 @@ export type CalibrationInput = Readonly<{
   knownLengthMm: number;
   originWorld: Point2;
   alignment: ReferenceAlignment;
+}>;
+
+export type ReferenceCalibrationVerificationInput = Readonly<{
+  primary: ReferenceCalibration;
+  pointA: Point2;
+  pointB: Point2;
+  knownLengthMm: number;
+}>;
+
+export type ReferenceCalibrationVerification = Readonly<{
+  primaryMillimetersPerPixel: number;
+  predictedLengthMm: number;
+  residualMm: number;
+  absoluteResidualMm: number;
+  relativeError: number;
+  status: "verified" | "warning";
 }>;
 
 export type Bounds2 = Readonly<{ minX: number; minY: number; maxX: number; maxY: number }>;
@@ -75,6 +93,18 @@ function calibrationRotation(pointA: Point2, pointB: Point2, alignment: Referenc
   const imageAngle = Math.atan2(pointB.y - pointA.y, pointB.x - pointA.x) * 180 / Math.PI;
   const targetAxis = alignment === "horizontal" ? 0 : 90;
   return normalizeAxisDegrees(targetAxis - imageAngle);
+}
+
+function calibrationScale(calibration: ReferenceCalibration): number {
+  return calibrateReferencePlan({
+    widthPx: 1,
+    heightPx: 1,
+    pointA: calibration.pointA,
+    pointB: calibration.pointB,
+    knownLengthMm: calibration.knownLengthMm,
+    originWorld: { x: 0, y: 0 },
+    alignment: calibration.alignment,
+  }).transform.millimetersPerPixel;
 }
 
 export function imagePointToWorld(point: Point2, transform: ReferenceTransform): Point2 {
@@ -131,6 +161,39 @@ export function calibrateReferencePlan(input: CalibrationInput): CalibratedRefer
       knownLengthMm,
       alignment: input.alignment,
     },
+  };
+}
+
+export function verifyReferenceCalibration(
+  input: ReferenceCalibrationVerificationInput,
+): ReferenceCalibrationVerification {
+  const primaryMillimetersPerPixel = calibrationScale(input.primary);
+  const verification = calibrateReferencePlan({
+    widthPx: 1,
+    heightPx: 1,
+    pointA: input.pointA,
+    pointB: input.pointB,
+    knownLengthMm: input.knownLengthMm,
+    originWorld: { x: 0, y: 0 },
+    alignment: "none",
+  });
+  const verificationPixelDistance = input.knownLengthMm / verification.transform.millimetersPerPixel;
+  const predictedLengthMm = verificationPixelDistance * primaryMillimetersPerPixel;
+  const residualMm = predictedLengthMm - input.knownLengthMm;
+  const absoluteResidualMm = Math.abs(residualMm);
+  const relativeError = absoluteResidualMm / input.knownLengthMm;
+  const status = relativeError > CALIBRATION_WARNING_RELATIVE_ERROR
+    && absoluteResidualMm > CALIBRATION_WARNING_ABSOLUTE_MM
+    ? "warning"
+    : "verified";
+
+  return {
+    primaryMillimetersPerPixel,
+    predictedLengthMm,
+    residualMm,
+    absoluteResidualMm,
+    relativeError,
+    status,
   };
 }
 

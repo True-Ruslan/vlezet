@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   clientPointToImagePoint,
+  fitCalibrationViewport,
   imagePointToContainerPoint,
+  imagePointToViewportPoint,
+  nudgeCalibrationImagePoint,
+  panCalibrationViewport,
+  viewportPointToImagePoint,
+  zoomCalibrationViewportAt,
 } from "./calibration-viewport";
 
 const naturalSize = { width: 1472, height: 1024 };
@@ -41,5 +47,98 @@ describe("calibration viewport coordinates", () => {
       naturalSize,
       edgeTolerancePx: 0.001,
     })).toEqual({ x: 1472, y: 0 });
+  });
+});
+
+describe("calibration pan and zoom transform", () => {
+  it("fits the natural image inside the viewport with deterministic centering", () => {
+    expect(fitCalibrationViewport({
+      naturalSize: { width: 1000, height: 500 },
+      containerSize: { width: 800, height: 600 },
+      paddingPx: 20,
+    })).toEqual({
+      scale: 0.76,
+      offsetX: 20,
+      offsetY: 110,
+    });
+  });
+
+  it("uses zero padding when no explicit viewport padding is supplied", () => {
+    expect(fitCalibrationViewport({
+      naturalSize: { width: 100, height: 50 },
+      containerSize: { width: 200, height: 100 },
+    })).toEqual({ scale: 2, offsetX: 0, offsetY: 0 });
+  });
+
+  it("rejects negative viewport padding instead of silently expanding the fit area", () => {
+    expect(() => fitCalibrationViewport({
+      naturalSize: { width: 100, height: 50 },
+      containerSize: { width: 200, height: 100 },
+      paddingPx: -1,
+    })).toThrow("paddingPx must not be negative.");
+  });
+
+  it("round-trips fractional image coordinates through an explicit pan and zoom transform", () => {
+    const transform = { scale: 0.5, offsetX: 40, offsetY: 50 };
+    const imagePoint = { x: 100.25, y: 200.5 };
+    const viewportPoint = imagePointToViewportPoint({ imagePoint, transform });
+
+    expect(viewportPoint).toEqual({ x: 90.125, y: 150.25 });
+    expect(viewportPointToImagePoint({ viewportPoint, transform })).toEqual(imagePoint);
+  });
+
+  it("zooms around the pointer anchor without moving the source point under that pointer", () => {
+    const transform = { scale: 0.5, offsetX: 40, offsetY: 50 };
+    const imagePoint = { x: 100, y: 200 };
+    const anchor = imagePointToViewportPoint({ imagePoint, transform });
+    const zoomed = zoomCalibrationViewportAt({
+      transform,
+      viewportPoint: anchor,
+      factor: 2,
+      limits: { minScale: 0.1, maxScale: 4 },
+    });
+
+    expect(zoomed).toEqual({ scale: 1, offsetX: -10, offsetY: -50 });
+    expect(viewportPointToImagePoint({ viewportPoint: anchor, transform: zoomed })).toEqual(imagePoint);
+  });
+
+  it("clamps zoom before solving the pointer anchor", () => {
+    const transform = { scale: 2, offsetX: 10, offsetY: 20 };
+    const viewportPoint = { x: 210, y: 220 };
+    const zoomed = zoomCalibrationViewportAt({
+      transform,
+      viewportPoint,
+      factor: 10,
+      limits: { minScale: 0.25, maxScale: 4 },
+    });
+
+    expect(zoomed.scale).toBe(4);
+    expect(viewportPointToImagePoint({ viewportPoint, transform: zoomed })).toEqual(
+      viewportPointToImagePoint({ viewportPoint, transform }),
+    );
+  });
+
+  it("rejects inverted zoom limits", () => {
+    expect(() => zoomCalibrationViewportAt({
+      transform: { scale: 1, offsetX: 0, offsetY: 0 },
+      viewportPoint: { x: 50, y: 50 },
+      factor: 2,
+      limits: { minScale: 4, maxScale: 2 },
+    })).toThrow("limits.minScale must not exceed limits.maxScale.");
+  });
+
+  it("pans only the viewport offset", () => {
+    expect(panCalibrationViewport(
+      { scale: 0.5, offsetX: 40, offsetY: 50 },
+      { x: 12, y: -8 },
+    )).toEqual({ scale: 0.5, offsetX: 52, offsetY: 42 });
+  });
+
+  it("nudges in natural source pixels and clamps at raster bounds", () => {
+    expect(nudgeCalibrationImagePoint({
+      point: { x: 999.5, y: 1.25 },
+      delta: { x: 10, y: -10 },
+      naturalSize: { width: 1000, height: 500 },
+    })).toEqual({ x: 1000, y: 0 });
   });
 });

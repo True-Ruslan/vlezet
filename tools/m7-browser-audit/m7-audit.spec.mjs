@@ -205,6 +205,7 @@ async function installReference(page) {
   await expect(page.locator(".context-panel-title")).toHaveText("Калибровка масштаба");
   const stage = page.locator(".calibration-stage");
   await expect(stage).toBeVisible();
+  await stage.scrollIntoViewIfNeeded();
   const box = await stage.boundingBox();
   if (!box) throw new Error("Calibration stage has no bounding box.");
   await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.5);
