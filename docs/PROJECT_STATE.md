@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
 **Last updated:** 2026-08-17  
-**Status:** M0–M8.3 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. **M8.3 Precision Reference Calibration is product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529` and post-merge verified by CI #5248 + CodeQL #608.** M8.4 Assisted Tracing is the active beta-critical product milestone.  
+**Status:** M0–M8.3 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. **M8.3 Precision Reference Calibration is product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529` and post-merge verified by CI #5248 + CodeQL #608.** **M8.4 Wall Assisted Tracing is implemented and automated technical GREEN on implementation head `b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5`; Product Owner real-plan acceptance and protected merge are still pending.**  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, `docs/testing/TESTING_POLICY.md`, `docs/testing/TEST_COVERAGE_AUDIT.md`, the latest focused changelog and the active design/plan.
 
@@ -71,6 +71,7 @@ Priorities:
 25. A marquee that fully encloses a derived room selects that room as one structural semantic root; backing walls/openings are not duplicated into the same selection merely because they lie inside the rectangle.
 26. Public/domain project-asset API remains Blob-based; raw IndexedDB representation may use a browser-compatible binary representation as long as reads validate and hydrate into the same public contract and legacy data remains readable.
 27. Reference calibration before a known world scale is a **source-image coordinate problem**: source-image features may assist calibration, but world-grid or AI output may not become calibration authority.
+28. M8.4 wall source assistance is transient evidence only: it may influence the ordinary wall preview under explicit precedence rules, but may never persist source metadata, synthesize topology authority or create a parallel document state.
 
 ## 3. Repository and stack
 
@@ -106,10 +107,11 @@ packages/planning        deterministic planning + reviewed intent
 | M8.1 | product-owner accepted and protected squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 | M8.2 | product-owner accepted and protected squash-merged as `e323e331a435ae356b91decbdea80dde95028d8a` |
 | M8.3 | **product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529`, post-merge CI #5248 + CodeQL #608 GREEN**; canonical acceptance record: `docs/milestones/m8-3-acceptance.md` |
+| M8.4 wall slice | **implemented + automated technical gates GREEN on `b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5`; Product Owner real-plan acceptance pending; Draft PR #94; NOT MERGED** |
 | Testing Policy Phase A | accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`; measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard and evidence artifacts are blocking infrastructure |
 | P0 IndexedDB persistence | product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`, post-merge CI #5175 + CodeQL #535 GREEN |
 
-Canonical M8.1/M8.2/M8.3 acceptance records remain in `docs/milestones/`. Detailed RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint.
+Canonical M8.1/M8.2/M8.3 acceptance records remain in `docs/milestones/`. Detailed RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint. M8.4 technical evidence is recorded in `docs/changelog/2026-08-17-m8-4-wall-assisted-tracing-technical-green.md` and must not be mistaken for Product Owner acceptance.
 
 ## 5. Recognition experiment outcome
 
@@ -215,6 +217,41 @@ retries:                        0
 
 Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`.
 
+### M8.4 wall Assisted Tracing — automated technical GREEN, Product Owner acceptance pending
+
+Implemented wall-only scope:
+
+- `По подложке` is an explicit runtime-only toggle and defaults Off;
+- accepted M8.3 `ReferencePlan.transform`, `worldPointToImage()` and `imagePointToWorld()` remain the only source/world transform authority;
+- ordinary structural snapping is resolved first; endpoint/junction/midpoint/intersection/wall-axis topology targets remain stronger than source evidence;
+- high-confidence unambiguous local source evidence may replace construction/grid fallback only;
+- weak, ambiguous, unavailable, outside-reference and read-error cases fail closed to ordinary wall behavior;
+- Alt/Option suppresses source assistance for the gesture;
+- acquired evidence is ephemeral and invalidates when wall/reference/asset/toggle runtime context changes;
+- assisted output is an ordinary wall with ordinary semantic history; no source metadata enters `VlezetDocument`;
+- exact numeric wall input remains downstream of pointer assistance and keeps explicit user authority;
+- visible acquired feedback says `По подложке` without becoming export/document authority;
+- no AI/network dependency and no project-schema change.
+
+Verified implementation checkpoint before this documentation sync:
+
+```text
+technical implementation head:   b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5
+CI #5289:                         PASS through build
+Browser Acceptance #1732:        PASS
+Chromium:                         68/68 PASS; M8.4 dedicated flow 17/68 PASS
+WebKit representative:           58/58 PASS; M8.4 dedicated flow 10/58 PASS
+workers:                          1
+retries:                          0
+CodeQL check 95437977365:         PASS — no new alerts in changed code
+```
+
+The dedicated browser flow uses the real PNG import/calibration/storage path, verifies source acquisition, explicit feedback, topology precedence, Alt suppression, Off behavior, ordinary Undo/Redo, no runtime/console errors and no fetch/XHR dependency for source assistance.
+
+**Not accepted yet:** Product Owner must still run the focused real-plan checklist. PR #94 remains Draft and M8.4 remains NOT MERGED. Hosted door/window assistance is a later sub-slice and must not start before wall acceptance/integration.
+
+Focused technical record: `docs/changelog/2026-08-17-m8-4-wall-assisted-tracing-technical-green.md`.
+
 ### Reference/recognition
 
 Accepted source import, M8.3 calibration and M7.8A/B benchmark infrastructure remain available. Recognition is assistive/experimental and is not a beta dependency.
@@ -278,7 +315,8 @@ DONE      M8.2  Precision Drawing / Direct Manipulation Foundation — merged e3
 DONE      Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
 DONE      P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
 DONE      M8.3  Precision Reference Calibration — merged 01f520988a84291fb6e4f918e21f3403f17c4529, post-merge verified
-NOW       M8.4  Assisted Tracing
+NOW       M8.4  Wall Assisted Tracing — automated technical GREEN; Product Owner acceptance pending; NOT MERGED
+BLOCKED   M8.4  Hosted door/window assistance — wait for wall acceptance/integration
 THEN      M8.5  Furniture + Materials 2.0
 THEN      M8.6  Export + Presentation
 THEN      M8.7  Public Beta Hardening
@@ -321,13 +359,15 @@ GitHub reported the protected squash merge identity as `01f520988a84291fb6e4f918
 
 ### M8.4 — Assisted Tracing
 
-**NOW — unblocked by accepted, integrated and post-merge verified M8.3.**
+**NOW — wall-only implementation is automated technical GREEN; Product Owner real-plan acceptance and protected merge remain pending.**
 
-Optional high-confidence source-image snapping inside normal wall/door/window tools. Explicit user intent and existing topology remain stronger than source-image assistance. Ambiguity abstains. No AI/network dependency is required.
+Current wall slice is intentionally narrow: optional high-confidence source-image assistance lives inside the normal Wall tool. Explicit exact input and existing topology remain stronger than source-image assistance; ambiguity/weakness/error abstains; the feature defaults Off, is runtime-only, needs no AI/network call and commits only ordinary editable Vlezet geometry.
 
-Any traced/recognized result must become ordinary editable Vlezet geometry; assistance may never create a parallel opaque authoritative state.
+The accepted M8.3 source-coordinate/calibration substrate is the only image/world transform foundation M8.4 consumes. No second calibration, reference, topology or document authority was introduced.
 
-The accepted M8.3 source-coordinate/calibration substrate is the only image/world transform foundation M8.4 may consume. M8.4 must not invent a second calibration or reference authority.
+Technical implementation head `b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5` passed CI #5289, Browser Acceptance #1732 (Chromium 68/68; representative WebKit 58/58; dedicated M8.4 flow passed in both), and CodeQL check `95437977365`. This automation does **not** equal Product Owner acceptance.
+
+Hosted door/window source assistance remains blocked until the wall-only slice receives explicit real-plan Product Owner PASS, canonical acceptance sync, protected merge and post-merge verification.
 
 ### M8.5 — Furniture + Materials 2.0
 
