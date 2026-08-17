@@ -62,6 +62,25 @@ describe("M8.4 bounded wall source feature reader", () => {
     }));
   });
 
+  it("returns one centreline for a thick architectural wall band instead of two ambiguous edges", () => {
+    const canvas = fixtureCanvas(rgbaImage(41, 41, (x) => x >= 16 && x <= 24 ? 45 : 245));
+
+    const features = readWallSourceFeatures({
+      image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
+      point: { x: 500, y: 400 },
+      createCanvas: () => canvas,
+    });
+
+    const verticalCentres = features.filter((feature) =>
+      feature.kind === "line-center" && feature.id.includes(":v:"));
+    expect(verticalCentres).toHaveLength(1);
+    expect(verticalCentres[0]).toEqual(expect.objectContaining({
+      kind: "line-center",
+      point: { x: 500, y: 400 },
+    }));
+    expect(verticalCentres[0]!.strength).toBeGreaterThanOrEqual(0.7);
+  });
+
   it("returns no source evidence for a uniform empty patch", () => {
     const canvas = fixtureCanvas(rgbaImage(41, 41, () => 255));
     expect(readWallSourceFeatures({
