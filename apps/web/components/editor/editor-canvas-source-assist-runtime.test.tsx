@@ -282,15 +282,28 @@ describe("EditorCanvas source-assist runtime wiring", () => {
     expect(reactHarness.setters[9]).toHaveBeenCalledWith(null);
   });
 
-  it("starts a new ordinary wall without consulting source assist", () => {
+  it("routes the first wall point through source authority when assist is enabled", () => {
     const tree = renderCanvas();
     const stage = stageFrom(tree);
 
     stage.props.onMouseDown(pointerEvent({ x: 240, y: 160 }));
 
-    expect(editorStore.getState().draftWall).not.toBeNull();
-    expect(controllerHarness.resolve).not.toHaveBeenCalled();
-    expect(reactHarness.setters[9]).toHaveBeenCalledWith(null);
+    expect(controllerHarness.resolve).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: true,
+      suppressed: false,
+      activeCandidate: null,
+      rawWorldPoint: { x: 240, y: 160 },
+    }));
+    expect(editorStore.getState().draftWall).toMatchObject({
+      start: { x: 1000, y: 0 },
+      end: { x: 1000, y: 0 },
+      startTarget: null,
+      endTarget: null,
+    });
+    expect(reactHarness.setters[9]).toHaveBeenCalledWith(expect.objectContaining({
+      contextToken: expect.any(Object),
+      result: expect.objectContaining({ acquired: true }),
+    }));
   });
 
   it("keeps source assist out of non-wall placement interactions", () => {
