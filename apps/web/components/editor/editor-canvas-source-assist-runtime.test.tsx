@@ -257,6 +257,16 @@ describe("EditorCanvas source-assist runtime wiring", () => {
     expect(reactHarness.setters[9]).toHaveBeenCalledWith(null);
   });
 
+  it("keeps source assist out of non-wall placement interactions", () => {
+    editorStore.setState({ tool: "select", placementPresetId: "runtime-placement" });
+    const tree = renderCanvas();
+
+    expect(tree.props.className).toContain("is-placing-object");
+    stageFrom(tree).props.onMouseDown(pointerEvent({ x: 320, y: 180 }));
+
+    expect(controllerHarness.resolve).not.toHaveBeenCalled();
+  });
+
   it("exposes acquired and idle source evidence without persisting it", () => {
     const acquired = { acquired: true, candidateId: "source-edge-1", worldPoint: { x: 1000, y: 0 } };
     const acquiredTree = renderCanvas(acquired);
