@@ -5,10 +5,7 @@ import {
   resolveReferenceSourceAssist,
   type ReferenceSourceAssistResult,
 } from "../reference/reference-source-assist";
-import {
-  readWallSourceFeatures,
-  type WALL_SOURCE_FEATURE_POLICY,
-} from "../reference/wall-source-feature-reader";
+import { readWallSourceFeatures } from "../reference/wall-source-feature-reader";
 import {
   isTopologyStructuralSnapKind,
   resolveWallPointerAssist,
