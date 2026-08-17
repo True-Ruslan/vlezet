@@ -60,6 +60,7 @@ import { geometryInspectorPreviewStore } from "./geometry-inspector-preview-stor
 import { snapPlacedObject, type ObjectSnapGuide } from "./object-snapping";
 import { PlacedObjectShape } from "./placed-object-shape";
 import { deriveRoomCanvasLabelLayout } from "./room-canvas-label-layout";
+import { sourceAssistSettingsStore } from "./source-assist-settings-store";
 import { StructuralHandleLayer } from "./structural-handle-layer";
 import { StructuralSnapOverlay } from "./structural-snap-overlay";
 import { structuralSnappingSettingsStore } from "./structural-snapping-settings-store";
@@ -71,6 +72,11 @@ import {
   parseWallLengthInput,
   resolveWallDynamicDraft,
 } from "./wall-dynamic-input-model";
+import {
+  resolveWallSourceAssistController,
+  type WallSourceAssistActiveCandidate,
+  type WallSourceAssistControllerResult,
+} from "./wall-source-assist-controller";
 import type { EditorContextMenuRequest } from "./editor-context-menu";
 import { resolveEditorPointerGestureIntent } from "./editor-pointer-gesture-intent";
 import {
@@ -245,6 +251,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const panRef = useRef<{ active: boolean; last: Point2 }>({ active: false, last: { x: 0, y: 0 } });
   const structuralPointerGestureRef = useRef<StructuralPointerGesture | null>(null);
   const wallPointerWorldRef = useRef<Point2 | null>(null);
+  const activeSourceCandidateRef = useRef<WallSourceAssistActiveCandidate | null>(null);
   const handledViewCommandSerialRef = useRef(viewCommandRequest?.serial ?? 0);
   const handledFitReferenceRequestRef = useRef(fitReferenceRequest);
   const viewportRef = useRef<ViewportTransform>({ ...initialViewport });
@@ -258,6 +265,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const [objectGuides, setObjectGuides] = useState<readonly ObjectSnapGuide[]>([]);
   const [marqueeGesture, setMarqueeGesture] = useState<MarqueeGesture | null>(null);
   const [activeStructuralSnap, setActiveStructuralSnap] = useState<StructuralSnapResult | null>(null);
+  const [activeSourceAssist, setActiveSourceAssist] = useState<WallSourceAssistControllerResult["sourceAssist"]>(null);
   const [wallInput, setWallInput] = useState<WallInputState>(EMPTY_WALL_INPUT);
   const [viewport, setViewport] = useState<ViewportTransform>(() => ({ ...initialViewport }));
   const setHoveredCanvasEntity = useCallback((next: HoveredCanvasEntity) => {
@@ -278,6 +286,7 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const structuralGesture = useStore(editorStore, (state) => state.structuralGesture);
   const selection = useStore(editorStore, (state) => state.selection);
   const snappingEnabled = useStore(structuralSnappingSettingsStore, (state) => state.enabled);
+  const sourceAssistEnabled = useStore(sourceAssistSettingsStore, (state) => state.enabled);
   const structuralDisplayDocument = structuralGesture?.previewDocument ?? document;
   const selectedWallId = selectedWallIdFromSelection(selection);
   const selectedRoomId = selectedRoomIdFromSelection(selection);
@@ -314,6 +323,10 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
   const visibleObjectGuides = placementPresetId || objectGesture ? objectGuides : [];
   const { image: referenceImage } = useReferenceImage(referenceAssetBlob);
   const visibleReferenceBounds = useMemo(() => referencePlan?.display.visible ? referencePlanBounds(referencePlan) : null, [referencePlan]);
+  useEffect(() => {
+    setActiveSourceAssist(null);
+    activeSourceCandidateRef.current = null;
+  }, [draftWall?.start.x, draftWall?.start.y, referenceImage, referencePlan?.referenceRevision, sourceAssistEnabled]);
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
@@ -639,11 +652,24 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     const current = editorStore.getState().draftWall;
     if (!current) return;
     const resolved = resolveCanvasStructuralSnap(pointer, current.start, event);
-    wallPointerWorldRef.current = resolved.point;
-    let point = resolved.point;
+    const rawWorldPoint = screenToWorld(pointer, viewport);
+    const assisted = resolveWallSourceAssistController({
+      rawWorldPoint,
+      structuralSnap: resolved,
+      referencePlan,
+      referenceImage,
+      pixelsPerMillimeter: viewport.pixelsPerMillimeter,
+      enabled: sourceAssistEnabled,
+      suppressed: event.evt.altKey,
+      activeCandidate: activeSourceCandidateRef.current,
+    });
+    setActiveSourceAssist(assisted.decision.sourceAssist);
+    activeSourceCandidateRef.current = assisted.activeCandidate;
+    wallPointerWorldRef.current = assisted.decision.point;
+    let point = assisted.decision.point;
     if (parsedWallLength !== null || parsedWallAngle !== null) {
       try {
-        point = resolveWallDynamicDraft(current.start, resolved.point, {
+        point = resolveWallDynamicDraft(current.start, assisted.decision.point, {
           lengthMm: parsedWallLength,
           angleDeg: parsedWallAngle,
         }).point;
@@ -651,10 +677,15 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
         return;
       }
     }
-    const target = targetForExactPoint(point, resolved);
+    const target = assisted.decision.authority === "structural"
+      ? targetForExactPoint(point, resolved)
+      : null;
     if (!target && distanceBetween(point, resolved.point) > GEOMETRY_EPSILON_MM) setActiveStructuralSnap(null);
+    const draftSnap: SnapResult = assisted.decision.authority === "source"
+      ? { point, kind: "none", guides: [] }
+      : draftSnapFromStructural(resolved);
     editorStore.getState().updateDraftWall(
-      { ...draftSnapFromStructural(resolved), point },
+      { ...draftSnap, point },
       target,
     );
   };
@@ -979,6 +1010,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     setWallInput(EMPTY_WALL_INPUT);
     wallPointerWorldRef.current = null;
     setActiveStructuralSnap(null);
+    setActiveSourceAssist(null);
+    activeSourceCandidateRef.current = null;
   };
   const onMouseDown = (event: KonvaEventObject<MouseEvent>) => {
     const pointer = pointerPosition(event); if (!pointer) return;
@@ -1006,6 +1039,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
         editorStore.getState().beginWall(resolved.point, resolved.target);
         wallPointerWorldRef.current = resolved.point;
         setWallInput(EMPTY_WALL_INPUT);
+        setActiveSourceAssist(null);
+        activeSourceCandidateRef.current = null;
       } else {
         updateWallDraftFromPointer(pointer, event);
         commitWallDraft();
@@ -1085,6 +1120,8 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     setOpeningPreview(null);
     setPlacementPreview(null);
     setObjectGuides([]);
+    setActiveSourceAssist(null);
+    activeSourceCandidateRef.current = null;
     canvasTransientFeedbackStore.getState().setPreviewState("none");
   };
   const marqueeScreenRect = marqueeGesture && Math.hypot(
@@ -1191,7 +1228,12 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
                 ? " is-preview-valid"
                 : "";
   return (
-    <div ref={containerRef} className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${cursorClass}`} data-preview-state={livePreviewState}>
+    <div
+      ref={containerRef}
+      className={`canvas-shell tool-${tool}${placementPresetId ? " is-placing-object" : ""}${cursorClass}`}
+      data-preview-state={livePreviewState}
+      data-source-assist={activeSourceAssist?.acquired ? "acquired" : "idle"}
+    >
       <Stage
         ref={stageRef}
         width={size.width}
