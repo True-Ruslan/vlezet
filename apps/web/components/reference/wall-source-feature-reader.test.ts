@@ -38,6 +38,7 @@ describe("M8.4 bounded wall source feature reader", () => {
     const features = readWallSourceFeatures({
       image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
       point: { x: 500, y: 400 },
+      viewportScale: 1,
       createCanvas: () => canvas,
     });
 
@@ -68,6 +69,7 @@ describe("M8.4 bounded wall source feature reader", () => {
     const features = readWallSourceFeatures({
       image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
       point: { x: 500, y: 400 },
+      viewportScale: 1,
       createCanvas: () => canvas,
     });
 
@@ -81,11 +83,43 @@ describe("M8.4 bounded wall source feature reader", () => {
     expect(verticalCentres[0]!.strength).toBeGreaterThanOrEqual(0.7);
   });
 
+  it("normalizes a downscaled high-resolution source to a screen-sized analysis patch", () => {
+    const canvas = fixtureCanvas(rgbaImage(41, 41, (x) => x >= 19 && x <= 21 ? 20 : 245));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("fixture context missing");
+
+    const features = readWallSourceFeatures({
+      image: { naturalWidth: 2000, naturalHeight: 1600 } as HTMLImageElement,
+      point: { x: 500, y: 400 },
+      viewportScale: 0.25,
+      createCanvas: () => canvas,
+    });
+
+    expect(canvas.width).toBe(41);
+    expect(canvas.height).toBe(41);
+    expect(context.drawImage).toHaveBeenCalledWith(
+      expect.anything(),
+      420,
+      320,
+      161,
+      161,
+      0,
+      0,
+      41,
+      41,
+    );
+    expect(features).toContainEqual(expect.objectContaining({
+      kind: "line-center",
+      point: { x: 500, y: 400 },
+    }));
+  });
+
   it("returns no source evidence for a uniform empty patch", () => {
     const canvas = fixtureCanvas(rgbaImage(41, 41, () => 255));
     expect(readWallSourceFeatures({
       image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
       point: { x: 500, y: 400 },
+      viewportScale: 1,
       createCanvas: () => canvas,
     })).toEqual([]);
   });
@@ -98,6 +132,7 @@ describe("M8.4 bounded wall source feature reader", () => {
     readWallSourceFeatures({
       image: { naturalWidth: 30, naturalHeight: 30 } as HTMLImageElement,
       point: { x: 0, y: 0 },
+      viewportScale: 1,
       createCanvas: () => canvas,
     });
 
@@ -121,6 +156,7 @@ describe("M8.4 bounded wall source feature reader", () => {
     expect(() => readWallSourceFeatures({
       image: { naturalWidth: 100, naturalHeight: 100 } as HTMLImageElement,
       point: { x: 50, y: 50 },
+      viewportScale: 1,
       createCanvas: () => canvas,
     })).toThrow("fixture read failure");
   });
