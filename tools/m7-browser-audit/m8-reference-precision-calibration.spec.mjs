@@ -85,6 +85,7 @@ test("guides incomplete calibration, validates save and never creates B by reacq
   const pointA = page.locator('[data-calibration-point="a"]');
   const pointB = page.locator('[data-calibration-point="b"]');
   const save = page.getByRole("button", { name: "Сохранить и открыть план" });
+  const validationAlert = page.locator('.field-error[role="alert"]');
 
   await expect(page.getByText("Поставьте точку A на одном конце известного размера.", { exact: true })).toBeVisible();
   await expect(save).toBeEnabled();
@@ -104,11 +105,11 @@ test("guides incomplete calibration, validates save and never creates B by reacq
   await expect(page.getByText("Укажите реальную длину между точками A и B.", { exact: true })).toBeVisible();
 
   await save.click();
-  await expect(page.getByRole("alert")).toHaveText("Укажите реальную длину между точками A и B.");
+  await expect(validationAlert).toHaveText("Укажите реальную длину между точками A и B.");
   await expect(page.locator(".context-panel-title")).toHaveText("Калибровка масштаба");
 
   await page.getByLabel("Реальная длина").fill("3000");
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(validationAlert).toHaveCount(0);
 });
 
 test("supports precision viewport navigation, source snapping, suppression and source-pixel keyboard nudge", async ({ page }) => {
