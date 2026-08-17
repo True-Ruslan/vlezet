@@ -91,6 +91,25 @@ The dedicated M8.4 browser scenario performs the real product path:
 11. fails on browser `pageerror` / `console.error`;
 12. asserts no fetch/XHR dependency for source assistance.
 
+## Canonical docs-head verification and CodeQL retry evidence
+
+Canonical technical-state sync head `33201c6d6bf2aee373debb3b2e6ed92fd5846ca8` was verified after the documentation-only sync:
+
+```text
+CI #5290 / run 32049070547:           PASS through build
+Browser Acceptance #1733 / run 32049070178: PASS
+  Chromium:                           68/68 PASS
+  dedicated M8.4 flow:                17/68 PASS
+  WebKit representative:              58/58 PASS
+  dedicated M8.4 flow:                10/58 PASS
+  browser artifact:                   9294244947
+  artifact digest:                    sha256:a5a7ef8e6f094950bc3db23f96146d1b8cdebac083bdf75c9ecf2da332a4a096
+```
+
+The first CodeQL attempt on that docs-only head did **not** produce a valid `actions` analysis result because GitHub's CodeQL service was unavailable during `Initialize CodeQL`. Exact log messages included `No server is currently available to service your request. Sorry about that.` and `Please try resubmitting your request`. The JavaScript/TypeScript analysis itself passed; the `actions` job failed before analysis. No repository code, workflow, dependency or policy defect was identified.
+
+GitHub default-setup CodeQL does not allow this run/job to be re-run through the ordinary Actions rerun endpoint (`403: Jobs in this workflow run cannot be re-run`). This evidence-only follow-up commit therefore records the external failure and intentionally triggers a fresh exact-head CodeQL analysis through the normal pull-request push event. No product behavior, workflow configuration, test threshold, skip/retry rule or authority boundary changes in this retry step.
+
 ## Acceptance boundary
 
 This record is **not** product-owner acceptance and is **not** merge evidence.
