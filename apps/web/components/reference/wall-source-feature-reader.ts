@@ -40,18 +40,31 @@ function featureCoordinate(feature: CalibrationSourceFeature, axis: WallFeatureA
   return axis === "v" ? feature.point.x : feature.point.y;
 }
 
+function orderedAxisFeatures(
+  features: readonly CalibrationSourceFeature[],
+  axis: WallFeatureAxis,
+  kind: "line-center" | "edge",
+): CalibrationSourceFeature[] {
+  return features
+    .filter((feature) => feature.kind === kind && featureAxis(feature) === axis)
+    .sort((left, right) => featureCoordinate(left, axis) - featureCoordinate(right, axis));
+}
+
 function collapseOutlinePair(
   features: readonly CalibrationSourceFeature[],
   point: Point2,
   axis: WallFeatureAxis,
 ): readonly CalibrationSourceFeature[] {
-  const centres = features
-    .filter((feature) => feature.kind === "line-center" && featureAxis(feature) === axis)
-    .sort((left, right) => featureCoordinate(left, axis) - featureCoordinate(right, axis));
-  if (centres.length !== 2) return features;
+  const centres = orderedAxisFeatures(features, axis, "line-center");
+  const pair = centres.length === 2
+    ? centres
+    : centres.length === 0
+      ? orderedAxisFeatures(features, axis, "edge")
+      : [];
+  if (pair.length !== 2) return features;
 
-  const first = centres[0]!;
-  const second = centres[1]!;
+  const first = pair[0]!;
+  const second = pair[1]!;
   const firstCoordinate = featureCoordinate(first, axis);
   const secondCoordinate = featureCoordinate(second, axis);
   const separation = secondCoordinate - firstCoordinate;
