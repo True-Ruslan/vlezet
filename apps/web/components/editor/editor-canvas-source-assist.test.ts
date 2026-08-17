@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./editor-canvas.tsx", import.meta.url), "utf8");
 
 describe("M8.4 EditorCanvas wall source assist wiring", () => {
-  it("subscribes to runtime-only source assistance and the wall controller", () => {
+  it("subscribes to runtime-only source assistance and keeps hysteresis identity synchronous", () => {
     expect(source).toContain('from "./source-assist-settings-store"');
     expect(source).toContain('from "./wall-source-assist-controller"');
     expect(source).toContain("const sourceAssistEnabled = useStore(sourceAssistSettingsStore");
     expect(source).toContain("const [activeSourceAssist, setActiveSourceAssist]");
-    expect(source).toContain("const [activeSourceCandidate, setActiveSourceCandidate]");
+    expect(source).toContain("const activeSourceCandidateRef = useRef<WallSourceAssistActiveCandidate | null>(null)");
   });
 
   it("resolves ordinary structural snapping first, then optional source assistance", () => {
@@ -26,7 +26,7 @@ describe("M8.4 EditorCanvas wall source assist wiring", () => {
     expect(body).toContain("pixelsPerMillimeter: viewport.pixelsPerMillimeter");
     expect(body).toContain("enabled: sourceAssistEnabled");
     expect(body).toContain("suppressed: event.evt.altKey");
-    expect(body).toContain("activeCandidate: activeSourceCandidate");
+    expect(body).toContain("activeCandidate: activeSourceCandidateRef.current");
     expect(body).toContain("wallPointerWorldRef.current = assisted.decision.point");
     expect(body).toContain("let point = assisted.decision.point");
   });
@@ -37,7 +37,7 @@ describe("M8.4 EditorCanvas wall source assist wiring", () => {
     const body = source.slice(start, end);
 
     expect(body).toContain("setActiveSourceAssist(assisted.decision.sourceAssist)");
-    expect(body).toContain("setActiveSourceCandidate(assisted.activeCandidate)");
+    expect(body).toContain("activeSourceCandidateRef.current = assisted.activeCandidate");
     expect(body).toContain('assisted.decision.authority === "source"');
     expect(body).toContain('{ point, kind: "none", guides: [] }');
     expect(body).toContain("draftSnapFromStructural(resolved)");
@@ -49,7 +49,7 @@ describe("M8.4 EditorCanvas wall source assist wiring", () => {
 
   it("clears acquired source identity when the wall/reference/toggle context changes", () => {
     expect(source).toContain("setActiveSourceAssist(null)");
-    expect(source).toContain("setActiveSourceCandidate(null)");
+    expect(source).toContain("activeSourceCandidateRef.current = null");
     expect(source).toContain("referencePlan?.referenceRevision");
     expect(source).toContain("sourceAssistEnabled");
   });
