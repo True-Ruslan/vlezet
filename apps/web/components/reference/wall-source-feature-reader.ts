@@ -10,7 +10,7 @@ export const WALL_SOURCE_FEATURE_POLICY = Object.freeze({
   radiusPx: 20,
   contrastThreshold: 60,
   darknessThreshold: 120,
-  maximumLineWidthPx: 6,
+  maximumLineWidthPx: 12,
 });
 
 export function readWallSourceFeatures(input: Readonly<{
