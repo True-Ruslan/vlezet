@@ -1055,11 +1055,25 @@ export function EditorCanvas({ initialViewport, onViewportChange, onPointerWorld
     if (tool === "wall") {
       const resolved = resolveCanvasStructuralSnap(pointer, draftWall?.start ?? null, event);
       if (!draftWall) {
-        editorStore.getState().beginWall(resolved.point, resolved.target);
-        wallPointerWorldRef.current = resolved.point;
+        const rawWorldPoint = screenToWorld(pointer, viewport);
+        const assisted = resolveWallSourceAssistController({
+          rawWorldPoint,
+          structuralSnap: resolved,
+          referencePlan,
+          referenceImage,
+          pixelsPerMillimeter: viewport.pixelsPerMillimeter,
+          enabled: sourceAssistEnabled,
+          suppressed: event.evt.altKey,
+          activeCandidate: null,
+        });
+        const startTarget = assisted.decision.authority === "structural" ? resolved.target : null;
+        editorStore.getState().beginWall(assisted.decision.point, startTarget);
+        wallPointerWorldRef.current = assisted.decision.point;
         setWallInput(EMPTY_WALL_INPUT);
-        setActiveSourceAssistState(null);
-        activeSourceCandidateRef.current = null;
+        setActiveSourceAssistState({ contextToken: sourceAssistContextToken, result: assisted.decision.sourceAssist });
+        activeSourceCandidateRef.current = assisted.activeCandidate
+          ? { contextToken: sourceAssistContextToken, candidate: assisted.activeCandidate }
+          : null;
       } else {
         updateWallDraftFromPointer(pointer, event);
         commitWallDraft();
