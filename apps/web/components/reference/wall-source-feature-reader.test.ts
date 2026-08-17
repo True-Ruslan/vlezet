@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CalibrationCanvasLike } from "./calibration-image-features";
 import { readWallSourceFeatures } from "./wall-source-feature-reader";
 
@@ -29,6 +29,23 @@ function fixtureCanvas(data: Uint8ClampedArray): CalibrationCanvasLike {
   };
 }
 
+const validImage = { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement;
+
+function readWith(overrides: Partial<Parameters<typeof readWallSourceFeatures>[0]> = {}) {
+  const canvas = fixtureCanvas(rgbaImage(41, 41, () => 255));
+  return readWallSourceFeatures({
+    image: validImage,
+    point: { x: 500, y: 400 },
+    viewportScale: 1,
+    createCanvas: () => canvas,
+    ...overrides,
+  });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("M8.4 bounded wall source feature reader", () => {
   it("reuses the M8.3 bounded reader policy for a strong narrow vertical wall line", () => {
     const canvas = fixtureCanvas(rgbaImage(41, 41, (x) => x >= 19 && x <= 21 ? 0 : 255));
@@ -36,7 +53,7 @@ describe("M8.4 bounded wall source feature reader", () => {
     if (!context) throw new Error("fixture context missing");
 
     const features = readWallSourceFeatures({
-      image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
+      image: validImage,
       point: { x: 500, y: 400 },
       viewportScale: 1,
       createCanvas: () => canvas,
@@ -67,7 +84,7 @@ describe("M8.4 bounded wall source feature reader", () => {
     const canvas = fixtureCanvas(rgbaImage(41, 41, (x) => x >= 16 && x <= 24 ? 45 : 245));
 
     const features = readWallSourceFeatures({
-      image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
+      image: validImage,
       point: { x: 500, y: 400 },
       viewportScale: 1,
       createCanvas: () => canvas,
@@ -114,10 +131,31 @@ describe("M8.4 bounded wall source feature reader", () => {
     }));
   });
 
+  it("maps perpendicular wall evidence back to one stable source intersection", () => {
+    const canvas = fixtureCanvas(rgbaImage(41, 41, (x, y) => (
+      (x >= 19 && x <= 21) || (y >= 19 && y <= 21) ? 20 : 245
+    )));
+
+    const features = readWallSourceFeatures({
+      image: { naturalWidth: 2000, naturalHeight: 1600 } as HTMLImageElement,
+      point: { x: 500, y: 400 },
+      viewportScale: 0.25,
+      createCanvas: () => canvas,
+    });
+
+    expect(features).toContainEqual(expect.objectContaining({
+      id: "intersection:500.000:400.000",
+      kind: "intersection",
+      point: { x: 500, y: 400 },
+    }));
+    expect(features).toContainEqual(expect.objectContaining({ id: "line-center:h:400.000" }));
+    expect(features).toContainEqual(expect.objectContaining({ id: "line-center:v:500.000" }));
+  });
+
   it("returns no source evidence for a uniform empty patch", () => {
     const canvas = fixtureCanvas(rgbaImage(41, 41, () => 255));
     expect(readWallSourceFeatures({
-      image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
+      image: validImage,
       point: { x: 500, y: 400 },
       viewportScale: 1,
       createCanvas: () => canvas,
@@ -139,6 +177,56 @@ describe("M8.4 bounded wall source feature reader", () => {
     expect(canvas.width).toBe(21);
     expect(canvas.height).toBe(21);
     expect(context.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 21, 21, 0, 0, 21, 21);
+  });
+
+  it("rejects malformed source geometry and viewport scale before touching canvas state", () => {
+    expect(() => readWith({ image: { naturalWidth: 0, naturalHeight: 800 } as HTMLImageElement }))
+      .toThrow("image.naturalWidth must be positive and finite.");
+    expect(() => readWith({ image: { naturalWidth: Number.NaN, naturalHeight: 800 } as HTMLImageElement }))
+      .toThrow("image.naturalWidth must be positive and finite.");
+    expect(() => readWith({ image: { naturalWidth: 1000, naturalHeight: 0 } as HTMLImageElement }))
+      .toThrow("image.naturalHeight must be positive and finite.");
+    expect(() => readWith({ viewportScale: 0 }))
+      .toThrow("viewportScale must be positive and finite.");
+    expect(() => readWith({ viewportScale: Number.POSITIVE_INFINITY }))
+      .toThrow("viewportScale must be positive and finite.");
+  });
+
+  it("rejects non-finite source points before sampling", () => {
+    expect(() => readWith({ point: { x: Number.NaN, y: 400 } }))
+      .toThrow("point.x must be finite.");
+    expect(() => readWith({ point: { x: 500, y: Number.NEGATIVE_INFINITY } }))
+      .toThrow("point.y must be finite.");
+  });
+
+  it("uses the browser canvas factory when no injectable factory is supplied", () => {
+    const canvas = fixtureCanvas(rgbaImage(41, 41, () => 255));
+    const createElement = vi.fn(() => canvas);
+    vi.stubGlobal("document", { createElement });
+
+    expect(readWallSourceFeatures({
+      image: validImage,
+      point: { x: 500, y: 400 },
+      viewportScale: 1,
+    })).toEqual([]);
+    expect(createElement).toHaveBeenCalledWith("canvas");
+    expect(canvas.width).toBe(41);
+    expect(canvas.height).toBe(41);
+  });
+
+  it("fails explicitly when a canvas cannot provide a 2D context", () => {
+    const canvas: CalibrationCanvasLike = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => null),
+    };
+
+    expect(() => readWallSourceFeatures({
+      image: validImage,
+      point: { x: 500, y: 400 },
+      viewportScale: 1,
+      createCanvas: () => canvas,
+    })).toThrow("2D canvas context is unavailable.");
   });
 
   it("surfaces a canvas read failure so the editor controller can fail closed to manual behavior", () => {
