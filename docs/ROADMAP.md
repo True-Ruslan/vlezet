@@ -1,6 +1,6 @@
 # Vlezet — Roadmap
 
-**Last updated:** 2026-08-15  
+**Last updated:** 2026-08-17  
 **Rule:** deterministic product truth and user trust come before visual spectacle, feature count or speculative automation. Manual editing must remain a complete product path.
 
 Read `docs/PROJECT_STATE.md` first. Detailed product programme design is in `docs/superpowers/specs/2026-08-08-public-beta-editor-program-design.md`. Product/market direction is additionally governed by `docs/product/COMPETITIVE_BENCHMARK.md`; implementation research policy is in `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`; blocking engineering-quality rules are in `docs/testing/TESTING_POLICY.md` and `docs/testing/TEST_COVERAGE_AUDIT.md`.
@@ -26,8 +26,8 @@ DONE        M8.1 Editor Interaction Foundation
 DONE        M8.2 Precision Drawing / Direct Manipulation Foundation — merged e323e331a435ae356b91decbdea80dde95028d8a
 DONE        Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
 DONE        P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
-NOW         M8.3 Precision Reference Calibration
-THEN        M8.4 Assisted Tracing
+ACCEPTED    M8.3 Precision Reference Calibration — PR #92, protected integration pending
+NEXT        M8.4 Assisted Tracing — starts after M8.3 protected integration
 THEN        M8.5 Furniture + Materials 2.0
 THEN        M8.6 Export + Presentation
 THEN        M8.7 Public Beta Hardening
@@ -41,7 +41,9 @@ M8.2 is product-owner accepted and protected squash-merged into `main` as `e323e
 
 Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. The measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard, evidence artifacts and debt registry are blocking engineering infrastructure.
 
-P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is closed. PR #90 was product-owner accepted and protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`; post-merge CI #5175 and CodeQL #535 are GREEN. Its accepted coverage ratchet and persistence-recovery semantics are now active on `main`. M8.3 is therefore unblocked and becomes the active beta-critical product milestone.
+P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is closed. PR #90 was product-owner accepted and protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`; post-merge CI #5175 and CodeQL #535 are GREEN. Its accepted coverage ratchet and persistence-recovery semantics are active on `main`.
+
+M8.3 Precision Reference Calibration is **product-owner accepted in PR #92 on 2026-08-17** after a focused real-plan retest returned «Сценарий PASS.». Accepted product/test head `53ee9399f2496ff3847761b9290cef03d8aa4b7e` passed CI #5246, Chromium 67/67 and representative WebKit 57/57 in Browser Acceptance #1691. Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`. Protected integration and post-merge verification remain pending, so M8.4 must not begin yet.
 
 Market research makes RoomPlan the minimum practical interaction benchmark and uses Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner and magicplan as secondary references. This does not create feature-count parity as a release gate; it prevents Vlezet from rediscovering mature planner interactions in isolation.
 
@@ -250,38 +252,58 @@ Focused record: `docs/changelog/2026-08-15-p0-indexeddb-persistence-remediation.
 
 ### M8.3 — Precision Reference Calibration
 
-Status: **NOW / ACTIVE**. Tracker: #57.
+Status: **PRODUCT-OWNER ACCEPTED / PROTECTED INTEGRATION PENDING**. Tracker: #57. PR: #92.
 
 Why this precedes Assisted Tracing: image-assisted geometry is only trustworthy when image-to-world scale itself is auditable. World-grid snapping cannot solve calibration because millimetre authority is not yet known during the calibration gesture.
 
-Planned outcomes:
+Accepted outcomes:
 
-- calibration-specific pan/zoom interaction;
+- calibration-specific fit, pan and pointer-centred zoom;
 - stronger magnifier and crosshair;
 - source-image edge, line-centre and intersection snapping;
-- keyboard nudge;
-- fractional image coordinates where source quality justifies them;
-- explicit temporary snap disable;
-- second known-distance verification;
+- deterministic snapping hysteresis;
+- keyboard source-pixel nudge with Shift coarse nudge;
+- fractional image coordinates;
+- explicit snap toggle and temporary Alt suppression;
+- optional second known-distance verification;
 - visible residual/error evidence;
 - distortion/perspective warning when dimensions disagree materially;
-- reference lock only after a valid calibration;
+- explicit Save through the existing reference persistence boundary;
+- step-by-step guidance and inline validation for incomplete calibration;
+- existing endpoint acquisition wins over creation of a missing endpoint, preventing B from being created on top of A;
 - no false precision claim beyond raster/source quality.
 
-TDD requirements:
+Authority boundaries:
 
-- deterministic source-feature fixtures;
-- transform/image-coordinate round-trip contracts;
-- genuine RED before behavior implementation;
-- browser evidence for real pointer/magnifier/keyboard behavior;
-- current testing-policy risk classification and coverage gates;
-- canonical focused changelog before acceptance.
+- `ReferencePlan` remains persistent reference authority;
+- viewport/navigation/verification state remains runtime-only until explicit Save;
+- source-image assistance does not create apartment geometry authority;
+- no schema migration;
+- no AI/network dependency.
+
+Automated acceptance evidence before canonical truth-sync:
+
+```text
+head:                         53ee9399f2496ff3847761b9290cef03d8aa4b7e
+CI #5246:                     PASS through build
+Browser Acceptance #1691:    PASS
+Chromium:                     67/67 PASS
+WebKit representative:       57/57 PASS
+workers:                      1
+retries:                      0
+```
+
+Product-owner real-plan acceptance on 2026-08-17: **PASS — «Сценарий PASS.»**
+
+Acceptance record: `docs/milestones/m8-3-acceptance.md`.
+
+Remaining gate: exact-head verification after this truth-sync, protected integration, actual merge identity recording and post-merge verification.
 
 ### M8.4 — Assisted Tracing
 
-Tracker: #51.
+Status: **NEXT / BLOCKED UNTIL M8.3 PROTECTED INTEGRATION**. Tracker: #51.
 
-After M8.3, normal wall/door/window tools may optionally use high-confidence source-image assistance.
+After M8.3 integration, normal wall/door/window tools may optionally use high-confidence source-image assistance.
 
 Rules:
 
@@ -290,7 +312,8 @@ Rules:
 - ambiguous image evidence abstains;
 - no AI/network dependency is required;
 - traced output is ordinary editable Vlezet geometry;
-- assistance may never create a second authoritative plan state.
+- assistance may never create a second authoritative plan state;
+- M8.4 consumes the accepted M8.3 source-coordinate/calibration substrate rather than inventing another image/world transform.
 
 The earlier Assisted Tracing design PR #52 remains closed without merge; useful concepts are retained, but implementation must be revalidated against the accepted editor/calibration substrate.
 
@@ -339,7 +362,7 @@ BETA-05 Export
 
 No public beta until all five journeys have deterministic/unit coverage where possible plus representative Chromium/WebKit browser evidence and no known document-integrity blocker.
 
-M8.1 materially advances `BETA-03`; M8.2 is the structural foundation for `BETA-01`; M8.3/M8.4 complete the beta-critical `BETA-02` reference/tracing journey.
+M8.1 materially advances `BETA-03`; M8.2 is the structural foundation for `BETA-01`; M8.3 establishes trustworthy reference calibration and M8.4 will complete the beta-critical assisted `BETA-02` tracing path.
 
 ## Implementation research rule
 
