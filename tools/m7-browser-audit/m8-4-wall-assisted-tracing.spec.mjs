@@ -85,18 +85,22 @@ async function canvasBox(page) {
   return box;
 }
 
-function sourcePointToPage(project, box, sourcePoint) {
-  const reference = project.referencePlan;
-  if (!reference) throw new Error("Reference plan is missing.");
+function sourcePointToWorld(reference, sourcePoint) {
   const radians = reference.transform.rotationDeg * Math.PI / 180;
   const scaled = {
     x: sourcePoint.x * reference.transform.millimetersPerPixel,
     y: sourcePoint.y * reference.transform.millimetersPerPixel,
   };
-  const world = {
+  return {
     x: reference.transform.originWorld.x + scaled.x * Math.cos(radians) - scaled.y * Math.sin(radians),
     y: reference.transform.originWorld.y + scaled.x * Math.sin(radians) + scaled.y * Math.cos(radians),
   };
+}
+
+function sourcePointToPage(project, box, sourcePoint) {
+  const reference = project.referencePlan;
+  if (!reference) throw new Error("Reference plan is missing.");
+  const world = sourcePointToWorld(reference, sourcePoint);
   return {
     x: box.x + world.x * project.viewport.pixelsPerMillimeter + project.viewport.offsetX,
     y: box.y + world.y * project.viewport.pixelsPerMillimeter + project.viewport.offsetY,
@@ -150,7 +154,15 @@ async function installReference(page) {
   const beforeFit = await readProject(page);
   if (!beforeFit?.referencePlan) throw new Error("Reference was not persisted.");
   expect(Math.abs(beforeFit.referencePlan.transform.rotationDeg)).toBeLessThan(0.01);
-  expect(beforeFit.referencePlan.transform.millimetersPerPixel).toBeCloseTo(25, 1);
+  const calibration = beforeFit.referencePlan.calibration;
+  const calibrationPixels = Math.hypot(
+    calibration.pointB.x - calibration.pointA.x,
+    calibration.pointB.y - calibration.pointA.y,
+  );
+  expect(calibration.knownLengthMm).toBe(3000);
+  expect(calibrationPixels).toBeGreaterThan(0);
+  expect(beforeFit.referencePlan.transform.millimetersPerPixel)
+    .toBeCloseTo(calibration.knownLengthMm / calibrationPixels, 8);
 
   await page.getByRole("button", { name: "Показать подложку", exact: true }).click();
   await expect.poll(async () => JSON.stringify((await readProject(page))?.viewport)).not.toBe(JSON.stringify(beforeFit.viewport));
@@ -198,8 +210,10 @@ test("M8.4 wall source assist stays optional, explicit, topology-safe, local-onl
   const wall = committed.document.walls[0];
   const vertices = new Map(committed.document.vertices.map((vertex) => [vertex.id, vertex.position]));
   const endpoint = vertices.get(wall.endVertexId);
-  expect(endpoint.x).toBeCloseTo(17_500, -1);
-  expect(endpoint.y).toBeCloseTo(2_500, -1);
+  const expectedEndpoint = sourcePointToWorld(committed.referencePlan, { x: 700, y: 100 });
+  const sourceToleranceMm = committed.referencePlan.transform.millimetersPerPixel * 2;
+  expect(Math.abs(endpoint.x - expectedEndpoint.x)).toBeLessThanOrEqual(sourceToleranceMm);
+  expect(Math.abs(endpoint.y - expectedEndpoint.y)).toBeLessThanOrEqual(sourceToleranceMm);
 
   await setSnapping(page, true);
   await page.mouse.move(topologyProbe.x, topologyProbe.y);
