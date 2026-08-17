@@ -91,6 +91,9 @@ const raster: NormalizedReferenceRaster = {
   heightPx: 200,
 };
 
+type ElementProps = Readonly<Record<string, unknown> & { children?: unknown }>;
+type TestElement = ReactElement<ElementProps>;
+
 function calibratingState(
   overrides: Partial<Extract<ReferenceImportState, { kind: "calibrating" }>> = {},
 ): Extract<ReferenceImportState, { kind: "calibrating" }> {
@@ -109,18 +112,18 @@ function calibratingState(
   };
 }
 
-function collectElements(node: unknown): ReactElement[] {
+function collectElements(node: unknown): TestElement[] {
   if (Array.isArray(node)) return node.flatMap(collectElements);
   if (!isValidElement(node)) return [];
-  const props = node.props as Readonly<{ children?: unknown }>;
-  return [node, ...collectElements(props.children)];
+  const element = node as TestElement;
+  return [element, ...collectElements(element.props.children)];
 }
 
 function textContent(node: unknown): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(textContent).join("");
   if (!isValidElement(node)) return "";
-  return textContent((node.props as Readonly<{ children?: unknown }>).children);
+  return textContent((node as TestElement).props.children);
 }
 
 function renderPanel(
@@ -150,7 +153,7 @@ function renderPanel(
   return { elements: collectElements(tree), onInstall };
 }
 
-function findButton(elements: readonly ReactElement[], label: string): ReactElement {
+function findButton(elements: readonly TestElement[], label: string): TestElement {
   const button = elements.find((element) => element.type === "button" && textContent(element) === label);
   if (!button) throw new Error(`Button not found: ${label}`);
   return button;
@@ -178,7 +181,7 @@ describe("ReferencePanel calibration handlers", () => {
       target: { files: [{ name: "fresh.png" }] },
       currentTarget: { value: "chosen" },
     };
-    (fileInput!.props.onChange as (event: typeof event) => void)(event);
+    (fileInput!.props.onChange as (value: typeof event) => void)(event);
 
     await vi.waitFor(() => expect(harness.state?.kind).toBe("calibrating"));
     expect(event.currentTarget.value).toBe("");
