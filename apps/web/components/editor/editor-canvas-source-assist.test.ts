@@ -50,6 +50,13 @@ describe("M8.4 EditorCanvas wall source assist wiring", () => {
     expect(source).not.toContain("sourceCandidate:");
   });
 
+  it("renders acquired source evidence as a local non-authoritative canvas marker", () => {
+    expect(source).toContain('import { SourceAssistOverlay } from "./source-assist-overlay"');
+    expect(source).toContain("<SourceAssistOverlay");
+    expect(source).toContain("assist={draftWall ? activeSourceAssist : null}");
+    expect(source).toContain("viewport={viewport}");
+  });
+
   it("invalidates acquired source identity when the wall/reference/asset/toggle context changes", () => {
     const start = source.indexOf("const sourceAssistContextToken = useMemo");
     const end = source.indexOf("const visibleReferenceBounds", start);
