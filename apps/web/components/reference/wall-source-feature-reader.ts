@@ -72,8 +72,8 @@ function collapseOutlinePair(
   if (
     separation < WALL_OUTLINE_MIN_SEPARATION_PX ||
     separation > WALL_OUTLINE_MAX_SEPARATION_PX ||
-    pointerCoordinate < firstCoordinate ||
-    pointerCoordinate > secondCoordinate
+    pointerCoordinate < firstCoordinate - WALL_OUTLINE_EDGE_MARGIN_PX ||
+    pointerCoordinate > secondCoordinate + WALL_OUTLINE_EDGE_MARGIN_PX
   ) {
     return features;
   }
