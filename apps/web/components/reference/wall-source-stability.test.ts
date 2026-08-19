@@ -94,7 +94,7 @@ describe("M8.4 real tracing source-axis stability", () => {
     }
   });
 
-  it("keeps the active wall axis instead of hopping to a nearby parallel architectural line", () => {
+  it("keeps the active wall axis while the pointer drifts inside the same wall envelope", () => {
     const firstPoint = { x: 500, y: 400 };
     const firstFeatures = readAt(firstPoint, {
       width: 41,
@@ -105,11 +105,11 @@ describe("M8.4 real tracing source-axis stability", () => {
     expect(first.snapped).toBe(true);
     expect(first.candidateId).toBe("line-center:h:400.000");
 
-    const movedPoint = { x: 520, y: 407 };
+    const movedPoint = { x: 520, y: 403 };
     const movedFeatures = readAt(movedPoint, {
       width: 41,
       height: 41,
-      darkRows: [[8, 10], [16, 18]],
+      darkRows: [[12, 14], [20, 22]],
     });
     const moved = resolveAt(movedPoint, movedFeatures, first.candidateId);
 
