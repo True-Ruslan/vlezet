@@ -147,6 +147,19 @@ describe("M8.4 reference source assist", () => {
     expect(result.sourcePoint).toEqual(active.point);
   });
 
+  it("keeps same-priority active line hysteresis even when another line becomes slightly closer", () => {
+    const sourcePointer = { x: 100, y: 80 };
+    const active = feature("line:h:88", { x: 100, y: 88 }, "line-center", 0.9);
+    const closer = feature("line:h:84", { x: 100, y: 84 }, "line-center", 0.9);
+
+    const result = resolve(sourcePointer, [active, closer], { activeCandidateId: active.id });
+
+    expect(result.acquired).toBe(true);
+    expect(result.kind).toBe("line-center");
+    expect(result.candidateId).toBe(active.id);
+    expect(result.sourcePoint).toEqual(active.point);
+  });
+
   it("lets a newly acquired intersection preempt lower-priority active line hysteresis", () => {
     const sourcePointer = { x: 100, y: 80 };
     const activeLine = feature("line:h:80", { x: 100, y: 80 }, "line-center", 0.9);
