@@ -56,4 +56,22 @@ describe("M8.4 antialiased architectural wall band", () => {
     expect(horizontalCentres[0]!.point.y).toBeCloseTo(395.5, 0);
     expect(horizontalCentres[0]!.strength).toBeGreaterThanOrEqual(0.35);
   });
+
+  it("does not invent a wall centreline from two adjacent responses of only one physical boundary", () => {
+    const canvas = fixtureCanvas(rgbaImage(49, 49, (_x, y) => {
+      if (y === 12) return 137;
+      if (y >= 13) return 21;
+      return 255;
+    }));
+
+    const features = readWallSourceFeatures({
+      image: { naturalWidth: 1000, naturalHeight: 800 } as HTMLImageElement,
+      point: { x: 500, y: 400 },
+      viewportScale: 0.8595238095238095,
+      createCanvas: () => canvas,
+    });
+
+    expect(features.filter((feature) =>
+      feature.kind === "line-center" && feature.id.includes(":h:"))).toEqual([]);
+  });
 });
