@@ -175,6 +175,26 @@ describe("M8.4 architectural double-outline wall acquisition", () => {
     }));
   });
 
+  it("still collapses a wall outline when the pointer is just outside the first face", () => {
+    const features = readOutlineFixture({ darkColumns: [[21, 22], [31, 32]] });
+    const verticalCentres = features.filter((feature) =>
+      feature.kind === "line-center" && feature.id.includes(":v:"));
+
+    expect(verticalCentres).toEqual([
+      expect.objectContaining({
+        id: "line-center:v:506.500",
+        point: { x: 506.5, y: 400 },
+      }),
+    ]);
+  });
+
+  it("does not collapse a wall outline when the pointer is beyond the bounded edge margin", () => {
+    const features = readOutlineFixture({ darkColumns: [[23, 24], [33, 34]] });
+
+    expect(features).not.toContainEqual(expect.objectContaining({ id: "line-center:v:508.500" }));
+    expect(features.filter((feature) => feature.kind === "line-center" && feature.id.includes(":v:"))).toHaveLength(2);
+  });
+
   it("does not invent a wall centre from unrelated parallel lines outside the wall-width envelope", () => {
     const features = readOutlineFixture({ darkColumns: [[7, 8], [32, 33]] });
 
