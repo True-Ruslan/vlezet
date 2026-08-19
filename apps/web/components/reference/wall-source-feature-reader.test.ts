@@ -100,8 +100,8 @@ describe("M8.4 bounded wall source feature reader", () => {
     expect(verticalCentres[0]!.strength).toBeGreaterThanOrEqual(0.7);
   });
 
-  it("normalizes a downscaled high-resolution source to a screen-sized analysis patch", () => {
-    const canvas = fixtureCanvas(rgbaImage(41, 41, (x) => x >= 19 && x <= 21 ? 20 : 245));
+  it("reads bounded native source pixels before deterministic screen-space normalization", () => {
+    const canvas = fixtureCanvas(rgbaImage(161, 161, (x) => x >= 79 && x <= 81 ? 20 : 245));
     const context = canvas.getContext("2d");
     if (!context) throw new Error("fixture context missing");
 
@@ -112,8 +112,8 @@ describe("M8.4 bounded wall source feature reader", () => {
       createCanvas: () => canvas,
     });
 
-    expect(canvas.width).toBe(41);
-    expect(canvas.height).toBe(41);
+    expect(canvas.width).toBe(161);
+    expect(canvas.height).toBe(161);
     expect(context.drawImage).toHaveBeenCalledWith(
       expect.anything(),
       420,
@@ -122,8 +122,8 @@ describe("M8.4 bounded wall source feature reader", () => {
       161,
       0,
       0,
-      41,
-      41,
+      161,
+      161,
     );
     expect(features).toContainEqual(expect.objectContaining({
       kind: "line-center",
@@ -131,9 +131,9 @@ describe("M8.4 bounded wall source feature reader", () => {
     }));
   });
 
-  it("maps perpendicular wall evidence back to one stable source intersection", () => {
-    const canvas = fixtureCanvas(rgbaImage(41, 41, (x, y) => (
-      (x >= 19 && x <= 21) || (y >= 19 && y <= 21) ? 20 : 245
+  it("maps deterministically normalized perpendicular wall evidence back to one stable source intersection", () => {
+    const canvas = fixtureCanvas(rgbaImage(161, 161, (x, y) => (
+      (x >= 79 && x <= 81) || (y >= 79 && y <= 81) ? 20 : 245
     )));
 
     const features = readWallSourceFeatures({
@@ -150,6 +150,18 @@ describe("M8.4 bounded wall source feature reader", () => {
     }));
     expect(features).toContainEqual(expect.objectContaining({ id: "line-center:h:400.000" }));
     expect(features).toContainEqual(expect.objectContaining({ id: "line-center:v:500.000" }));
+  });
+
+  it("abstains before canvas sampling when the source is too undersampled for deterministic wall evidence", () => {
+    const createCanvas = vi.fn(() => fixtureCanvas(rgbaImage(41, 41, () => 20)));
+
+    expect(readWallSourceFeatures({
+      image: { naturalWidth: 4000, naturalHeight: 3000 } as HTMLImageElement,
+      point: { x: 2000, y: 1500 },
+      viewportScale: 0.2,
+      createCanvas,
+    })).toEqual([]);
+    expect(createCanvas).not.toHaveBeenCalled();
   });
 
   it("returns no source evidence for a uniform empty patch", () => {
