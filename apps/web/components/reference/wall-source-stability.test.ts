@@ -99,7 +99,7 @@ describe("M8.4 real tracing source-axis stability", () => {
     const firstFeatures = readAt(firstPoint, {
       width: 41,
       height: 41,
-      darkRows: [[16, 18], [24, 26]],
+      darkRows: [[15, 17], [23, 25]],
     });
     const first = resolveAt(firstPoint, firstFeatures);
     expect(first.snapped).toBe(true);
@@ -109,7 +109,7 @@ describe("M8.4 real tracing source-axis stability", () => {
     const movedFeatures = readAt(movedPoint, {
       width: 41,
       height: 41,
-      darkRows: [[9, 11], [23, 25]],
+      darkRows: [[8, 10], [16, 18]],
     });
     const moved = resolveAt(movedPoint, movedFeatures, first.candidateId);
 
