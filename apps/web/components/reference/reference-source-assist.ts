@@ -6,6 +6,7 @@ import {
 } from "@vlezet/geometry";
 import {
   resolveCalibrationSnap,
+  type CalibrationSnapResult,
   type CalibrationSourceFeature,
   type CalibrationSourceFeatureKind,
 } from "./calibration-snap";
@@ -45,6 +46,12 @@ export type ResolveReferenceSourceAssistInput = Readonly<{
   suppressed: boolean;
 }>;
 
+const SOURCE_FEATURE_PRIORITY: Readonly<Record<CalibrationSourceFeatureKind, number>> = {
+  edge: 0,
+  "line-center": 1,
+  intersection: 2,
+};
+
 function noAssist(
   sourcePoint: Point2,
   worldPoint: Point2,
@@ -64,6 +71,19 @@ function insideReference(point: Point2, widthPx: number, heightPx: number): bool
   return point.x >= 0 && point.x <= widthPx && point.y >= 0 && point.y <= heightPx;
 }
 
+function sourceFeaturePriority(kind: CalibrationSnapResult["kind"]): number {
+  return kind === "none" ? -1 : SOURCE_FEATURE_PRIORITY[kind];
+}
+
+function preferHigherPriorityFreshSnap(
+  sticky: CalibrationSnapResult,
+  fresh: CalibrationSnapResult,
+): CalibrationSnapResult {
+  if (!sticky.snapped) return fresh;
+  if (!fresh.snapped) return sticky;
+  return sourceFeaturePriority(fresh.kind) > sourceFeaturePriority(sticky.kind) ? fresh : sticky;
+}
+
 export function resolveReferenceSourceAssist(
   input: ResolveReferenceSourceAssistInput,
 ): ReferenceSourceAssistResult {
@@ -75,7 +95,7 @@ export function resolveReferenceSourceAssist(
     return noAssist(sourcePoint, input.rawWorldPoint, "outside-reference");
   }
 
-  const snap = resolveCalibrationSnap({
+  const snapInput = {
     rawPoint: sourcePoint,
     features: input.features,
     viewportScale: input.pixelsPerMillimeter * input.reference.transform.millimetersPerPixel,
@@ -83,10 +103,19 @@ export function resolveReferenceSourceAssist(
     releaseRadiusPx: input.releaseRadiusPx,
     distanceEquivalencePx: input.distanceEquivalencePx,
     minimumStrength: input.minimumStrength,
-    activeCandidateId: input.activeCandidateId,
     snappingEnabled: true,
     suppressed: false,
+  } as const;
+  const stickySnap = resolveCalibrationSnap({
+    ...snapInput,
+    activeCandidateId: input.activeCandidateId,
   });
+  const snap = input.activeCandidateId === null
+    ? stickySnap
+    : preferHigherPriorityFreshSnap(
+        stickySnap,
+        resolveCalibrationSnap({ ...snapInput, activeCandidateId: null }),
+      );
 
   if (!snap.snapped) {
     return noAssist(
