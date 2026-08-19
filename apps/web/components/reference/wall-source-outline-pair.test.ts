@@ -153,6 +153,28 @@ describe("M8.4 architectural double-outline wall acquisition", () => {
     expect(features.some((feature) => feature.kind === "intersection")).toBe(true);
   });
 
+  it("rebuilds one central intersection after both architectural outline axes collapse", () => {
+    const rawPoint = { x: 500, y: 400 };
+    const features = readOutlineFixture({
+      darkColumns: [[14, 15], [25, 26]],
+      darkRows: [[14, 15], [25, 26]],
+    });
+    const intersections = features.filter((feature) => feature.kind === "intersection");
+
+    expect(intersections).toEqual([
+      expect.objectContaining({
+        id: "intersection:500.000:400.000",
+        point: rawPoint,
+      }),
+    ]);
+    expect(resolveAtRawPoint(features)).toEqual(expect.objectContaining({
+      snapped: true,
+      kind: "intersection",
+      point: rawPoint,
+      reason: "snapped",
+    }));
+  });
+
   it("does not invent a wall centre from unrelated parallel lines outside the wall-width envelope", () => {
     const features = readOutlineFixture({ darkColumns: [[7, 8], [32, 33]] });
 
