@@ -20,6 +20,10 @@ const WALL_OUTLINE_MAX_SEPARATION_PX = 18;
 const WALL_OUTLINE_EDGE_MARGIN_PX = 2;
 
 type WallFeatureAxis = "h" | "v";
+type CollapseOutlinePairResult = Readonly<{
+  features: readonly CalibrationSourceFeature[];
+  collapsed: boolean;
+}>;
 
 function positive(value: number, label: string): number {
   if (!Number.isFinite(value) || value <= 0) throw new Error(`${label} must be positive and finite.`);
@@ -54,14 +58,14 @@ function collapseOutlinePair(
   features: readonly CalibrationSourceFeature[],
   point: Point2,
   axis: WallFeatureAxis,
-): readonly CalibrationSourceFeature[] {
+): CollapseOutlinePairResult {
   const centres = orderedAxisFeatures(features, axis, "line-center");
   const pair = centres.length === 2
     ? centres
     : centres.length === 0
       ? orderedAxisFeatures(features, axis, "edge")
       : [];
-  if (pair.length !== 2) return features;
+  if (pair.length !== 2) return { features, collapsed: false };
 
   const first = pair[0]!;
   const second = pair[1]!;
@@ -75,7 +79,7 @@ function collapseOutlinePair(
     pointerCoordinate < firstCoordinate - WALL_OUTLINE_EDGE_MARGIN_PX ||
     pointerCoordinate > secondCoordinate + WALL_OUTLINE_EDGE_MARGIN_PX
   ) {
-    return features;
+    return { features, collapsed: false };
   }
 
   const midpoint = (firstCoordinate + secondCoordinate) / 2;
@@ -91,16 +95,27 @@ function collapseOutlinePair(
   });
   const strength = Math.min(first.strength, second.strength);
   const coordinate = axis === "v" ? centrePoint.x : centrePoint.y;
-  return [...retained, {
-    id: `line-center:${axis}:${coordinate.toFixed(3)}`,
-    kind: "line-center",
-    point: centrePoint,
-    strength,
-  }];
+  return {
+    features: [...retained, {
+      id: `line-center:${axis}:${coordinate.toFixed(3)}`,
+      kind: "line-center",
+      point: centrePoint,
+      strength,
+    }],
+    collapsed: true,
+  };
+}
+
+function balancedWallCornerStrength(first: number, second: number): number {
+  // Both inputs come from independently collapsed architectural wall outlines.
+  // Their harmonic mean absorbs bounded raster-phase attenuation while still
+  // penalizing a materially weaker perpendicular axis.
+  return (2 * first * second) / (first + second);
 }
 
 function rebuildLineCenterIntersections(
   features: readonly CalibrationSourceFeature[],
+  architecturalCorner: boolean,
 ): readonly CalibrationSourceFeature[] {
   const retained = features.filter((feature) => feature.kind !== "intersection");
   const horizontalCentres = orderedAxisFeatures(retained, "h", "line-center");
@@ -114,7 +129,9 @@ function rebuildLineCenterIntersections(
         id: `intersection:${point.x.toFixed(3)}:${point.y.toFixed(3)}`,
         kind: "intersection",
         point,
-        strength: Math.min(horizontal.strength, vertical.strength),
+        strength: architecturalCorner
+          ? balancedWallCornerStrength(horizontal.strength, vertical.strength)
+          : Math.min(horizontal.strength, vertical.strength),
       });
     }
   }
@@ -126,9 +143,9 @@ function collapseWallOutlinePairs(
   features: readonly CalibrationSourceFeature[],
   point: Point2,
 ): readonly CalibrationSourceFeature[] {
-  const collapsedHorizontal = collapseOutlinePair(features, point, "h");
-  const collapsedBothAxes = collapseOutlinePair(collapsedHorizontal, point, "v");
-  return rebuildLineCenterIntersections(collapsedBothAxes);
+  const horizontal = collapseOutlinePair(features, point, "h");
+  const vertical = collapseOutlinePair(horizontal.features, point, "v");
+  return rebuildLineCenterIntersections(vertical.features, horizontal.collapsed && vertical.collapsed);
 }
 
 function analysisCoordinate(
