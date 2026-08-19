@@ -88,14 +88,14 @@ export function resolveWallSourceAssistController(
     const activeCandidateId = input.activeCandidate?.referenceRevision === reference.referenceRevision
       ? input.activeCandidate.id
       : null;
-    const sourceAssist = resolveReferenceSourceAssist({
+    const resolveFeatures = (candidateFeatures: readonly CalibrationSourceFeature[]) => resolveReferenceSourceAssist({
       rawWorldPoint: input.rawWorldPoint,
       reference: {
         widthPx: reference.widthPx,
         heightPx: reference.heightPx,
         transform: reference.transform,
       },
-      features,
+      features: candidateFeatures,
       pixelsPerMillimeter: input.pixelsPerMillimeter,
       acquisitionRadiusPx: SOURCE_ACQUISITION_RADIUS_PX,
       releaseRadiusPx: SOURCE_RELEASE_RADIUS_PX,
@@ -105,6 +105,13 @@ export function resolveWallSourceAssistController(
       enabled: true,
       suppressed: false,
     });
+    const intersectionFeatures = features.filter((feature) => feature.kind === "intersection");
+    const cornerAssist = intersectionFeatures.length > 0
+      ? resolveFeatures(intersectionFeatures)
+      : null;
+    const sourceAssist = cornerAssist?.acquired || cornerAssist?.reason === "ambiguous"
+      ? cornerAssist
+      : resolveFeatures(features);
     const decision = resolveWallPointerAssist({ structuralSnap: input.structuralSnap, sourceAssist });
     return {
       decision,
