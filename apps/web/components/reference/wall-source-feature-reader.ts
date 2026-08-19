@@ -19,6 +19,7 @@ const WALL_SOURCE_MAX_NATIVE_SAMPLES_PER_ANALYSIS_PIXEL = 4;
 const WALL_OUTLINE_MIN_SEPARATION_PX = 4;
 const WALL_OUTLINE_MAX_SEPARATION_PX = 18;
 const WALL_OUTLINE_EDGE_MARGIN_PX = 2;
+const WALL_EDGE_RESPONSE_CLUSTER_PX = 2;
 
 type WallFeatureAxis = "h" | "v";
 type CollapseOutlinePairResult = Readonly<{
@@ -55,6 +56,45 @@ function orderedAxisFeatures(
     .sort((left, right) => featureCoordinate(left, axis) - featureCoordinate(right, axis));
 }
 
+function clusterAxisEdgeResponses(
+  features: readonly CalibrationSourceFeature[],
+  axis: WallFeatureAxis,
+  point: Point2,
+): CalibrationSourceFeature[] {
+  const edges = orderedAxisFeatures(features, axis, "edge");
+  const clusters: CalibrationSourceFeature[][] = [];
+
+  for (const edge of edges) {
+    const cluster = clusters.at(-1);
+    if (!cluster) {
+      clusters.push([edge]);
+      continue;
+    }
+    const firstCoordinate = featureCoordinate(cluster[0]!, axis);
+    if (featureCoordinate(edge, axis) - firstCoordinate <= WALL_EDGE_RESPONSE_CLUSTER_PX) {
+      cluster.push(edge);
+    } else {
+      clusters.push([edge]);
+    }
+  }
+
+  return clusters.map((cluster) => {
+    const coordinate = cluster.reduce(
+      (sum, feature) => sum + featureCoordinate(feature, axis),
+      0,
+    ) / cluster.length;
+    const representativePoint = axis === "v"
+      ? { x: coordinate, y: point.y }
+      : { x: point.x, y: coordinate };
+    return {
+      id: `edge:${axis}:${coordinate.toFixed(3)}`,
+      kind: "edge",
+      point: representativePoint,
+      strength: Math.max(...cluster.map((feature) => feature.strength)),
+    };
+  });
+}
+
 function collapseOutlinePair(
   features: readonly CalibrationSourceFeature[],
   point: Point2,
@@ -64,7 +104,7 @@ function collapseOutlinePair(
   const pair = centres.length === 2
     ? centres
     : centres.length === 0
-      ? orderedAxisFeatures(features, axis, "edge")
+      ? clusterAxisEdgeResponses(features, axis, point)
       : [];
   if (pair.length !== 2) return { features, collapsed: false };
 
