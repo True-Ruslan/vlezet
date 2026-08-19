@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { Children, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import type { ReferenceSourceAssistResult } from "../reference/reference-source-assist";
 import {
@@ -45,6 +45,10 @@ describe("M8.4 visible source-assist marker", () => {
     expect(deriveSourceAssistOverlayModel(value, viewport)).toBeNull();
   });
 
+  it("renders no canvas overlay without acquired source evidence", () => {
+    expect(SourceAssistOverlay({ assist: null, viewport })).toBeNull();
+  });
+
   it("renders the marker as a non-interactive canvas overlay", () => {
     const tree = SourceAssistOverlay({ assist: assist(), viewport }) as ReactElement<{
       listening: boolean;
@@ -52,5 +56,23 @@ describe("M8.4 visible source-assist marker", () => {
     }>;
     expect(tree.props.listening).toBe(false);
     expect(tree.props.name).toBe("source-assist-overlay");
+  });
+
+  it("renders an intersection crosshair around the acquired source point", () => {
+    const tree = SourceAssistOverlay({
+      assist: assist({
+        candidateId: "intersection:250.000:120.000",
+        kind: "intersection",
+      }),
+      viewport,
+    }) as ReactElement<{ children: ReactNode }>;
+    const markerChildren = Children.toArray(tree.props.children);
+    const crosshair = markerChildren[2] as ReactElement<{ children: ReactNode }>;
+    const crosshairLines = Children.toArray(crosshair.props.children) as Array<ReactElement<{ points: number[] }>>;
+
+    expect(crosshairLines.map((line) => line.props.points)).toEqual([
+      [234, 100, 246, 100],
+      [240, 94, 240, 106],
+    ]);
   });
 });
