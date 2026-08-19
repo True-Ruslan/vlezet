@@ -99,11 +99,36 @@ function collapseOutlinePair(
   }];
 }
 
+function rebuildLineCenterIntersections(
+  features: readonly CalibrationSourceFeature[],
+): readonly CalibrationSourceFeature[] {
+  const retained = features.filter((feature) => feature.kind !== "intersection");
+  const horizontalCentres = orderedAxisFeatures(retained, "h", "line-center");
+  const verticalCentres = orderedAxisFeatures(retained, "v", "line-center");
+  const intersections: CalibrationSourceFeature[] = [];
+
+  for (const horizontal of horizontalCentres) {
+    for (const vertical of verticalCentres) {
+      const point = { x: vertical.point.x, y: horizontal.point.y };
+      intersections.push({
+        id: `intersection:${point.x.toFixed(3)}:${point.y.toFixed(3)}`,
+        kind: "intersection",
+        point,
+        strength: Math.min(horizontal.strength, vertical.strength),
+      });
+    }
+  }
+
+  return [...retained, ...intersections];
+}
+
 function collapseWallOutlinePairs(
   features: readonly CalibrationSourceFeature[],
   point: Point2,
 ): readonly CalibrationSourceFeature[] {
-  return collapseOutlinePair(collapseOutlinePair(features, point, "h"), point, "v");
+  const collapsedHorizontal = collapseOutlinePair(features, point, "h");
+  const collapsedBothAxes = collapseOutlinePair(collapsedHorizontal, point, "v");
+  return rebuildLineCenterIntersections(collapsedBothAxes);
 }
 
 function analysisCoordinate(
