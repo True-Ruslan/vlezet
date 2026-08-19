@@ -121,6 +121,30 @@ describe("M8.4 wall source assist controller", () => {
     expect(result.activeCandidate).toEqual({ id: "line:v:105", referenceRevision: "rev-2" });
   });
 
+  it("prefers one bounded wall intersection over closer one-dimensional source lines", () => {
+    const rawSourcePoint = { x: 109, y: 96 };
+    const rawWorldPoint = imagePointToWorld(rawSourcePoint, referencePlan.transform);
+    const intersectionPoint = { x: 102.5, y: 102.5 };
+    const result = resolve({
+      rawWorldPoint,
+      structuralSnap: structural("grid", { x: 200, y: 200 }),
+      readFeatures: () => [
+        feature("line-center:v:102.500", { x: 102.5, y: rawSourcePoint.y }),
+        feature("line-center:h:102.500", { x: rawSourcePoint.x, y: 102.5 }),
+        feature("intersection:102.500:102.500", intersectionPoint, "intersection"),
+      ],
+    });
+
+    expect(result.decision.authority).toBe("source");
+    expect(result.decision.point).toEqual(imagePointToWorld(intersectionPoint, referencePlan.transform));
+    expect(result.sourceAssist).toMatchObject({
+      acquired: true,
+      kind: "intersection",
+      candidateId: "intersection:102.500:102.500",
+      sourcePoint: intersectionPoint,
+    });
+  });
+
   it("abstains to the exact ordinary result when source evidence is ambiguous", () => {
     const ordinary = structural("horizontal", { x: 210, y: 160 });
     const result = resolve({
