@@ -15,6 +15,7 @@ export const WALL_SOURCE_FEATURE_POLICY = Object.freeze({
 });
 
 const WALL_SOURCE_ANALYSIS_DIAMETER_PX = WALL_SOURCE_FEATURE_POLICY.radiusPx * 2 + 1;
+const WALL_SOURCE_MAX_NATIVE_SAMPLES_PER_ANALYSIS_PIXEL = 4;
 const WALL_OUTLINE_MIN_SEPARATION_PX = 4;
 const WALL_OUTLINE_MAX_SEPARATION_PX = 18;
 const WALL_OUTLINE_EDGE_MARGIN_PX = 2;
@@ -148,6 +149,59 @@ function collapseWallOutlinePairs(
   return rebuildLineCenterIntersections(vertical.features, horizontal.collapsed && vertical.collapsed);
 }
 
+function resampleRgbaArea(
+  source: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): Uint8ClampedArray {
+  const target = new Uint8ClampedArray(targetWidth * targetHeight * 4);
+  const sourcePerTargetX = sourceWidth / targetWidth;
+  const sourcePerTargetY = sourceHeight / targetHeight;
+
+  for (let targetY = 0; targetY < targetHeight; targetY += 1) {
+    const sourceY0 = targetY * sourcePerTargetY;
+    const sourceY1 = (targetY + 1) * sourcePerTargetY;
+    const firstSourceY = Math.floor(sourceY0);
+    const lastSourceY = Math.ceil(sourceY1) - 1;
+
+    for (let targetX = 0; targetX < targetWidth; targetX += 1) {
+      const sourceX0 = targetX * sourcePerTargetX;
+      const sourceX1 = (targetX + 1) * sourcePerTargetX;
+      const firstSourceX = Math.floor(sourceX0);
+      const lastSourceX = Math.ceil(sourceX1) - 1;
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let alpha = 0;
+      let totalWeight = 0;
+
+      for (let sourceY = firstSourceY; sourceY <= lastSourceY; sourceY += 1) {
+        const overlapY = Math.min(sourceY1, sourceY + 1) - Math.max(sourceY0, sourceY);
+        for (let sourceX = firstSourceX; sourceX <= lastSourceX; sourceX += 1) {
+          const overlapX = Math.min(sourceX1, sourceX + 1) - Math.max(sourceX0, sourceX);
+          const weight = overlapX * overlapY;
+          const sourceOffset = (sourceY * sourceWidth + sourceX) * 4;
+          red += source[sourceOffset]! * weight;
+          green += source[sourceOffset + 1]! * weight;
+          blue += source[sourceOffset + 2]! * weight;
+          alpha += source[sourceOffset + 3]! * weight;
+          totalWeight += weight;
+        }
+      }
+
+      const targetOffset = (targetY * targetWidth + targetX) * 4;
+      target[targetOffset] = Math.round(red / totalWeight);
+      target[targetOffset + 1] = Math.round(green / totalWeight);
+      target[targetOffset + 2] = Math.round(blue / totalWeight);
+      target[targetOffset + 3] = Math.round(alpha / totalWeight);
+    }
+  }
+
+  return target;
+}
+
 function analysisCoordinate(
   sourceCoordinate: number,
   sourceOrigin: number,
@@ -225,9 +279,17 @@ export function readWallSourceFeatures(input: Readonly<{
     1,
     Math.min(WALL_SOURCE_ANALYSIS_DIAMETER_PX, Math.ceil(sourceHeight * viewportScale)),
   );
-  const canvas = (input.createCanvas ?? createBrowserCalibrationCanvas)(analysisWidth, analysisHeight);
-  canvas.width = analysisWidth;
-  canvas.height = analysisHeight;
+
+  if (
+    sourceWidth > analysisWidth * WALL_SOURCE_MAX_NATIVE_SAMPLES_PER_ANALYSIS_PIXEL ||
+    sourceHeight > analysisHeight * WALL_SOURCE_MAX_NATIVE_SAMPLES_PER_ANALYSIS_PIXEL
+  ) {
+    return [];
+  }
+
+  const canvas = (input.createCanvas ?? createBrowserCalibrationCanvas)(sourceWidth, sourceHeight);
+  canvas.width = sourceWidth;
+  canvas.height = sourceHeight;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("2D canvas context is unavailable.");
   context.drawImage(
@@ -238,10 +300,17 @@ export function readWallSourceFeatures(input: Readonly<{
     sourceHeight,
     0,
     0,
+    sourceWidth,
+    sourceHeight,
+  );
+  const sourceImage = context.getImageData(0, 0, sourceWidth, sourceHeight);
+  const analysisData = resampleRgbaArea(
+    sourceImage.data,
+    sourceWidth,
+    sourceHeight,
     analysisWidth,
     analysisHeight,
   );
-  const localImage = context.getImageData(0, 0, analysisWidth, analysisHeight);
   const localPoint = {
     x: analysisCoordinate(point.x, sourceX, sourceWidth, analysisWidth),
     y: analysisCoordinate(point.y, sourceY, sourceHeight, analysisHeight),
@@ -255,7 +324,7 @@ export function readWallSourceFeatures(input: Readonly<{
     analysisHeight,
   };
   const localFeatures = collapseWallOutlinePairs(analyzeCalibrationFeatures({
-    image: { width: analysisWidth, height: analysisHeight, data: localImage.data },
+    image: { width: analysisWidth, height: analysisHeight, data: analysisData },
     point: localPoint,
     ...WALL_SOURCE_FEATURE_POLICY,
   }), localPoint);
