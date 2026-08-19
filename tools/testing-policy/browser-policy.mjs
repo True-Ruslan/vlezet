@@ -13,6 +13,7 @@ export const WEBKIT_SPECS = [
   "m8-group-drag-snap-regression.spec.mjs",
   "m8-precision-structural.spec.mjs",
   "m8-4-wall-assisted-tracing.spec.mjs",
+  "m8-4-wall-assisted-tracing-chain.spec.mjs",
   "m8-room-copy.spec.mjs",
   "m8-selection-clipboard-semantics.spec.mjs",
   "m8-room-translation.spec.mjs",
