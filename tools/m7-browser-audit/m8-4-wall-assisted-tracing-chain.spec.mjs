@@ -159,7 +159,12 @@ async function installReference(page) {
   await page.getByLabel("Выравнивание").selectOption("horizontal");
   await page.getByRole("button", { name: "Сохранить и открыть план" }).click();
   await expect(page.locator(".context-panel-title")).toHaveText("Подложка настроена");
+
+  const beforeFit = await readProject(page);
+  if (!beforeFit?.referencePlan) throw new Error("Calibrated reference is unavailable before viewport fit.");
   await page.getByRole("button", { name: "Показать подложку", exact: true }).click();
+  await expect.poll(async () => JSON.stringify((await readProject(page))?.viewport))
+    .not.toBe(JSON.stringify(beforeFit.viewport));
   return readProject(page);
 }
 
@@ -178,8 +183,27 @@ function distance(a, b) {
 
 async function clickSource(page, project, box, sourcePoint, offset = { x: 0, y: 0 }) {
   const point = sourcePointToPage(project, box, sourcePoint);
-  await page.mouse.move(point.x + offset.x, point.y + offset.y, { steps: 4 });
-  await page.mouse.click(point.x + offset.x, point.y + offset.y);
+  const clickPoint = { x: point.x + offset.x, y: point.y + offset.y };
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error("Browser viewport is unavailable.");
+  const visibleCanvas = {
+    minX: Math.max(0, box.x),
+    minY: Math.max(0, box.y),
+    maxX: Math.min(viewport.width, box.x + box.width),
+    maxY: Math.min(viewport.height, box.y + box.height),
+  };
+  if (
+    clickPoint.x < visibleCanvas.minX || clickPoint.x > visibleCanvas.maxX ||
+    clickPoint.y < visibleCanvas.minY || clickPoint.y > visibleCanvas.maxY
+  ) {
+    throw new Error(
+      `Source click (${clickPoint.x.toFixed(1)}, ${clickPoint.y.toFixed(1)}) is outside the visible canvas ` +
+      `[${visibleCanvas.minX.toFixed(1)}, ${visibleCanvas.minY.toFixed(1)}]–` +
+      `[${visibleCanvas.maxX.toFixed(1)}, ${visibleCanvas.maxY.toFixed(1)}].`,
+    );
+  }
+  await page.mouse.move(clickPoint.x, clickPoint.y, { steps: 4 });
+  await page.mouse.click(clickPoint.x, clickPoint.y);
 }
 
 test("M8.4 traces a connected multi-wall shell with source + structural snapping together", async ({ page }, testInfo) => {
