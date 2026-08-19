@@ -147,6 +147,19 @@ describe("M8.4 reference source assist", () => {
     expect(result.sourcePoint).toEqual(active.point);
   });
 
+  it("lets a newly acquired intersection preempt lower-priority active line hysteresis", () => {
+    const sourcePointer = { x: 100, y: 80 };
+    const activeLine = feature("line:h:80", { x: 100, y: 80 }, "line-center", 0.9);
+    const corner = feature("intersection:100:80", { x: 100, y: 80 }, "intersection", 0.9);
+
+    const result = resolve(sourcePointer, [activeLine, corner], { activeCandidateId: activeLine.id });
+
+    expect(result.acquired).toBe(true);
+    expect(result.kind).toBe("intersection");
+    expect(result.candidateId).toBe(corner.id);
+    expect(result.sourcePoint).toEqual(corner.point);
+  });
+
   it("is deterministic for repeated identical input", () => {
     const sourcePointer = { x: 100, y: 80 };
     const features = [
