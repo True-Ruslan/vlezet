@@ -81,6 +81,18 @@ Remediation order is P0 -> P1 -> P2 -> P3 unless a currently blocking defect jus
 - **Post-merge verification:** CI #5175 PASS; CodeQL #535 PASS on `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`.
 - **Status:** **CLOSED — REMEDIATED / PRODUCT-OWNER ACCEPTED / MERGED / POST-MERGE VERIFIED**.
 
+### TEST-DEBT-APARTMENT-EDITOR-COMMAND-COVERAGE
+
+- **ID:** TEST-DEBT-APARTMENT-EDITOR-COMMAND-COVERAGE
+- **Risk:** P1
+- **Area:** apps/web/components/editor/apartment-editor.tsx (semantic command dispatch, keyboard/notice wiring)
+- **Discovered:** 2026-08-22, while landing `fix: let Delete/Backspace remove a safe wall fragment and explain blocked cases` (PR #95).
+- **Confirmed gap:** `apartment-editor.tsx` has zero Istanbul-measured execution coverage from any unit test in the repository (the file is absent from `apps/web`'s generated `coverage-final.json` entirely — not merely low-percentage). No `.test.ts`/`.test.tsx` file renders `<ApartmentEditor>`; the component is verified only through real Chromium/WebKit Playwright user flows (`tools/m7-browser-audit/`) plus source-string shape assertions in `apartment-editor-command-routing.test.ts`. `apps/web` has no `jsdom` or `@testing-library/react` dependency, and `EditorCanvas`/`SpatialViewer` are loaded via `next/dynamic({ ssr: false })`, so mounting this component under a DOM-capable test environment would additionally require a Canvas polyfill and mocking of Konva-backed children — non-trivial, first-of-its-kind infrastructure for this codebase.
+- **Why this surfaced now:** git history shows no commit touched `apartment-editor.tsx` between the Testing Policy Phase A merge (`cc594bae218e9e16724d7574f48be8886852e7ad`, 2026-08-14) and PR #95 — the changed-code coverage gate had never actually been exercised against this file before.
+- **Current mitigation:** the exact behavior added in PR #95 (Delete/Cut honest-feedback wiring) is proven correct through real Playwright evidence in Chromium and WebKit (`tools/m7-browser-audit/m8-selection-clipboard-semantics.spec.mjs`, GREEN both engines) and manual browser verification, not merely asserted.
+- **Remediation options (not yet decided):** (a) add real `jsdom` + Canvas-polyfill + mocked-children render coverage for this component's command dispatch, or (b) introduce an explicit, auditable "Playwright-verified, unit-coverage-exempt" file registry in `tools/testing-policy/config.mjs` (mirroring the existing `WEBKIT_SPECS` explicit-registry pattern) so files proven only through real-browser evidence are not blocked by the changed-code Istanbul gate. Either option requires product-owner sign-off before implementation, per the no-threshold-weakening rule.
+- **Status:** **OPEN — CONFIRMED GAP / NOT YET REMEDIATED**.
+
 No other historical gap is recorded here until dedicated evidence confirms it. Package totals below later target floors are baseline facts, not individual debt items.
 
 ## Policy gates that consume this audit

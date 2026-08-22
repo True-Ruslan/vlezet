@@ -174,6 +174,37 @@ describe("M8.1 semantic clipboard store commands", () => {
     expect(state.clipboard).toEqual(clipboardBefore);
   });
 
+  it("leaves document, history and selection untouched when Delete targets an open wall fragment", () => {
+    const openFragment: VlezetDocument = {
+      schemaVersion: 3,
+      vertices: [
+        { id: "a", position: { x: 0, y: 0 } },
+        { id: "b", position: { x: 4000, y: 0 } },
+        { id: "c", position: { x: 4000, y: 3000 } },
+      ],
+      walls: [
+        { id: "wall-1", startVertexId: "a", endVertexId: "b", junctionVertexIds: [], thickness: 150 },
+        { id: "wall-2", startVertexId: "b", endVertexId: "c", junctionVertexIds: [], thickness: 150 },
+      ],
+      openings: [],
+      roomAnnotations: [],
+      placedObjects: [],
+    };
+    const store = createEditorStore({ idFactory: deterministicIds() });
+    store.setState({
+      history: createHistoryState(openFragment),
+      selection: replaceSelection({ kind: "wall", id: "wall-1" }),
+    });
+    const before = structuredClone(store.getState().history.document);
+
+    store.getState().deleteSelection();
+
+    const state = store.getState();
+    expect(state.history.document).toEqual(before);
+    expect(state.history.past).toHaveLength(0);
+    expect(state.selection).toEqual(replaceSelection({ kind: "wall", id: "wall-1" }));
+  });
+
   it("pastes with fresh IDs as one batch add, selects the result and Undo removes it", () => {
     const store = storeWith(selection("chair-1", "chair-2"));
     store.getState().copySelection();
