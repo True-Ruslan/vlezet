@@ -151,7 +151,7 @@ describe("semantic selection capabilities", () => {
     {
       name: "closed two-wall structural fragment",
       selection: selection(ref("wall", "wall-1"), ref("wall", "wall-2")),
-      expected: { copy: true, cut: true, paste: false, duplicate: true, delete: false, move: false, rotate: false, scale: false, wallThickness: true },
+      expected: { copy: true, cut: true, paste: false, duplicate: true, delete: true, move: false, rotate: false, scale: false, wallThickness: true },
     },
     {
       name: "wall plus opening",
@@ -214,7 +214,7 @@ describe("semantic selection capabilities", () => {
     expect(openingOnly.copy.enabled).toBe(false);
   });
 
-  it("enables all safe structural clipboard actions for a standalone wall while keeping raw delete disabled", () => {
+  it("enables all safe structural clipboard actions for a standalone wall, including Delete since its closure is safe", () => {
     const capabilities = deriveSelectionCapabilities({
       document: standaloneWallDocument(),
       selection: replaceSelection(ref("wall", "wall-1")),
@@ -225,8 +225,32 @@ describe("semantic selection capabilities", () => {
     expect(capabilities.cut.enabled).toBe(true);
     expect(capabilities.duplicate.enabled).toBe(true);
     expect(capabilities.move.enabled).toBe(true);
+    expect(capabilities.delete.enabled).toBe(true);
+  });
+
+  it("keeps wall Delete exactly as safe as Cut: disabled with the same closure reason for an open fragment", () => {
+    const capabilities = deriveSelectionCapabilities({
+      document,
+      selection: replaceSelection(ref("wall", "wall-1")),
+      clipboardKind: null,
+    });
+
+    expect(capabilities.cut.enabled).toBe(false);
     expect(capabilities.delete.enabled).toBe(false);
-    expect(capabilities.delete.reason).toMatch(/[А-Яа-яЁё]/);
+    expect(capabilities.delete.reason).toBe(capabilities.cut.reason);
+  });
+
+  it("gives a room-specific Delete reason instead of a generic structural-selection message", () => {
+    const roomDocument = closedRoomDocument();
+    const room = deriveRooms(roomDocument).rooms[0]!;
+    const capabilities = deriveSelectionCapabilities({
+      document: roomDocument,
+      selection: replaceSelection(ref("room", room.id)),
+      clipboardKind: null,
+    });
+
+    expect(capabilities.delete.enabled).toBe(false);
+    expect(capabilities.delete.reason).toMatch(/удалить одной командой/);
   });
 
   it("makes paste depend on any supported clipboard kind rather than current selection", () => {

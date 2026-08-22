@@ -110,6 +110,7 @@ describe("M8 registered-command context menu", () => {
       "selection.cut",
       "selection.duplicate",
       "view.fitSelection",
+      "selection.delete",
     ]);
 
     expect(availableContextMenuCommands(document, replaceSelection({ kind: "wall", id: "wall-1" }), null).map((item) => item.id)).toEqual([

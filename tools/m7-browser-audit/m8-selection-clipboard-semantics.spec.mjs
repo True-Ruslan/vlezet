@@ -307,4 +307,30 @@ test.describe("M8.2 precise selection and clipboard acceptance", () => {
 
     await page.mouse.move(occupiedTarget.x, occupiedTarget.y);
   });
+
+  test("Delete honestly explains a blocked single wall, then removes the whole closed fragment with Undo", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    await expectCounts(page, { walls: 4, objects: 0 });
+
+    const wallPoint = await canvasPoint(page, 0.66, 0.28);
+    await page.mouse.click(wallPoint.x, wallPoint.y);
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Стена");
+
+    await page.keyboard.press("Delete");
+    const blockedNotice = page.getByRole("status").filter({ hasText: "Удаление недоступно" });
+    await expect(blockedNotice).toBeVisible();
+    await expect(blockedNotice).toContainText(/связан|фрагмент/i);
+    await expectCounts(page, { walls: 4, objects: 0 });
+
+    await page.keyboard.press("Control+A");
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 4");
+    await page.keyboard.press("Delete");
+    await expect(blockedNotice).toBeHidden();
+    await expectCounts(page, { walls: 0, objects: 0 });
+
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await expectCounts(page, { walls: 4, objects: 0 });
+  });
 });

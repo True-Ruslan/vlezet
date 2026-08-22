@@ -263,3 +263,37 @@ test("compares threshold ratios exactly when two-decimal coverage rounds up", ()
     `${path} statements: actual 968/1019 (95.00%), required 95.00%; uncovered executable locations: ${path}:2:0-2:1`,
   ]);
 });
+
+test("skips the explicit Playwright-only registry even when every changed statement is uncovered", () => {
+  const path = "apps/web/components/editor/apartment-editor.tsx";
+  const coverage = [coverageFile(path, {
+    statementMap: { 0: location(5) },
+    s: { 0: 0 },
+  })];
+
+  const result = checkChangedCoverage(coverage, new Map([[path, new Set([5])]]));
+
+  assert.deepEqual(result, { applicable: false, files: [], failures: [] });
+});
+
+test("still enforces thresholds for an ordinary file changed alongside a registry-exempt one", () => {
+  const exemptPath = "apps/web/components/editor/apartment-editor.tsx";
+  const ordinaryPath = "packages/planning/src/solver.ts";
+  const coverage = [
+    coverageFile(exemptPath, { statementMap: { 0: location(5) }, s: { 0: 0 } }),
+    coverageFile(ordinaryPath, { statementMap: { 0: location(5) }, s: { 0: 0 } }),
+  ];
+
+  const result = checkChangedCoverage(coverage, new Map([
+    [exemptPath, new Set([5])],
+    [ordinaryPath, new Set([5])],
+  ]));
+
+  assert.equal(result.applicable, true);
+  assert.equal(result.files.length, 1);
+  assert.equal(result.files[0].file, ordinaryPath);
+  assert.deepEqual(result.failures, [
+    `${ordinaryPath} lines: actual 0/1 (0.00%), required 95.00%; uncovered executable locations: ${ordinaryPath}:5`,
+    `${ordinaryPath} statements: actual 0/1 (0.00%), required 95.00%; uncovered executable locations: ${ordinaryPath}:5:0-5:1`,
+  ]);
+});
