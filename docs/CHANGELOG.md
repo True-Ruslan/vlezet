@@ -4,6 +4,64 @@
 
 This is a milestone changelog rather than a package-release log. Detailed acceptance records remain in `docs/milestones/`.
 
+## 2026-08-22 — M8.4 Wall Assisted Tracing shelved; core/UX priority reset
+
+**Status:** SHELVED / NOT ACCEPTED / NOT MERGED / R&D EVIDENCE ONLY.
+
+The Product Owner real-plan checklist failed a third time (2026-08-22), on the same root-cause class as the first two fails (2026-08-18, 2026-08-19): source-image wall-axis derivation degrades near architectural corners and falls back to snapping the wall's edge face instead of its centreline, despite three separate prior corrective commits already targeting this exact corner-evidence class. A market-validation check against `docs/product/COMPETITIVE_BENCHMARK.md` found no benchmarked competitor (RoomPlan, Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner, magicplan) performs live pixel-snap-during-drawing assistance at all — they ship either plain manual tracing or one-shot AI plan conversion. This mirrors the M7.8C automatic-recognition precedent (`docs/PROJECT_STATE.md` §5) closely enough to apply the same protocol.
+
+**Decision:** Draft PR #94 closed without merge; branch `feat/m8-4-wall-assisted-tracing` preserved as R&D evidence. Hosted door/window source assistance dropped along with it. The accepted M8.3 calibration substrate is unaffected. Product priority resets to **M8.4-UX Core Interaction & UI/UX Hardening** — strong core structural/editing behavior and best-practice interaction quality before further feature growth.
+
+Full rationale and evidence: `docs/changelog/2026-08-22-m8-4-wall-assisted-tracing-shelved.md`.
+
+Two unrelated fixes landed the same day, both merged to `main` before this decision:
+
+- **Selection Delete honest-feedback** (PR #95, protected squash-merge `2f3469e55e1ae2a84564a01044623f3523516501`): Delete/Backspace was a silent no-op for any wall or room selection — the capability layer hardcoded it disabled regardless of topology, the store had no wall-removal code path at all, and blocked Cut/Delete gave no user-visible reason. Wall Delete now reuses the same dependency-closure safety check as Cut (`packages/editor-core/src/structural-clipboard.ts`) without the clipboard side effect; blocked commands surface their reason through the existing notice banner. Verified in Chromium and WebKit via a new Playwright flow in `tools/m7-browser-audit/m8-selection-clipboard-semantics.spec.mjs`. Landing this also surfaced and closed `TEST-DEBT-APARTMENT-EDITOR-COMMAND-COVERAGE` (`docs/testing/TEST_COVERAGE_AUDIT.md`) via an explicit, auditable `PLAYWRIGHT_ONLY_COVERAGE_EXEMPT` registry in `tools/testing-policy/config.mjs`.
+- **Dependency security patch** (PR #96, protected squash-merge `91cadaceba011f1865423365d45e1c9c8e31ba0d`): `next` was one patch behind its own security fix (16.2.10 → 16.2.12), and internally-bundled `sharp`/`postcss` plus dev-only eslint-chain `brace-expansion`/`js-yaml` were still behind their advisories. Narrowly scoped `pnpm.overrides` added in `pnpm-workspace.yaml` (each `brace-expansion` major lineage pinned separately to avoid forcing an incompatible API jump). `pnpm audit` went from 25 open advisories to 0.
+
+## 2026-08-17 — M8.4 Wall Assisted Tracing automated technical GREEN
+
+**Status:** IMPLEMENTED / AUTOMATED TECHNICAL GATES GREEN / PRODUCT OWNER REAL-PLAN ACCEPTANCE PENDING / DRAFT PR #94 / NOT MERGED.
+
+The first M8.4 vertical slice adds optional deterministic source-image assistance inside the ordinary Wall tool while preserving the manual editor as the complete product path.
+
+Implemented boundaries:
+
+- accepted M8.3 `ReferencePlan.transform`, `worldPointToImage()` and `imagePointToWorld()` remain the only source/world transform authority;
+- `По подложке` is runtime-only, defaults Off and exposes explicit `aria-pressed` state;
+- existing topology targets beat source evidence;
+- high-confidence unambiguous source evidence may beat construction/grid fallback only;
+- weak/ambiguous/outside/unavailable/error cases abstain to ordinary behavior;
+- Alt/Option temporarily suppresses assistance;
+- source hysteresis identity is invalidated when wall/reference/asset/toggle context changes;
+- source evidence never creates or claims a topology target;
+- assisted walls use the ordinary commit/history path; one commit remains one Undo/Redo command;
+- no source-assist metadata is persisted in `VlezetDocument` or project schema;
+- no AI/network dependency is introduced.
+
+The dedicated browser acceptance uses the real generated-PNG import/calibration/storage path and proves source acquisition, explicit `По подложке` feedback, topology precedence, Alt suppression, Off behavior, semantic Undo/Redo, runtime/console cleanliness and no fetch/XHR dependency for source assistance.
+
+Verified implementation checkpoint before canonical documentation sync:
+
+```text
+technical implementation head:   b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5
+CI #5289 / run 32047239604:      PASS through build
+Browser Acceptance #1732:       PASS
+  Chromium:                      68/68 PASS; dedicated M8.4 flow PASS (17/68)
+  WebKit representative:        58/58 PASS; dedicated M8.4 flow PASS (10/58)
+  workers:                       1
+  retries:                       0
+CodeQL check 95437977365:        PASS — no new alerts in changed code
+```
+
+Meaningful final TDD evidence includes a browser-contract correction that removed a false hard-coded `25 mm/px` assumption and instead derives scale/endpoint expectations from the actually persisted calibration/`ReferenceTransform`; product behavior was not weakened. A separate policy RED `72252498ec229a11815542d4cd8ea0fb2f6a3f38` proved the M8.4 spec was missing from the explicit WebKit registry, and GREEN `b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5` added it without changing workers, retries, skip/fixme policy or product code.
+
+Automation does **not** equal product acceptance. Hosted door/window source assistance remains blocked until the Product Owner completes the focused real-plan wall checklist, acceptance truth is synced, PR #94 is protected-merged and `main` is post-merge verified.
+
+Focused technical record: `docs/changelog/2026-08-17-m8-4-wall-assisted-tracing-technical-green.md`.
+
+---
+
 ## 2026-08-17 — M8.3 Precision Reference Calibration accepted, merged and verified
 
 **Status:** PRODUCT-OWNER ACCEPTED / PROTECTED SQUASH-MERGED as `01f520988a84291fb6e4f918e21f3403f17c4529` / POST-MERGE VERIFIED.
