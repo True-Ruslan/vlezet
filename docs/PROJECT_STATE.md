@@ -1,7 +1,7 @@
 # Vlezet — Project State
 
-**Last updated:** 2026-08-17  
-**Status:** M0–M8.3 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. **M8.3 Precision Reference Calibration is product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529` and post-merge verified by CI #5248 + CodeQL #608.** M8.4 Assisted Tracing is the active beta-critical product milestone.  
+**Last updated:** 2026-08-22  
+**Status:** M0–M8.3 are implemented, product-accepted and merged. Testing Policy Phase A is accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`. P0 `TEST-DEBT-INDEXEDDB-FAILURE-PATHS` is product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9` and post-merge verified by CI #5175 + CodeQL #535. **M8.3 Precision Reference Calibration is product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529` and post-merge verified by CI #5248 + CodeQL #608.** **M8.4 Wall Assisted Tracing is SHELVED as of 2026-08-22: it failed real-plan Product Owner acceptance a third time (corner-adjacent snap fell to the wall's edge instead of its axis) on the same root-cause class as its first two fails; no benchmarked competitor performs this live pixel-snap mechanism; Draft PR #94 is closed without merge and preserved as R&D evidence, matching the M7.8C precedent in §5. Product priority resets to core structural/editing behavior and interaction/UI/UX quality.** Two follow-on fixes are merged: Delete/Backspace honest-feedback for walls (PR #95, `2f3469e55e1ae2a84564a01044623f3523516501`) and a dependency-security patch resolving 25 advisories (PR #96, `91cadaceba011f1865423365d45e1c9c8e31ba0d`).  
 **Target:** public free beta suitable for unfamiliar users.  
 **Canonical rule:** read this file first, then `docs/ROADMAP.md`, `docs/product/UX_ROADMAP.md`, `docs/product/COMPETITIVE_BENCHMARK.md`, `docs/research/OPEN_SOURCE_FLOOR_PLANNERS.md`, `docs/testing/TESTING_POLICY.md`, `docs/testing/TEST_COVERAGE_AUDIT.md`, the latest focused changelog and the active design/plan.
 
@@ -71,6 +71,7 @@ Priorities:
 25. A marquee that fully encloses a derived room selects that room as one structural semantic root; backing walls/openings are not duplicated into the same selection merely because they lie inside the rectangle.
 26. Public/domain project-asset API remains Blob-based; raw IndexedDB representation may use a browser-compatible binary representation as long as reads validate and hydrate into the same public contract and legacy data remains readable.
 27. Reference calibration before a known world scale is a **source-image coordinate problem**: source-image features may assist calibration, but world-grid or AI output may not become calibration authority.
+28. M8.4 wall source assistance is transient evidence only: it may influence the ordinary wall preview under explicit precedence rules, but may never persist source metadata, synthesize topology authority or create a parallel document state.
 
 ## 3. Repository and stack
 
@@ -106,10 +107,13 @@ packages/planning        deterministic planning + reviewed intent
 | M8.1 | product-owner accepted and protected squash-merged as `867ec54d21b1dcb94d519ace3bec0a3635717022` |
 | M8.2 | product-owner accepted and protected squash-merged as `e323e331a435ae356b91decbdea80dde95028d8a` |
 | M8.3 | **product-owner accepted, protected squash-merged as `01f520988a84291fb6e4f918e21f3403f17c4529`, post-merge CI #5248 + CodeQL #608 GREEN**; canonical acceptance record: `docs/milestones/m8-3-acceptance.md` |
+| M8.4 wall slice | **SHELVED — third real-plan Product Owner FAIL (2026-08-22); not accepted, not merged; Draft PR #94 closed without merge, branch preserved as R&D evidence** |
 | Testing Policy Phase A | accepted and merged as `cc594bae218e9e16724d7574f48be8886852e7ad`; measured coverage ratchet, changed-code thresholds, browser discovery/classification, runtime-error guard and evidence artifacts are blocking infrastructure |
 | P0 IndexedDB persistence | product-owner accepted, protected squash-merged as `7cb9cfd2a8f809e6000209188b5fab99a2fabfb9`, post-merge CI #5175 + CodeQL #535 GREEN |
+| Selection Delete honest-feedback | product-owner accepted, protected squash-merged as `2f3469e55e1ae2a84564a01044623f3523516501` |
+| Dependency security patch | protected squash-merged as `91cadaceba011f1865423365d45e1c9c8e31ba0d`; `pnpm audit` clean (0 known vulnerabilities, down from 25) |
 
-Canonical M8.1/M8.2/M8.3 acceptance records remain in `docs/milestones/`. Detailed RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint.
+Canonical M8.1/M8.2/M8.3 acceptance records remain in `docs/milestones/`. Detailed RED→GREEN evidence remains in `docs/changelog/` and `docs/CHANGELOG.md`; this file records current truth rather than duplicating every checkpoint. M8.4 technical evidence remains recorded in `docs/changelog/2026-08-17-m8-4-wall-assisted-tracing-technical-green.md` for historical context only; the shelving decision and its rationale are recorded in `docs/changelog/2026-08-22-m8-4-wall-assisted-tracing-shelved.md`.
 
 ## 5. Recognition experiment outcome
 
@@ -124,7 +128,7 @@ The final original-plan retest still showed insufficient usefulness:
 
 PRs #42, #44 and #45 were closed without merge. Their benchmark/safety work is preserved as R&D evidence. Automatic whole-plan recognition remains tracked under #27 but no longer controls the public-beta critical path.
 
-The earlier Assisted Tracing design PR #52 is also closed without merge. Its concepts are preserved, while implementation is intentionally deferred to M8.4 after the editor/calibration foundation.
+The earlier Assisted Tracing design PR #52 is also closed without merge. Its concepts were carried into M8.4's wall-only implementation, which itself failed real-plan Product Owner acceptance three times on the same root-cause pattern (incomplete/ambiguous geometry from deterministic pixel-level assistance) and was shelved on 2026-08-22 for the same reason — see the M8.4 section in §10 and `docs/changelog/2026-08-22-m8-4-wall-assisted-tracing-shelved.md`.
 
 Market research performed on 2026-08-12 reinforces this decision: mature products that offer AI/scan conversion still rely on an ordinary editable plan as the correction path. Vlezet therefore treats AI/image assistance as acceleration into the normal editor, never as a second authoritative plan state.
 
@@ -215,6 +219,24 @@ retries:                        0
 
 Canonical acceptance record: `docs/milestones/m8-3-acceptance.md`.
 
+### M8.4 wall Assisted Tracing — SHELVED (2026-08-22)
+
+Status: **SHELVED / NOT ACCEPTED / NOT MERGED / R&D EVIDENCE ONLY**, following the same protocol as the M7.8C automatic-recognition decision in §5.
+
+The wall-only slice reached automated technical GREEN (implementation head `b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5`; CI #5289, Browser Acceptance #1732 — Chromium 68/68, WebKit 58/58, CodeQL `95437977365`), but automation was never claimed as product acceptance. The Product Owner real-plan checklist then failed **three times**:
+
+1. 2026-08-18 — first real-plan FAIL.
+2. 2026-08-19 — second real-plan FAIL (`docs/changelog/2026-08-19-m8-4-second-real-plan-fail.md`); a corrective RED→GREEN round followed, targeting multi-wall chain stability, corner transitions and topology-safe closure.
+3. 2026-08-22 — third real-plan FAIL, same root-cause class: source assistance snapped a traced exterior-corner wall fragment to the wall's edge face instead of its centre axis. Code review confirmed `collapseOutlinePair` (`apps/web/components/reference/wall-source-feature-reader.ts`) can only derive a centreline from a clean local pair of parallel edge/line-centre detections; near an architectural corner this pairing degrades and the code falls back to a raw edge feature. Three separate prior corrective commits already targeted this same corner-evidence class (`prefer bounded wall corner evidence`, `preserve balanced architectural corner evidence`, `cluster antialiased wall edge responses`), each passing its own regression — yet the corner case failed a real plan again.
+
+A market-validation check against `docs/product/COMPETITIVE_BENCHMARK.md` found **no benchmarked competitor (RoomPlan, Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner, magicplan) performs live pixel-level snap-to-underlay assistance during manual wall drawing** — the mechanism M8.4 attempts. Competitors either ship plain manual tracing (RoomPlan) or one-shot AI plan conversion (Floorplanner, RoomSketcher), never a continuous non-AI snap during drawing. Combined with three same-class real-plan failures, this is read as evidence that deterministic pixel-level wall-axis derivation is architecturally hard to make reliable specifically at corners, rather than one remaining bug.
+
+**Decision:** M8.4 wall-only Assisted Tracing is shelved. Draft PR #94 is closed without merge; branch `feat/m8-4-wall-assisted-tracing` is preserved (not deleted) as R&D evidence, matching how PRs #42/#44/#45 were preserved for M7.8C. Hosted door/window source assistance, previously blocked pending wall acceptance, is now out of scope entirely. The accepted M8.3 calibration substrate is unaffected — manual tracing over a calibrated reference image by eye remains fully available and is the same baseline RoomPlan itself ships.
+
+Product priority resets to strong core structural/editing behavior and best-practice interaction/UI/UX quality first; additional functionality (including any future revisit of image-assisted tracing) only after that core is solid.
+
+Full rationale and evidence: `docs/changelog/2026-08-22-m8-4-wall-assisted-tracing-shelved.md`. Prior technical-GREEN record (historical context only, not acceptance): `docs/changelog/2026-08-17-m8-4-wall-assisted-tracing-technical-green.md`.
+
 ### Reference/recognition
 
 Accepted source import, M8.3 calibration and M7.8A/B benchmark infrastructure remain available. Recognition is assistive/experimental and is not a beta dependency.
@@ -278,14 +300,16 @@ DONE      M8.2  Precision Drawing / Direct Manipulation Foundation — merged e3
 DONE      Testing Policy Phase A — merged cc594bae218e9e16724d7574f48be8886852e7ad
 DONE      P0 IndexedDB persistence/failure-path remediation — merged 7cb9cfd2a8f809e6000209188b5fab99a2fabfb9
 DONE      M8.3  Precision Reference Calibration — merged 01f520988a84291fb6e4f918e21f3403f17c4529, post-merge verified
-NOW       M8.4  Assisted Tracing
+SHELVED   M8.4  Wall Assisted Tracing — third real-plan Product Owner FAIL (2026-08-22); Draft PR #94 closed without merge, R&D evidence only
+DROPPED   M8.4  Hosted door/window assistance — depended on shelved wall slice; out of scope
+NOW       M8.4-UX  Core Interaction & UI/UX Hardening — product priority reset 2026-08-22; strong core + best-practice interaction quality before further feature growth; initial scope draft: honest Delete/keyboard feedback everywhere (started in PR #95), arrow-key nudge, unified keyboard-shortcut registry, safe room deletion, selection-visual polish
 THEN      M8.5  Furniture + Materials 2.0
 THEN      M8.6  Export + Presentation
 THEN      M8.7  Public Beta Hardening
 TARGET    PUBLIC FREE BETA
 ```
 
-Programme tracker: #53. M8.3 tracker: #57. M8.4 tracker: #51.
+Programme tracker: #53. M8.3 tracker: #57. M8.4 tracker: #51 (closed, shelved).
 
 ## 9. M8.3 accepted product milestone
 
@@ -319,15 +343,29 @@ GitHub reported the protected squash merge identity as `01f520988a84291fb6e4f918
 
 ## 10. Later public-beta programme
 
-### M8.4 — Assisted Tracing
+### M8.4 — Assisted Tracing (SHELVED)
 
-**NOW — unblocked by accepted, integrated and post-merge verified M8.3.**
+**SHELVED 2026-08-22 — third real-plan Product Owner FAIL; not accepted, not merged.**
 
-Optional high-confidence source-image snapping inside normal wall/door/window tools. Explicit user intent and existing topology remain stronger than source-image assistance. Ambiguity abstains. No AI/network dependency is required.
+The wall-only slice (optional high-confidence source-image assistance inside the normal Wall tool, defaulting Off, no AI/network dependency) reached automated technical GREEN on implementation head `b4f1ede701aaa28b5ee91d9a017a5e7fb6ff23d5` (CI #5289, Browser Acceptance #1732 — Chromium 68/68, WebKit 58/58, CodeQL `95437977365`), but failed the Product Owner real-plan checklist three times (2026-08-18, 2026-08-19, 2026-08-22) on the same root-cause class: source-image wall-axis derivation degrades near architectural corners and falls back to snapping the wall's edge face instead of its centre axis. A market-validation check found no benchmarked competitor (RoomPlan, Planner 5D, Floorplanner, RoomSketcher, Planoplan, RemPlanner, magicplan) performs this live pixel-snap-during-drawing mechanism at all.
 
-Any traced/recognized result must become ordinary editable Vlezet geometry; assistance may never create a parallel opaque authoritative state.
+Draft PR #94 is closed without merge; branch `feat/m8-4-wall-assisted-tracing` is preserved as R&D evidence, mirroring the M7.8C precedent (§5). Hosted door/window source assistance is dropped along with it, not merely blocked. The accepted M8.3 calibration substrate is unaffected — manual tracing over a calibrated reference image remains fully available.
 
-The accepted M8.3 source-coordinate/calibration substrate is the only image/world transform foundation M8.4 may consume. M8.4 must not invent a second calibration or reference authority.
+Full rationale: `docs/changelog/2026-08-22-m8-4-wall-assisted-tracing-shelved.md`.
+
+### M8.4-UX — Core Interaction & UI/UX Hardening (NOW)
+
+Product priority reset 2026-08-22: strong core structural/editing behavior and best-practice interaction/UI/UX quality take precedence over further feature growth until they are solid.
+
+Initial scope draft (not yet a finalized/accepted milestone spec):
+
+- honest keyboard/command feedback everywhere a command can be blocked, not just Delete/Cut (started in PR #95, `2f3469e55e1ae2a84564a01044623f3523516501`);
+- arrow-key nudge for selected furniture/wall endpoints, with Shift for a coarse step (pattern already validated for M8.3 calibration nudge);
+- unify `commandForKeyboardEvent` (`apps/web/components/editor/editor-commands.ts`) with the `EDITOR_COMMANDS` shortcut metadata — currently two hand-maintained sources of truth for keyboard shortcuts;
+- safe full-room deletion (needs a new dependency-closure algorithm distinguishing room-owned vs. shared walls — no safe removal path exists today, neither Cut nor Delete);
+- broader selection visual polish and interaction review benchmarked against mature canvas tools (draw.io, Excalidraw, Figma) and the existing `docs/product/COMPETITIVE_BENCHMARK.md` set.
+
+This scope will be refined into a proper design/plan before implementation, per the project's mandatory delivery rule (§12).
 
 ### M8.5 — Furniture + Materials 2.0
 
