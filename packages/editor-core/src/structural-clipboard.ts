@@ -156,18 +156,33 @@ export function createRoomStructuralClipboardPayload(document: VlezetDocument, r
   return { version: 1, kind: "structural-fragment", scope: { kind: "room", sourceRoomId: room.id }, origin, copiedAtOrigin: { ...origin }, vertices, walls: payloadWalls, openings: payloadOpenings, roomAnnotations };
 }
 
-export function cutStructuralFragment(document: VlezetDocument, wallIds: readonly string[]): Readonly<{ document: VlezetDocument; payload: StructuralClipboardPayloadV1 }> {
+function removeStructuralFragment(
+  document: VlezetDocument,
+  wallIds: readonly string[],
+): Readonly<{ document: VlezetDocument; closure: Extract<StructuralClosureResult, { ok: true }> }> {
   const closure = requireClosure(document, wallIds);
-  const payload = createStructuralClipboardPayload(document, closure.wallIds);
+  const wallIdSet = new Set(closure.wallIds);
+  const vertexIdSet = new Set(closure.vertexIds);
+  const openingIdSet = new Set(closure.openingIds);
   const candidate: VlezetDocument = {
     ...document,
-    walls: document.walls.filter((w) => !new Set(closure.wallIds).has(w.id)),
-    vertices: document.vertices.filter((v) => !new Set(closure.vertexIds).has(v.id)),
-    openings: document.openings.filter((o) => !new Set(closure.openingIds).has(o.id)),
+    walls: document.walls.filter((w) => !wallIdSet.has(w.id)),
+    vertices: document.vertices.filter((v) => !vertexIdSet.has(v.id)),
+    openings: document.openings.filter((o) => !openingIdSet.has(o.id)),
   };
   const validation = validateStructuralCandidate(document, candidate, { affectedVertexIds: closure.vertexIds, affectedWallIds: closure.wallIds, preserveDirectionsForWallIds: [] });
   if (!validation.ok) throw new Error(validation.reason);
-  return { document: validation.document, payload };
+  return { document: validation.document, closure };
+}
+
+export function cutStructuralFragment(document: VlezetDocument, wallIds: readonly string[]): Readonly<{ document: VlezetDocument; payload: StructuralClipboardPayloadV1 }> {
+  const removal = removeStructuralFragment(document, wallIds);
+  const payload = createStructuralClipboardPayload(document, removal.closure.wallIds);
+  return { document: removal.document, payload };
+}
+
+export function deleteStructuralFragment(document: VlezetDocument, wallIds: readonly string[]): VlezetDocument {
+  return removeStructuralFragment(document, wallIds).document;
 }
 
 function freshId(documentIds: ReadonlySet<string>, generatedIds: Set<string>, idFactory: () => string, kind: string): string {

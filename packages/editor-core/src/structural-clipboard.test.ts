@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createStructuralClipboardPayload,
   cutStructuralFragment,
+  deleteStructuralFragment,
   evaluateStructuralClipboardClosure,
   pasteStructuralFragment,
 } from "./structural-clipboard";
@@ -91,6 +92,23 @@ describe("M8.2 strict structural clipboard", () => {
     expect(result.document.openings).toEqual([]);
     expect(result.payload.walls).toHaveLength(4);
     expect(result.payload.openings).toHaveLength(2);
+    expect(document).toEqual(before);
+  });
+
+  it("deletes one complete fragment atomically without dangling structural references and without touching the clipboard", () => {
+    const document = closedRoomWithOpening();
+    const before = structuredClone(document);
+    const result = deleteStructuralFragment(document, ["top", "right", "bottom", "left"]);
+    expect(result.walls).toEqual([]);
+    expect(result.vertices).toEqual([]);
+    expect(result.openings).toEqual([]);
+    expect(document).toEqual(before);
+  });
+
+  it("fails closed when deleting an incomplete connected wall selection, leaving the document untouched", () => {
+    const document = closedRoomWithOpening();
+    const before = structuredClone(document);
+    expect(() => deleteStructuralFragment(document, ["top"])).toThrow(/связан|фрагмент|стен/i);
     expect(document).toEqual(before);
   });
 

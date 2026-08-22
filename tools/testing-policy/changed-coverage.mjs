@@ -4,6 +4,7 @@ import {
   CRITICAL_CHANGED_THRESHOLDS,
   ORDINARY_CHANGED_THRESHOLDS,
   isCriticalPath,
+  isPlaywrightOnlyCoverageExempt,
   isProductionPath,
 } from "./config.mjs";
 
@@ -218,7 +219,7 @@ export function collectChangedCoverage(coverage, changedLines) {
   const productionChanges = new Map(
     [...changedLines.entries()]
       .map(([file, lines]) => [normalizeRepositoryPath(file), lines])
-      .filter(([file]) => isProductionPath(file)),
+      .filter(([file]) => isProductionPath(file) && !isPlaywrightOnlyCoverageExempt(file)),
   );
   const coverageByPath = new Map();
   for (const file of flattenCoverage(coverage)) {

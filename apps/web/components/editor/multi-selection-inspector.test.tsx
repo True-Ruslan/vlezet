@@ -132,8 +132,7 @@ describe("M8 multi-selection inspector", () => {
     expect(html).toContain("Выбрано: 2");
     expect(html).toContain("Стены: 2");
     expect(html).toContain('class="multi-selection-actions-menu"');
-    for (const command of ["Копировать", "Вырезать", "Дублировать"]) expect(html).toContain(command);
-    expect(html).not.toContain(">Удалить<");
+    for (const command of ["Копировать", "Вырезать", "Дублировать", "Удалить"]) expect(html).toContain(command);
     expect(html).toContain("Толщина стен, мм");
     expect(html).toContain('name="wall-thickness-mm"');
     expect(html).toContain('value="150"');
@@ -162,6 +161,6 @@ describe("M8 multi-selection inspector", () => {
     expect(html).toContain("Копировать");
     expect(html).toContain("Вырезать");
     expect(html).toContain("Дублировать");
-    expect(html).not.toContain(">Удалить<");
+    expect(html).toContain(">Удалить<");
   });
 });
