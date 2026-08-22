@@ -333,4 +333,26 @@ test.describe("M8.2 precise selection and clipboard acceptance", () => {
     await page.getByRole("button", { name: "Отменить" }).click();
     await expectCounts(page, { walls: 4, objects: 0 });
   });
+
+  test("Duplicate honestly explains a blocked mixed room+wall selection instead of a silent no-op", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+
+    const wallPoint = await canvasPoint(page, 0.66, 0.28);
+    const roomPoint = await canvasPoint(page, 0.66, 0.48);
+    await page.mouse.click(roomPoint.x, roomPoint.y);
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Комната");
+    await page.keyboard.down("Shift");
+    await page.mouse.click(wallPoint.x, wallPoint.y);
+    await page.keyboard.up("Shift");
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+    const before = await editorCounts(page);
+    await page.keyboard.press("Control+D");
+    const notice = page.getByRole("status").filter({ hasText: "Дублирование недоступно" });
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText(/нельзя|смешанн/i);
+    expect(await editorCounts(page)).toEqual(before);
+  });
 });

@@ -350,8 +350,14 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         return true;
       }
       case "selection.duplicate":
-        if (editingBlocked || !capabilities.duplicate.enabled) return false;
+        if (editingBlocked) return false;
+        if (!capabilities.duplicate.enabled) {
+          setClipboardNoticeTitle("Дублирование недоступно");
+          setClipboardNotice(capabilities.duplicate.reason);
+          return false;
+        }
         store.duplicateSelection();
+        setClipboardNotice(null);
         return true;
       case "selection.delete":
         if (editingBlocked) return false;
