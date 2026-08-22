@@ -141,6 +141,7 @@ export type EditorStoreState = Omit<
   pasteClipboard: (anchor: Point2) => void;
   duplicateSelection: () => void;
   deleteSelection: () => void;
+  nudgeSelection: (delta: Point2) => void;
 };
 
 const STRUCTURAL_PASTE_OFFSET_MM = 250;
@@ -921,6 +922,23 @@ function enhanceEditorStore(
     });
   };
 
+  const nudgeSelection = (delta: Point2) => {
+    const state = store.getState();
+    const objects = selectedPlacedObjects(state);
+    if (!objects) return;
+    const before = state.history.document;
+    const after = translatePlacedObjects(before, objects.map((object) => object.id), delta);
+    store.setState({
+      history: executeCommand(state.history, {
+        type: "document/replace",
+        label: "object/batch-move",
+        before,
+        after,
+      }),
+      selection: sanitizeEditorSelection(after, state.selection),
+    });
+  };
+
   const pasteClipboard = (anchor: Point2) => {
     const state = store.getState();
     const payload = state.clipboard.payload;
@@ -1147,6 +1165,7 @@ function enhanceEditorStore(
     pasteClipboard,
     duplicateSelection,
     deleteSelection,
+    nudgeSelection,
   });
 
   return store;

@@ -92,6 +92,16 @@ describe("M8 ApartmentEditor semantic command routing", () => {
     expect(duplicateCase).toContain("store.duplicateSelection()");
   });
 
+  it("wires arrow-key nudge behind the native-editable-target guard and before command dispatch", () => {
+    expect(source).toContain('from "./selection-nudge"');
+    const nudgeBranchIndex = source.indexOf("resolveSelectionNudge(event)");
+    const nativeGuardIndex = source.indexOf("isNativeEditableTarget(event.target)");
+    const commandDispatchIndex = source.indexOf("commandForKeyboardEvent(event)");
+    expect(nudgeBranchIndex).toBeGreaterThan(nativeGuardIndex);
+    expect(nudgeBranchIndex).toBeLessThan(commandDispatchIndex);
+    expect(source).toContain("editorStore.getState().nudgeSelection(nudge)");
+  });
+
   it("routes all 2D view commands through one runtime-only Canvas request", () => {
     expect(source).toContain("const [viewCommandRequest, setViewCommandRequest]");
     expect(source).toContain("const requestViewportCommand = useCallback((command: EditorViewportCommand)");
