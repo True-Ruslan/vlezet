@@ -39,7 +39,7 @@ const MULTIPLE_ROOMS_REASON = "За одну операцию можно коп�
 const ROOM_WITH_WALLS_REASON = "Комнату и отдельные стены нельзя копировать вместе: выберите комнату или стены как один структурный корень.";
 const UNSUPPORTED_COPY_REASON = "Эта комбинация объектов не имеет безопасного контракта копирования.";
 const STRUCTURAL_SELECTION_REASON = "Для этой структурной выборки нет безопасной пакетной команды.";
-const STRUCTURAL_DELETE_REASON = "Структурные объекты удаляются только через безопасную команду «Вырезать».";
+const ROOM_DELETE_REASON = "Комнату пока нельзя удалить одной командой: сначала удалите или объедините стены вручную.";
 const STRUCTURAL_MULTI_MOVE_REASON = "Пакетное перемещение стен недоступно: перемещайте конкретную стену или узел структурным жестом.";
 const STRUCTURAL_ROTATE_REASON = "Поворот структуры не выполняется общей командой.";
 const STRUCTURAL_SCALE_REASON = "Масштабирование структуры отключено: размеры задаются точными структурными командами.";
@@ -173,7 +173,7 @@ export function deriveSelectionCapabilities(input: Readonly<{
       cut,
       paste,
       duplicate: enabled(),
-      delete: disabled(STRUCTURAL_DELETE_REASON),
+      delete: cut,
       move: selection.refs.length === 1 ? enabled() : disabled(STRUCTURAL_MULTI_MOVE_REASON),
       rotate: disabled(STRUCTURAL_ROTATE_REASON),
       scale: disabled(STRUCTURAL_SCALE_REASON),
@@ -190,7 +190,7 @@ export function deriveSelectionCapabilities(input: Readonly<{
       cut: disabled(ROOM_CUT_REASON),
       paste,
       duplicate: enabled(),
-      delete: disabled(STRUCTURAL_SELECTION_REASON),
+      delete: disabled(ROOM_DELETE_REASON),
       move: roomMoveCapability(input.document, selection.refs[0]!.id),
       rotate: disabled(STRUCTURAL_ROTATE_REASON),
       scale: disabled(STRUCTURAL_SCALE_REASON),

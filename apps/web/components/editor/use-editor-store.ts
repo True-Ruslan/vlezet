@@ -5,6 +5,7 @@ import {
   createStructuralClipboardPayload,
   cutStructuralFragment,
   deletePlacedObjects,
+  deleteStructuralFragment,
   evaluateHostedOpeningMove,
   evaluateStructuralRoomTranslation,
   evaluateStructuralVertexMove,
@@ -878,14 +879,38 @@ function enhanceEditorStore(
   const deleteSelection = () => {
     const state = store.getState();
     const objects = selectedPlacedObjects(state);
-    if (!objects) return;
-    const before = state.history.document;
-    const after = deletePlacedObjects(before, objects.map((object) => object.id));
+    if (objects) {
+      const before = state.history.document;
+      const after = deletePlacedObjects(before, objects.map((object) => object.id));
+      store.setState({
+        history: executeCommand(state.history, {
+          type: "document/replace",
+          label: "object/batch-delete",
+          before,
+          after,
+        }),
+        selection: sanitizeEditorSelection(after, state.selection),
+        objectGesture: null,
+        structuralGesture: null,
+        placementPresetId: null,
+        tool: "select",
+      });
+      return;
+    }
+
+    const wallIds = selectedWallIds(state.selection);
+    if (!wallIds) return;
+    let after: VlezetDocument;
+    try {
+      after = deleteStructuralFragment(state.history.document, wallIds);
+    } catch {
+      return;
+    }
     store.setState({
       history: executeCommand(state.history, {
         type: "document/replace",
-        label: "object/batch-delete",
-        before,
+        label: "structure/delete",
+        before: state.history.document,
         after,
       }),
       selection: sanitizeEditorSelection(after, state.selection),

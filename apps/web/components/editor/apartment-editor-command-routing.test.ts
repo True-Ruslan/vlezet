@@ -59,13 +59,26 @@ describe("M8 ApartmentEditor semantic command routing", () => {
 
     const deleteCase = source.slice(
       source.indexOf('case "selection.delete"'),
-      source.indexOf('case "selection.clear"'),
+      source.indexOf('case "selection.select-furniture-in-room"'),
     );
-    expect(deleteCase).toContain("if (editingBlocked || !capabilities.delete.enabled) return false");
+    expect(deleteCase).toContain("if (editingBlocked) return false");
+    expect(deleteCase).toContain("if (!capabilities.delete.enabled)");
+    expect(deleteCase).toContain("setClipboardNotice(capabilities.delete.reason)");
     expect(deleteCase).toContain("store.deleteSelection()");
     expect(deleteCase).not.toContain("selectedFurnitureOnly");
     expect(deleteCase).not.toContain("selectedOpeningIdFromSelection(store.selection)");
     expect(deleteCase).not.toContain("store.deleteSelectedOpening()");
+  });
+
+  it("surfaces the capability reason instead of a silent no-op when Cut is blocked", () => {
+    const cutCase = source.slice(
+      source.indexOf('case "selection.cut"'),
+      source.indexOf('case "selection.paste"'),
+    );
+    expect(cutCase).toContain("if (editingBlocked) return false");
+    expect(cutCase).toContain("if (!capabilities.cut.enabled)");
+    expect(cutCase).toContain("setClipboardNotice(capabilities.cut.reason)");
+    expect(cutCase).toContain("store.cutSelection()");
   });
 
   it("routes all 2D view commands through one runtime-only Canvas request", () => {

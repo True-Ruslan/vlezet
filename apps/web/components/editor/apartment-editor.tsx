@@ -143,6 +143,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
   const [workflowReturnTarget, setWorkflowReturnTarget] = useState<WorkflowReturnTarget | null>(null);
   const [ownedContextMenuRequest, setOwnedContextMenuRequest] = useState<OwnedEditorContextMenuRequest | null>(null);
   const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
+  const [clipboardNoticeTitle, setClipboardNoticeTitle] = useState<string>("Копирование недоступно");
   const latestCanvasPointerWorldRef = useRef<Point2 | null>(null);
   const compactLayout = useCompactEditorLayout();
   const viewMode = useStore(spatialViewModeStore, (state) => state.mode);
@@ -325,13 +326,20 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
       case "selection.copy": {
         if (editingBlocked) return false;
         const result = store.copySelection();
+        setClipboardNoticeTitle("Копирование недоступно");
         if (!result.ok) setClipboardNotice(result.reason);
         else setClipboardNotice(null);
         return true;
       }
       case "selection.cut":
-        if (editingBlocked || !capabilities.cut.enabled) return false;
+        if (editingBlocked) return false;
+        if (!capabilities.cut.enabled) {
+          setClipboardNoticeTitle("Вырезание недоступно");
+          setClipboardNotice(capabilities.cut.reason);
+          return false;
+        }
         store.cutSelection();
+        setClipboardNotice(null);
         return true;
       case "selection.paste": {
         if (editingBlocked || !capabilities.paste.enabled || !store.clipboard.payload) return false;
@@ -346,8 +354,14 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
         store.duplicateSelection();
         return true;
       case "selection.delete":
-        if (editingBlocked || !capabilities.delete.enabled) return false;
+        if (editingBlocked) return false;
+        if (!capabilities.delete.enabled) {
+          setClipboardNoticeTitle("Удаление недоступно");
+          setClipboardNotice(capabilities.delete.reason);
+          return false;
+        }
         store.deleteSelection();
+        setClipboardNotice(null);
         return true;
       case "selection.select-furniture-in-room":
         if (editingBlocked || !capabilities.selectFurnitureInRoom.enabled) return false;
@@ -620,7 +634,7 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           onDismiss={() => setOwnedContextMenuRequest(null)}
         />
       ) : null}
-      {clipboardNotice ? <div className="recognition-banner clipboard-notice" role="status"><strong>Копирование недоступно</strong><span>{clipboardNotice}</span></div> : null}
+      {clipboardNotice ? <div className="recognition-banner clipboard-notice" role="status"><strong>{clipboardNoticeTitle}</strong><span>{clipboardNotice}</span></div> : null}
       {viewMode === "2d" && props.tracingMode ? <div className="tracing-banner" role="status"><strong>Режим обводки</strong><span>Создавайте стены поверх подложки. Esc завершит обводку.</span><button type="button" onClick={props.onStopTracing}>Готово</button></div> : null}
       {viewMode === "2d" && props.recognitionPanelOpen && recognitionDraft ? <div className="recognition-banner" role="status"><strong>Проверка распознавания</strong><span>Цветные линии — только черновик. Реальная квартира не изменится до применения.</span></div> : null}
     </main>

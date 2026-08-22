@@ -27,6 +27,7 @@ export {
   createRoomStructuralClipboardPayload,
   createStructuralClipboardPayload,
   cutStructuralFragment,
+  deleteStructuralFragment,
   evaluateStructuralClipboardClosure,
   pasteStructuralFragment,
 } from "./structural-clipboard";
