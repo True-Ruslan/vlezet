@@ -81,6 +81,17 @@ describe("M8 ApartmentEditor semantic command routing", () => {
     expect(cutCase).toContain("store.cutSelection()");
   });
 
+  it("surfaces the capability reason instead of a silent no-op when Duplicate is blocked", () => {
+    const duplicateCase = source.slice(
+      source.indexOf('case "selection.duplicate"'),
+      source.indexOf('case "selection.delete"'),
+    );
+    expect(duplicateCase).toContain("if (editingBlocked) return false");
+    expect(duplicateCase).toContain("if (!capabilities.duplicate.enabled)");
+    expect(duplicateCase).toContain("setClipboardNotice(capabilities.duplicate.reason)");
+    expect(duplicateCase).toContain("store.duplicateSelection()");
+  });
+
   it("routes all 2D view commands through one runtime-only Canvas request", () => {
     expect(source).toContain("const [viewCommandRequest, setViewCommandRequest]");
     expect(source).toContain("const requestViewportCommand = useCallback((command: EditorViewportCommand)");
