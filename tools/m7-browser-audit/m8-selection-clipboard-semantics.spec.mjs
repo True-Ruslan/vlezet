@@ -355,4 +355,74 @@ test.describe("M8.2 precise selection and clipboard acceptance", () => {
     await expect(notice).toContainText(/нельзя|смешанн/i);
     expect(await editorCounts(page)).toEqual(before);
   });
+
+  test("arrow-key nudge moves the selected chair by 10mm, Shift by 100mm, and Undo restores it", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    const point = await placeChair(page, 0.62, 0.47);
+
+    const readPosition = async () => {
+      const toggle = page.getByRole("button", { name: /координаты центра/ });
+      if ((await toggle.textContent())?.includes("Показать")) await toggle.click();
+      const x = await page.locator("#object-x").inputValue();
+      const y = await page.locator("#object-y").inputValue();
+      return { x: Number(x), y: Number(y) };
+    };
+
+    const initial = await readPosition();
+
+    await page.mouse.click(point.x, point.y);
+    await page.keyboard.press("ArrowRight");
+    const afterNudge = await readPosition();
+    expect(afterNudge).toEqual({ x: initial.x + 10, y: initial.y });
+
+    await page.mouse.click(point.x, point.y);
+    await page.keyboard.press("Shift+ArrowDown");
+    const afterCoarseNudge = await readPosition();
+    expect(afterCoarseNudge).toEqual({ x: initial.x + 10, y: initial.y + 100 });
+
+    await page.mouse.click(point.x, point.y);
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await page.getByRole("button", { name: "Отменить" }).click();
+    const afterUndo = await readPosition();
+    expect(afterUndo).toEqual(initial);
+  });
+
+  test("arrow-key nudge moves every selected object by the identical rigid delta", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+    const first = await placeChair(page, 0.6, 0.4);
+    const second = await placeChair(page, 0.72, 0.55);
+
+    await page.mouse.click(first.x, first.y);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(second.x, second.y);
+    await page.keyboard.up("Shift");
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+    const before = await editorCounts(page);
+    await page.keyboard.press("ArrowUp");
+    expect(await editorCounts(page)).toEqual(before);
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await expect(page.locator(".context-panel-title")).toHaveText("Выбрано: 2");
+  });
+
+  test("does not nudge when a wall is selected instead of furniture", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openNewProject(page);
+    await drawRectangle(page);
+
+    const wallPoint = await canvasPoint(page, 0.66, 0.28);
+    await page.mouse.click(wallPoint.x, wallPoint.y);
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Стена");
+
+    const before = await editorCounts(page);
+    await page.keyboard.press("ArrowRight");
+    expect(await editorCounts(page)).toEqual(before);
+    await expect(page.locator(".context-panel-eyebrow")).toHaveText("Стена");
+  });
 });

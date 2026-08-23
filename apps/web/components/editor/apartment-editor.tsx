@@ -51,6 +51,7 @@ import { FurnitureCatalog } from "./furniture-catalog";
 import { getEditorLegacyShortcut } from "./keyboard";
 import { measurementToolStore } from "./measurement-tool-store";
 import { MultiSelectionInspector } from "./multi-selection-inspector";
+import { resolveSelectionNudge } from "./selection-nudge";
 import {
   editorStore,
   selectedObjectId as selectedObjectIdFromSelection,
@@ -500,6 +501,15 @@ export function ApartmentEditor(props: ApartmentEditorProps) {
           toggleFurnitureSurface();
         }
         return;
+      }
+
+      if (!props.recognitionPanelOpen) {
+        const nudge = resolveSelectionNudge(event);
+        if (nudge) {
+          event.preventDefault();
+          editorStore.getState().nudgeSelection(nudge);
+          return;
+        }
       }
 
       const command = commandForKeyboardEvent(event);
